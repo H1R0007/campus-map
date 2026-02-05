@@ -1,0 +1,27 @@
+{
+  "id": "building_a",
+  "name": "Корпус А",
+  "floors": [
+    {
+      "floor": 1,
+      "mapPath": "map.png",
+      "graphPath": "graph.json"
+    },
+    {
+      "floor": 2,
+      "mapPath": "map.png",
+      "graphPath": "graph.json"
+    },
+    {
+      "floor": 3,
+      "mapPath": "map.png",
+      "graphPath": "graph.json"
+    }
+  ],
+  "bounds": {
+    "x": 100,
+    "y": 150,
+    "width": 200,
+    "height": 200
+  }
+}

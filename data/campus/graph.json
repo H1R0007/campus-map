@@ -1,0 +1,55 @@
+{
+  "nodes": [
+    {
+      "id": "campus_gate",
+      "x": 600,
+      "y": 750,
+      "neighbors": [ "campus_square" ]
+    },
+    {
+      "id": "campus_square",
+      "x": 600,
+      "y": 500,
+      "neighbors": [ "campus_gate", "campus_path_a", "campus_path_b", "campus_path_c" ]
+    },
+    {
+      "id": "campus_path_a",
+      "x": 250,
+      "y": 400,
+      "neighbors": [ "campus_square", "campus_entrance_a" ]
+    },
+    {
+      "id": "campus_entrance_a",
+      "x": 200,
+      "y": 300,
+      "neighbors": [ "campus_path_a" ],
+      "isPortal": true
+    },
+    {
+      "id": "campus_path_b",
+      "x": 600,
+      "y": 300,
+      "neighbors": [ "campus_square", "campus_entrance_b" ]
+    },
+    {
+      "id": "campus_entrance_b",
+      "x": 600,
+      "y": 200,
+      "neighbors": [ "campus_path_b" ],
+      "isPortal": true
+    },
+    {
+      "id": "campus_path_c",
+      "x": 950,
+      "y": 400,
+      "neighbors": [ "campus_square", "campus_entrance_c" ]
+    },
+    {
+      "id": "campus_entrance_c",
+      "x": 1000,
+      "y": 300,
+      "neighbors": [ "campus_path_c" ],
+      "isPortal": true
+    }
+  ]
+}

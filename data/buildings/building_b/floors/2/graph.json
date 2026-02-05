@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "b2_stairs",
+      "x": 600,
+      "y": 120,
+      "neighbors": [ "b2_corridor" ],
+      "isPortal": true
+    },
+    {
+      "id": "b2_corridor",
+      "x": 600,
+      "y": 170,
+      "neighbors": [ "b2_stairs", "b2_room201", "b2_room202", "b2_lab" ]
+    },
+    {
+      "id": "b2_room201",
+      "x": 530,
+      "y": 170,
+      "neighbors": [ "b2_corridor" ]
+    },
+    {
+      "id": "b2_room202",
+      "x": 530,
+      "y": 130,
+      "neighbors": [ "b2_corridor" ]
+    },
+    {
+      "id": "b2_lab",
+      "x": 670,
+      "y": 150,
+      "neighbors": [ "b2_corridor" ]
+    }
+  ]
+}

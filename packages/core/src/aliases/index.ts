@@ -1,0 +1,1 @@
+export { AliasManager } from './AliasManager';
