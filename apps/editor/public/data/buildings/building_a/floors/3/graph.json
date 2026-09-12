@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "a3_stairs",
+      "x": 270,
+      "y": 300,
+      "neighbors": [ "a3_corridor" ],
+      "isPortal": true
+    },
+    {
+      "id": "a3_corridor",
+      "x": 200,
+      "y": 250,
+      "neighbors": [ "a3_stairs", "a3_room301", "a3_room302", "a3_conference" ]
+    },
+    {
+      "id": "a3_room301",
+      "x": 130,
+      "y": 250,
+      "neighbors": [ "a3_corridor" ]
+    },
+    {
+      "id": "a3_room302",
+      "x": 130,
+      "y": 200,
+      "neighbors": [ "a3_corridor" ]
+    },
+    {
+      "id": "a3_conference",
+      "x": 270,
+      "y": 220,
+      "neighbors": [ "a3_corridor" ]
+    }
+  ]
+}

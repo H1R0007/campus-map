@@ -1,0 +1,20 @@
+{
+  "buildings": [
+    {
+      "id": "building_a",
+      "name": "Корпус А"
+    },
+    {
+      "id": "building_b",
+      "name": "Корпус Б"
+    },
+    {
+      "id": "building_c",
+      "name": "Корпус В"
+    }
+  ],
+  "mapSize": {
+    "width": 1200,
+    "height": 800
+  }
+}

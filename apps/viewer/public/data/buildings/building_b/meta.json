@@ -1,0 +1,16 @@
+{
+  "id": "building_b",
+  "name": "Корпус Б",
+  "floors": [
+    {
+      "floor": 1,
+      "mapPath": "map.png",
+      "graphPath": "graph.json"
+    },
+    {
+      "floor": 2,
+      "mapPath": "map.png",
+      "graphPath": "graph.json"
+    }
+  ]
+}

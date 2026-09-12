@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "c1_entrance",
+      "x": 1000,
+      "y": 320,
+      "neighbors": [ "c1_hall" ],
+      "isPortal": true
+    },
+    {
+      "id": "c1_hall",
+      "x": 1000,
+      "y": 270,
+      "neighbors": [ "c1_entrance", "c1_gym", "c1_pool", "c1_lockers" ]
+    },
+    {
+      "id": "c1_gym",
+      "x": 950,
+      "y": 230,
+      "neighbors": [ "c1_hall" ]
+    },
+    {
+      "id": "c1_pool",
+      "x": 1050,
+      "y": 230,
+      "neighbors": [ "c1_hall" ]
+    },
+    {
+      "id": "c1_lockers",
+      "x": 1000,
+      "y": 220,
+      "neighbors": [ "c1_hall" ]
+    }
+  ]
+}
