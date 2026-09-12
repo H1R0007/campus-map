@@ -7,11 +7,5 @@
       "mapPath": "map.png",
       "graphPath": "graph.json"
     }
-  ],
-  "bounds": {
-    "x": 900,
-    "y": 200,
-    "width": 200,
-    "height": 150
-  }
+  ]
 }
