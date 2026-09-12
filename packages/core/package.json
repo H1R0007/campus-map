@@ -16,10 +16,13 @@
     "build": "tsc --build",
     "dev": "tsc --build --watch",
     "typecheck": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
   },
   "description": "Доменная логика кампуса: датасет, граф, поиск маршрутов"
 }

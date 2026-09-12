@@ -1,0 +1,108 @@
+import { describe, expect, it } from 'vitest';
+import { Graph } from '../src/index.js';
+import type { MapNode, Transition } from '../src/index.js';
+import { fixtureDataset } from './helpers/datasetFixture.js';
+
+function node(id: string, building: string, floor: number, neighbors: string[] = []): MapNode {
+  return { id, x: 0, y: 0, building, floor, neighbors, isPortal: false };
+}
+
+/**
+ * Индексы графа.
+ *
+ * Граф неизменяемый и строит индексы один раз в конструкторе, поэтому
+ * типовые операции должны быть O(1). Здесь проверяется содержимое индексов,
+ * а не скорость: корректность важнее, а асимптотика обеспечена конструкцией.
+ */
+describe('Graph', () => {
+  it('строится из датасета', async () => {
+    const dataset = await fixtureDataset();
+    const graph = Graph.fromDataset(dataset);
+
+    expect(graph.nodeCount).toBe(dataset.nodes.length);
+    expect(graph.transitionCount).toBe(6);
+  });
+
+  it('индексирует узлы по корпусу и этажу', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+
+    expect(graph.getNodesForFloor('building_a', 1).length).toBe(8);
+    expect(graph.getCampusNodes().length).toBe(8);
+    expect(graph.getNodesForFloor('building_a', 99)).toEqual([]);
+    expect(graph.getNodesForFloor('no_such_building', 1)).toEqual([]);
+  });
+
+  it('возвращает узел по id и сообщает об отсутствии', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+
+    expect(graph.getNode('a1_lobby')?.id).toBe('a1_lobby');
+    expect(graph.hasNode('a1_lobby')).toBe(true);
+    expect(graph.getNode('nope')).toBeUndefined();
+    expect(graph.hasNode('nope')).toBe(false);
+    expect(graph.getNeighbors('nope')).toEqual([]);
+  });
+
+  it('тип перехода не зависит от порядка аргументов', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+
+    expect(graph.getTransitionType('a1_stairs', 'a2_stairs')).toBe('stairs');
+    expect(graph.getTransitionType('a2_stairs', 'a1_stairs')).toBe('stairs');
+  });
+
+  it('для обычного ребра на этаже тип перехода равен null', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+
+    expect(graph.getTransitionType('a1_lobby', 'a1_corridor')).toBeNull();
+  });
+
+  it('список смежности объединяет рёбра этажа и переходы', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+    const neighbors = graph.getNeighbors('a1_stairs');
+
+    expect(neighbors).toContain('a1_lobby');   // ребро на этаже
+    expect(neighbors).toContain('a2_stairs');  // переход на другой этаж
+  });
+
+  it('список смежности не содержит несуществующих узлов', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+
+    for (const n of graph.getAllNodes()) {
+      for (const neighbor of graph.getNeighbors(n.id)) {
+        expect(graph.hasNode(neighbor)).toBe(true);
+      }
+    }
+  });
+
+  it('отбрасывает висячие ссылки и дубликаты при построении смежности', () => {
+    const graph = new Graph(
+      [node('a', 'CAMPUS', 0, ['b', 'b', 'ghost']), node('b', 'CAMPUS', 0, ['a'])],
+      []
+    );
+
+    expect(graph.getNeighbors('a')).toEqual(['b']);
+  });
+
+  it('переход связывает узлы в обе стороны даже без reciprocity в neighbors', () => {
+    const transitions: Transition[] = [{ fromNode: 'a', toNode: 'b', type: 'lift' }];
+    const graph = new Graph(
+      [node('a', 'building_x', 1), node('b', 'building_x', 2)],
+      transitions
+    );
+
+    expect(graph.getNeighbors('a')).toContain('b');
+    expect(graph.getNeighbors('b')).toContain('a');
+    expect(graph.transitionCount).toBe(1);
+  });
+
+  it('не считает дубликаты переходов дважды', () => {
+    const graph = new Graph(
+      [node('a', 'b1', 1), node('b', 'b1', 2)],
+      [
+        { fromNode: 'a', toNode: 'b', type: 'stairs' },
+        { fromNode: 'b', toNode: 'a', type: 'stairs' },
+      ]
+    );
+
+    expect(graph.transitionCount).toBe(1);
+  });
+});
