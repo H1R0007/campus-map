@@ -2,21 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#0063CC" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+        name="description"
+        content="Навигатор по корпусам университета: планы этажей и маршруты между аудиториями"
+    />
 
-    <title>Campus Map</title>
+    <title>Навигатор по кампусу</title>
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin="" />
+    <!--
+      Leaflet подключается как npm-зависимость (стили импортируются в
+      main.tsx), а не с CDN: внешний ресурс не должен быть точкой отказа
+      развёрнутого у вуза сервиса, и офлайн-режим PWA при этом работает.
+
+      Манифест и service worker генерирует vite-plugin-pwa — вручную они
+      здесь не объявляются, иначе получается двойная регистрация.
+    -->
 </head>
 <body>
     <div id="root"></div>

@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck": "tsc",
     "preview": "vite preview",
-    "lint": "eslint src --ext ts,tsx"
+    "test": "node ../../tooling/smoke-test.mjs --app viewer --mode prod"
   },
   "dependencies": {
     "@campus-map/core": "workspace:*",
+    "@campus-map/mapkit": "workspace:*",
+    "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "leaflet": "^1.9.4",
     "react-leaflet": "^4.2.1",
     "zustand": "^4.5.2"
   },
