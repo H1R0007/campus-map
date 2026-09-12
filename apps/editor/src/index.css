@@ -96,3 +96,14 @@ input, textarea, select, button {
     border: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
+
+.alias-label-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+    .alias-label-tooltip::before {
+        display: none !important;
+    }

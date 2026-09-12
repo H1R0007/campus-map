@@ -1,3 +1,5 @@
+// packages/core/src/graph/Graph.ts
+
 import type { MapNode, MapNodeData } from '../types/node';
 import type { Transition, TransitionData, TransitionType } from '../types/transition';
 import { parseTransitionType } from '../types/transition';
@@ -23,7 +25,12 @@ interface TransitionsJson {
 export class Graph {
   private nodes: Map<string, MapNode> = new Map();
   private transitions: Transition[] = [];
+  
+  // Индекс: nodeId -> список соседей через transitions
   private transitionIndex: Map<string, string[]> = new Map();
+  
+  // Индекс: "nodeA|nodeB" -> TransitionType (для быстрого lookup)
+  private transitionTypeIndex: Map<string, TransitionType> = new Map();
 
   /**
    * Загрузка узлов из JSON
@@ -81,17 +88,22 @@ export class Graph {
       }
       seen.add(key);
 
+      const transitionType = parseTransitionType(tr.transition_type ?? 'entrance');
+      
       const transition: Transition = {
         fromNode,
         toNode,
-        type: parseTransitionType(tr.transition_type ?? 'unknown'),
+        type: transitionType,
       };
 
       this.transitions.push(transition);
 
-      // Индексируем для быстрого поиска
+      // Индексируем для быстрого поиска соседей
       this.indexTransition(fromNode, toNode);
       this.indexTransition(toNode, fromNode);
+      
+      // Индексируем тип перехода
+      this.transitionTypeIndex.set(key, transitionType);
     }
   }
 
@@ -140,29 +152,35 @@ export class Graph {
     const node = this.nodes.get(nodeId);
     if (!node) return [];
 
-    const neighbors = [...node.neighbors];
+    const neighbors = new Set(node.neighbors);
     
     // Добавляем соседей через переходы
     const transitionNeighbors = this.transitionIndex.get(nodeId) ?? [];
     for (const tn of transitionNeighbors) {
-      if (!neighbors.includes(tn)) {
-        neighbors.push(tn);
-      }
+      neighbors.add(tn);
     }
 
-    return neighbors;
+    return Array.from(neighbors);
   }
 
   /**
    * Получить тип перехода между двумя узлами (если есть)
    */
   getTransitionType(nodeA: string, nodeB: string): TransitionType | null {
+    const key = [nodeA, nodeB].sort().join('|');
+    return this.transitionTypeIndex.get(key) ?? null;
+  }
+
+  /**
+   * Получить объект перехода между двумя узлами (если есть)
+   */
+  getTransition(nodeA: string, nodeB: string): Transition | null {
     for (const tr of this.transitions) {
       if (
         (tr.fromNode === nodeA && tr.toNode === nodeB) ||
         (tr.fromNode === nodeB && tr.toNode === nodeA)
       ) {
-        return tr.type;
+        return tr;
       }
     }
     return null;
@@ -173,6 +191,15 @@ export class Graph {
    */
   getAllTransitions(): Transition[] {
     return [...this.transitions];
+  }
+
+  /**
+   * Получить переходы для узла
+   */
+  getTransitionsForNode(nodeId: string): Transition[] {
+    return this.transitions.filter(
+      t => t.fromNode === nodeId || t.toNode === nodeId
+    );
   }
 
   /**
@@ -203,5 +230,77 @@ export class Graph {
     this.nodes.clear();
     this.transitions = [];
     this.transitionIndex.clear();
+    this.transitionTypeIndex.clear();
+  }
+
+  /**
+   * Добавить узел (для editor)
+   */
+  addNode(node: MapNode): void {
+    this.nodes.set(node.id, node);
+  }
+
+  /**
+   * Удалить узел (для editor)
+   */
+  removeNode(id: string): boolean {
+    return this.nodes.delete(id);
+  }
+
+  /**
+   * Добавить переход (для editor)
+   */
+  addTransition(transition: Transition): void {
+    const key = [transition.fromNode, transition.toNode].sort().join('|');
+    
+    // Проверяем дубликат
+    if (this.transitionTypeIndex.has(key)) {
+      return;
+    }
+    
+    this.transitions.push(transition);
+    this.indexTransition(transition.fromNode, transition.toNode);
+    this.indexTransition(transition.toNode, transition.fromNode);
+    this.transitionTypeIndex.set(key, transition.type);
+  }
+
+  /**
+   * Удалить переход (для editor)
+   */
+  removeTransition(nodeA: string, nodeB: string): boolean {
+    const key = [nodeA, nodeB].sort().join('|');
+    
+    const idx = this.transitions.findIndex(
+      t => (t.fromNode === nodeA && t.toNode === nodeB) ||
+           (t.fromNode === nodeB && t.toNode === nodeA)
+    );
+    
+    if (idx === -1) return false;
+    
+    this.transitions.splice(idx, 1);
+    this.transitionTypeIndex.delete(key);
+    
+    // Обновляем индекс соседей
+    const neighborsA = this.transitionIndex.get(nodeA);
+    if (neighborsA) {
+      const filtered = neighborsA.filter(n => n !== nodeB);
+      if (filtered.length > 0) {
+        this.transitionIndex.set(nodeA, filtered);
+      } else {
+        this.transitionIndex.delete(nodeA);
+      }
+    }
+    
+    const neighborsB = this.transitionIndex.get(nodeB);
+    if (neighborsB) {
+      const filtered = neighborsB.filter(n => n !== nodeA);
+      if (filtered.length > 0) {
+        this.transitionIndex.set(nodeB, filtered);
+      } else {
+        this.transitionIndex.delete(nodeB);
+      }
+    }
+    
+    return true;
   }
 }

@@ -1,7 +1,17 @@
+// apps/editor/src/stores/editorStore.ts
+
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
-import { MapNode, Transition, BuildingMeta, TransitionType } from '@campus-map/core';
+import { 
+  MapNode, 
+  Transition, 
+  BuildingMeta, 
+  TransitionType,
+  Graph,
+  findAlternativePaths,
+  PathfindingOptions,
+} from '@campus-map/core';
 import { useHistoryStore } from './historyStore';
 import { autoFixDataset, AutoFixReport } from '../utils/autoFix';
 
@@ -43,6 +53,7 @@ interface DisplayFilters {
   highlightOrphans: boolean;
   highlightNoAlias: boolean;
   highlightErrors: boolean;
+  showAliasLabels: boolean;
 }
 
 interface GridSettings {
@@ -68,6 +79,7 @@ interface RouteSimulation {
   animationIndex: number;
   selectedPathIndex: number;
   animationSpeed: number;
+  pathfindingOptions: PathfindingOptions;
 }
 
 interface ContextMenuState {
@@ -115,6 +127,7 @@ interface EditorState {
   gridSettings: GridSettings;
   clipboard: ClipboardData | null;
   searchHistory: string[];
+  bookmarks: Map<string, { nodeId: string; name: string; createdAt: number }>;
   routeSimulation: RouteSimulation;
 
   selectionBox: {
@@ -128,93 +141,34 @@ interface EditorState {
   inlineEditNodeId: string | null;
   cameraCenterRequest: { x: number; y: number; zoom?: number } | null;
 
-  // Режим выбора точек маршрута
   routePickMode: boolean;
   routePickTarget: 'from' | 'to' | null;
 
-  // Context menu
   contextMenu: ContextMenuState;
 }
 
-// BFS для поиска пути
-function findPath(
-  nodes: Map<string, MapNode>,
-  transitions: Transition[],
-  fromId: string,
-  toId: string
-): string[] {
-  if (fromId === toId) return [fromId];
+/**
+ * Создаёт временный Graph из текущего состояния editor для использования core pathfinding
+ */
+function buildGraphFromState(nodes: Map<string, MapNode>, transitions: Transition[]): Graph {
+  const graph = new Graph();
   
-  const queue: string[][] = [[fromId]];
-  const visited = new Set<string>([fromId]);
-
-  while (queue.length > 0) {
-    const path = queue.shift()!;
-    const current = path[path.length - 1];
-    const node = nodes.get(current);
-    if (!node) continue;
-
-    const neighbors = [...node.neighbors];
-    
-    for (const t of transitions) {
-      if (t.fromNode === current && !neighbors.includes(t.toNode)) {
-        neighbors.push(t.toNode);
-      }
-      if (t.toNode === current && !neighbors.includes(t.fromNode)) {
-        neighbors.push(t.fromNode);
-      }
-    }
-
-    for (const neighbor of neighbors) {
-      if (visited.has(neighbor)) continue;
-      
-      const newPath = [...path, neighbor];
-      if (neighbor === toId) return newPath;
-      
-      visited.add(neighbor);
-      queue.push(newPath);
-    }
+  // Добавляем узлы напрямую
+  for (const node of nodes.values()) {
+    graph.addNode({ ...node, neighbors: [...node.neighbors] });
   }
-
-  return [];
+  
+  // Добавляем переходы
+  for (const t of transitions) {
+    graph.addTransition({ ...t });
+  }
+  
+  return graph;
 }
 
-function findAlternativePaths(
-  nodes: Map<string, MapNode>,
-  transitions: Transition[],
-  fromId: string,
-  toId: string,
-  maxPaths: number = 3
-): string[][] {
-  const paths: string[][] = [];
-  const mainPath = findPath(nodes, transitions, fromId, toId);
-  if (mainPath.length === 0) return [];
-  
-  paths.push(mainPath);
-
-  for (let i = 0; i < mainPath.length - 1 && paths.length < maxPaths; i++) {
-    const excludeEdge = { from: mainPath[i], to: mainPath[i + 1] };
-    
-    const tempNodes = new Map(nodes);
-    const nodeA = tempNodes.get(excludeEdge.from);
-    const nodeB = tempNodes.get(excludeEdge.to);
-    
-    if (nodeA && nodeB) {
-      const newNodeA = { ...nodeA, neighbors: nodeA.neighbors.filter(n => n !== excludeEdge.to) };
-      const newNodeB = { ...nodeB, neighbors: nodeB.neighbors.filter(n => n !== excludeEdge.from) };
-      tempNodes.set(excludeEdge.from, newNodeA);
-      tempNodes.set(excludeEdge.to, newNodeB);
-      
-      const altPath = findPath(tempNodes, transitions, fromId, toId);
-      if (altPath.length > 0 && !paths.some(p => p.join(',') === altPath.join(','))) {
-        paths.push(altPath);
-      }
-    }
-  }
-
-  return paths;
-}
-
+/**
+ * Проверка связности графа (BFS)
+ */
 function checkConnectivity(nodes: Map<string, MapNode>, transitions: Transition[]): { connected: boolean; components: string[][] } {
   const allNodeIds = Array.from(nodes.keys());
   if (allNodeIds.length === 0) return { connected: true, components: [] };
@@ -301,7 +255,6 @@ interface EditorActions {
   getVisibleTransitions: () => Transition[];
   getTransitionsForNode: (nodeId: string) => Transition[];
 
-  // Поиск
   searchNodes: (query: string) => MapNode[];
   addToSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
@@ -309,72 +262,71 @@ interface EditorActions {
   setCameraCenter: (x: number, y: number, zoom?: number) => void;
   clearCameraCenter: () => void;
 
-  // Мультивыделение
   addToSelection: (nodeIds: string[]) => void;
   removeFromSelection: (nodeIds: string[]) => void;
   selectNodesInRect: (x1: number, y1: number, x2: number, y2: number) => void;
   selectAll: () => void;
   
-  // Групповые операции
   deleteSelected: () => void;
   duplicateSelected: () => void;
   moveSelectedBy: (dx: number, dy: number) => void;
   setSelectedPortal: (isPortal: boolean) => void;
   connectSelectedChain: () => void;
 
-  // Clipboard
   copySelected: () => void;
   paste: (offsetX?: number, offsetY?: number) => void;
 
-  // Grid
   setGridSettings: (settings: Partial<GridSettings>) => void;
   snapToGrid: (value: number) => number;
 
-  // Фильтры
   setDisplayFilters: (filters: Partial<DisplayFilters>) => void;
 
-  // Комментарии
   setNodeComment: (nodeId: string, comment: string) => void;
   getNodeComment: (nodeId: string) => string;
 
-  // Inline редактирование
   setInlineEditNode: (nodeId: string | null) => void;
 
-  // Симуляция маршрута
+  // ROUTE SIMULATION - ВСЕ МЕТОДЫ
   setRouteSimulation: (sim: Partial<RouteSimulation>) => void;
   calculateRoute: (fromId: string, toId: string) => void;
+  setRoutePathfindingOptions: (opts: Partial<PathfindingOptions>) => void;
   startRouteAnimation: () => void;
   stopRouteAnimation: () => void;
   setRouteSelectedPath: (index: number) => void;
   setRouteAnimationSpeed: (speed: number) => void;
   navigateToNode: (nodeId: string) => void;
 
-  // Route pick mode
   setRoutePickMode: (enabled: boolean) => void;
   setRoutePickTarget: (target: 'from' | 'to' | null) => void;
   pickRouteNode: (nodeId: string) => boolean;
 
-  // Selection box
   startSelectionBox: (x: number, y: number) => void;
   updateSelectionBox: (x: number, y: number) => void;
   finishSelectionBox: () => void;
   cancelSelectionBox: () => void;
 
-  // Панели
   setSearchOpen: (open: boolean) => void;
   setStatisticsOpen: (open: boolean) => void;
   setFiltersOpen: (open: boolean) => void;
   setRouteSimulatorOpen: (open: boolean) => void;
 
-  // Context menu
   openContextMenu: (x: number, y: number, nodeId: string | null, edgeFrom?: string | null, edgeTo?: string | null) => void;
   closeContextMenu: () => void;
 
-  // Валидация
   getOrphanNodes: () => MapNode[];
   getNodesWithoutAlias: () => MapNode[];
   getNodesWithErrors: () => MapNode[];
   isGraphConnected: () => { connected: boolean; components: string[][] };
+
+  // Edge operations
+  splitEdge: (fromId: string, toId: string) => string | null;
+  subdivideEdge: (fromId: string, toId: string, count: number) => string[];
+
+  // Bookmarks
+  addBookmark: (nodeId: string, name?: string) => void;
+  removeBookmark: (id: string) => void;
+  renameBookmark: (id: string, name: string) => void;
+  goToBookmark: (id: string) => void;
 }
 
 type EditorStore = EditorState & EditorActions;
@@ -384,7 +336,7 @@ export const useEditorStore = create<EditorStore>()(
     currentBuilding: null,
     currentFloor: null,
     activeTool: 'select',
-    transitionType: 'door',
+    transitionType: 'entrance',
     nodes: new Map(),
     transitions: [],
     buildingMetas: new Map(),
@@ -419,6 +371,7 @@ export const useEditorStore = create<EditorStore>()(
       highlightOrphans: false,
       highlightNoAlias: false,
       highlightErrors: false,
+      showAliasLabels: false,
     },
 
     gridSettings: {
@@ -440,6 +393,13 @@ export const useEditorStore = create<EditorStore>()(
       animationIndex: 0,
       selectedPathIndex: 0,
       animationSpeed: 800,
+      pathfindingOptions: {
+        allowStairs: true,
+        allowLift: true,
+        allowBridge: true,
+        allowEntrance: true,
+        preferLift: false,
+      },
     },
 
     selectionBox: null,
@@ -506,7 +466,49 @@ export const useEditorStore = create<EditorStore>()(
       return false;
     },
 
-    // === ROUTE SIMULATION ===
+        bookmarks: new Map(),
+
+    // === BOOKMARKS ===
+    addBookmark: (nodeId, name) => {
+      const node = get().nodes.get(nodeId);
+      if (!node) return;
+      
+      const aliases = get().aliases.get(nodeId) || [];
+      const defaultName = aliases[0] || nodeId;
+      const bookmarkId = `bm_${Date.now()}`;
+      
+      set((s) => {
+        s.bookmarks.set(bookmarkId, {
+          nodeId,
+          name: name || defaultName,
+          createdAt: Date.now(),
+        });
+      });
+    },
+
+    removeBookmark: (id) => set((s) => {
+      s.bookmarks.delete(id);
+    }),
+
+    renameBookmark: (id, name) => set((s) => {
+      const bm = s.bookmarks.get(id);
+      if (bm) {
+        bm.name = name;
+      }
+    }),
+
+    goToBookmark: (id) => {
+      const bm = get().bookmarks.get(id);
+      if (bm) {
+        get().centerOnNode(bm.nodeId);
+      }
+    },
+
+    // === ROUTE SIMULATION (теперь использует core) ===
+    setRouteSimulation: (sim) => set((s) => {
+      Object.assign(s.routeSimulation, sim);
+    }),
+
     setRouteSelectedPath: (index) => set((s) => {
       s.routeSimulation.selectedPathIndex = index;
       s.routeSimulation.animationIndex = 0;
@@ -514,6 +516,10 @@ export const useEditorStore = create<EditorStore>()(
 
     setRouteAnimationSpeed: (speed) => set((s) => {
       s.routeSimulation.animationSpeed = speed;
+    }),
+
+    setRoutePathfindingOptions: (opts) => set((s) => {
+      Object.assign(s.routeSimulation.pathfindingOptions, opts);
     }),
 
     navigateToNode: (nodeId) => {
@@ -538,6 +544,237 @@ export const useEditorStore = create<EditorStore>()(
           });
         }
       }
+    },
+
+    /**
+     * Расчёт маршрута через core pathfinding
+     */
+    calculateRoute: (fromId, toId) => {
+      const { nodes, transitions, routeSimulation } = get();
+      
+      // Строим временный Graph из текущего состояния
+      const graph = buildGraphFromState(nodes, transitions);
+      
+      // Ищем основной путь и альтернативы через core
+      const multiResult = findAlternativePaths(
+        graph, 
+        fromId, 
+        toId, 
+        routeSimulation.pathfindingOptions,
+        3
+      );
+
+      const primaryPath = multiResult.primary.found ? multiResult.primary.path : [];
+      const altPaths = multiResult.alternatives
+        .filter(r => r.found)
+        .map(r => r.path);
+
+      set((s) => {
+        s.routeSimulation.fromNodeId = fromId;
+        s.routeSimulation.toNodeId = toId;
+        s.routeSimulation.path = primaryPath;
+        s.routeSimulation.alternativePaths = [primaryPath, ...altPaths].filter(p => p.length > 0);
+        s.routeSimulation.animationIndex = 0;
+        s.routeSimulation.selectedPathIndex = 0;
+        s.routeSimulation.active = primaryPath.length > 0;
+      });
+    },
+
+    startRouteAnimation: () => set((s) => { s.routeSimulation.animationIndex = 0; }),
+    stopRouteAnimation: () => set((s) => { s.routeSimulation.active = false; }),
+
+        // === EDGE OPERATIONS ===
+    
+    /**
+     * Разделить ребро пополам, вставив узел посередине
+     */
+    splitEdge: (fromId, toId) => {
+      const st = get();
+      const fromNode = st.nodes.get(fromId);
+      const toNode = st.nodes.get(toId);
+      
+      if (!fromNode || !toNode) return null;
+      if (!fromNode.neighbors.includes(toId)) return null;
+      
+      // Вычисляем середину
+      const midX = Math.round((fromNode.x + toNode.x) / 2);
+      const midY = Math.round((fromNode.y + toNode.y) / 2);
+      
+      // Snap to grid если нужно
+      const { gridSettings } = st;
+      let finalX = midX;
+      let finalY = midY;
+      if (gridSettings.enabled && gridSettings.snap) {
+        finalX = Math.round(midX / gridSettings.size) * gridSettings.size;
+        finalY = Math.round(midY / gridSettings.size) * gridSettings.size;
+      }
+      
+      // Генерируем ID
+      const building = fromNode.building;
+      const floor = fromNode.floor;
+      const counter = st.nodeIdCounter;
+      const newId = `${building.toLowerCase()}_${floor}_node_${counter}`;
+      
+      // Сохраняем для undo
+      const neighborsBefore = snapshotNeighbors(st.nodes, [fromId, toId]);
+      
+      const newNode: MapNode = {
+        id: newId,
+        x: finalX,
+        y: finalY,
+        building,
+        floor,
+        isPortal: false,
+        neighbors: [fromId, toId],
+      };
+      
+      useHistoryStore.getState().push({
+        type: 'BATCH',
+        description: 'Разделено ребро',
+        undoData: { 
+          kind: 'splitEdge', 
+          newNodeId: newId, 
+          fromId, 
+          toId,
+          neighborsBefore,
+        },
+        redoData: { 
+          kind: 'splitEdge', 
+          newNode, 
+          fromId, 
+          toId,
+        },
+      });
+      
+      set((s) => {
+        s.nodeIdCounter = counter + 1;
+        
+        // Убираем прямое ребро
+        const from = s.nodes.get(fromId)!;
+        const to = s.nodes.get(toId)!;
+        from.neighbors = from.neighbors.filter(n => n !== toId);
+        to.neighbors = to.neighbors.filter(n => n !== fromId);
+        
+        // Добавляем узел
+        s.nodes.set(newId, newNode);
+        
+        // Связываем с новым узлом
+        from.neighbors.push(newId);
+        to.neighbors.push(newId);
+        
+        s.selectedNodeIds = new Set([newId]);
+        s.hasUnsavedChanges = true;
+      });
+      
+      return newId;
+    },
+
+    /**
+     * Разбить ребро на N сегментов (вставить N-1 узлов)
+     */
+    subdivideEdge: (fromId, toId, count) => {
+      if (count < 2) return [];
+      
+      const st = get();
+      const fromNode = st.nodes.get(fromId);
+      const toNode = st.nodes.get(toId);
+      
+      if (!fromNode || !toNode) return [];
+      if (!fromNode.neighbors.includes(toId)) return [];
+      
+      const segmentCount = Math.min(count, 20); // Лимит
+      const nodeCount = segmentCount - 1;
+      
+      if (nodeCount < 1) return [];
+      
+      const building = fromNode.building;
+      const floor = fromNode.floor;
+      const { gridSettings } = st;
+      
+      // Генерируем узлы
+      const newNodes: MapNode[] = [];
+      let counter = st.nodeIdCounter;
+      
+      for (let i = 1; i <= nodeCount; i++) {
+        const t = i / segmentCount;
+        let x = Math.round(fromNode.x + (toNode.x - fromNode.x) * t);
+        let y = Math.round(fromNode.y + (toNode.y - fromNode.y) * t);
+        
+        if (gridSettings.enabled && gridSettings.snap) {
+          x = Math.round(x / gridSettings.size) * gridSettings.size;
+          y = Math.round(y / gridSettings.size) * gridSettings.size;
+        }
+        
+        const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
+        newNodes.push({
+          id: newId,
+          x,
+          y,
+          building,
+          floor,
+          isPortal: false,
+          neighbors: [],
+        });
+      }
+      
+      // Устанавливаем связи цепочкой
+      for (let i = 0; i < newNodes.length; i++) {
+        if (i === 0) {
+          newNodes[i].neighbors.push(fromId);
+        } else {
+          newNodes[i].neighbors.push(newNodes[i - 1].id);
+        }
+        
+        if (i === newNodes.length - 1) {
+          newNodes[i].neighbors.push(toId);
+        } else {
+          newNodes[i].neighbors.push(newNodes[i + 1].id);
+        }
+      }
+      
+      const neighborsBefore = snapshotNeighbors(st.nodes, [fromId, toId]);
+      
+      useHistoryStore.getState().push({
+        type: 'BATCH',
+        description: `Subdivide: ${nodeCount} узлов`,
+        undoData: { 
+          kind: 'subdivideEdge', 
+          nodeIds: newNodes.map(n => n.id), 
+          fromId, 
+          toId,
+          neighborsBefore,
+        },
+        redoData: { 
+          kind: 'subdivideEdge', 
+          nodes: newNodes, 
+          fromId, 
+          toId,
+        },
+      });
+      
+      set((s) => {
+        s.nodeIdCounter = counter;
+        
+        // Убираем прямое ребро
+        const from = s.nodes.get(fromId)!;
+        const to = s.nodes.get(toId)!;
+        from.neighbors = from.neighbors.filter(n => n !== toId);
+        to.neighbors = to.neighbors.filter(n => n !== fromId);
+        
+        // Добавляем узлы
+        for (const n of newNodes) {
+          s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
+        }
+        
+        // Связываем крайние
+        from.neighbors.push(newNodes[0].id);
+        to.neighbors.push(newNodes[newNodes.length - 1].id);
+        
+        s.selectedNodeIds = new Set(newNodes.map(n => n.id));
+        s.hasUnsavedChanges = true;
+      });
+      
+      return newNodes.map(n => n.id);
     },
 
     // === ПОИСК ===
@@ -669,11 +906,13 @@ export const useEditorStore = create<EditorStore>()(
 
     // === ГРУППОВЫЕ ОПЕРАЦИИ ===
     deleteSelected: () => {
-      const { selectedNodeIds, nodes, transitions } = get();
+      const { selectedNodeIds, nodes, transitions, aliases, comments } = get();
       if (selectedNodeIds.size === 0) return;
 
       const ids = Array.from(selectedNodeIds);
       const deletedNodes: MapNode[] = [];
+      const deletedAliases: { id: string; names: string[] }[] = [];
+      const deletedComments: { id: string; comment: string }[] = [];
       const affected = new Set<string>();
       
       for (const id of ids) {
@@ -683,6 +922,18 @@ export const useEditorStore = create<EditorStore>()(
           affected.add(id);
           for (const nb of node.neighbors) affected.add(nb);
         }
+        
+        // Сохраняем алиасы для undo
+        const nodeAliases = aliases.get(id);
+        if (nodeAliases && nodeAliases.length > 0) {
+          deletedAliases.push({ id, names: [...nodeAliases] });
+        }
+        
+        // Сохраняем комментарии для undo
+        const comment = comments.get(id);
+        if (comment) {
+          deletedComments.push({ id, comment });
+        }
       }
 
       const neighborsBefore = snapshotNeighbors(nodes, Array.from(affected));
@@ -691,13 +942,22 @@ export const useEditorStore = create<EditorStore>()(
       useHistoryStore.getState().push({
         type: 'BATCH',
         description: `Удалено ${ids.length} узлов`,
-        undoData: { kind: 'deleteMultiple', nodes: deletedNodes, neighborsBefore, transitionsBefore },
+        undoData: { 
+          kind: 'deleteMultiple', 
+          nodes: deletedNodes, 
+          neighborsBefore, 
+          transitionsBefore,
+          aliases: deletedAliases,
+          comments: deletedComments,
+        },
         redoData: { kind: 'deleteMultiple', nodeIds: ids },
       });
 
       set((s) => {
         for (const id of ids) {
           s.nodes.delete(id);
+          s.aliases.delete(id);
+          s.comments.delete(id);
         }
         for (const [, n] of s.nodes) {
           n.neighbors = n.neighbors.filter(nb => !ids.includes(nb));
@@ -1002,30 +1262,6 @@ export const useEditorStore = create<EditorStore>()(
     // === INLINE EDIT ===
     setInlineEditNode: (nodeId) => set((s) => { s.inlineEditNodeId = nodeId; }),
 
-    // === ROUTE SIMULATION ===
-    setRouteSimulation: (sim) => set((s) => {
-      Object.assign(s.routeSimulation, sim);
-    }),
-
-    calculateRoute: (fromId, toId) => {
-      const { nodes, transitions } = get();
-      const path = findPath(nodes, transitions, fromId, toId);
-      const alternativePaths = findAlternativePaths(nodes, transitions, fromId, toId, 3);
-
-      set((s) => {
-        s.routeSimulation.fromNodeId = fromId;
-        s.routeSimulation.toNodeId = toId;
-        s.routeSimulation.path = path;
-        s.routeSimulation.alternativePaths = alternativePaths;
-        s.routeSimulation.animationIndex = 0;
-        s.routeSimulation.selectedPathIndex = 0;
-        s.routeSimulation.active = path.length > 0;
-      });
-    },
-
-    startRouteAnimation: () => set((s) => { s.routeSimulation.animationIndex = 0; }),
-    stopRouteAnimation: () => set((s) => { s.routeSimulation.active = false; }),
-
     // === SELECTION BOX ===
     startSelectionBox: (x, y) => set((s) => {
       s.selectionBox = { active: true, startX: x, startY: y, endX: x, endY: y };
@@ -1193,11 +1429,21 @@ export const useEditorStore = create<EditorStore>()(
       const neighborsBefore = snapshotNeighbors(st.nodes, Array.from(affected));
       const transitionsBefore = [...st.transitions];
       const nodeSnapshot: MapNode = { ...node, neighbors: [...node.neighbors] };
+      
+      // Сохраняем алиасы и комментарии
+      const aliasesSnapshot = st.aliases.get(nodeId) ? [...st.aliases.get(nodeId)!] : [];
+      const commentSnapshot = st.comments.get(nodeId) || '';
 
       useHistoryStore.getState().push({
         type: 'REMOVE_NODE',
         description: 'Удален узел',
-        undoData: { node: nodeSnapshot, neighborsBefore, transitionsBefore },
+        undoData: { 
+          node: nodeSnapshot, 
+          neighborsBefore, 
+          transitionsBefore,
+          aliases: aliasesSnapshot,
+          comment: commentSnapshot,
+        },
         redoData: { nodeId },
       });
 
@@ -1207,6 +1453,8 @@ export const useEditorStore = create<EditorStore>()(
         }
         s.transitions = s.transitions.filter((t) => t.fromNode !== nodeId && t.toNode !== nodeId);
         s.nodes.delete(nodeId);
+        s.aliases.delete(nodeId);
+        s.comments.delete(nodeId);
         s.selectedNodeIds.delete(nodeId);
         s.edgeStartNodeId = null;
         s.transitionStartNodeId = null;
@@ -1514,14 +1762,22 @@ export const useEditorStore = create<EditorStore>()(
           case 'ADD_NODE': {
             const { nodeId } = entry.undoData as any;
             s.nodes.delete(nodeId);
+            s.aliases.delete(nodeId);
+            s.comments.delete(nodeId);
             s.selectedNodeIds = new Set();
             break;
           }
           case 'REMOVE_NODE': {
-            const { node, neighborsBefore, transitionsBefore } = entry.undoData as any;
+            const { node, neighborsBefore, transitionsBefore, aliases, comment } = entry.undoData as any;
             s.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
             applyNeighborsSnapshot(s.nodes, neighborsBefore);
             s.transitions = [...transitionsBefore];
+            if (aliases && aliases.length > 0) {
+              s.aliases.set(node.id, [...aliases]);
+            }
+            if (comment) {
+              s.comments.set(node.id, comment);
+            }
             break;
           }
           case 'MOVE_NODE': {
@@ -1550,7 +1806,11 @@ export const useEditorStore = create<EditorStore>()(
           }
           case 'SET_ALIASES': {
             const { nodeId, names } = entry.undoData as any;
-            s.aliases.set(nodeId, [...names]);
+            if (names.length > 0) {
+              s.aliases.set(nodeId, [...names]);
+            } else {
+              s.aliases.delete(nodeId);
+            }
             break;
           }
           case 'BATCH': {
@@ -1559,7 +1819,11 @@ export const useEditorStore = create<EditorStore>()(
               for (const [, n] of s.nodes) {
                 n.neighbors = n.neighbors.filter(x => !u.nodeIds.includes(x));
               }
-              for (const id of u.nodeIds) s.nodes.delete(id);
+              for (const id of u.nodeIds) {
+                s.nodes.delete(id);
+                s.aliases.delete(id);
+                s.comments.delete(id);
+              }
               s.selectedNodeIds = new Set();
             } else if (u.kind === 'deleteMultiple') {
               for (const node of u.nodes) {
@@ -1567,6 +1831,18 @@ export const useEditorStore = create<EditorStore>()(
               }
               applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
               s.transitions = [...u.transitionsBefore];
+              // Восстанавливаем алиасы
+              if (u.aliases) {
+                for (const a of u.aliases) {
+                  s.aliases.set(a.id, [...a.names]);
+                }
+              }
+              // Восстанавливаем комментарии
+              if (u.comments) {
+                for (const c of u.comments) {
+                  s.comments.set(c.id, c.comment);
+                }
+              }
             } else if (u.kind === 'moveMultiple') {
               for (const pos of u.positions) {
                 const n = s.nodes.get(pos.nodeId);
@@ -1588,7 +1864,21 @@ export const useEditorStore = create<EditorStore>()(
             } else if (u.kind === 'autofix') {
               applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
               s.transitions = [...u.transitionsBefore];
-            }
+            } else if (u.kind === 'splitEdge') {
+              // Удаляем новый узел
+              s.nodes.delete(u.newNodeId);
+             // Восстанавливаем соседей
+             applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
+             s.selectedNodeIds = new Set();
+           } else if (u.kind === 'subdivideEdge') {
+             // Удаляем все новые узлы
+             for (const id of u.nodeIds) {
+               s.nodes.delete(id);
+             }
+             // Восстанавливаем соседей
+             applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
+             s.selectedNodeIds = new Set();
+           }
             break;
           }
         }
@@ -1614,6 +1904,8 @@ export const useEditorStore = create<EditorStore>()(
             }
             s.transitions = s.transitions.filter(t => t.fromNode !== nodeId && t.toNode !== nodeId);
             s.nodes.delete(nodeId);
+            s.aliases.delete(nodeId);
+            s.comments.delete(nodeId);
             s.selectedNodeIds = new Set();
             break;
           }
@@ -1655,7 +1947,11 @@ export const useEditorStore = create<EditorStore>()(
           }
           case 'SET_ALIASES': {
             const { nodeId, names } = entry.redoData as any;
-            s.aliases.set(nodeId, [...names]);
+            if (names.length > 0) {
+              s.aliases.set(nodeId, [...names]);
+            } else {
+              s.aliases.delete(nodeId);
+            }
             break;
           }
           case 'BATCH': {
@@ -1667,6 +1963,8 @@ export const useEditorStore = create<EditorStore>()(
             } else if (r.kind === 'deleteMultiple') {
               for (const id of r.nodeIds) {
                 s.nodes.delete(id);
+                s.aliases.delete(id);
+                s.comments.delete(id);
               }
               for (const [, n] of s.nodes) {
                 n.neighbors = n.neighbors.filter(nb => !r.nodeIds.includes(nb));
@@ -1707,7 +2005,28 @@ export const useEditorStore = create<EditorStore>()(
                 if (node) node.neighbors = neighbors as string[];
               }
               s.transitions = [...r.fixedTransitions];
+            } else if (r.kind === 'splitEdge') {
+              const { newNode, fromId, toId } = r;
+              s.nodes.set(newNode.id, { ...newNode, neighbors: [...newNode.neighbors] });
+              const from = s.nodes.get(fromId)!;
+              const to = s.nodes.get(toId)!;
+              from.neighbors = from.neighbors.filter(n => n !== toId);
+              to.neighbors = to.neighbors.filter(n => n !== fromId);
+              from.neighbors.push(newNode.id);
+              to.neighbors.push(newNode.id);
+            } else if (r.kind === 'subdivideEdge') {
+              const { nodes: newNodes, fromId, toId } = r;
+              for (const n of newNodes) {
+                s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
+              }
+              const from = s.nodes.get(fromId)!;
+              const to = s.nodes.get(toId)!;
+              from.neighbors = from.neighbors.filter(n => n !== toId);
+              to.neighbors = to.neighbors.filter(n => n !== fromId);
+              from.neighbors.push(newNodes[0].id);
+              to.neighbors.push(newNodes[newNodes.length - 1].id);
             }
+
             break;
           }
         }
@@ -1757,6 +2076,7 @@ export const useEditorStore = create<EditorStore>()(
 
     loadData: (data) => set((state) => {
       state.nodes = new Map();
+      state.bookmarks = new Map();
       let maxCounter = 0;
 
       for (const node of data.nodes) {
@@ -1789,6 +2109,13 @@ export const useEditorStore = create<EditorStore>()(
         animationIndex: 0,
         selectedPathIndex: 0,
         animationSpeed: 800,
+        pathfindingOptions: {
+          allowStairs: true,
+          allowLift: true,
+          allowBridge: true,
+          allowEntrance: true,
+          preferLift: false,
+        },
       };
 
       useHistoryStore.getState().clear();
@@ -1797,7 +2124,9 @@ export const useEditorStore = create<EditorStore>()(
     exportToZip: async () => {
       const { nodes, transitions, buildingMetas, aliases } = get();
       const { exportToZip } = await import('../utils/exportData');
-      const aliasesArray = Array.from(aliases.entries()).map(([id, names]) => ({ id, names }));
+      const aliasesArray = Array.from(aliases.entries())
+        .filter(([id]) => nodes.has(id)) // Фильтруем алиасы удалённых узлов
+        .map(([id, names]) => ({ id, names }));
       await exportToZip({ nodes, transitions, buildingMetas, aliases: aliasesArray });
       set((s) => { s.hasUnsavedChanges = false; });
     },

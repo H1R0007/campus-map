@@ -9,6 +9,7 @@ import { LineToolPreview } from './LineToolPreview';
 import { SelectionBox } from './SelectionBox';
 import { GridOverlay } from './GridOverlay';
 import { RouteOverlay } from '../UI/RouteSimulator';
+import { AliasLabels } from './AliasLabels';
 
 const FALLBACK = { width: 1200, height: 800 };
 
@@ -229,7 +230,7 @@ const MapEventHandler: React.FC = () => {
 
   const selectingRef = useRef(false);
 
-  // safety: åñëè mouseup ïðîèçîø¸ë âíå êàðòû — âåðíóòü dragging
+  // safety: ÐµÑÐ»Ð¸ mouseup Ð¿Ñ€Ð¾Ð¸Ð·Ð¾ÑˆÑ‘Ð» Ð²Ð½Ðµ ÐºÐ°Ñ€Ñ‚Ñ‹ â€” Ð²ÐµÑ€Ð½ÑƒÑ‚ÑŒ dragging
   useEffect(() => {
     const onWindowMouseUp = (e: MouseEvent) => {
       if (!selectingRef.current) return;
@@ -267,12 +268,12 @@ const MapEventHandler: React.FC = () => {
       }
 
       if (activeTool === 'select' && !dom.shiftKey) {
-        // êëèê ïî ïóñòîìó ìåñòó — ñáðîñ âûäåëåíèÿ
+        // ÐºÐ»Ð¸Ðº Ð¿Ð¾ Ð¿ÑƒÑÑ‚Ð¾Ð¼Ñƒ Ð¼ÐµÑÑ‚Ñƒ â€” ÑÐ±Ñ€Ð¾Ñ Ð²Ñ‹Ð´ÐµÐ»ÐµÐ½Ð¸Ñ
         clearSelection();
       }
     },
 
-    // Ctrl+ÏÊÌ selection box
+    // Ctrl+ÐŸÐšÐœ selection box
     mousedown: (e) => {
       const dom = e.originalEvent as MouseEvent;
       if (activeTool === 'select' && dom.ctrlKey && dom.button === 2) {
@@ -305,12 +306,12 @@ const MapEventHandler: React.FC = () => {
     },
 
     contextmenu: (e) => {
-      // îòêëþ÷àåì áðàóçåðíîå ìåíþ íà êàðòå
+      // Ð¾Ñ‚ÐºÐ»ÑŽÑ‡Ð°ÐµÐ¼ Ð±Ñ€Ð°ÑƒÐ·ÐµÑ€Ð½Ð¾Ðµ Ð¼ÐµÐ½ÑŽ Ð½Ð° ÐºÐ°Ñ€Ñ‚Ðµ
       e.originalEvent.preventDefault();
     },
   });
 
-  // íà ñëó÷àé Esc — îòìåíà selection box
+  // Ð½Ð° ÑÐ»ÑƒÑ‡Ð°Ð¹ Esc â€” Ð¾Ñ‚Ð¼ÐµÐ½Ð° selection box
   useEffect(() => {
     const onKeyDown = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape' && selectingRef.current) {
@@ -372,6 +373,7 @@ export const EditorMap: React.FC = () => {
       <LineToolPreview />
       <SelectionBox />
       <EditorNodes />
+      <AliasLabels />
 
       <MapEventHandler />
     </MapContainer>

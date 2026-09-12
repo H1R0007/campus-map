@@ -11,6 +11,9 @@ import { FilterPanel } from './components/UI/FilterPanel';
 import { StatisticsPanel } from './components/UI/StatisticsPanel';
 import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
 import { RecentActions } from './components/UI/RecentActions';
+import { ContextMenu } from './components/UI/ContextMenu';
+import { EdgeContextMenu } from './components/UI/EdgeContextMenu';
+import { BookmarksPanel } from './components/UI/BookmarksPanel';
 import { useEditorStore } from './stores/editorStore';
 
 class ErrorBoundary extends React.Component<
@@ -178,6 +181,7 @@ const App: React.FC = () => {
             
             {/* Panels */}
             <FilterPanel />
+            <BookmarksPanel />
             <StatisticsPanel />
             <PropertiesPanel />
             <DiagnosticsPanel />
@@ -190,6 +194,8 @@ const App: React.FC = () => {
         
         {/* Modals */}
         <SearchPanel />
+        <ContextMenu />
+        <EdgeContextMenu />
       </div>
     </ErrorBoundary>
   );

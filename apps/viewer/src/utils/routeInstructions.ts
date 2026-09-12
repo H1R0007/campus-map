@@ -1,4 +1,5 @@
-import type { Graph, BuildingMeta, AliasManager } from '@campus-map/core';
+import type { Graph, BuildingMeta, AliasManager, TransitionType } from '@campus-map/core';
+import { transitionTypeLabel } from '@campus-map/core';
 
 export type RouteStep = {
   text: string;
@@ -20,6 +21,25 @@ function nodeLabel(id: string, aliasManager: AliasManager | null): string {
   return a ?? id;
 }
 
+function getTransitionVerb(type: TransitionType, direction: 'up' | 'down' | 'same'): string {
+  switch (type) {
+    case 'stairs':
+      return direction === 'up' ? 'Поднимитесь по лестнице' : 
+             direction === 'down' ? 'Спуститесь по лестнице' : 
+             'Пройдите по лестнице';
+    case 'lift':
+      return direction === 'up' ? 'Поднимитесь на лифте' : 
+             direction === 'down' ? 'Спуститесь на лифте' : 
+             'Воспользуйтесь лифтом';
+    case 'bridge':
+      return 'Перейдите по переходу';
+    case 'entrance':
+      return 'Пройдите через вход';
+    default:
+      return 'Пройдите';
+  }
+}
+
 export function buildRouteSteps(params: {
   graph: Graph;
   path: string[];
@@ -35,6 +55,7 @@ export function buildRouteSteps(params: {
   const end = graph.getNode(path[path.length - 1]);
   if (!start || !end) return steps;
 
+  // Старт
   steps.push({
     text: `Старт: ${nodeLabel(start.id, aliasManager)} — ${buildingLabel(start.building, buildingMetas)}${start.building === 'CAMPUS' ? '' : `, этаж ${start.floor}`}`,
     hint:
@@ -48,11 +69,10 @@ export function buildRouteSteps(params: {
     const b = graph.getNode(path[i]);
     if (!a || !b) continue;
 
-    const tr = graph.getTransitionType(a.id, b.id); // null если обычное ребро
+    const tr = graph.getTransitionType(a.id, b.id);
 
-    // Нас интересуют “события” (смена этажа/корпуса) — они и дают “объяснение маршрута”
     if (tr) {
-      // Корпус изменился
+      // Смена корпуса
       if (a.building !== b.building) {
         if (a.building === 'CAMPUS' && b.building !== 'CAMPUS') {
           steps.push({
@@ -61,11 +81,11 @@ export function buildRouteSteps(params: {
           });
         } else if (a.building !== 'CAMPUS' && b.building === 'CAMPUS') {
           steps.push({
-            text: `Выйдите в кампус.`,
+            text: `Выйдите на территорию кампуса.`,
             hint: { mode: 'campus' },
           });
         } else {
-          // прямой переход между корпусами (bridge)
+          // Переход между корпусами (bridge)
           steps.push({
             text: `Перейдите из ${buildingLabel(a.building, buildingMetas)} в ${buildingLabel(b.building, buildingMetas)}.`,
             hint: { mode: 'floor', buildingId: b.building, floor: b.floor },
@@ -74,29 +94,26 @@ export function buildRouteSteps(params: {
         continue;
       }
 
-      // Этаж изменился
+      // Смена этажа
       if (a.floor !== b.floor) {
-        const dir = b.floor > a.floor ? 'Поднимитесь' : 'Спуститесь';
-        const how =
-          tr === 'stairs' ? 'по лестнице' :
-          tr === 'lift' ? 'на лифте' :
-          tr === 'door' ? 'через проход' :
-          tr === 'bridge' ? 'по переходу' : 'через переход';
+        const direction = b.floor > a.floor ? 'up' : 'down';
+        const verb = getTransitionVerb(tr, direction);
 
         steps.push({
-          text: `${dir} ${how} на этаж ${b.floor}.`,
+          text: `${verb} на этаж ${b.floor}.`,
           hint: { mode: 'floor', buildingId: b.building, floor: b.floor },
         });
         continue;
       }
 
-      // Переход внутри одного этажа (door/unknown) — можно кратко
-      if (tr === 'door') {
-        steps.push({ text: `Пройдите через дверь.` });
+      // Переход на том же этаже (entrance внутри здания — редко, но возможно)
+      if (tr === 'entrance') {
+        steps.push({ text: `Пройдите через ${transitionTypeLabel(tr).toLowerCase()}.` });
       }
     }
   }
 
+  // Финиш
   steps.push({
     text: `Финиш: ${nodeLabel(end.id, aliasManager)} — ${buildingLabel(end.building, buildingMetas)}${end.building === 'CAMPUS' ? '' : `, этаж ${end.floor}`}`,
     hint:

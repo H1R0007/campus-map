@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { Polyline } from 'react-leaflet';
 import L from 'leaflet';
+import { transitionTypeColor } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const EditorTransitions: React.FC = () => {
@@ -51,21 +52,8 @@ export const EditorTransitions: React.FC = () => {
 
         const isHovered = hoveredTransition?.from === t.fromNode && hoveredTransition?.to === t.toNode;
 
-        let color = '#f59e0b';
-        switch (t.type) {
-          case 'stairs':
-            color = '#22c55e';
-            break;
-          case 'lift':
-            color = '#3b82f6';
-            break;
-          case 'door':
-            color = '#f59e0b';
-            break;
-          case 'bridge':
-            color = '#a855f7';
-            break;
-        }
+        // Используем цвет из core
+        const color = transitionTypeColor(t.type);
 
         return (
           <Polyline

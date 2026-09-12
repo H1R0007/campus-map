@@ -1,5 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { TransitionType } from '@campus-map/core';
+import {
+  TRANSITION_TYPES,
+  transitionTypeLabel,
+  transitionTypeIcon,
+  transitionTypeColor,
+} from '@campus-map/core';
 import { useEditorStore, EditorTool } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
@@ -13,13 +18,6 @@ const tools: { id: EditorTool; icon: string; label: string; shortcut: string }[]
   { id: 'transition', label: 'Переход', shortcut: 'T', icon: '🚪' },
   { id: 'line', label: 'Линия', shortcut: 'L', icon: '📏' },
   { id: 'delete', label: 'Удалить', shortcut: 'D', icon: '🗑️' },
-];
-
-const transitionTypes: { id: TransitionType; label: string; color: string }[] = [
-  { id: 'door', label: 'Дверь', color: '#f59e0b' },
-  { id: 'stairs', label: 'Лестница', color: '#22c55e' },
-  { id: 'lift', label: 'Лифт', color: '#3b82f6' },
-  { id: 'bridge', label: 'Мост', color: '#a855f7' },
 ];
 
 export const Toolbar: React.FC = () => {
@@ -51,14 +49,21 @@ export const Toolbar: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [validationOpen, setValidationOpen] = useState(false);
-  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({ errors: [], warnings: [] });
+  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
+    errors: [],
+    warnings: [],
+  });
 
   const hasSelection = selectedNodeIds.size > 0;
   const multiSelection = selectedNodeIds.size > 1;
 
   const handleExport = async (force = false) => {
     const st = useEditorStore.getState();
-    const result = validateDataset({ nodes: st.nodes, transitions: st.transitions, buildingMetas: st.buildingMetas });
+    const result = validateDataset({
+      nodes: st.nodes,
+      transitions: st.transitions,
+      buildingMetas: st.buildingMetas,
+    });
     setValidation(result);
 
     if (!force && (result.errors.length > 0 || result.warnings.length > 0)) {
@@ -68,14 +73,23 @@ export const Toolbar: React.FC = () => {
 
     setValidationOpen(false);
     setIsExporting(true);
-    try { await exportToZip(); } finally { setIsExporting(false); }
+    try {
+      await exportToZip();
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleImportFile = async (file: File) => {
     setIsImporting(true);
     try {
       const data = await importDatasetFromZip(file);
-      loadData({ nodes: data.nodes, transitions: data.transitions, buildingMetas: data.buildingMetas, aliases: data.aliases });
+      loadData({
+        nodes: data.nodes,
+        transitions: data.transitions,
+        buildingMetas: data.buildingMetas,
+        aliases: data.aliases,
+      });
       useEditorStore.getState().setCurrentBuilding(null);
     } catch (e) {
       alert('Ошибка импорта: ' + (e instanceof Error ? e.message : 'Unknown'));
@@ -87,7 +101,7 @@ export const Toolbar: React.FC = () => {
 
   return (
     <>
-      <div 
+      <div
         className="h-14 flex items-center justify-between px-4 gap-4"
         style={{ backgroundColor: 'var(--editor-panel)', borderBottom: '1px solid var(--editor-border)' }}
       >
@@ -113,31 +127,38 @@ export const Toolbar: React.FC = () => {
           {activeTool === 'transition' && (
             <>
               <div className="mx-2 w-px h-6" style={{ backgroundColor: 'var(--editor-border)' }} />
-              {transitionTypes.map((tp) => (
-                <button
-                  key={tp.id}
-                  onClick={() => setTransitionType(tp.id)}
-                  className="px-2 py-1 rounded-lg text-xs font-medium"
-                  style={{
-                    backgroundColor: transitionType === tp.id ? tp.color : 'transparent',
-                    color: transitionType === tp.id ? 'white' : 'var(--editor-text-muted)',
-                    border: `1px solid ${tp.color}`,
-                  }}
-                >
-                  {tp.label}
-                </button>
-              ))}
+              {TRANSITION_TYPES.map((tp) => {
+                const color = transitionTypeColor(tp);
+                return (
+                  <button
+                    key={tp}
+                    onClick={() => setTransitionType(tp)}
+                    className="px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1"
+                    style={{
+                      backgroundColor: transitionType === tp ? color : 'transparent',
+                      color: transitionType === tp ? 'white' : 'var(--editor-text-muted)',
+                      border: `1px solid ${color}`,
+                    }}
+                  >
+                    <span>{transitionTypeIcon(tp)}</span>
+                    <span>{transitionTypeLabel(tp)}</span>
+                  </button>
+                );
+              })}
             </>
           )}
         </div>
 
         {/* Center: Selection actions */}
         {hasSelection && (
-          <div className="flex items-center gap-1 px-3 py-1 rounded-lg" style={{ backgroundColor: 'var(--editor-bg)' }}>
+          <div
+            className="flex items-center gap-1 px-3 py-1 rounded-lg"
+            style={{ backgroundColor: 'var(--editor-bg)' }}
+          >
             <span className="text-xs mr-2" style={{ color: 'var(--editor-text-muted)' }}>
               {selectedNodeIds.size} выбрано:
             </span>
-            
+
             <button
               onClick={deleteSelected}
               className="p-1.5 rounded hover:bg-red-500/20"
@@ -146,7 +167,7 @@ export const Toolbar: React.FC = () => {
             >
               🗑️
             </button>
-            
+
             <button
               onClick={duplicateSelected}
               className="p-1.5 rounded hover:bg-white/10"
@@ -155,7 +176,7 @@ export const Toolbar: React.FC = () => {
             >
               📋
             </button>
-            
+
             <button
               onClick={copySelected}
               className="p-1.5 rounded hover:bg-white/10"
@@ -237,14 +258,21 @@ export const Toolbar: React.FC = () => {
             type="file"
             accept=".zip"
             className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImportFile(f);
+            }}
           />
 
           <button
             onClick={() => fileRef.current?.click()}
             disabled={isImporting}
             className="px-3 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--editor-accent)', color: 'white', opacity: isImporting ? 0.6 : 1 }}
+            style={{
+              backgroundColor: 'var(--editor-accent)',
+              color: 'white',
+              opacity: isImporting ? 0.6 : 1,
+            }}
           >
             {isImporting ? '⏳' : '📥'} Импорт
           </button>
@@ -253,7 +281,11 @@ export const Toolbar: React.FC = () => {
             onClick={() => handleExport(false)}
             disabled={isExporting}
             className="px-3 py-2 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: 'var(--editor-highlight)', color: 'white', opacity: isExporting ? 0.6 : 1 }}
+            style={{
+              backgroundColor: 'var(--editor-highlight)',
+              color: 'white',
+              opacity: isExporting ? 0.6 : 1,
+            }}
           >
             {isExporting ? '⏳' : '📤'} Экспорт
           </button>
@@ -283,10 +315,37 @@ export const Toolbar: React.FC = () => {
           </>
         }
       >
-        <p className="text-sm text-white">
-          Ошибок: <span style={{ color: '#fca5a5' }}>{validation.errors.length}</span>,
-          Предупреждений: <span style={{ color: '#fbbf24' }}>{validation.warnings.length}</span>
-        </p>
+        <div className="space-y-3">
+          {validation.errors.length > 0 && (
+            <div>
+              <div className="text-sm font-medium" style={{ color: '#fca5a5' }}>
+                ❌ Ошибки ({validation.errors.length})
+              </div>
+              <ul className="mt-1 text-xs space-y-1 max-h-32 overflow-y-auto" style={{ color: 'var(--editor-text-muted)' }}>
+                {validation.errors.slice(0, 10).map((e, i) => (
+                  <li key={i}>• {e}</li>
+                ))}
+                {validation.errors.length > 10 && <li>... и ещё {validation.errors.length - 10}</li>}
+              </ul>
+            </div>
+          )}
+
+          {validation.warnings.length > 0 && (
+            <div>
+              <div className="text-sm font-medium" style={{ color: '#fbbf24' }}>
+                ⚠️ Предупреждения ({validation.warnings.length})
+              </div>
+              <ul className="mt-1 text-xs space-y-1 max-h-32 overflow-y-auto" style={{ color: 'var(--editor-text-muted)' }}>
+                {validation.warnings.slice(0, 10).map((w, i) => (
+                  <li key={i}>• {w}</li>
+                ))}
+                {validation.warnings.length > 10 && (
+                  <li>... и ещё {validation.warnings.length - 10}</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
       </ConfirmDialog>
     </>
   );

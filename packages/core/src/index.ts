@@ -1,3 +1,5 @@
+// packages/core/src/index.ts
+
 // Types
 export * from './types/index';
 
@@ -5,7 +7,7 @@ export * from './types/index';
 export { Graph } from './graph/Graph';
 
 // Pathfinding
-export { findPath } from './pathfinding/astar';
+export { findPath, findAlternativePaths, getTransitionWeights } from './pathfinding/astar';
 
 // Aliases
 export { AliasManager } from './aliases/AliasManager';

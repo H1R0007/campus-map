@@ -1,5 +1,8 @@
+// apps/editor/src/utils/importZip.ts
+
 import JSZip from 'jszip';
 import type { MapNode, Transition, BuildingMeta } from '@campus-map/core';
+import { parseTransitionType } from '@campus-map/core';
 
 type ImportedDataset = {
   nodes: MapNode[];
@@ -8,11 +11,26 @@ type ImportedDataset = {
   aliases: { id: string; names: string[] }[];
 };
 
+/**
+ * Читает JSON из zip с защитой от BOM
+ */
 async function readJson(zip: JSZip, path: string): Promise<any> {
   const file = zip.file(path);
   if (!file) throw new Error(`Missing file in zip: ${path}`);
-  const text = await file.async('string');
-  return JSON.parse(text);
+  
+  let text = await file.async('string');
+  
+  // Убираем BOM если есть
+  text = text.replace(/^\uFEFF/, '');
+  
+  // Убираем возможные невидимые символы в начале
+  text = text.trimStart();
+  
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Failed to parse JSON at ${path}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+  }
 }
 
 function detectRoot(zip: JSZip): string {
@@ -47,23 +65,34 @@ export async function importDatasetFromZip(file: File): Promise<ImportedDataset>
   // buildings
   for (const b of campusMeta.buildings ?? []) {
     const bid = b.id;
-    const meta = await readJson(zip, `${root}buildings/${bid}/meta.json`);
-    buildingMetas.push(meta);
+    
+    try {
+      const meta = await readJson(zip, `${root}buildings/${bid}/meta.json`);
+      buildingMetas.push(meta);
 
-    for (const fl of meta.floors ?? []) {
-      const floorNum = fl.floor;
-      const fg = await readJson(zip, `${root}buildings/${bid}/floors/${floorNum}/graph.json`);
-      for (const n of fg.nodes ?? []) {
-        nodes.push({
-          id: n.id,
-          x: n.x ?? 0,
-          y: n.y ?? 0,
-          building: bid,
-          floor: floorNum,
-          neighbors: n.neighbors ?? [],
-          isPortal: n.isPortal ?? false,
-        });
+      for (const fl of meta.floors ?? []) {
+        const floorNum = fl.floor;
+        
+        try {
+          const fg = await readJson(zip, `${root}buildings/${bid}/floors/${floorNum}/graph.json`);
+          
+          for (const n of fg.nodes ?? []) {
+            nodes.push({
+              id: n.id,
+              x: n.x ?? 0,
+              y: n.y ?? 0,
+              building: bid,
+              floor: floorNum,
+              neighbors: n.neighbors ?? [],
+              isPortal: n.isPortal ?? false,
+            });
+          }
+        } catch (e) {
+          console.warn(`Failed to load floor ${floorNum} of ${bid}:`, e);
+        }
       }
+    } catch (e) {
+      console.warn(`Failed to load building ${bid}:`, e);
     }
   }
 
@@ -74,7 +103,7 @@ export async function importDatasetFromZip(file: File): Promise<ImportedDataset>
     transitions = (tj.transitions ?? []).map((t: any) => ({
       fromNode: t.from.node,
       toNode: t.to.node,
-      type: t.transition_type ?? 'unknown',
+      type: parseTransitionType(t.transition_type ?? 'entrance'),
     }));
   } catch {
     transitions = [];

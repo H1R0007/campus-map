@@ -1,29 +1,28 @@
 /**
- * Тип перехода между узлами разных этажей/зданий
+ * РўРёРї РїРµСЂРµС…РѕРґР° РјРµР¶РґСѓ СѓР·Р»Р°РјРё СЂР°Р·РЅС‹С… СЌС‚Р°Р¶РµР№/Р·РґР°РЅРёР№
  */
-export type TransitionType = 
-  | 'door'     // дверь (обычный проход)
-  | 'stairs'   // лестница
-  | 'lift'     // лифт
-  | 'bridge'   // переход между корпусами
-  | 'unknown';
+export type TransitionType =
+  | 'entrance' // РІС…РѕРґ/РІС‹С…РѕРґ РёР· РєРѕСЂРїСѓСЃР° (РєР°РјРїСѓСЃ <-> Р·РґР°РЅРёРµ)
+  | 'stairs'   // Р»РµСЃС‚РЅРёС†Р°
+  | 'lift'     // Р»РёС„С‚
+  | 'bridge';  // РїРµСЂРµС…РѕРґ РјРµР¶РґСѓ РєРѕСЂРїСѓСЃР°РјРё (РЅР°РґР·РµРјРЅС‹Р№/РїРѕРґР·РµРјРЅС‹Р№)
 
 /**
- * Переход между двумя узлами
+ * РџРµСЂРµС…РѕРґ РјРµР¶РґСѓ РґРІСѓРјСЏ СѓР·Р»Р°РјРё
  */
 export interface Transition {
-  /** ID начального узла */
+  /** ID РЅР°С‡Р°Р»СЊРЅРѕРіРѕ СѓР·Р»Р° */
   fromNode: string;
-  
-  /** ID конечного узла */
+
+  /** ID РєРѕРЅРµС‡РЅРѕРіРѕ СѓР·Р»Р° */
   toNode: string;
-  
-  /** Тип перехода */
+
+  /** РўРёРї РїРµСЂРµС…РѕРґР° */
   type: TransitionType;
 }
 
 /**
- * Данные перехода в JSON-файле
+ * Р”Р°РЅРЅС‹Рµ РїРµСЂРµС…РѕРґР° РІ JSON-С„Р°Р№Р»Рµ
  */
 export interface TransitionData {
   from: { node: string };
@@ -32,22 +31,76 @@ export interface TransitionData {
 }
 
 /**
- * Преобразование строки в TransitionType
+ * Р’СЃРµ РґРѕРїСѓСЃС‚РёРјС‹Рµ С‚РёРїС‹ РїРµСЂРµС…РѕРґРѕРІ
+ */
+export const TRANSITION_TYPES: TransitionType[] = ['entrance', 'stairs', 'lift', 'bridge'];
+
+/**
+ * РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ СЃС‚СЂРѕРєРё РІ TransitionType
  */
 export function parseTransitionType(str: string): TransitionType {
   const normalized = str.toLowerCase().trim();
   switch (normalized) {
-    case 'door': return 'door';
-    case 'stairs': return 'stairs';
-    case 'lift': return 'lift';
-    case 'bridge': return 'bridge';
-    default: return 'unknown';
+    case 'entrance':
+    case 'door': // РѕР±СЂР°С‚РЅР°СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚СЊ
+      return 'entrance';
+    case 'stairs':
+      return 'stairs';
+    case 'lift':
+    case 'elevator':
+      return 'lift';
+    case 'bridge':
+    case 'passage':
+      return 'bridge';
+    default:
+      return 'entrance'; // fallback
   }
 }
 
 /**
- * Преобразование TransitionType в строку
+ * Р§РµР»РѕРІРµРєРѕС‡РёС‚Р°РµРјРѕРµ РЅР°Р·РІР°РЅРёРµ С‚РёРїР° РїРµСЂРµС…РѕРґР°
  */
-export function transitionTypeToString(type: TransitionType): string {
-  return type;
+export function transitionTypeLabel(type: TransitionType): string {
+  switch (type) {
+    case 'entrance':
+      return 'Р’С…РѕРґ';
+    case 'stairs':
+      return 'Р›РµСЃС‚РЅРёС†Р°';
+    case 'lift':
+      return 'Р›РёС„С‚';
+    case 'bridge':
+      return 'РџРµСЂРµС…РѕРґ';
+  }
+}
+
+/**
+ * РРєРѕРЅРєР° РґР»СЏ С‚РёРїР° РїРµСЂРµС…РѕРґР°
+ */
+export function transitionTypeIcon(type: TransitionType): string {
+  switch (type) {
+    case 'entrance':
+      return 'рџљЄ';
+    case 'stairs':
+      return 'рџЄњ';
+    case 'lift':
+      return 'рџ›—';
+    case 'bridge':
+      return 'рџЊ‰';
+  }
+}
+
+/**
+ * Р¦РІРµС‚ РґР»СЏ С‚РёРїР° РїРµСЂРµС…РѕРґР° (hex)
+ */
+export function transitionTypeColor(type: TransitionType): string {
+  switch (type) {
+    case 'entrance':
+      return '#f59e0b'; // amber
+    case 'stairs':
+      return '#22c55e'; // green
+    case 'lift':
+      return '#3b82f6'; // blue
+    case 'bridge':
+      return '#a855f7'; // purple
+  }
 }

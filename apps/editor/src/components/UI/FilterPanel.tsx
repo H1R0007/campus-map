@@ -57,7 +57,15 @@ export const FilterPanel: React.FC = () => {
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--editor-text-muted)' }}>
             Отображение
           </div>
-          
+          <FilterToggle
+            label="Подписи алиасов"
+            icon="🏷️"
+            checked={displayFilters.showAliasLabels}
+            onChange={(v) => setDisplayFilters({ showAliasLabels: v })}
+            hint="Показывать названия узлов на карте"
+          />
+
+
           <FilterToggle
             label="Порталы"
             icon="⭐"

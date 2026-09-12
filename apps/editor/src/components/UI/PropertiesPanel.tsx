@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { transitionTypeLabel, transitionTypeColor, transitionTypeIcon, TRANSITION_TYPES } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const PropertiesPanel: React.FC = () => {
@@ -26,30 +27,49 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
   const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
+  const addBookmark = useEditorStore((s) => s.addBookmark);
+  
+  // Tool actions
+  const setActiveTool = useEditorStore((s) => s.setActiveTool);
+  const setEdgeStartNode = useEditorStore((s) => s.setEdgeStartNode);
+  const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
   const transitionType = useEditorStore((s) => s.transitionType);
+  const setTransitionType = useEditorStore((s) => s.setTransitionType);
 
   const transitions = useMemo(() => getTransitionsForNode(nodeId), [getTransitionsForNode, nodeId]);
   const aliases = useMemo(() => getNodeAliases(nodeId), [getNodeAliases, nodeId]);
 
-  // Узлы без связи с текущим (для быстрого добавления рёбер)
   const unconnectedNodes = useMemo(() => {
     if (!node) return [];
     return nodes.filter(n => 
       n.id !== nodeId && 
       !node.neighbors.includes(n.id)
-    ).slice(0, 10); // Показываем первые 10
+    ).slice(0, 10);
   }, [nodes, node, nodeId]);
 
   const [xText, setXText] = useState('');
   const [yText, setYText] = useState('');
-  const [newAlias, setNewAlias] = useState('');
   const [showConnectPicker, setShowConnectPicker] = useState(false);
+  const [showTransitionPicker, setShowTransitionPicker] = useState(false);
+  
+  // Inline alias editing
+  const [editingAliasIndex, setEditingAliasIndex] = useState<number | null>(null);
+  const [editingAliasValue, setEditingAliasValue] = useState('');
+  const [newAlias, setNewAlias] = useState('');
+  const aliasInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!node) return;
     setXText(String(node.x));
     setYText(String(node.y));
   }, [node?.x, node?.y, nodeId]);
+
+  useEffect(() => {
+    if (editingAliasIndex !== null && aliasInputRef.current) {
+      aliasInputRef.current.focus();
+      aliasInputRef.current.select();
+    }
+  }, [editingAliasIndex]);
 
   const commitXY = useCallback(() => {
     if (!node) return;
@@ -60,18 +80,54 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
     }
   }, [node, xText, yText, updateNode]);
 
-  const addAlias = useCallback(() => {
+  // Alias handlers
+  const startEditAlias = (index: number) => {
+    setEditingAliasIndex(index);
+    setEditingAliasValue(aliases[index]);
+  };
+
+  const saveEditAlias = () => {
+    if (editingAliasIndex === null) return;
+    const newValue = editingAliasValue.trim();
+    if (newValue && newValue !== aliases[editingAliasIndex]) {
+      const newAliases = [...aliases];
+      newAliases[editingAliasIndex] = newValue;
+      setNodeAliases(nodeId, newAliases);
+    }
+    setEditingAliasIndex(null);
+    setEditingAliasValue('');
+  };
+
+  const cancelEditAlias = () => {
+    setEditingAliasIndex(null);
+    setEditingAliasValue('');
+  };
+
+  const addNewAlias = () => {
     const v = newAlias.trim();
-    if (!v) return;
-    if (aliases.includes(v)) return;
+    if (!v || aliases.includes(v)) return;
     setNodeAliases(nodeId, [...aliases, v]);
     setNewAlias('');
-  }, [newAlias, aliases, setNodeAliases, nodeId]);
+  };
 
-  const removeAlias = useCallback((idx: number) => {
-    const next = aliases.filter((_, i) => i !== idx);
-    setNodeAliases(nodeId, next);
-  }, [aliases, setNodeAliases, nodeId]);
+  const removeAlias = (idx: number) => {
+    setNodeAliases(nodeId, aliases.filter((_, i) => i !== idx));
+  };
+
+  // Start edge from this node
+  const startEdgeFromHere = () => {
+    setActiveTool('edge');
+    setEdgeStartNode(nodeId);
+    onClose();
+  };
+
+  // Start transition from this node
+  const startTransitionFromHere = (type?: typeof transitionType) => {
+    if (type) setTransitionType(type);
+    setActiveTool('transition');
+    setTransitionStartNode(nodeId);
+    onClose();
+  };
 
   if (!node) return null;
 
@@ -142,27 +198,77 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 color: 'white',
               }}
             >
-              {node.isPortal ? '⭐ Портал' : '☆ Сделать порталом'}
+              {node.isPortal ? '⭐ Портал' : '☆ Портал'}
             </button>
             
             <button
-              onClick={() => setShowConnectPicker(!showConnectPicker)}
-              className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
-              style={{ 
-                backgroundColor: showConnectPicker ? 'var(--editor-highlight)' : 'var(--editor-accent)',
-                color: 'white',
-              }}
+              onClick={() => addBookmark(nodeId)}
+              className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors hover:opacity-90"
+              style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             >
-              🔗 Соединить с...
+              🔖 В закладки
             </button>
           </div>
 
-          {/* Connect Picker */}
+          {/* Кнопки создания связей */}
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button
+              onClick={startEdgeFromHere}
+              className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors hover:opacity-90"
+              style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
+              title="Начать создание ребра от этого узла"
+            >
+              🔗 Ребро отсюда
+            </button>
+
+            <button
+              onClick={() => setShowTransitionPicker(!showTransitionPicker)}
+              className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+              style={{ 
+                backgroundColor: showTransitionPicker ? 'var(--editor-highlight)' : 'var(--editor-accent)',
+                color: 'white',
+              }}
+            >
+              🚪 Переход отсюда
+            </button>
+          </div>
+
+          {/* Выбор типа перехода */}
+          {showTransitionPicker && (
+            <div className="mt-2 grid grid-cols-2 gap-1">
+              {TRANSITION_TYPES.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    startTransitionFromHere(type);
+                    setShowTransitionPicker(false);
+                  }}
+                  className="px-2 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-colors hover:opacity-90"
+                  style={{ 
+                    backgroundColor: transitionTypeColor(type),
+                    color: 'white',
+                  }}
+                >
+                  {transitionTypeIcon(type)} {transitionTypeLabel(type)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Быстрое соединение */}
+          <button
+            onClick={() => setShowConnectPicker(!showConnectPicker)}
+            className="w-full mt-2 px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
+            style={{ 
+              backgroundColor: showConnectPicker ? 'var(--editor-highlight)' : 'var(--editor-accent)',
+              color: 'white',
+            }}
+          >
+            ⚡ Быстро соединить с...
+          </button>
+
           {showConnectPicker && unconnectedNodes.length > 0 && (
-            <div className="mt-3 space-y-1">
-              <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Выберите узел для соединения:
-              </div>
+            <div className="mt-2 space-y-1">
               <div 
                 className="max-h-32 overflow-y-auto rounded-lg p-1"
                 style={{ backgroundColor: 'var(--editor-panel)' }}
@@ -247,18 +353,98 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           </div>
         </section>
 
+        {/* Aliases - Inline Editing */}
+        <section 
+          className="rounded-xl p-3" 
+          style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
+        >
+          <div 
+            className="text-xs uppercase tracking-wide" 
+            style={{ color: 'var(--editor-text-muted)' }}
+          >
+            🏷️ Алиасы ({aliases.length})
+          </div>
+
+          <div className="mt-2 space-y-1">
+            {aliases.map((alias, idx) => (
+              <div 
+                key={`${alias}-${idx}`}
+                className="flex items-center gap-2 py-1"
+              >
+                {editingAliasIndex === idx ? (
+                  <input
+                    ref={aliasInputRef}
+                    value={editingAliasValue}
+                    onChange={(e) => setEditingAliasValue(e.target.value)}
+                    onBlur={saveEditAlias}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEditAlias();
+                      if (e.key === 'Escape') cancelEditAlias();
+                    }}
+                    className="flex-1 px-2 py-1 rounded text-sm"
+                    style={{
+                      backgroundColor: 'var(--editor-panel)',
+                      border: '1px solid var(--editor-highlight)',
+                      color: 'white',
+                    }}
+                  />
+                ) : (
+                  <span 
+                    className="flex-1 px-2 py-1 rounded text-sm cursor-pointer hover:bg-white/10 truncate"
+                    onClick={() => startEditAlias(idx)}
+                    title="Кликните для редактирования"
+                    style={{ color: 'white' }}
+                  >
+                    {alias}
+                  </span>
+                )}
+                
+                <button
+                  onClick={() => removeAlias(idx)}
+                  className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                  style={{ color: '#fca5a5' }}
+                  title="Удалить"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-2 flex gap-2">
+            <input
+              value={newAlias}
+              onChange={(e) => setNewAlias(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addNewAlias()}
+              placeholder="Новый алиас..."
+              className="flex-1 px-3 py-2 rounded-lg text-sm"
+              style={{ 
+                backgroundColor: 'var(--editor-panel)', 
+                border: '1px solid var(--editor-border)', 
+                color: 'white' 
+              }}
+            />
+            <button
+              onClick={addNewAlias}
+              disabled={!newAlias.trim()}
+              className="px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
+            >
+              +
+            </button>
+          </div>
+        </section>
+
         {/* Neighbors */}
         <section 
           className="rounded-xl p-3" 
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div className="flex items-center justify-between">
-            <div 
-              className="text-xs uppercase tracking-wide" 
-              style={{ color: 'var(--editor-text-muted)' }}
-            >
-              🔗 Соседи ({node.neighbors.length})
-            </div>
+          <div 
+            className="text-xs uppercase tracking-wide" 
+            style={{ color: 'var(--editor-text-muted)' }}
+          >
+            🔗 Соседи ({node.neighbors.length})
           </div>
 
           <div 
@@ -267,7 +453,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           >
             {node.neighbors.length === 0 ? (
               <div className="px-3 py-2 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Нет связей. Используйте инструмент "Ребро" или кнопку "Соединить с..."
+                Нет связей
               </div>
             ) : (
               <ul className="max-h-32 overflow-y-auto">
@@ -281,7 +467,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                       onClick={() => selectSingleNode(nb)}
                       className="text-xs font-mono truncate flex-1 text-left hover:text-white transition-colors"
                       style={{ color: 'var(--editor-text-muted)' }}
-                      title="Перейти к узлу"
                     >
                       {nb}
                     </button>
@@ -289,7 +474,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                       onClick={() => removeEdge(node.id, nb)}
                       className="px-2 py-1 rounded-md text-xs hover:bg-red-500/20 transition-colors"
                       style={{ color: '#fca5a5' }}
-                      title="Удалить ребро"
                     >
                       ✕
                     </button>
@@ -318,18 +502,13 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           >
             {transitions.length === 0 ? (
               <div className="px-3 py-2 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Нет переходов. Используйте инструмент "Переход" для связи с другими этажами/корпусами.
+                Нет переходов
               </div>
             ) : (
               <ul className="max-h-32 overflow-y-auto">
                 {transitions.map((t, idx) => {
                   const other = t.fromNode === node.id ? t.toNode : t.fromNode;
-                  const typeColors: Record<string, string> = {
-                    stairs: '#22c55e',
-                    lift: '#3b82f6',
-                    door: '#f59e0b',
-                    bridge: '#a855f7',
-                  };
+                  const color = transitionTypeColor(t.type);
                   
                   return (
                     <li
@@ -339,23 +518,23 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span 
-                          className="px-1.5 py-0.5 rounded text-xs font-medium"
-                          style={{ backgroundColor: typeColors[t.type] || '#6b7280', color: 'white' }}
+                          className="px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1"
+                          style={{ backgroundColor: color, color: 'white' }}
                         >
-                          {t.type}
+                          {transitionTypeIcon(t.type)}
                         </span>
-                        <span 
-                          className="font-mono text-xs truncate" 
+                        <button
+                          onClick={() => selectSingleNode(other)}
+                          className="font-mono text-xs truncate hover:text-white transition-colors" 
                           style={{ color: 'var(--editor-text-muted)' }}
                         >
-                          → {other}
-                        </span>
+                          {other}
+                        </button>
                       </div>
                       <button
                         onClick={() => removeTransition(t.fromNode, t.toNode)}
                         className="px-2 py-1 rounded-md text-xs hover:bg-red-500/20 transition-colors"
                         style={{ color: '#fca5a5' }}
-                        title="Удалить переход"
                       >
                         ✕
                       </button>
@@ -364,67 +543,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 })}
               </ul>
             )}
-          </div>
-        </section>
-
-        {/* Aliases */}
-        <section 
-          className="rounded-xl p-3" 
-          style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
-        >
-          <div 
-            className="text-xs uppercase tracking-wide" 
-            style={{ color: 'var(--editor-text-muted)' }}
-          >
-            🏷️ Алиасы ({aliases.length})
-          </div>
-
-          {aliases.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {aliases.map((a, idx) => (
-                <span
-                  key={`${a}-${idx}`}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs"
-                  style={{ 
-                    backgroundColor: 'var(--editor-panel)', 
-                    border: '1px solid var(--editor-border)', 
-                    color: 'white' 
-                  }}
-                >
-                  <span className="max-w-[150px] truncate">{a}</span>
-                  <button
-                    onClick={() => removeAlias(idx)}
-                    className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-red-500/20 transition-colors"
-                    style={{ color: '#fca5a5' }}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-2 flex gap-2">
-            <input
-              value={newAlias}
-              onChange={(e) => setNewAlias(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addAlias()}
-              placeholder="Аудитория 305, А-305..."
-              className="flex-1 px-3 py-2 rounded-lg text-sm"
-              style={{ 
-                backgroundColor: 'var(--editor-panel)', 
-                border: '1px solid var(--editor-border)', 
-                color: 'white' 
-              }}
-            />
-            <button
-              onClick={addAlias}
-              disabled={!newAlias.trim()}
-              className="px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-              style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
-            >
-              +
-            </button>
           </div>
         </section>
       </div>
@@ -442,7 +560,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-red-500/30"
           style={{ backgroundColor: 'rgba(239,68,68,0.18)', color: '#fca5a5' }}
         >
-          🗑️ Удалить узел
+          🗑️ Удалить
         </button>
 
         <button
@@ -463,6 +581,6 @@ const InfoBox: React.FC<{ label: string; value: string }> = ({ label, value }) =
     style={{ backgroundColor: 'var(--editor-panel)', border: '1px solid var(--editor-border)' }}
   >
     <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>{label}</div>
-    <div className="text-sm text-white font-medium">{value}</div>
+    <div className="text-sm text-white font-medium truncate">{value}</div>
   </div>
 );

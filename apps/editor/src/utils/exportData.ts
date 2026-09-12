@@ -18,6 +18,18 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
   // === 1. Campus ===
   const campusFolder = dataFolder.folder('campus')!;
   
+  // Вычисляем реальные размеры из узлов (или используем дефолт)
+  const campusNodes = Array.from(nodes.values()).filter((n) => n.building === 'CAMPUS');
+  let mapWidth = 1200;
+  let mapHeight = 800;
+  
+  if (campusNodes.length > 0) {
+    const maxX = Math.max(...campusNodes.map(n => n.x));
+    const maxY = Math.max(...campusNodes.map(n => n.y));
+    mapWidth = Math.max(1200, Math.ceil(maxX / 100) * 100 + 200);
+    mapHeight = Math.max(800, Math.ceil(maxY / 100) * 100 + 200);
+  }
+  
   // campus/meta.json
   const campusMeta = {
     buildings: Array.from(buildingMetas.values()).map((b) => ({
@@ -25,23 +37,21 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
       name: b.name,
     })),
     mapSize: {
-      width: 1200,
-      height: 800,
+      width: mapWidth,
+      height: mapHeight,
     },
   };
   campusFolder.file('meta.json', JSON.stringify(campusMeta, null, 2));
   
   // campus/graph.json
-  const campusNodes = Array.from(nodes.values())
-    .filter((n) => n.building === 'CAMPUS')
-    .map((n) => ({
-      id: n.id,
-      x: n.x,
-      y: n.y,
-      neighbors: n.neighbors,
-      isPortal: n.isPortal,
-    }));
-  campusFolder.file('graph.json', JSON.stringify({ nodes: campusNodes }, null, 2));
+  const campusGraphNodes = campusNodes.map((n) => ({
+    id: n.id,
+    x: n.x,
+    y: n.y,
+    neighbors: n.neighbors,
+    isPortal: n.isPortal,
+  }));
+  campusFolder.file('graph.json', JSON.stringify({ nodes: campusGraphNodes }, null, 2));
   
   // === 2. Buildings ===
   const buildingsFolder = dataFolder.folder('buildings')!;
@@ -91,9 +101,10 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
   };
   dataFolder.file('transitions.json', JSON.stringify(transitionsData, null, 2));
   
-  // === 4. Aliases ===
+  // === 4. Aliases (фильтруем пустые) ===
+  const filteredAliases = aliases.filter(a => a.names.length > 0);
   const aliasesData = {
-    aliases: aliases.length > 0 ? aliases : [],
+    aliases: filteredAliases,
   };
   dataFolder.file('aliases.json', JSON.stringify(aliasesData, null, 2));
   
@@ -118,8 +129,15 @@ data/
 │               ├── graph.json  # Граф этажа
 │               └── map.png     # Карта этажа (добавьте вручную)
 ├── transitions.json    # Переходы между этажами/корпусами
-└── aliases.json        # Человеко-читаемые названия
+└── aliases.json        # Человекочитаемые названия
 \`\`\`
+
+## Типы переходов
+
+- \`entrance\` — вход/выход из корпуса
+- \`stairs\` — лестница
+- \`lift\` — лифт
+- \`bridge\` — переход между корпусами
 
 ## Использование
 
@@ -127,7 +145,6 @@ data/
 2. Добавьте изображения карт (map.png) в соответствующие папки
 3. Скопируйте папку data/ в apps/viewer/public/
 4. Скопируйте папку data/ в apps/editor/public/
-5. Закоммитьте изменения
 `;
   zip.file('README.md', readme);
   
