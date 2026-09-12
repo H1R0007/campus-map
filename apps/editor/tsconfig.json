@@ -1,18 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
     "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [ "./src/*" ],
-      "@campus-map/core": [ "../../packages/core/src" ]
-    }
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
   },
-  "include": [ "src/**/*" ],
-  "exclude": [ "node_modules", "dist" ],
-  "references": [
-    { "path": "../../packages/core" }
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

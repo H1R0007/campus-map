@@ -78,7 +78,7 @@ export function autoFixDataset(params: {
 
   // === ЭТАП 1: Исправляем координаты ===
   if (options.fixCoordinates) {
-    for (const [id, node] of nodes) {
+    for (const node of nodes.values()) {
       let fixed = false;
       let x = node.x;
       let y = node.y;

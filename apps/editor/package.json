@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck": "tsc",
     "preview": "vite preview",
     "test": "node ../../tooling/smoke-test.mjs --app editor --mode prod"
   },
   "dependencies": {
     "@campus-map/core": "workspace:*",
+    "@campus-map/mapkit": "workspace:*",
     "file-saver": "^2.0.5",
     "immer": "^10.1.1",
     "jszip": "^3.10.1",

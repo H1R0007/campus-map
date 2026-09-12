@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
+import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
 /**
@@ -535,6 +536,13 @@ export const RouteOverlay: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
 
+  // Часть маршрута, относящаяся к текущему срезу. Правило принадлежности
+  // узла виду берётся из ядра: оно же используется слоями карты навигатора.
+  const scope = useMemo(
+    () => scopeOfFloor(currentBuilding, currentFloor),
+    [currentBuilding, currentFloor]
+  );
+
   const path = useMemo(() => {
     if (route.alternativePaths && route.alternativePaths.length > 0) {
       return route.alternativePaths[route.selectedPathIndex] ?? route.alternativePaths[0] ?? [];
@@ -574,16 +582,12 @@ export const RouteOverlay: React.FC = () => {
 
   if (!route.active || path.length === 0) return null;
 
-  // показываем только часть маршрута, которая относится к текущему виду
   const visiblePositions: [number, number][] = [];
   for (const id of path) {
     const n = getNode(id);
     if (!n) continue;
 
-    const visible =
-      !currentBuilding ? n.building === 'CAMPUS' : n.building === currentBuilding && n.floor === currentFloor;
-
-    if (visible) visiblePositions.push([n.y, n.x]);
+    if (isNodeInScope(n, scope)) visiblePositions.push([n.y, n.x]);
   }
 
   if (visiblePositions.length === 0) return null;
@@ -593,17 +597,17 @@ export const RouteOverlay: React.FC = () => {
 
   const animVisible =
     animNode &&
-    (!currentBuilding ? animNode.building === 'CAMPUS' : animNode.building === currentBuilding && animNode.floor === currentFloor);
+    isNodeInScope(animNode, scope);
 
   const startNode = getNode(path[0]);
   const endNode = getNode(path[path.length - 1]);
 
   const startVisible =
     startNode &&
-    (!currentBuilding ? startNode.building === 'CAMPUS' : startNode.building === currentBuilding && startNode.floor === currentFloor);
+    isNodeInScope(startNode, scope);
 
   const endVisible =
-    endNode && (!currentBuilding ? endNode.building === 'CAMPUS' : endNode.building === currentBuilding && endNode.floor === currentFloor);
+    endNode && isNodeInScope(endNode, scope);
 
   return (
     <>

@@ -55,6 +55,7 @@ export {
 export {
   buildingDisplayName,
   isNodeInScope,
+  scopeOfFloor,
   scopeOfNode,
   type ViewScope,
 } from './scope.js';

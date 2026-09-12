@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { scopeOfFloor } from '@campus-map/core';
 import type {
   AliasManager,
   BuildingMeta,
@@ -57,12 +58,11 @@ interface MapState {
  *
  * Производное значение, поэтому хранится не в сторе, а вычисляется:
  * дублировать источник истины — значит дать состоянию возможность
- * рассинхронизироваться.
+ * рассинхронизироваться. Само правило принадлежит ядру (`scopeOfFloor`),
+ * здесь только переход от формы хранения навигатора к его аргументам.
  */
 export function scopeOf(activeFloor: ActiveFloor | null): ViewScope {
-  return activeFloor === null
-    ? { mode: 'campus' }
-    : { mode: 'floor', buildingId: activeFloor.buildingId, floor: activeFloor.floor };
+  return scopeOfFloor(activeFloor?.buildingId ?? null, activeFloor?.floor ?? null);
 }
 
 /**

@@ -21,7 +21,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const removeNode = useEditorStore((s) => s.removeNode);
   const addEdge = useEditorStore((s) => s.addEdge);
   const removeEdge = useEditorStore((s) => s.removeEdge);
-  const addTransition = useEditorStore((s) => s.addTransition);
   const removeTransition = useEditorStore((s) => s.removeTransition);
   const getTransitionsForNode = useEditorStore((s) => s.getTransitionsForNode);
   const getNodeAliases = useEditorStore((s) => s.getNodeAliases);

@@ -23,6 +23,9 @@ importers:
       '@campus-map/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@campus-map/mapkit':
+        specifier: workspace:*
+        version: link:../../packages/mapkit
       file-saver:
         specifier: ^2.0.5
         version: 2.0.5

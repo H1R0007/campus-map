@@ -3,24 +3,27 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Campus Map Editor</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+        name="description"
+        content="Внутренний инструмент разметки планов кампуса: узлы, рёбра, переходы между этажами"
+    />
 
-    <!-- Fonts with Cyrillic support -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&subset=cyrillic,cyrillic-ext,latin&display=swap" rel="stylesheet">
+    <title>Редактор карты кампуса</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin="" />
+    <!--
+      Никаких внешних ресурсов.
 
-    <style>
-        /* Fallback fonts while loading */
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }
-    </style>
+      Стили Leaflet импортируются из npm-пакета в main.tsx: редактор —
+      рабочий инструмент команды разметки, и он обязан открываться в
+      локальной сети вуза без доступа к публичным CDN.
+
+      Шрифт Inter раньше подгружался с fonts.googleapis.com. Помимо той же
+      зависимости от внешнего сервиса это означало передачу IP-адреса
+      разметчика третьей стороне на каждом открытии страницы, что для
+      развёртывания в ЕС неприемлемо. Используется системный стек шрифтов:
+      он одинаков в обоих приложениях и не требует загрузки.
+    -->
 </head>
 <body>
     <div id="root"></div>

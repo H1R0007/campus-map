@@ -9,7 +9,6 @@ export const BookmarksPanel: React.FC = () => {
   const bookmarks = useEditorStore((s) => s.bookmarks);
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
   const getNode = useEditorStore((s) => s.getNode);
-  const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
 
   const addBookmark = useEditorStore((s) => s.addBookmark);
   const removeBookmark = useEditorStore((s) => s.removeBookmark);

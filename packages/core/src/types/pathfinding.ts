@@ -27,6 +27,22 @@ export interface PathfindingOptions {
 }
 
 /**
+ * Опции поиска пути по умолчанию: все способы перемещения разрешены,
+ * предпочтение лифту не отдаётся.
+ *
+ * Живут в ядре, потому что одинаковы для навигатора и редактора: оба
+ * приложения держали свой экземпляр этого объекта, и редактор — дважды
+ * (начальное состояние и сброс при загрузке данных).
+ */
+export const DEFAULT_PATHFINDING_OPTIONS: Readonly<PathfindingOptions> = Object.freeze({
+  allowStairs: true,
+  allowLift: true,
+  allowBridge: true,
+  allowEntrance: true,
+  preferLift: false,
+});
+
+/**
  * Один шаг маршрута.
  */
 export interface PathSegment {

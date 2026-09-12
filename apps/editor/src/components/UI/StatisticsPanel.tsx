@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const StatisticsPanel: React.FC = () => {
@@ -18,9 +19,8 @@ export const StatisticsPanel: React.FC = () => {
 
   const stats = useMemo(() => {
     const allNodes = Array.from(nodes.values());
-    const floorNodes = currentBuilding
-      ? allNodes.filter(n => n.building === currentBuilding && n.floor === currentFloor)
-      : allNodes.filter(n => n.building === 'CAMPUS');
+    const scope = scopeOfFloor(currentBuilding, currentFloor);
+    const floorNodes = allNodes.filter((n) => isNodeInScope(n, scope));
 
     const portalNodes = floorNodes.filter(n => n.isPortal);
     const totalEdges = floorNodes.reduce((sum, n) => sum + n.neighbors.length, 0) / 2;
