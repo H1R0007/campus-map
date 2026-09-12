@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouteStore } from '../../stores/routeStore';
 import { useMapStore } from '../../stores/mapStore';
 import { buildRouteSteps } from '../../utils/routeInstructions';

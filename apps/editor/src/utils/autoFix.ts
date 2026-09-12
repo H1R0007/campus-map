@@ -6,16 +6,16 @@ export type AutoFixReport = {
   removedSelfReferences: number;
   removedDuplicateNeighbors: number;
   addedSymmetricEdges: number;
-  
+
   // Переходы
   removedInvalidTransitions: number;
   removedDuplicateTransitions: number;
   removedSelfTransitions: number;
-  
+
   // Узлы
   removedOrphanNodes: number;
   fixedNodeCoordinates: number;
-  
+
   // Общее
   totalFixes: number;
 };
@@ -51,9 +51,9 @@ export function autoFixDataset(params: {
   nodes: Map<string, MapNode>;
   transitions: Transition[];
   options?: AutoFixOptions;
-}): { 
-  fixedNodesNeighbors: Map<string, string[]>; 
-  fixedTransitions: Transition[]; 
+}): {
+  fixedNodesNeighbors: Map<string, string[]>;
+  fixedTransitions: Transition[];
   removedNodeIds: string[];
   report: AutoFixReport;
 } {
@@ -82,7 +82,7 @@ export function autoFixDataset(params: {
       let fixed = false;
       let x = node.x;
       let y = node.y;
-      
+
       if (!Number.isFinite(x)) {
         x = 0;
         fixed = true;
@@ -91,7 +91,7 @@ export function autoFixDataset(params: {
         y = 0;
         fixed = true;
       }
-      
+
       if (fixed) {
         node.x = x;
         node.y = y;
@@ -104,7 +104,7 @@ export function autoFixDataset(params: {
   for (const [id, node] of nodes) {
     const seen = new Set<string>();
     const filtered: string[] = [];
-    
+
     for (const nb of node.neighbors) {
       // Self-reference
       if (nb === id) {
@@ -113,7 +113,7 @@ export function autoFixDataset(params: {
           continue;
         }
       }
-      
+
       // Missing neighbor
       if (!nodes.has(nb)) {
         if (options.removeMissingNeighbors) {
@@ -121,7 +121,7 @@ export function autoFixDataset(params: {
           continue;
         }
       }
-      
+
       // Duplicate
       if (seen.has(nb)) {
         if (options.removeDuplicateNeighbors) {
@@ -129,11 +129,11 @@ export function autoFixDataset(params: {
           continue;
         }
       }
-      
+
       seen.add(nb);
       filtered.push(nb);
     }
-    
+
     newNeighbors.set(id, filtered);
   }
 
@@ -152,35 +152,35 @@ export function autoFixDataset(params: {
 
   // === ЭТАП 4: Исправляем transitions ===
   let fixedTransitions = [...transitions];
-  
+
   if (options.fixTransitions) {
     const seenTransitions = new Set<string>();
     const validTransitions: Transition[] = [];
-    
+
     for (const t of fixedTransitions) {
       // Self-transition
       if (t.fromNode === t.toNode) {
         report.removedSelfTransitions++;
         continue;
       }
-      
+
       // Invalid nodes
       if (!nodes.has(t.fromNode) || !nodes.has(t.toNode)) {
         report.removedInvalidTransitions++;
         continue;
       }
-      
+
       // Duplicate
       const key = [t.fromNode, t.toNode].sort().join('|') + `|${t.type}`;
       if (seenTransitions.has(key)) {
         report.removedDuplicateTransitions++;
         continue;
       }
-      
+
       seenTransitions.add(key);
       validTransitions.push(t);
     }
-    
+
     fixedTransitions = validTransitions;
   }
 
@@ -189,20 +189,20 @@ export function autoFixDataset(params: {
     for (const [id, neighbors] of newNeighbors) {
       const hasNeighbors = neighbors.length > 0;
       const hasTransitions = fixedTransitions.some(t => t.fromNode === id || t.toNode === id);
-      
+
       if (!hasNeighbors && !hasTransitions) {
         removedNodeIds.push(id);
         newNeighbors.delete(id);
         report.removedOrphanNodes++;
       }
     }
-    
+
     // Обновляем neighbors после удаления orphans
     for (const [id, neighbors] of newNeighbors) {
       const filtered = neighbors.filter(nb => !removedNodeIds.includes(nb));
       newNeighbors.set(id, filtered);
     }
-    
+
     // Обновляем transitions
     fixedTransitions = fixedTransitions.filter(
       t => !removedNodeIds.includes(t.fromNode) && !removedNodeIds.includes(t.toNode)
@@ -210,7 +210,7 @@ export function autoFixDataset(params: {
   }
 
   // === Считаем общее количество исправлений ===
-  report.totalFixes = 
+  report.totalFixes =
     report.removedMissingNeighbors +
     report.removedSelfReferences +
     report.removedDuplicateNeighbors +
@@ -249,7 +249,7 @@ export function diagnoseDataset(params: {
   const { nodes, transitions } = params;
   const issues: string[] = [];
   const warnings: string[] = [];
-  
+
   let orphanNodes = 0;
   let missingNeighbors = 0;
   let asymmetricEdges = 0;
@@ -265,7 +265,7 @@ export function diagnoseDataset(params: {
       orphanNodes++;
       warnings.push(`Узел "${id}" не имеет связей`);
     }
-    
+
     // Missing neighbors
     for (const nb of node.neighbors) {
       if (!nodes.has(nb)) {
@@ -273,7 +273,7 @@ export function diagnoseDataset(params: {
         issues.push(`Узел "${id}" ссылается на несуществующего соседа "${nb}"`);
       }
     }
-    
+
     // Asymmetric edges
     for (const nb of node.neighbors) {
       const neighbor = nodes.get(nb);
@@ -282,13 +282,13 @@ export function diagnoseDataset(params: {
         warnings.push(`Асимметричное ребро: "${id}" → "${nb}" (обратное отсутствует)`);
       }
     }
-    
+
     // Invalid coordinates
     if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
       issues.push(`Узел "${id}" имеет некорректные координаты`);
     }
   }
-  
+
   // Проверяем transitions
   const seenTransitions = new Set<string>();
   for (const t of transitions) {
@@ -300,7 +300,7 @@ export function diagnoseDataset(params: {
       invalidTransitions++;
       issues.push(`Переход ссылается на несуществующий узел "${t.toNode}"`);
     }
-    
+
     const key = [t.fromNode, t.toNode].sort().join('|');
     if (seenTransitions.has(key)) {
       duplicateTransitions++;

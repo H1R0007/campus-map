@@ -14,19 +14,19 @@ const App: React.FC = () => {
     loadAllData();
   }, [loadAllData]);
 
-  // Экран загрузки
+  // Р­РєСЂР°РЅ Р·Р°РіСЂСѓР·РєРё
   if (isLoading) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Загрузка карты...</p>
+          <p className="text-gray-600">Р—Р°РіСЂСѓР·РєР° РєР°СЂС‚С‹...</p>
         </div>
       </div>
     );
   }
 
-  // Экран ошибки
+  // Р­РєСЂР°РЅ РѕС€РёР±РєРё
   if (error) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-gray-100 p-6">
@@ -36,13 +36,13 @@ const App: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-lg font-semibold text-gray-800 mb-2">Не удалось загрузить</h1>
+          <h1 className="text-lg font-semibold text-gray-800 mb-2">РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ</h1>
           <p className="text-sm text-gray-500 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
-            Попробовать снова
+            РџРѕРїСЂРѕР±РѕРІР°С‚СЊ СЃРЅРѕРІР°
           </button>
         </div>
       </div>
@@ -55,10 +55,10 @@ const App: React.FC = () => {
 
   return (
     <div className="h-full w-full relative overflow-hidden">
-      {/* Карта */}
+      {/* РљР°СЂС‚Р° */}
       <CampusMap />
 
-      {/* UI элементы */}
+      {/* UI СЌР»РµРјРµРЅС‚С‹ */}
       <BuildingSelector />
       <FloorSelector />
       <BottomSheet />

@@ -52,7 +52,7 @@ export const EditorTransitions: React.FC = () => {
 
         const isHovered = hoveredTransition?.from === t.fromNode && hoveredTransition?.to === t.toNode;
 
-        // Используем цвет из core
+        // РСЃРїРѕР»СЊР·СѓРµРј С†РІРµС‚ РёР· core
         const color = transitionTypeColor(t.type);
 
         return (

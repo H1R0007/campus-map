@@ -38,18 +38,18 @@ export function useDataLoader() {
       const graph = new Graph();
       const aliasManager = new AliasManager();
 
-      // 1. Загружаем метаданные кампуса
+      // 1. Р—Р°РіСЂСѓР¶Р°РµРј РјРµС‚Р°РґР°РЅРЅС‹Рµ РєР°РјРїСѓСЃР°
       const campusMeta = await loadJson<{
         buildings: { id: string; name?: string }[];
         mapSize: { width: number; height: number };
       }>('/campus/meta.json');
       setCampusMeta(campusMeta);
 
-      // 2. Загружаем граф кампуса
+      // 2. Р—Р°РіСЂСѓР¶Р°РµРј РіСЂР°С„ РєР°РјРїСѓСЃР°
       const campusGraph = await loadJson<{ nodes: unknown[] }>('/campus/graph.json');
       graph.loadNodes(campusGraph as Parameters<typeof graph.loadNodes>[0], 'CAMPUS', 0);
 
-      // 3. Загружаем каждое здание
+      // 3. Р—Р°РіСЂСѓР¶Р°РµРј РєР°Р¶РґРѕРµ Р·РґР°РЅРёРµ
       for (const building of campusMeta.buildings) {
         try {
           const buildingMeta = await loadJson<{
@@ -66,7 +66,7 @@ export function useDataLoader() {
             bounds: buildingMeta.bounds,
           });
 
-          // 4. Загружаем графы этажей
+          // 4. Р—Р°РіСЂСѓР¶Р°РµРј РіСЂР°С„С‹ СЌС‚Р°Р¶РµР№
           for (const floor of buildingMeta.floors) {
             try {
               const floorGraph = await loadJson<{ nodes: unknown[] }>(
@@ -86,7 +86,7 @@ export function useDataLoader() {
         }
       }
 
-      // 5. Загружаем переходы
+      // 5. Р—Р°РіСЂСѓР¶Р°РµРј РїРµСЂРµС…РѕРґС‹
       try {
         const transitions = await loadJson<{ transitions: unknown[] }>('/transitions.json');
         graph.loadTransitions(transitions as Parameters<typeof graph.loadTransitions>[0]);
@@ -94,7 +94,7 @@ export function useDataLoader() {
         console.warn('Failed to load transitions:', e);
       }
 
-      // 6. Загружаем алиасы
+      // 6. Р—Р°РіСЂСѓР¶Р°РµРј Р°Р»РёР°СЃС‹
       try {
         const aliases = await loadJson<{ aliases: unknown[] }>('/aliases.json');
         aliasManager.load(aliases as Parameters<typeof aliasManager.load>[0]);
@@ -102,7 +102,7 @@ export function useDataLoader() {
         console.warn('Failed to load aliases:', e);
       }
 
-      // Сохраняем в store
+      // РЎРѕС…СЂР°РЅСЏРµРј РІ store
       setGraph(graph);
       setAliasManager(aliasManager);
       setDataLoaded(true);

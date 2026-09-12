@@ -12,7 +12,7 @@ export default defineConfig({
       manifest: {
         name: 'Campus Map',
         short_name: 'CampusMap',
-        description: 'Интерактивная карта кампуса',
+        description: 'РРЅС‚РµСЂР°РєС‚РёРІРЅР°СЏ РєР°СЂС‚Р° РєР°РјРїСѓСЃР°',
         theme_color: '#0063CC',
         background_color: '#ffffff',
         display: 'standalone',

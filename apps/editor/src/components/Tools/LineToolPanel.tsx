@@ -1,4 +1,4 @@
-﻿import React, { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const LineToolPanel: React.FC = () => {
@@ -39,7 +39,7 @@ export const LineToolPanel: React.FC = () => {
 
   // Не показываем панель если не выбран LineTool
   if (activeTool !== 'line') return null;
-  
+
   // Не показываем панель если нет начальной точки
   if (!lt.start) return null;
 
@@ -48,9 +48,9 @@ export const LineToolPanel: React.FC = () => {
   return (
     <div
       className="absolute right-3 bottom-10 w-[340px] z-[1700] rounded-2xl shadow-2xl overflow-hidden"
-      style={{ 
-        backgroundColor: 'var(--editor-panel)', 
-        border: '1px solid var(--editor-border)' 
+      style={{
+        backgroundColor: 'var(--editor-panel)',
+        border: '1px solid var(--editor-border)'
       }}
       // Предотвращаем всплытие событий мыши на карту
       onMouseDown={(e) => e.stopPropagation()}
@@ -58,15 +58,15 @@ export const LineToolPanel: React.FC = () => {
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Header */}
-      <div 
-        className="px-4 py-3 flex items-center justify-between" 
+      <div
+        className="px-4 py-3 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
         <div className="text-white font-semibold">Line Tool</div>
-        <button 
-          onClick={handleReset} 
-          className="p-2 rounded-xl hover:bg-white/10 transition-colors" 
-          style={{ color: 'var(--editor-text-muted)' }} 
+        <button
+          onClick={handleReset}
+          className="p-2 rounded-xl hover:bg-white/10 transition-colors"
+          style={{ color: 'var(--editor-text-muted)' }}
           title="Сбросить"
           type="button"
         >
@@ -101,10 +101,10 @@ export const LineToolPanel: React.FC = () => {
             step={1}
             onChange={handleCountChange}
             className="mt-1 w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            style={{ 
-              backgroundColor: 'var(--editor-bg)', 
-              border: '1px solid var(--editor-border)', 
-              color: 'white' 
+            style={{
+              backgroundColor: 'var(--editor-bg)',
+              border: '1px solid var(--editor-border)',
+              color: 'white'
             }}
           />
         </div>
@@ -126,10 +126,10 @@ export const LineToolPanel: React.FC = () => {
             onClick={handleReset}
             type="button"
             className="flex-1 px-4 py-2.5 rounded-xl text-sm transition-colors hover:opacity-80"
-            style={{ 
-              backgroundColor: 'var(--editor-accent)', 
-              color: 'white', 
-              border: '1px solid var(--editor-border)' 
+            style={{
+              backgroundColor: 'var(--editor-accent)',
+              color: 'white',
+              border: '1px solid var(--editor-border)'
             }}
           >
             Отмена

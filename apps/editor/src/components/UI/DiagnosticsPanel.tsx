@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { validateDataset } from '../../utils/validateData';
 
@@ -20,15 +20,15 @@ export const DiagnosticsPanel: React.FC = () => {
   const handleAutoFix = () => {
     try {
       const r = autoFix();
-      const message = 
+      const message =
         `Auto-fix выполнен:\n` +
         `• Удалено битых neighbors: ${r.removedMissingNeighbors}\n` +
         `• Добавлено симметричных рёбер: ${r.addedSymmetricEdges}\n` +
         `• Удалено битых transitions: ${r.removedInvalidTransitions}\n` +
         `• Удалено дублей transitions: ${r.removedDuplicateTransitions}`;
-      
+
       setLastFixReport(message);
-      
+
       if (r.removedMissingNeighbors + r.addedSymmetricEdges + r.removedInvalidTransitions + r.removedDuplicateTransitions === 0) {
         setLastFixReport('Проблем для исправления не найдено!');
       }
@@ -40,13 +40,13 @@ export const DiagnosticsPanel: React.FC = () => {
 
   if (!open) {
     const hasIssues = report.errors.length > 0 || report.warnings.length > 0;
-    
+
     return (
       <button
         onClick={() => setOpen(true)}
         className="absolute left-3 bottom-10 z-[1600] px-3 py-2 rounded-xl text-sm font-medium shadow-lg transition-colors hover:opacity-90"
         style={{
-          backgroundColor: hasIssues 
+          backgroundColor: hasIssues
             ? (report.errors.length > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)')
             : 'var(--editor-panel)',
           border: '1px solid var(--editor-border)',
@@ -56,9 +56,9 @@ export const DiagnosticsPanel: React.FC = () => {
       >
         🔍 Диагностика
         {hasIssues && (
-          <span 
+          <span
             className="ml-2 px-1.5 py-0.5 rounded text-xs font-bold"
-            style={{ 
+            style={{
               backgroundColor: report.errors.length > 0 ? '#ef4444' : '#f59e0b',
               color: 'white',
             }}
@@ -79,14 +79,14 @@ export const DiagnosticsPanel: React.FC = () => {
       }}
     >
       {/* Header */}
-      <div 
-        className="px-4 py-3 flex items-center justify-between" 
+      <div
+        className="px-4 py-3 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
         <div className="text-white font-semibold">🔍 Диагностика</div>
-        <button 
-          onClick={() => setOpen(false)} 
-          className="p-2 rounded-xl hover:bg-white/10 transition-colors" 
+        <button
+          onClick={() => setOpen(false)}
+          className="p-2 rounded-xl hover:bg-white/10 transition-colors"
           style={{ color: 'var(--editor-text-muted)' }}
         >
           ✕
@@ -96,31 +96,31 @@ export const DiagnosticsPanel: React.FC = () => {
       <div className="p-4 space-y-3 overflow-y-auto">
         {/* Summary */}
         <div className="flex gap-2">
-          <div 
-            className="flex-1 rounded-xl p-3" 
-            style={{ 
-              backgroundColor: report.errors.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--editor-bg)', 
-              border: '1px solid var(--editor-border)' 
+          <div
+            className="flex-1 rounded-xl p-3"
+            style={{
+              backgroundColor: report.errors.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--editor-bg)',
+              border: '1px solid var(--editor-border)'
             }}
           >
             <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>Ошибки</div>
-            <div 
-              className="text-lg font-semibold" 
+            <div
+              className="text-lg font-semibold"
               style={{ color: report.errors.length ? '#fca5a5' : '#22c55e' }}
             >
               {report.errors.length}
             </div>
           </div>
-          <div 
-            className="flex-1 rounded-xl p-3" 
-            style={{ 
-              backgroundColor: report.warnings.length > 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--editor-bg)', 
-              border: '1px solid var(--editor-border)' 
+          <div
+            className="flex-1 rounded-xl p-3"
+            style={{
+              backgroundColor: report.warnings.length > 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--editor-bg)',
+              border: '1px solid var(--editor-border)'
             }}
           >
             <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>Предупреждения</div>
-            <div 
-              className="text-lg font-semibold" 
+            <div
+              className="text-lg font-semibold"
               style={{ color: report.warnings.length ? '#fbbf24' : '#22c55e' }}
             >
               {report.warnings.length}
@@ -143,10 +143,10 @@ export const DiagnosticsPanel: React.FC = () => {
 
         {/* Last fix report */}
         {lastFixReport && (
-          <div 
+          <div
             className="rounded-xl p-3 text-sm whitespace-pre-line"
-            style={{ 
-              backgroundColor: 'var(--editor-bg)', 
+            style={{
+              backgroundColor: 'var(--editor-bg)',
               border: '1px solid var(--editor-border)',
               color: 'var(--editor-text-muted)',
             }}
@@ -157,8 +157,8 @@ export const DiagnosticsPanel: React.FC = () => {
 
         {/* Errors */}
         {report.errors.length > 0 && (
-          <div 
-            className="rounded-xl p-3" 
+          <div
+            className="rounded-xl p-3"
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
           >
             <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fca5a5' }}>
@@ -177,8 +177,8 @@ export const DiagnosticsPanel: React.FC = () => {
 
         {/* Warnings */}
         {report.warnings.length > 0 && (
-          <div 
-            className="rounded-xl p-3" 
+          <div
+            className="rounded-xl p-3"
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
           >
             <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fbbf24' }}>
@@ -197,7 +197,7 @@ export const DiagnosticsPanel: React.FC = () => {
 
         {/* All good */}
         {report.errors.length === 0 && report.warnings.length === 0 && (
-          <div 
+          <div
             className="rounded-xl p-4 text-center"
             style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e' }}
           >

@@ -3,10 +3,10 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
-import { 
-  MapNode, 
-  Transition, 
-  BuildingMeta, 
+import {
+  MapNode,
+  Transition,
+  BuildingMeta,
   TransitionType,
   Graph,
   findAlternativePaths,
@@ -152,17 +152,17 @@ interface EditorState {
  */
 function buildGraphFromState(nodes: Map<string, MapNode>, transitions: Transition[]): Graph {
   const graph = new Graph();
-  
+
   // Добавляем узлы напрямую
   for (const node of nodes.values()) {
     graph.addNode({ ...node, neighbors: [...node.neighbors] });
   }
-  
+
   // Добавляем переходы
   for (const t of transitions) {
     graph.addTransition({ ...t });
   }
-  
+
   return graph;
 }
 
@@ -266,7 +266,7 @@ interface EditorActions {
   removeFromSelection: (nodeIds: string[]) => void;
   selectNodesInRect: (x1: number, y1: number, x2: number, y2: number) => void;
   selectAll: () => void;
-  
+
   deleteSelected: () => void;
   duplicateSelected: () => void;
   moveSelectedBy: (dx: number, dy: number) => void;
@@ -442,7 +442,7 @@ export const useEditorStore = create<EditorStore>()(
     pickRouteNode: (nodeId) => {
       const st = get();
       if (!st.routePickMode || !st.routeSimulatorOpen) return false;
-      
+
       const node = st.nodes.get(nodeId);
       if (!node) return false;
 
@@ -472,11 +472,11 @@ export const useEditorStore = create<EditorStore>()(
     addBookmark: (nodeId, name) => {
       const node = get().nodes.get(nodeId);
       if (!node) return;
-      
+
       const aliases = get().aliases.get(nodeId) || [];
       const defaultName = aliases[0] || nodeId;
       const bookmarkId = `bm_${Date.now()}`;
-      
+
       set((s) => {
         s.bookmarks.set(bookmarkId, {
           nodeId,
@@ -551,15 +551,15 @@ export const useEditorStore = create<EditorStore>()(
      */
     calculateRoute: (fromId, toId) => {
       const { nodes, transitions, routeSimulation } = get();
-      
+
       // Строим временный Graph из текущего состояния
       const graph = buildGraphFromState(nodes, transitions);
-      
+
       // Ищем основной путь и альтернативы через core
       const multiResult = findAlternativePaths(
-        graph, 
-        fromId, 
-        toId, 
+        graph,
+        fromId,
+        toId,
         routeSimulation.pathfindingOptions,
         3
       );
@@ -584,7 +584,7 @@ export const useEditorStore = create<EditorStore>()(
     stopRouteAnimation: () => set((s) => { s.routeSimulation.active = false; }),
 
         // === EDGE OPERATIONS ===
-    
+
     /**
      * Разделить ребро пополам, вставив узел посередине
      */
@@ -592,14 +592,14 @@ export const useEditorStore = create<EditorStore>()(
       const st = get();
       const fromNode = st.nodes.get(fromId);
       const toNode = st.nodes.get(toId);
-      
+
       if (!fromNode || !toNode) return null;
       if (!fromNode.neighbors.includes(toId)) return null;
-      
+
       // Вычисляем середину
       const midX = Math.round((fromNode.x + toNode.x) / 2);
       const midY = Math.round((fromNode.y + toNode.y) / 2);
-      
+
       // Snap to grid если нужно
       const { gridSettings } = st;
       let finalX = midX;
@@ -608,16 +608,16 @@ export const useEditorStore = create<EditorStore>()(
         finalX = Math.round(midX / gridSettings.size) * gridSettings.size;
         finalY = Math.round(midY / gridSettings.size) * gridSettings.size;
       }
-      
+
       // Генерируем ID
       const building = fromNode.building;
       const floor = fromNode.floor;
       const counter = st.nodeIdCounter;
       const newId = `${building.toLowerCase()}_${floor}_node_${counter}`;
-      
+
       // Сохраняем для undo
       const neighborsBefore = snapshotNeighbors(st.nodes, [fromId, toId]);
-      
+
       const newNode: MapNode = {
         id: newId,
         x: finalX,
@@ -627,45 +627,45 @@ export const useEditorStore = create<EditorStore>()(
         isPortal: false,
         neighbors: [fromId, toId],
       };
-      
+
       useHistoryStore.getState().push({
         type: 'BATCH',
         description: 'Разделено ребро',
-        undoData: { 
-          kind: 'splitEdge', 
-          newNodeId: newId, 
-          fromId, 
+        undoData: {
+          kind: 'splitEdge',
+          newNodeId: newId,
+          fromId,
           toId,
           neighborsBefore,
         },
-        redoData: { 
-          kind: 'splitEdge', 
-          newNode, 
-          fromId, 
+        redoData: {
+          kind: 'splitEdge',
+          newNode,
+          fromId,
           toId,
         },
       });
-      
+
       set((s) => {
         s.nodeIdCounter = counter + 1;
-        
+
         // Убираем прямое ребро
         const from = s.nodes.get(fromId)!;
         const to = s.nodes.get(toId)!;
         from.neighbors = from.neighbors.filter(n => n !== toId);
         to.neighbors = to.neighbors.filter(n => n !== fromId);
-        
+
         // Добавляем узел
         s.nodes.set(newId, newNode);
-        
+
         // Связываем с новым узлом
         from.neighbors.push(newId);
         to.neighbors.push(newId);
-        
+
         s.selectedNodeIds = new Set([newId]);
         s.hasUnsavedChanges = true;
       });
-      
+
       return newId;
     },
 
@@ -674,37 +674,37 @@ export const useEditorStore = create<EditorStore>()(
      */
     subdivideEdge: (fromId, toId, count) => {
       if (count < 2) return [];
-      
+
       const st = get();
       const fromNode = st.nodes.get(fromId);
       const toNode = st.nodes.get(toId);
-      
+
       if (!fromNode || !toNode) return [];
       if (!fromNode.neighbors.includes(toId)) return [];
-      
+
       const segmentCount = Math.min(count, 20); // Лимит
       const nodeCount = segmentCount - 1;
-      
+
       if (nodeCount < 1) return [];
-      
+
       const building = fromNode.building;
       const floor = fromNode.floor;
       const { gridSettings } = st;
-      
+
       // Генерируем узлы
       const newNodes: MapNode[] = [];
       let counter = st.nodeIdCounter;
-      
+
       for (let i = 1; i <= nodeCount; i++) {
         const t = i / segmentCount;
         let x = Math.round(fromNode.x + (toNode.x - fromNode.x) * t);
         let y = Math.round(fromNode.y + (toNode.y - fromNode.y) * t);
-        
+
         if (gridSettings.enabled && gridSettings.snap) {
           x = Math.round(x / gridSettings.size) * gridSettings.size;
           y = Math.round(y / gridSettings.size) * gridSettings.size;
         }
-        
+
         const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
         newNodes.push({
           id: newId,
@@ -716,7 +716,7 @@ export const useEditorStore = create<EditorStore>()(
           neighbors: [],
         });
       }
-      
+
       // Устанавливаем связи цепочкой
       for (let i = 0; i < newNodes.length; i++) {
         if (i === 0) {
@@ -724,56 +724,56 @@ export const useEditorStore = create<EditorStore>()(
         } else {
           newNodes[i].neighbors.push(newNodes[i - 1].id);
         }
-        
+
         if (i === newNodes.length - 1) {
           newNodes[i].neighbors.push(toId);
         } else {
           newNodes[i].neighbors.push(newNodes[i + 1].id);
         }
       }
-      
+
       const neighborsBefore = snapshotNeighbors(st.nodes, [fromId, toId]);
-      
+
       useHistoryStore.getState().push({
         type: 'BATCH',
         description: `Subdivide: ${nodeCount} узлов`,
-        undoData: { 
-          kind: 'subdivideEdge', 
-          nodeIds: newNodes.map(n => n.id), 
-          fromId, 
+        undoData: {
+          kind: 'subdivideEdge',
+          nodeIds: newNodes.map(n => n.id),
+          fromId,
           toId,
           neighborsBefore,
         },
-        redoData: { 
-          kind: 'subdivideEdge', 
-          nodes: newNodes, 
-          fromId, 
+        redoData: {
+          kind: 'subdivideEdge',
+          nodes: newNodes,
+          fromId,
           toId,
         },
       });
-      
+
       set((s) => {
         s.nodeIdCounter = counter;
-        
+
         // Убираем прямое ребро
         const from = s.nodes.get(fromId)!;
         const to = s.nodes.get(toId)!;
         from.neighbors = from.neighbors.filter(n => n !== toId);
         to.neighbors = to.neighbors.filter(n => n !== fromId);
-        
+
         // Добавляем узлы
         for (const n of newNodes) {
           s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
         }
-        
+
         // Связываем крайние
         from.neighbors.push(newNodes[0].id);
         to.neighbors.push(newNodes[newNodes.length - 1].id);
-        
+
         s.selectedNodeIds = new Set(newNodes.map(n => n.id));
         s.hasUnsavedChanges = true;
       });
-      
+
       return newNodes.map(n => n.id);
     },
 
@@ -784,19 +784,19 @@ export const useEditorStore = create<EditorStore>()(
       if (!q) return [];
 
       const results: MapNode[] = [];
-      
+
       for (const [id, node] of nodes) {
         if (id.toLowerCase().includes(q)) {
           results.push(node);
           continue;
         }
-        
+
         const nodeAliases = aliases.get(id) || [];
         if (nodeAliases.some(a => a.toLowerCase().includes(q))) {
           results.push(node);
           continue;
         }
-        
+
         const cleanQ = q.replace(/[()]/g, '').trim();
         const coordMatch = cleanQ.match(/^(\d+)\s*[,\s]\s*(\d+)$/);
         if (coordMatch) {
@@ -854,9 +854,9 @@ export const useEditorStore = create<EditorStore>()(
 
       setTimeout(() => {
         set((s) => {
-          s.cameraCenterRequest = { 
-            x: node.x, 
-            y: node.y, 
+          s.cameraCenterRequest = {
+            x: node.x,
+            y: node.y,
             zoom: keepZoom ? undefined : 2
           };
           s.selectedNodeIds = new Set([nodeId]);
@@ -892,7 +892,7 @@ export const useEditorStore = create<EditorStore>()(
       const maxY = Math.max(y1, y2);
 
       const floorNodes = get().getNodesForCurrentFloor();
-      const inRect = floorNodes.filter(n => 
+      const inRect = floorNodes.filter(n =>
         n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY
       );
 
@@ -914,7 +914,7 @@ export const useEditorStore = create<EditorStore>()(
       const deletedAliases: { id: string; names: string[] }[] = [];
       const deletedComments: { id: string; comment: string }[] = [];
       const affected = new Set<string>();
-      
+
       for (const id of ids) {
         const node = nodes.get(id);
         if (node) {
@@ -922,13 +922,13 @@ export const useEditorStore = create<EditorStore>()(
           affected.add(id);
           for (const nb of node.neighbors) affected.add(nb);
         }
-        
+
         // Сохраняем алиасы для undo
         const nodeAliases = aliases.get(id);
         if (nodeAliases && nodeAliases.length > 0) {
           deletedAliases.push({ id, names: [...nodeAliases] });
         }
-        
+
         // Сохраняем комментарии для undo
         const comment = comments.get(id);
         if (comment) {
@@ -942,10 +942,10 @@ export const useEditorStore = create<EditorStore>()(
       useHistoryStore.getState().push({
         type: 'BATCH',
         description: `Удалено ${ids.length} узлов`,
-        undoData: { 
-          kind: 'deleteMultiple', 
-          nodes: deletedNodes, 
-          neighborsBefore, 
+        undoData: {
+          kind: 'deleteMultiple',
+          nodes: deletedNodes,
+          neighborsBefore,
           transitionsBefore,
           aliases: deletedAliases,
           comments: deletedComments,
@@ -962,7 +962,7 @@ export const useEditorStore = create<EditorStore>()(
         for (const [, n] of s.nodes) {
           n.neighbors = n.neighbors.filter(nb => !ids.includes(nb));
         }
-        s.transitions = s.transitions.filter(t => 
+        s.transitions = s.transitions.filter(t =>
           !ids.includes(t.fromNode) && !ids.includes(t.toNode)
         );
         s.selectedNodeIds = new Set();
@@ -976,10 +976,10 @@ export const useEditorStore = create<EditorStore>()(
 
       const ids = Array.from(selectedNodeIds);
       const offset = 30;
-      
+
       const oldToNew = new Map<string, string>();
       const newNodes: MapNode[] = [];
-      
+
       let counter = get().nodeIdCounter;
       const building = currentBuilding ?? 'campus';
       const floor = currentFloor ?? 0;
@@ -1043,17 +1043,17 @@ export const useEditorStore = create<EditorStore>()(
       for (const id of ids) {
         const node = nodes.get(id);
         if (!node) continue;
-        
+
         before.push({ nodeId: id, x: node.x, y: node.y });
-        
+
         let newX = node.x + dx;
         let newY = node.y + dy;
-        
+
         if (gridSettings.snap && gridSettings.enabled) {
           newX = Math.round(newX / gridSettings.size) * gridSettings.size;
           newY = Math.round(newY / gridSettings.size) * gridSettings.size;
         }
-        
+
         after.push({ nodeId: id, x: newX, y: newY });
       }
 
@@ -1112,7 +1112,7 @@ export const useEditorStore = create<EditorStore>()(
 
       const ids = Array.from(selectedNodeIds);
       const nodeList = ids.map(id => nodes.get(id)).filter(Boolean) as MapNode[];
-      
+
       nodeList.sort((a, b) => a.x - b.x || a.y - b.y);
 
       const neighborsBefore = snapshotNeighbors(nodes, ids);
@@ -1150,7 +1150,7 @@ export const useEditorStore = create<EditorStore>()(
         const node = nodes.get(id);
         if (node) {
           copiedNodes.push({ ...node, neighbors: [...node.neighbors] });
-          
+
           for (const nb of node.neighbors) {
             if (ids.includes(nb) && id < nb) {
               internalEdges.push({ from: id, to: nb });
@@ -1170,7 +1170,7 @@ export const useEditorStore = create<EditorStore>()(
 
       const oldToNew = new Map<string, string>();
       const newNodes: MapNode[] = [];
-      
+
       let counter = get().nodeIdCounter;
       const building = currentBuilding ?? 'campus';
       const floor = currentFloor ?? 0;
@@ -1375,10 +1375,10 @@ export const useEditorStore = create<EditorStore>()(
     addNode: (x, y) => {
       const st = get();
       const { gridSettings } = st;
-      
+
       let finalX = Math.round(x);
       let finalY = Math.round(y);
-      
+
       if (gridSettings.enabled && gridSettings.snap) {
         finalX = Math.round(x / gridSettings.size) * gridSettings.size;
         finalY = Math.round(y / gridSettings.size) * gridSettings.size;
@@ -1429,7 +1429,7 @@ export const useEditorStore = create<EditorStore>()(
       const neighborsBefore = snapshotNeighbors(st.nodes, Array.from(affected));
       const transitionsBefore = [...st.transitions];
       const nodeSnapshot: MapNode = { ...node, neighbors: [...node.neighbors] };
-      
+
       // Сохраняем алиасы и комментарии
       const aliasesSnapshot = st.aliases.get(nodeId) ? [...st.aliases.get(nodeId)!] : [];
       const commentSnapshot = st.comments.get(nodeId) || '';
@@ -1437,9 +1437,9 @@ export const useEditorStore = create<EditorStore>()(
       useHistoryStore.getState().push({
         type: 'REMOVE_NODE',
         description: 'Удален узел',
-        undoData: { 
-          node: nodeSnapshot, 
-          neighborsBefore, 
+        undoData: {
+          node: nodeSnapshot,
+          neighborsBefore,
           transitionsBefore,
           aliases: aliasesSnapshot,
           comment: commentSnapshot,
@@ -1465,15 +1465,15 @@ export const useEditorStore = create<EditorStore>()(
     moveNode: (nodeId, x, y) => set((s) => {
       const n = s.nodes.get(nodeId);
       if (!n) return;
-      
+
       let finalX = Math.round(x);
       let finalY = Math.round(y);
-      
+
       if (s.gridSettings.enabled && s.gridSettings.snap) {
         finalX = Math.round(x / s.gridSettings.size) * s.gridSettings.size;
         finalY = Math.round(y / s.gridSettings.size) * s.gridSettings.size;
       }
-      
+
       n.x = finalX;
       n.y = finalY;
       s.hasUnsavedChanges = true;
@@ -1703,7 +1703,7 @@ export const useEditorStore = create<EditorStore>()(
       const nodeIds: string[] = [];
       let currentCounter = st.nodeIdCounter;
       const buildingLower = (st.currentBuilding ?? 'campus').toLowerCase();
-      
+
       for (let i = 0; i < count; i++) {
         nodeIds.push(`${buildingLower}_${floor}_node_${currentCounter + i}`);
       }
@@ -1712,7 +1712,7 @@ export const useEditorStore = create<EditorStore>()(
       for (let i = 0; i < count; i++) {
         let x = Math.round(lt.start.x + dx * i);
         let y = Math.round(lt.start.y + dy * i);
-        
+
         if (st.gridSettings.enabled && st.gridSettings.snap) {
           x = Math.round(x / st.gridSettings.size) * st.gridSettings.size;
           y = Math.round(y / st.gridSettings.size) * st.gridSettings.size;
@@ -1969,7 +1969,7 @@ export const useEditorStore = create<EditorStore>()(
               for (const [, n] of s.nodes) {
                 n.neighbors = n.neighbors.filter(nb => !r.nodeIds.includes(nb));
               }
-              s.transitions = s.transitions.filter(t => 
+              s.transitions = s.transitions.filter(t =>
                 !r.nodeIds.includes(t.fromNode) && !r.nodeIds.includes(t.toNode)
               );
               s.selectedNodeIds = new Set();
@@ -2047,7 +2047,7 @@ export const useEditorStore = create<EditorStore>()(
         transitions: st.transitions,
       });
 
-      const hasChanges = 
+      const hasChanges =
         report.removedMissingNeighbors > 0 ||
         report.addedSymmetricEdges > 0 ||
         report.removedInvalidTransitions > 0 ||
@@ -2138,18 +2138,18 @@ export const useEditorStore = create<EditorStore>()(
       let result = currentBuilding
         ? Array.from(nodes.values()).filter(n => n.building === currentBuilding && n.floor === currentFloor)
         : Array.from(nodes.values()).filter(n => n.building === 'CAMPUS');
-      
+
       if (!displayFilters.showPortals) {
         result = result.filter(n => !n.isPortal);
       }
-      
+
       return result;
     },
 
     getEdgesForCurrentFloor: () => {
       const { displayFilters } = get();
       if (!displayFilters.showEdges) return [];
-      
+
       const nodes = get().getNodesForCurrentFloor();
       const getNode = get().getNode;
       const edges: { from: string; to: string }[] = [];

@@ -73,7 +73,7 @@ export const CampusMap: React.FC = () => {
 
   return (
     <MapContainer
-      key={mapUrl} // âàæíîå: ïğè ñìåíå êàğòèíêè ïåğåñîçäà¸ì êàğòó, ÷òîáû bounds òî÷íî ïğèìåíèëèñü
+      key={mapUrl} // Ğ²Ğ°Ğ¶Ğ½Ğ¾Ğµ: Ğ¿Ñ€Ğ¸ ÑĞ¼ĞµĞ½Ğµ ĞºĞ°Ñ€Ñ‚Ğ¸Ğ½ĞºĞ¸ Ğ¿ĞµÑ€ĞµÑĞ¾Ğ·Ğ´Ğ°Ñ‘Ğ¼ ĞºĞ°Ñ€Ñ‚Ñƒ, Ñ‡Ñ‚Ğ¾Ğ±Ñ‹ bounds Ñ‚Ğ¾Ñ‡Ğ½Ğ¾ Ğ¿Ñ€Ğ¸Ğ¼ĞµĞ½Ğ¸Ğ»Ğ¸ÑÑŒ
       center={[size.height / 2, size.width / 2]}
       zoom={0}
       minZoom={-2}

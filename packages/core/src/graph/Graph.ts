@@ -5,35 +5,35 @@ import type { Transition, TransitionData, TransitionType } from '../types/transi
 import { parseTransitionType } from '../types/transition';
 
 /**
- * Структура JSON-файла графа
+ * РЎС‚СЂСѓРєС‚СѓСЂР° JSON-С„Р°Р№Р»Р° РіСЂР°С„Р°
  */
 interface GraphJson {
   nodes: MapNodeData[];
 }
 
 /**
- * Структура JSON-файла переходов
+ * РЎС‚СЂСѓРєС‚СѓСЂР° JSON-С„Р°Р№Р»Р° РїРµСЂРµС…РѕРґРѕРІ
  */
 interface TransitionsJson {
   transitions: TransitionData[];
 }
 
 /**
- * Класс графа навигации.
- * Хранит узлы и переходы, предоставляет методы доступа.
+ * РљР»Р°СЃСЃ РіСЂР°С„Р° РЅР°РІРёРіР°С†РёРё.
+ * РҐСЂР°РЅРёС‚ СѓР·Р»С‹ Рё РїРµСЂРµС…РѕРґС‹, РїСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚ РјРµС‚РѕРґС‹ РґРѕСЃС‚СѓРїР°.
  */
 export class Graph {
   private nodes: Map<string, MapNode> = new Map();
   private transitions: Transition[] = [];
-  
-  // Индекс: nodeId -> список соседей через transitions
+
+  // РРЅРґРµРєСЃ: nodeId -> СЃРїРёСЃРѕРє СЃРѕСЃРµРґРµР№ С‡РµСЂРµР· transitions
   private transitionIndex: Map<string, string[]> = new Map();
-  
-  // Индекс: "nodeA|nodeB" -> TransitionType (для быстрого lookup)
+
+  // РРЅРґРµРєСЃ: "nodeA|nodeB" -> TransitionType (РґР»СЏ Р±С‹СЃС‚СЂРѕРіРѕ lookup)
   private transitionTypeIndex: Map<string, TransitionType> = new Map();
 
   /**
-   * Загрузка узлов из JSON
+   * Р—Р°РіСЂСѓР·РєР° СѓР·Р»РѕРІ РёР· JSON
    */
   loadNodes(json: GraphJson, defaultBuilding: string = 'CAMPUS', defaultFloor: number = 0): void {
     if (!json.nodes || !Array.isArray(json.nodes)) {
@@ -62,7 +62,7 @@ export class Graph {
   }
 
   /**
-   * Загрузка переходов из JSON
+   * Р—Р°РіСЂСѓР·РєР° РїРµСЂРµС…РѕРґРѕРІ РёР· JSON
    */
   loadTransitions(json: TransitionsJson): void {
     if (!json.transitions || !Array.isArray(json.transitions)) {
@@ -80,8 +80,8 @@ export class Graph {
 
       const fromNode = tr.from.node;
       const toNode = tr.to.node;
-      
-      // Ключ для дедупликации (порядок не важен)
+
+      // РљР»СЋС‡ РґР»СЏ РґРµРґСѓРїР»РёРєР°С†РёРё (РїРѕСЂСЏРґРѕРє РЅРµ РІР°Р¶РµРЅ)
       const key = [fromNode, toNode].sort().join('|');
       if (seen.has(key)) {
         continue;
@@ -89,7 +89,7 @@ export class Graph {
       seen.add(key);
 
       const transitionType = parseTransitionType(tr.transition_type ?? 'entrance');
-      
+
       const transition: Transition = {
         fromNode,
         toNode,
@@ -98,11 +98,11 @@ export class Graph {
 
       this.transitions.push(transition);
 
-      // Индексируем для быстрого поиска соседей
+      // РРЅРґРµРєСЃРёСЂСѓРµРј РґР»СЏ Р±С‹СЃС‚СЂРѕРіРѕ РїРѕРёСЃРєР° СЃРѕСЃРµРґРµР№
       this.indexTransition(fromNode, toNode);
       this.indexTransition(toNode, fromNode);
-      
-      // Индексируем тип перехода
+
+      // РРЅРґРµРєСЃРёСЂСѓРµРј С‚РёРї РїРµСЂРµС…РѕРґР°
       this.transitionTypeIndex.set(key, transitionType);
     }
   }
@@ -116,21 +116,21 @@ export class Graph {
   }
 
   /**
-   * Получить узел по ID
+   * РџРѕР»СѓС‡РёС‚СЊ СѓР·РµР» РїРѕ ID
    */
   getNode(id: string): MapNode | undefined {
     return this.nodes.get(id);
   }
 
   /**
-   * Получить все узлы
+   * РџРѕР»СѓС‡РёС‚СЊ РІСЃРµ СѓР·Р»С‹
    */
   getAllNodes(): MapNode[] {
     return Array.from(this.nodes.values());
   }
 
   /**
-   * Получить узлы определённого корпуса/этажа
+   * РџРѕР»СѓС‡РёС‚СЊ СѓР·Р»С‹ РѕРїСЂРµРґРµР»С‘РЅРЅРѕРіРѕ РєРѕСЂРїСѓСЃР°/СЌС‚Р°Р¶Р°
    */
   getNodesForFloor(building: string, floor: number): MapNode[] {
     return this.getAllNodes().filter(
@@ -139,22 +139,22 @@ export class Graph {
   }
 
   /**
-   * Получить узлы кампуса
+   * РџРѕР»СѓС‡РёС‚СЊ СѓР·Р»С‹ РєР°РјРїСѓСЃР°
    */
   getCampusNodes(): MapNode[] {
     return this.getAllNodes().filter((n) => n.building === 'CAMPUS');
   }
 
   /**
-   * Получить всех соседей узла (включая переходы)
+   * РџРѕР»СѓС‡РёС‚СЊ РІСЃРµС… СЃРѕСЃРµРґРµР№ СѓР·Р»Р° (РІРєР»СЋС‡Р°СЏ РїРµСЂРµС…РѕРґС‹)
    */
   getNeighbors(nodeId: string): string[] {
     const node = this.nodes.get(nodeId);
     if (!node) return [];
 
     const neighbors = new Set(node.neighbors);
-    
-    // Добавляем соседей через переходы
+
+    // Р”РѕР±Р°РІР»СЏРµРј СЃРѕСЃРµРґРµР№ С‡РµСЂРµР· РїРµСЂРµС…РѕРґС‹
     const transitionNeighbors = this.transitionIndex.get(nodeId) ?? [];
     for (const tn of transitionNeighbors) {
       neighbors.add(tn);
@@ -164,7 +164,7 @@ export class Graph {
   }
 
   /**
-   * Получить тип перехода между двумя узлами (если есть)
+   * РџРѕР»СѓС‡РёС‚СЊ С‚РёРї РїРµСЂРµС…РѕРґР° РјРµР¶РґСѓ РґРІСѓРјСЏ СѓР·Р»Р°РјРё (РµСЃР»Рё РµСЃС‚СЊ)
    */
   getTransitionType(nodeA: string, nodeB: string): TransitionType | null {
     const key = [nodeA, nodeB].sort().join('|');
@@ -172,7 +172,7 @@ export class Graph {
   }
 
   /**
-   * Получить объект перехода между двумя узлами (если есть)
+   * РџРѕР»СѓС‡РёС‚СЊ РѕР±СЉРµРєС‚ РїРµСЂРµС…РѕРґР° РјРµР¶РґСѓ РґРІСѓРјСЏ СѓР·Р»Р°РјРё (РµСЃР»Рё РµСЃС‚СЊ)
    */
   getTransition(nodeA: string, nodeB: string): Transition | null {
     for (const tr of this.transitions) {
@@ -187,14 +187,14 @@ export class Graph {
   }
 
   /**
-   * Получить все переходы
+   * РџРѕР»СѓС‡РёС‚СЊ РІСЃРµ РїРµСЂРµС…РѕРґС‹
    */
   getAllTransitions(): Transition[] {
     return [...this.transitions];
   }
 
   /**
-   * Получить переходы для узла
+   * РџРѕР»СѓС‡РёС‚СЊ РїРµСЂРµС…РѕРґС‹ РґР»СЏ СѓР·Р»Р°
    */
   getTransitionsForNode(nodeId: string): Transition[] {
     return this.transitions.filter(
@@ -203,28 +203,28 @@ export class Graph {
   }
 
   /**
-   * Проверить существование узла
+   * РџСЂРѕРІРµСЂРёС‚СЊ СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёРµ СѓР·Р»Р°
    */
   hasNode(id: string): boolean {
     return this.nodes.has(id);
   }
 
   /**
-   * Количество узлов
+   * РљРѕР»РёС‡РµСЃС‚РІРѕ СѓР·Р»РѕРІ
    */
   get nodeCount(): number {
     return this.nodes.size;
   }
 
   /**
-   * Количество переходов
+   * РљРѕР»РёС‡РµСЃС‚РІРѕ РїРµСЂРµС…РѕРґРѕРІ
    */
   get transitionCount(): number {
     return this.transitions.length;
   }
 
   /**
-   * Очистить граф
+   * РћС‡РёСЃС‚РёС‚СЊ РіСЂР°С„
    */
   clear(): void {
     this.nodes.clear();
@@ -234,30 +234,30 @@ export class Graph {
   }
 
   /**
-   * Добавить узел (для editor)
+   * Р”РѕР±Р°РІРёС‚СЊ СѓР·РµР» (РґР»СЏ editor)
    */
   addNode(node: MapNode): void {
     this.nodes.set(node.id, node);
   }
 
   /**
-   * Удалить узел (для editor)
+   * РЈРґР°Р»РёС‚СЊ СѓР·РµР» (РґР»СЏ editor)
    */
   removeNode(id: string): boolean {
     return this.nodes.delete(id);
   }
 
   /**
-   * Добавить переход (для editor)
+   * Р”РѕР±Р°РІРёС‚СЊ РїРµСЂРµС…РѕРґ (РґР»СЏ editor)
    */
   addTransition(transition: Transition): void {
     const key = [transition.fromNode, transition.toNode].sort().join('|');
-    
-    // Проверяем дубликат
+
+    // РџСЂРѕРІРµСЂСЏРµРј РґСѓР±Р»РёРєР°С‚
     if (this.transitionTypeIndex.has(key)) {
       return;
     }
-    
+
     this.transitions.push(transition);
     this.indexTransition(transition.fromNode, transition.toNode);
     this.indexTransition(transition.toNode, transition.fromNode);
@@ -265,22 +265,22 @@ export class Graph {
   }
 
   /**
-   * Удалить переход (для editor)
+   * РЈРґР°Р»РёС‚СЊ РїРµСЂРµС…РѕРґ (РґР»СЏ editor)
    */
   removeTransition(nodeA: string, nodeB: string): boolean {
     const key = [nodeA, nodeB].sort().join('|');
-    
+
     const idx = this.transitions.findIndex(
       t => (t.fromNode === nodeA && t.toNode === nodeB) ||
            (t.fromNode === nodeB && t.toNode === nodeA)
     );
-    
+
     if (idx === -1) return false;
-    
+
     this.transitions.splice(idx, 1);
     this.transitionTypeIndex.delete(key);
-    
-    // Обновляем индекс соседей
+
+    // РћР±РЅРѕРІР»СЏРµРј РёРЅРґРµРєСЃ СЃРѕСЃРµРґРµР№
     const neighborsA = this.transitionIndex.get(nodeA);
     if (neighborsA) {
       const filtered = neighborsA.filter(n => n !== nodeB);
@@ -290,7 +290,7 @@ export class Graph {
         this.transitionIndex.delete(nodeA);
       }
     }
-    
+
     const neighborsB = this.transitionIndex.get(nodeB);
     if (neighborsB) {
       const filtered = neighborsB.filter(n => n !== nodeA);
@@ -300,7 +300,7 @@ export class Graph {
         this.transitionIndex.delete(nodeB);
       }
     }
-    
+
     return true;
   }
 }

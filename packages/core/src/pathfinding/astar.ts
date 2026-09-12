@@ -6,7 +6,7 @@ import type { TransitionType } from '../types/transition';
 import type { Graph } from '../graph/Graph';
 
 /**
- * Элемент приоритетной очереди
+ * Р­Р»РµРјРµРЅС‚ РїСЂРёРѕСЂРёС‚РµС‚РЅРѕР№ РѕС‡РµСЂРµРґРё
  */
 interface QueueItem {
   nodeId: string;
@@ -14,7 +14,7 @@ interface QueueItem {
 }
 
 /**
- * Минимальная приоритетная очередь (min-heap)
+ * РњРёРЅРёРјР°Р»СЊРЅР°СЏ РїСЂРёРѕСЂРёС‚РµС‚РЅР°СЏ РѕС‡РµСЂРµРґСЊ (min-heap)
  */
 class PriorityQueue {
   private items: QueueItem[] = [];
@@ -26,15 +26,15 @@ class PriorityQueue {
 
   pop(): QueueItem | undefined {
     if (this.items.length === 0) return undefined;
-    
+
     const result = this.items[0];
     const last = this.items.pop()!;
-    
+
     if (this.items.length > 0) {
       this.items[0] = last;
       this.bubbleDown(0);
     }
-    
+
     return result;
   }
 
@@ -73,7 +73,7 @@ class PriorityQueue {
 }
 
 /**
- * Нормализованные опции с дефолтами
+ * РќРѕСЂРјР°Р»РёР·РѕРІР°РЅРЅС‹Рµ РѕРїС†РёРё СЃ РґРµС„РѕР»С‚Р°РјРё
  */
 interface NormalizedOptions {
   allowStairs: boolean;
@@ -96,8 +96,8 @@ function normalizeOptions(options: PathfindingOptions = {}): NormalizedOptions {
 }
 
 /**
- * Эвристика — чистое евклидово расстояние (admissible)
- * Не учитываем этажи в эвристике, чтобы не переоценивать
+ * Р­РІСЂРёСЃС‚РёРєР° вЂ” С‡РёСЃС‚РѕРµ РµРІРєР»РёРґРѕРІРѕ СЂР°СЃСЃС‚РѕСЏРЅРёРµ (admissible)
+ * РќРµ СѓС‡РёС‚С‹РІР°РµРј СЌС‚Р°Р¶Рё РІ СЌРІСЂРёСЃС‚РёРєРµ, С‡С‚РѕР±С‹ РЅРµ РїРµСЂРµРѕС†РµРЅРёРІР°С‚СЊ
  */
 function heuristic(a: MapNode, b: MapNode): number {
   const dx = a.x - b.x;
@@ -106,7 +106,7 @@ function heuristic(a: MapNode, b: MapNode): number {
 }
 
 /**
- * Евклидово расстояние между узлами
+ * Р•РІРєР»РёРґРѕРІРѕ СЂР°СЃСЃС‚РѕСЏРЅРёРµ РјРµР¶РґСѓ СѓР·Р»Р°РјРё
  */
 function euclidean(a: MapNode, b: MapNode): number {
   const dx = a.x - b.x;
@@ -115,17 +115,17 @@ function euclidean(a: MapNode, b: MapNode): number {
 }
 
 /**
- * Веса переходов (чем меньше — тем предпочтительнее)
+ * Р’РµСЃР° РїРµСЂРµС…РѕРґРѕРІ (С‡РµРј РјРµРЅСЊС€Рµ вЂ” С‚РµРј РїСЂРµРґРїРѕС‡С‚РёС‚РµР»СЊРЅРµРµ)
  */
 const TRANSITION_WEIGHTS: Record<TransitionType, number> = {
-  entrance: 5,    // Вход/выход — почти бесплатно
-  lift: 15,       // Лифт — быстро
-  bridge: 25,     // Переход между корпусами
-  stairs: 40,     // Лестница — дольше
+  entrance: 5,    // Р’С…РѕРґ/РІС‹С…РѕРґ вЂ” РїРѕС‡С‚Рё Р±РµСЃРїР»Р°С‚РЅРѕ
+  lift: 15,       // Р›РёС„С‚ вЂ” Р±С‹СЃС‚СЂРѕ
+  bridge: 25,     // РџРµСЂРµС…РѕРґ РјРµР¶РґСѓ РєРѕСЂРїСѓСЃР°РјРё
+  stairs: 40,     // Р›РµСЃС‚РЅРёС†Р° вЂ” РґРѕР»СЊС€Рµ
 };
 
 /**
- * Стоимость ребра между двумя узлами
+ * РЎС‚РѕРёРјРѕСЃС‚СЊ СЂРµР±СЂР° РјРµР¶РґСѓ РґРІСѓРјСЏ СѓР·Р»Р°РјРё
  */
 function edgeCost(
   a: MapNode,
@@ -133,7 +133,7 @@ function edgeCost(
   transitionType: TransitionType | null,
   opts: NormalizedOptions
 ): number {
-  // Если есть переход — проверяем разрешения и возвращаем его вес
+  // Р•СЃР»Рё РµСЃС‚СЊ РїРµСЂРµС…РѕРґ вЂ” РїСЂРѕРІРµСЂСЏРµРј СЂР°Р·СЂРµС€РµРЅРёСЏ Рё РІРѕР·РІСЂР°С‰Р°РµРј РµРіРѕ РІРµСЃ
   if (transitionType) {
     switch (transitionType) {
       case 'stairs':
@@ -153,18 +153,18 @@ function edgeCost(
     }
   }
 
-  // Обычное ребро на одном этаже — евклидово расстояние
+  // РћР±С‹С‡РЅРѕРµ СЂРµР±СЂРѕ РЅР° РѕРґРЅРѕРј СЌС‚Р°Р¶Рµ вЂ” РµРІРєР»РёРґРѕРІРѕ СЂР°СЃСЃС‚РѕСЏРЅРёРµ
   if (a.building === b.building && a.floor === b.floor) {
     return euclidean(a, b);
   }
 
-  // Ребро между разными этажами/зданиями без transition — это ошибка в данных
-  // Но чтобы алгоритм не падал, даём очень высокую цену
+  // Р РµР±СЂРѕ РјРµР¶РґСѓ СЂР°Р·РЅС‹РјРё СЌС‚Р°Р¶Р°РјРё/Р·РґР°РЅРёСЏРјРё Р±РµР· transition вЂ” СЌС‚Рѕ РѕС€РёР±РєР° РІ РґР°РЅРЅС‹С…
+  // РќРѕ С‡С‚РѕР±С‹ Р°Р»РіРѕСЂРёС‚Рј РЅРµ РїР°РґР°Р», РґР°С‘Рј РѕС‡РµРЅСЊ РІС‹СЃРѕРєСѓСЋ С†РµРЅСѓ
   return 10000;
 }
 
 /**
- * Восстановление пути из карты предшественников
+ * Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РїСѓС‚Рё РёР· РєР°СЂС‚С‹ РїСЂРµРґС€РµСЃС‚РІРµРЅРЅРёРєРѕРІ
  */
 function reconstructPath(cameFrom: Map<string, string>, endId: string): string[] {
   const path: string[] = [endId];
@@ -179,22 +179,22 @@ function reconstructPath(cameFrom: Map<string, string>, endId: string): string[]
 }
 
 /**
- * Построение сегментов пути для инструкций
+ * РџРѕСЃС‚СЂРѕРµРЅРёРµ СЃРµРіРјРµРЅС‚РѕРІ РїСѓС‚Рё РґР»СЏ РёРЅСЃС‚СЂСѓРєС†РёР№
  */
 function buildSegments(graph: Graph, path: string[]): PathSegment[] {
   const segments: PathSegment[] = [];
-  
+
   for (let i = 0; i < path.length - 1; i++) {
     const fromNode = graph.getNode(path[i]);
     const toNode = graph.getNode(path[i + 1]);
-    
+
     if (!fromNode || !toNode) continue;
-    
+
     const transitionType = graph.getTransitionType(path[i], path[i + 1]);
-    const distance = transitionType 
-      ? TRANSITION_WEIGHTS[transitionType] 
+    const distance = transitionType
+      ? TRANSITION_WEIGHTS[transitionType]
       : euclidean(fromNode, toNode);
-    
+
     segments.push({
       fromNode: path[i],
       toNode: path[i + 1],
@@ -202,12 +202,12 @@ function buildSegments(graph: Graph, path: string[]): PathSegment[] {
       distance,
     });
   }
-  
+
   return segments;
 }
 
 /**
- * Поиск кратчайшего пути алгоритмом A*
+ * РџРѕРёСЃРє РєСЂР°С‚С‡Р°Р№С€РµРіРѕ РїСѓС‚Рё Р°Р»РіРѕСЂРёС‚РјРѕРј A*
  */
 export function findPath(
   graph: Graph,
@@ -221,50 +221,50 @@ export function findPath(
   const endNode = graph.getNode(endId);
 
   if (!startNode) {
-    return { found: false, path: [], totalDistance: 0, error: `Начальная точка "${startId}" не найдена` };
+    return { found: false, path: [], totalDistance: 0, error: `РќР°С‡Р°Р»СЊРЅР°СЏ С‚РѕС‡РєР° "${startId}" РЅРµ РЅР°Р№РґРµРЅР°` };
   }
   if (!endNode) {
-    return { found: false, path: [], totalDistance: 0, error: `Конечная точка "${endId}" не найдена` };
+    return { found: false, path: [], totalDistance: 0, error: `РљРѕРЅРµС‡РЅР°СЏ С‚РѕС‡РєР° "${endId}" РЅРµ РЅР°Р№РґРµРЅР°` };
   }
   if (startId === endId) {
     return { found: true, path: [startId], totalDistance: 0, segments: [] };
   }
 
-  // g-score: стоимость пути от старта до узла
+  // g-score: СЃС‚РѕРёРјРѕСЃС‚СЊ РїСѓС‚Рё РѕС‚ СЃС‚Р°СЂС‚Р° РґРѕ СѓР·Р»Р°
   const gScore = new Map<string, number>();
   gScore.set(startId, 0);
 
-  // Откуда пришли
+  // РћС‚РєСѓРґР° РїСЂРёС€Р»Рё
   const cameFrom = new Map<string, string>();
 
-  // Приоритетная очередь
+  // РџСЂРёРѕСЂРёС‚РµС‚РЅР°СЏ РѕС‡РµСЂРµРґСЊ
   const openSet = new PriorityQueue();
   openSet.push({ nodeId: startId, fScore: heuristic(startNode, endNode) });
 
-  // Множество посещённых (для оптимизации, но с возможностью переоткрытия)
+  // РњРЅРѕР¶РµСЃС‚РІРѕ РїРѕСЃРµС‰С‘РЅРЅС‹С… (РґР»СЏ РѕРїС‚РёРјРёР·Р°С†РёРё, РЅРѕ СЃ РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊСЋ РїРµСЂРµРѕС‚РєСЂС‹С‚РёСЏ)
   const closedSet = new Set<string>();
-  
+
   let iterations = 0;
 
   while (!openSet.isEmpty) {
     if (++iterations > opts.maxIterations) {
-      return { 
-        found: false, 
-        path: [], 
-        totalDistance: 0, 
-        error: `Превышен лимит итераций (${opts.maxIterations})` 
+      return {
+        found: false,
+        path: [],
+        totalDistance: 0,
+        error: `РџСЂРµРІС‹С€РµРЅ Р»РёРјРёС‚ РёС‚РµСЂР°С†РёР№ (${opts.maxIterations})`
       };
     }
 
     const current = openSet.pop()!;
     const currentId = current.nodeId;
 
-    // Достигли цели
+    // Р”РѕСЃС‚РёРіР»Рё С†РµР»Рё
     if (currentId === endId) {
       const path = reconstructPath(cameFrom, endId);
       const segments = buildSegments(graph, path);
       const totalDistance = gScore.get(endId) ?? 0;
-      
+
       return {
         found: true,
         path,
@@ -273,16 +273,16 @@ export function findPath(
       };
     }
 
-    // Уже в closed set — пропускаем
+    // РЈР¶Рµ РІ closed set вЂ” РїСЂРѕРїСѓСЃРєР°РµРј
     if (closedSet.has(currentId)) continue;
     closedSet.add(currentId);
 
     const currentNode = graph.getNode(currentId);
     if (!currentNode) continue;
 
-    // Обрабатываем соседей
+    // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј СЃРѕСЃРµРґРµР№
     const neighbors = graph.getNeighbors(currentId);
-    
+
     for (const neighborId of neighbors) {
       if (closedSet.has(neighborId)) continue;
 
@@ -300,24 +300,24 @@ export function findPath(
       if (tentativeG < previousG) {
         cameFrom.set(neighborId, currentId);
         gScore.set(neighborId, tentativeG);
-        
+
         const fScore = tentativeG + heuristic(neighborNode, endNode);
         openSet.push({ nodeId: neighborId, fScore });
       }
     }
   }
 
-  return { 
-    found: false, 
-    path: [], 
-    totalDistance: 0, 
-    error: 'Путь не найден — точки не связаны' 
+  return {
+    found: false,
+    path: [],
+    totalDistance: 0,
+    error: 'РџСѓС‚СЊ РЅРµ РЅР°Р№РґРµРЅ вЂ” С‚РѕС‡РєРё РЅРµ СЃРІСЏР·Р°РЅС‹'
   };
 }
 
 /**
- * Поиск нескольких альтернативных путей
- * Использует метод "penalty" — после нахождения пути увеличиваем стоимость его рёбер
+ * РџРѕРёСЃРє РЅРµСЃРєРѕР»СЊРєРёС… Р°Р»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹С… РїСѓС‚РµР№
+ * РСЃРїРѕР»СЊР·СѓРµС‚ РјРµС‚РѕРґ "penalty" вЂ” РїРѕСЃР»Рµ РЅР°С…РѕР¶РґРµРЅРёСЏ РїСѓС‚Рё СѓРІРµР»РёС‡РёРІР°РµРј СЃС‚РѕРёРјРѕСЃС‚СЊ РµРіРѕ СЂС‘Р±РµСЂ
  */
 export function findAlternativePaths(
   graph: Graph,
@@ -327,62 +327,62 @@ export function findAlternativePaths(
   maxPaths: number = 3
 ): MultiPathResult {
   const primary = findPath(graph, startId, endId, options);
-  
+
   if (!primary.found) {
     return { primary, alternatives: [] };
   }
-  
+
   if (primary.path.length < 2) {
-    // Слишком короткий путь — альтернатив нет
+    // РЎР»РёС€РєРѕРј РєРѕСЂРѕС‚РєРёР№ РїСѓС‚СЊ вЂ” Р°Р»СЊС‚РµСЂРЅР°С‚РёРІ РЅРµС‚
     return { primary, alternatives: [] };
   }
 
   const alternatives: PathResult[] = [];
   const usedEdges = new Set<string>();
-  
-  // Добавляем рёбра основного пути
+
+  // Р”РѕР±Р°РІР»СЏРµРј СЂС‘Р±СЂР° РѕСЃРЅРѕРІРЅРѕРіРѕ РїСѓС‚Рё
   for (let i = 0; i < primary.path.length - 1; i++) {
     const edgeKey = [primary.path[i], primary.path[i + 1]].sort().join('|');
     usedEdges.add(edgeKey);
   }
 
-  // Ищем альтернативы, исключая рёбра
+  // РС‰РµРј Р°Р»СЊС‚РµСЂРЅР°С‚РёРІС‹, РёСЃРєР»СЋС‡Р°СЏ СЂС‘Р±СЂР°
   for (let attempt = 0; attempt < maxPaths * 2 && alternatives.length < maxPaths - 1; attempt++) {
     const pathToExclude = alternatives.length === 0 ? primary : alternatives[alternatives.length - 1];
-    
+
     if (pathToExclude.path.length < 2) continue;
-    
-    // Пробуем исключить разные рёбра основного пути
+
+    // РџСЂРѕР±СѓРµРј РёСЃРєР»СЋС‡РёС‚СЊ СЂР°Р·РЅС‹Рµ СЂС‘Р±СЂР° РѕСЃРЅРѕРІРЅРѕРіРѕ РїСѓС‚Рё
     const edgeIndex = Math.floor(pathToExclude.path.length / 2) + (attempt % (pathToExclude.path.length - 1));
     const actualIndex = edgeIndex % (pathToExclude.path.length - 1);
-    
+
     const excludeFrom = pathToExclude.path[actualIndex];
     const excludeTo = pathToExclude.path[actualIndex + 1];
-    
-    // Создаём временный граф без этого ребра
+
+    // РЎРѕР·РґР°С‘Рј РІСЂРµРјРµРЅРЅС‹Р№ РіСЂР°С„ Р±РµР· СЌС‚РѕРіРѕ СЂРµР±СЂР°
     const altPath = findPathExcludingEdge(graph, startId, endId, excludeFrom, excludeTo, options);
-    
+
     if (altPath.found) {
-      // Проверяем что путь действительно отличается
+      // РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ РїСѓС‚СЊ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ РѕС‚Р»РёС‡Р°РµС‚СЃСЏ
       const pathKey = altPath.path.join(',');
-      const isDuplicate = 
+      const isDuplicate =
         pathKey === primary.path.join(',') ||
         alternatives.some(a => a.path.join(',') === pathKey);
-      
+
       if (!isDuplicate) {
         alternatives.push(altPath);
       }
     }
   }
 
-  // Сортируем альтернативы по длине
+  // РЎРѕСЂС‚РёСЂСѓРµРј Р°Р»СЊС‚РµСЂРЅР°С‚РёРІС‹ РїРѕ РґР»РёРЅРµ
   alternatives.sort((a, b) => a.totalDistance - b.totalDistance);
 
   return { primary, alternatives: alternatives.slice(0, maxPaths - 1) };
 }
 
 /**
- * Поиск пути с исключением конкретного ребра
+ * РџРѕРёСЃРє РїСѓС‚Рё СЃ РёСЃРєР»СЋС‡РµРЅРёРµРј РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ СЂРµР±СЂР°
  */
 function findPathExcludingEdge(
   graph: Graph,
@@ -437,9 +437,9 @@ function findPathExcludingEdge(
     if (!currentNode) continue;
 
     const neighbors = graph.getNeighbors(currentId);
-    
+
     for (const neighborId of neighbors) {
-      // Исключаем запрещённое ребро
+      // РСЃРєР»СЋС‡Р°РµРј Р·Р°РїСЂРµС‰С‘РЅРЅРѕРµ СЂРµР±СЂРѕ
       if (
         (currentId === excludeFrom && neighborId === excludeTo) ||
         (currentId === excludeTo && neighborId === excludeFrom)
@@ -471,7 +471,7 @@ function findPathExcludingEdge(
 }
 
 /**
- * Получить веса переходов (для UI)
+ * РџРѕР»СѓС‡РёС‚СЊ РІРµСЃР° РїРµСЂРµС…РѕРґРѕРІ (РґР»СЏ UI)
  */
 export function getTransitionWeights(): Record<TransitionType, number> {
   return { ...TRANSITION_WEIGHTS };

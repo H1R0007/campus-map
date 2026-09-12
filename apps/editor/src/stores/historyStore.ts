@@ -43,7 +43,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   push: (entry) =>
     set((state) => {
-      // Отсекаем записи после текущей позиции (при новом действии после undo)
+      // РћС‚СЃРµРєР°РµРј Р·Р°РїРёСЃРё РїРѕСЃР»Рµ С‚РµРєСѓС‰РµР№ РїРѕР·РёС†РёРё (РїСЂРё РЅРѕРІРѕРј РґРµР№СЃС‚РІРёРё РїРѕСЃР»Рµ undo)
       const newEntries = state.entries.slice(0, state.currentIndex + 1);
 
       newEntries.push({
@@ -51,7 +51,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         timestamp: Date.now(),
       });
 
-      // Ограничиваем размер истории
+      // РћРіСЂР°РЅРёС‡РёРІР°РµРј СЂР°Р·РјРµСЂ РёСЃС‚РѕСЂРёРё
       while (newEntries.length > state.maxEntries) {
         newEntries.shift();
       }
@@ -65,7 +65,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   undo: () => {
     const { entries, currentIndex } = get();
     if (currentIndex < 0) return null;
-    
+
     const entry = entries[currentIndex];
     set({ currentIndex: currentIndex - 1 });
     return entry;
@@ -74,7 +74,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   redo: () => {
     const { entries, currentIndex } = get();
     if (currentIndex >= entries.length - 1) return null;
-    
+
     const entry = entries[currentIndex + 1];
     set({ currentIndex: currentIndex + 1 });
     return entry;

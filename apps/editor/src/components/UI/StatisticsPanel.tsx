@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const StatisticsPanel: React.FC = () => {
@@ -24,7 +24,7 @@ export const StatisticsPanel: React.FC = () => {
 
     const portalNodes = floorNodes.filter(n => n.isPortal);
     const totalEdges = floorNodes.reduce((sum, n) => sum + n.neighbors.length, 0) / 2;
-    const avgConnections = floorNodes.length > 0 
+    const avgConnections = floorNodes.length > 0
       ? (floorNodes.reduce((sum, n) => sum + n.neighbors.length, 0) / floorNodes.length).toFixed(1)
       : '0';
 
@@ -41,7 +41,7 @@ export const StatisticsPanel: React.FC = () => {
       orphanNodes: getOrphanNodes().length,
       nodesWithAliases: nodesWithAliases.length,
       nodesWithoutAlias: getNodesWithoutAlias().length,
-      aliasPercentage: floorNodes.length > 0 
+      aliasPercentage: floorNodes.length > 0
         ? Math.round((nodesWithAliases.length / floorNodes.length) * 100)
         : 0,
       isConnected: connectivity.connected,
@@ -117,9 +117,9 @@ export const StatisticsPanel: React.FC = () => {
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--editor-text-muted)' }}>
             Связность графа
           </div>
-          <div 
+          <div
             className="rounded-xl p-3 flex items-center gap-3"
-            style={{ 
+            style={{
               backgroundColor: stats.isConnected ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
               border: `1px solid ${stats.isConnected ? '#22c55e' : '#ef4444'}`,
             }}
@@ -149,9 +149,9 @@ export const StatisticsPanel: React.FC = () => {
               </span>
             </div>
             <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--editor-panel)' }}>
-              <div 
+              <div
                 className="h-full rounded-full transition-all"
-                style={{ 
+                style={{
                   width: `${stats.aliasPercentage}%`,
                   backgroundColor: stats.aliasPercentage >= 80 ? '#22c55e' : stats.aliasPercentage >= 50 ? '#f59e0b' : '#ef4444',
                 }}
@@ -165,7 +165,7 @@ export const StatisticsPanel: React.FC = () => {
 };
 
 const StatCard: React.FC<{ label: string; value: number | string; icon: string; color?: string }> = ({ label, value, icon, color }) => (
-  <div 
+  <div
     className="rounded-lg p-2"
     style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
   >

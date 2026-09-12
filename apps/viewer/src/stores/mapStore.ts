@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Graph, AliasManager, BuildingMeta, CampusMeta } from '@campus-map/core';
 
-// Типы состояния
+// РўРёРїС‹ СЃРѕСЃС‚РѕСЏРЅРёСЏ
 export type ViewMode = 'campus' | 'floor';
 
 interface ActiveFloor {
@@ -10,19 +10,19 @@ interface ActiveFloor {
 }
 
 interface MapState {
-  // Данные
+  // Р”Р°РЅРЅС‹Рµ
   graph: Graph | null;
   aliasManager: AliasManager | null;
   campusMeta: CampusMeta | null;
   buildingMetas: Map<string, BuildingMeta>;
   isDataLoaded: boolean;
 
-  // Текущий вид
+  // РўРµРєСѓС‰РёР№ РІРёРґ
   viewMode: ViewMode;
   activeFloor: ActiveFloor | null;
   zoomLevel: number;
 
-  // Действия
+  // Р”РµР№СЃС‚РІРёСЏ
   setGraph: (graph: Graph) => void;
   setAliasManager: (manager: AliasManager) => void;
   setCampusMeta: (meta: CampusMeta) => void;
@@ -34,13 +34,13 @@ interface MapState {
   clearActiveFloor: () => void;
   setZoomLevel: (zoom: number) => void;
 
-  // Хелперы
+  // РҐРµР»РїРµСЂС‹
   getBuildingMeta: (id: string) => BuildingMeta | undefined;
   getFloorsForBuilding: (id: string) => number[];
 }
 
 export const useMapStore = create<MapState>((set, get) => ({
-  // Начальное состояние
+  // РќР°С‡Р°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ
   graph: null,
   aliasManager: null,
   campusMeta: null,
@@ -51,7 +51,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   activeFloor: null,
   zoomLevel: 1,
 
-  // Сеттеры данных
+  // РЎРµС‚С‚РµСЂС‹ РґР°РЅРЅС‹С…
   setGraph: (graph) => set({ graph }),
   setAliasManager: (manager) => set({ aliasManager: manager }),
   setCampusMeta: (meta) => set({ campusMeta: meta }),
@@ -63,7 +63,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     }),
   setDataLoaded: (loaded) => set({ isDataLoaded: loaded }),
 
-  // Управление видом
+  // РЈРїСЂР°РІР»РµРЅРёРµ РІРёРґРѕРј
   setViewMode: (mode) => set({ viewMode: mode }),
   setActiveFloor: (buildingId, floor) =>
     set({
@@ -77,7 +77,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     }),
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
 
-  // Хелперы
+  // РҐРµР»РїРµСЂС‹
   getBuildingMeta: (id) => get().buildingMetas.get(id),
   getFloorsForBuilding: (id) => {
     const meta = get().buildingMetas.get(id);

@@ -12,20 +12,20 @@ type ImportedDataset = {
 };
 
 /**
- * Читает JSON из zip с защитой от BOM
+ * Р§РёС‚Р°РµС‚ JSON РёР· zip СЃ Р·Р°С‰РёС‚РѕР№ РѕС‚ BOM
  */
 async function readJson(zip: JSZip, path: string): Promise<any> {
   const file = zip.file(path);
   if (!file) throw new Error(`Missing file in zip: ${path}`);
-  
+
   let text = await file.async('string');
-  
-  // Убираем BOM если есть
+
+  // РЈР±РёСЂР°РµРј BOM РµСЃР»Рё РµСЃС‚СЊ
   text = text.replace(/^\uFEFF/, '');
-  
-  // Убираем возможные невидимые символы в начале
+
+  // РЈР±РёСЂР°РµРј РІРѕР·РјРѕР¶РЅС‹Рµ РЅРµРІРёРґРёРјС‹Рµ СЃРёРјРІРѕР»С‹ РІ РЅР°С‡Р°Р»Рµ
   text = text.trimStart();
-  
+
   try {
     return JSON.parse(text);
   } catch (e) {
@@ -34,7 +34,7 @@ async function readJson(zip: JSZip, path: string): Promise<any> {
 }
 
 function detectRoot(zip: JSZip): string {
-  // zip может быть: data/..., либо сразу campus/...
+  // zip РјРѕР¶РµС‚ Р±С‹С‚СЊ: data/..., Р»РёР±Рѕ СЃСЂР°Р·Сѓ campus/...
   const hasData = zip.file('data/campus/meta.json') != null;
   return hasData ? 'data/' : '';
 }
@@ -65,17 +65,17 @@ export async function importDatasetFromZip(file: File): Promise<ImportedDataset>
   // buildings
   for (const b of campusMeta.buildings ?? []) {
     const bid = b.id;
-    
+
     try {
       const meta = await readJson(zip, `${root}buildings/${bid}/meta.json`);
       buildingMetas.push(meta);
 
       for (const fl of meta.floors ?? []) {
         const floorNum = fl.floor;
-        
+
         try {
           const fg = await readJson(zip, `${root}buildings/${bid}/floors/${floorNum}/graph.json`);
-          
+
           for (const n of fg.nodes ?? []) {
             nodes.push({
               id: n.id,

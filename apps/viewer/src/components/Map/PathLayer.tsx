@@ -13,7 +13,7 @@ export const PathLayer: React.FC = () => {
     return null;
   }
 
-  // Ñîáèğàåì ñåãìåíòû ïóòè äëÿ òåêóùåãî âèäà
+  // Ğ¡Ğ¾Ğ±Ğ¸Ñ€Ğ°ĞµĞ¼ ÑĞµĞ³Ğ¼ĞµĞ½Ñ‚Ñ‹ Ğ¿ÑƒÑ‚Ğ¸ Ğ´Ğ»Ñ Ñ‚ĞµĞºÑƒÑ‰ĞµĞ³Ğ¾ Ğ²Ğ¸Ğ´Ğ°
   const segments: [number, number][][] = [];
   let currentSegment: [number, number][] = [];
 
@@ -21,7 +21,7 @@ export const PathLayer: React.FC = () => {
     const node = graph.getNode(currentRoute.path[i]);
     if (!node) continue;
 
-    // Ïğîâåğÿåì âèäèìîñòü óçëà
+    // ĞŸÑ€Ğ¾Ğ²ĞµÑ€ÑĞµĞ¼ Ğ²Ğ¸Ğ´Ğ¸Ğ¼Ğ¾ÑÑ‚ÑŒ ÑƒĞ·Ğ»Ğ°
     let isVisible = false;
     if (viewMode === 'campus') {
       isVisible = node.building === 'CAMPUS';
@@ -32,7 +32,7 @@ export const PathLayer: React.FC = () => {
     if (isVisible) {
       currentSegment.push([node.y, node.x]);
     } else {
-      // Åñëè òåêóùèé ñåãìåíò íå ïóñòîé — ñîõğàíÿåì è íà÷èíàåì íîâûé
+      // Ğ•ÑĞ»Ğ¸ Ñ‚ĞµĞºÑƒÑ‰Ğ¸Ğ¹ ÑĞµĞ³Ğ¼ĞµĞ½Ñ‚ Ğ½Ğµ Ğ¿ÑƒÑÑ‚Ğ¾Ğ¹ â€” ÑĞ¾Ñ…Ñ€Ğ°Ğ½ÑĞµĞ¼ Ğ¸ Ğ½Ğ°Ñ‡Ğ¸Ğ½Ğ°ĞµĞ¼ Ğ½Ğ¾Ğ²Ñ‹Ğ¹
       if (currentSegment.length > 1) {
         segments.push(currentSegment);
       }
@@ -40,7 +40,7 @@ export const PathLayer: React.FC = () => {
     }
   }
 
-  // Äîáàâëÿåì ïîñëåäíèé ñåãìåíò
+  // Ğ”Ğ¾Ğ±Ğ°Ğ²Ğ»ÑĞµĞ¼ Ğ¿Ğ¾ÑĞ»ĞµĞ´Ğ½Ğ¸Ğ¹ ÑĞµĞ³Ğ¼ĞµĞ½Ñ‚
   if (currentSegment.length > 1) {
     segments.push(currentSegment);
   }

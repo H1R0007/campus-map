@@ -11,25 +11,25 @@ interface ExportOptions {
 
 export async function exportToZip(options: ExportOptions): Promise<void> {
   const { nodes, transitions, buildingMetas, aliases = [] } = options;
-  
+
   const zip = new JSZip();
   const dataFolder = zip.folder('data')!;
-  
+
   // === 1. Campus ===
   const campusFolder = dataFolder.folder('campus')!;
-  
+
   // Вычисляем реальные размеры из узлов (или используем дефолт)
   const campusNodes = Array.from(nodes.values()).filter((n) => n.building === 'CAMPUS');
   let mapWidth = 1200;
   let mapHeight = 800;
-  
+
   if (campusNodes.length > 0) {
     const maxX = Math.max(...campusNodes.map(n => n.x));
     const maxY = Math.max(...campusNodes.map(n => n.y));
     mapWidth = Math.max(1200, Math.ceil(maxX / 100) * 100 + 200);
     mapHeight = Math.max(800, Math.ceil(maxY / 100) * 100 + 200);
   }
-  
+
   // campus/meta.json
   const campusMeta = {
     buildings: Array.from(buildingMetas.values()).map((b) => ({
@@ -42,7 +42,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
     },
   };
   campusFolder.file('meta.json', JSON.stringify(campusMeta, null, 2));
-  
+
   // campus/graph.json
   const campusGraphNodes = campusNodes.map((n) => ({
     id: n.id,
@@ -52,13 +52,13 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
     isPortal: n.isPortal,
   }));
   campusFolder.file('graph.json', JSON.stringify({ nodes: campusGraphNodes }, null, 2));
-  
+
   // === 2. Buildings ===
   const buildingsFolder = dataFolder.folder('buildings')!;
-  
+
   for (const [buildingId, meta] of buildingMetas) {
     const buildingFolder = buildingsFolder.folder(buildingId)!;
-    
+
     // buildings/{id}/meta.json
     buildingFolder.file('meta.json', JSON.stringify({
       id: meta.id,
@@ -70,13 +70,13 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
       })),
       bounds: meta.bounds,
     }, null, 2));
-    
+
     // buildings/{id}/floors/{floor}/graph.json
     const floorsFolder = buildingFolder.folder('floors')!;
-    
+
     for (const floor of meta.floors) {
       const floorFolder = floorsFolder.folder(String(floor.floor))!;
-      
+
       const floorNodes = Array.from(nodes.values())
         .filter((n) => n.building === buildingId && n.floor === floor.floor)
         .map((n) => ({
@@ -86,11 +86,11 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
           neighbors: n.neighbors,
           isPortal: n.isPortal,
         }));
-      
+
       floorFolder.file('graph.json', JSON.stringify({ nodes: floorNodes }, null, 2));
     }
   }
-  
+
   // === 3. Transitions ===
   const transitionsData = {
     transitions: transitions.map((t) => ({
@@ -100,14 +100,14 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
     })),
   };
   dataFolder.file('transitions.json', JSON.stringify(transitionsData, null, 2));
-  
+
   // === 4. Aliases (фильтруем пустые) ===
   const filteredAliases = aliases.filter(a => a.names.length > 0);
   const aliasesData = {
     aliases: filteredAliases,
   };
   dataFolder.file('aliases.json', JSON.stringify(aliasesData, null, 2));
-  
+
   // === 5. README ===
   const readme = `# Campus Map Data Export
 
@@ -147,7 +147,7 @@ data/
 4. Скопируйте папку data/ в apps/editor/public/
 `;
   zip.file('README.md', readme);
-  
+
   // === Генерация и скачивание ===
   const content = await zip.generateAsync({ type: 'blob' });
   const timestamp = new Date().toISOString().slice(0, 10);

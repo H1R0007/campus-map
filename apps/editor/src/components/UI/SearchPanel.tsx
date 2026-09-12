@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const SearchPanel: React.FC = () => {

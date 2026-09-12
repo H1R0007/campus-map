@@ -38,16 +38,16 @@ class ErrorBoundary extends React.Component<
       return (
         <div className="h-full w-full flex items-center justify-center p-6" style={{ backgroundColor: 'var(--editor-bg)' }}>
           <div className="max-w-md text-center">
-            <h1 className="text-white font-semibold text-lg">Произошла ошибка</h1>
+            <h1 className="text-white font-semibold text-lg">РџСЂРѕРёР·РѕС€Р»Р° РѕС€РёР±РєР°</h1>
             <p className="mt-2 text-sm" style={{ color: 'var(--editor-text-muted)' }}>
-              {this.state.error?.message || 'Неизвестная ошибка'}
+              {this.state.error?.message || 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°'}
             </p>
             <button
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 rounded-lg text-white"
               style={{ backgroundColor: 'var(--editor-highlight)' }}
             >
-              Перезагрузить
+              РџРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ
             </button>
           </div>
         </div>
@@ -69,7 +69,7 @@ const App: React.FC = () => {
           if (!r.ok) throw new Error(`Failed to load campus meta: ${r.status}`);
           return r.json();
         });
-        
+
         const campusGraph = await fetch('/data/campus/graph.json').then((r) => {
           if (!r.ok) throw new Error(`Failed to load campus graph: ${r.status}`);
           return r.json();
@@ -96,7 +96,7 @@ const App: React.FC = () => {
               try {
                 const fg = await fetch(`/data/buildings/${b.id}/floors/${fl.floor}/graph.json`).then((r) => r.ok ? r.json() : null);
                 if (!fg) continue;
-                
+
                 const floorNodes = (fg.nodes ?? []).map((n: any) => ({
                   id: n.id,
                   x: n.x ?? 0,
@@ -146,7 +146,7 @@ const App: React.FC = () => {
       <div className="h-full w-full flex items-center justify-center" style={{ backgroundColor: 'var(--editor-bg)' }}>
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--editor-highlight)' }} />
-          <p style={{ color: 'var(--editor-text-muted)' }}>Загрузка редактора…</p>
+          <p style={{ color: 'var(--editor-text-muted)' }}>Р—Р°РіСЂСѓР·РєР° СЂРµРґР°РєС‚РѕСЂР°вЂ¦</p>
         </div>
       </div>
     );
@@ -156,14 +156,14 @@ const App: React.FC = () => {
     return (
       <div className="h-full w-full flex items-center justify-center p-6" style={{ backgroundColor: 'var(--editor-bg)' }}>
         <div className="max-w-md text-center">
-          <h1 className="text-white font-semibold text-lg">Ошибка загрузки</h1>
+          <h1 className="text-white font-semibold text-lg">РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё</h1>
           <p className="mt-2 text-sm" style={{ color: 'var(--editor-text-muted)' }}>{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 rounded-lg text-white"
             style={{ backgroundColor: 'var(--editor-highlight)' }}
           >
-            Перезагрузить
+            РџРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ
           </button>
         </div>
       </div>
@@ -178,7 +178,7 @@ const App: React.FC = () => {
           <LayersPanel />
           <div className="flex-1 relative overflow-hidden">
             <EditorMap />
-            
+
             {/* Panels */}
             <FilterPanel />
             <BookmarksPanel />
@@ -191,7 +191,7 @@ const App: React.FC = () => {
           </div>
         </div>
         <StatusBar />
-        
+
         {/* Modals */}
         <SearchPanel />
         <ContextMenu />

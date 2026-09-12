@@ -8,13 +8,13 @@ export const BuildingSelector: React.FC = () => {
   const setActiveFloor = useMapStore((state) => state.setActiveFloor);
   const getFloorsForBuilding = useMapStore((state) => state.getFloorsForBuilding);
 
-  // Показываем только на кампусе
+  // РџРѕРєР°Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РЅР° РєР°РјРїСѓСЃРµ
   if (viewMode !== 'campus') {
     return null;
   }
 
   return (
-    <div 
+    <div
       className="absolute top-4 left-4 right-4 md:left-auto md:right-4 md:w-auto"
       style={{ zIndex: 1000 }}
     >

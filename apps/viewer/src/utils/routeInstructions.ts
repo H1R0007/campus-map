@@ -24,12 +24,12 @@ function nodeLabel(id: string, aliasManager: AliasManager | null): string {
 function getTransitionVerb(type: TransitionType, direction: 'up' | 'down' | 'same'): string {
   switch (type) {
     case 'stairs':
-      return direction === 'up' ? 'Поднимитесь по лестнице' : 
-             direction === 'down' ? 'Спуститесь по лестнице' : 
+      return direction === 'up' ? 'Поднимитесь по лестнице' :
+             direction === 'down' ? 'Спуститесь по лестнице' :
              'Пройдите по лестнице';
     case 'lift':
-      return direction === 'up' ? 'Поднимитесь на лифте' : 
-             direction === 'down' ? 'Спуститесь на лифте' : 
+      return direction === 'up' ? 'Поднимитесь на лифте' :
+             direction === 'down' ? 'Спуститесь на лифте' :
              'Воспользуйтесь лифтом';
     case 'bridge':
       return 'Перейдите по переходу';

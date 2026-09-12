@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { useRouteStore } from '../../stores/routeStore';
 import { useMapStore } from '../../stores/mapStore';
 
-// SVG èêîíêè ìàðêåðîâ
+// SVG Ð¸ÐºÐ¾Ð½ÐºÐ¸ Ð¼Ð°Ñ€ÐºÐµÑ€Ð¾Ð²
 const createMarkerIcon = (type: 'start' | 'end') => {
   const color = type === 'start' ? '#16a34a' : '#2563eb';
   const svg = `
@@ -12,7 +12,7 @@ const createMarkerIcon = (type: 'start' | 'end') => {
       <circle cx="12" cy="12" r="8" fill="${color}" stroke="white" stroke-width="3"/>
     </svg>
   `;
-  
+
   return L.divIcon({
     html: svg,
     className: 'custom-marker',
@@ -35,7 +35,7 @@ export const MarkerLayer: React.FC = () => {
     return null;
   }
 
-  // Ïðîâåðêà âèäèìîñòè óçëà
+  // ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ° Ð²Ð¸Ð´Ð¸Ð¼Ð¾ÑÑ‚Ð¸ ÑƒÐ·Ð»Ð°
   const isVisible = (nodeId: string): boolean => {
     const node = graph.getNode(nodeId);
     if (!node) return false;

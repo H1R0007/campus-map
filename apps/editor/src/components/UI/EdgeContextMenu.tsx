@@ -94,7 +94,7 @@ export const EdgeContextMenu: React.FC = () => {
       </div>
 
       {/* Навигация к узлам */}
-      <div 
+      <div
         className="px-3 py-2 flex gap-2"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
@@ -135,7 +135,7 @@ export const EdgeContextMenu: React.FC = () => {
       />
 
       {showSubdivide && (
-        <div 
+        <div
           className="px-3 py-3 space-y-2"
           style={{ backgroundColor: 'var(--editor-bg)' }}
         >
@@ -156,7 +156,7 @@ export const EdgeContextMenu: React.FC = () => {
               {subdivideCount}
             </span>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
               Будет создано: {subdivideCount - 1} узлов
@@ -199,7 +199,7 @@ const MenuItem: React.FC<{
   <button
     onClick={onClick}
     className="w-full px-3 py-2.5 text-left text-sm flex items-start gap-2 transition-colors hover:bg-white/10"
-    style={{ 
+    style={{
       color: danger ? '#fca5a5' : 'white',
       backgroundColor: active ? 'var(--editor-accent)' : 'transparent',
     }}

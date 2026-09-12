@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useMapStore } from '../../stores/mapStore';
 
 export const FloorSelector: React.FC = () => {
@@ -18,7 +18,7 @@ export const FloorSelector: React.FC = () => {
   const buildingMeta = buildingMetas.get(activeFloor.buildingId);
 
   return (
-    <div 
+    <div
       className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2"
       style={{ zIndex: 1000 }}
     >
@@ -56,8 +56,8 @@ export const FloorSelector: React.FC = () => {
               className={`
                 w-10 h-10 flex items-center justify-center
                 text-sm font-medium transition-colors
-                ${isActive 
-                  ? 'bg-blue-600 text-white' 
+                ${isActive
+                  ? 'bg-blue-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
                 }
               `}

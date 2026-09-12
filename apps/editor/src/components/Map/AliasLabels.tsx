@@ -9,7 +9,7 @@ export const AliasLabels: React.FC = () => {
 
   const nodesWithAliases = useMemo(() => {
     if (!showAliasLabels) return [];
-    
+
     return nodes
       .map(node => {
         const nodeAliases = aliases.get(node.id) || [];

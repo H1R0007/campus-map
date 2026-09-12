@@ -10,7 +10,7 @@ export const BookmarksPanel: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
   const getNode = useEditorStore((s) => s.getNode);
   const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
-  
+
   const addBookmark = useEditorStore((s) => s.addBookmark);
   const removeBookmark = useEditorStore((s) => s.removeBookmark);
   const renameBookmark = useEditorStore((s) => s.renameBookmark);
@@ -62,7 +62,7 @@ export const BookmarksPanel: React.FC = () => {
       }}
     >
       {/* Header */}
-      <div 
+      <div
         className="px-4 py-3 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
@@ -78,7 +78,7 @@ export const BookmarksPanel: React.FC = () => {
 
       {/* Add bookmark */}
       {canAddBookmark && (
-        <div 
+        <div
           className="px-4 py-3"
           style={{ borderBottom: '1px solid var(--editor-border)' }}
         >

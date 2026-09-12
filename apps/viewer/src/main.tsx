@@ -3,11 +3,11 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// PWA регистрация
+// PWA СЂРµРіРёСЃС‚СЂР°С†РёСЏ
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Игнорируем ошибку в dev-режиме
+      // РРіРЅРѕСЂРёСЂСѓРµРј РѕС€РёР±РєСѓ РІ dev-СЂРµР¶РёРјРµ
     });
   });
 }

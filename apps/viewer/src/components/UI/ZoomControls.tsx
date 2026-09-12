@@ -31,13 +31,13 @@ export const ZoomControls: React.FC = () => {
           hover:bg-gray-50 active:scale-95
           transition-all
         "
-        aria-label="Ïðèáëèçèòü"
+        aria-label="ÐŸÑ€Ð¸Ð±Ð»Ð¸Ð·Ð¸Ñ‚ÑŒ"
       >
         <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       </button>
-      
+
       <button
         onClick={handleZoomOut}
         className="
@@ -46,7 +46,7 @@ export const ZoomControls: React.FC = () => {
           hover:bg-gray-50 active:scale-95
           transition-all
         "
-        aria-label="Îòäàëèòü"
+        aria-label="ÐžÑ‚Ð´Ð°Ð»Ð¸Ñ‚ÑŒ"
       >
         <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -61,7 +61,7 @@ export const ZoomControls: React.FC = () => {
           hover:bg-gray-50 active:scale-95
           transition-all mt-2
         "
-        aria-label="Ñáðîñèòü âèä"
+        aria-label="Ð¡Ð±Ñ€Ð¾ÑÐ¸Ñ‚ÑŒ Ð²Ð¸Ð´"
       >
         <svg className="w-5 h-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />

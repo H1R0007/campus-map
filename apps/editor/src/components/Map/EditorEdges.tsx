@@ -61,7 +61,7 @@ export const EditorEdges: React.FC = () => {
             ]}
             pathOptions={{
               color: isHovered ? (activeTool === 'delete' ? '#ef4444' : '#60a5fa') : '#4b5563',
-              weight: isHovered ? 7 : 4, // толще для клика
+              weight: isHovered ? 7 : 4, // С‚РѕР»С‰Рµ РґР»СЏ РєР»РёРєР°
               opacity: isHovered ? 0.95 : 0.6,
             }}
             eventHandlers={{
