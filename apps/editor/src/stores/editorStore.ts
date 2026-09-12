@@ -24,13 +24,12 @@ import type {
   TransitionType,
 } from '@campus-map/core';
 import { useHistoryStore } from './historyStore';
+import type { NeighborSnapshot } from './historyStore';
 import { autoFixDataset, AutoFixReport } from '../utils/autoFix';
 
 enableMapSet();
 
 export type EditorTool = 'select' | 'node' | 'edge' | 'transition' | 'delete' | 'line';
-
-type NeighborSnapshot = Record<string, string[]>;
 
 function snapshotNeighbors(nodes: Map<string, MapNode>, ids: string[]): NeighborSnapshot {
   const snap: NeighborSnapshot = {};
@@ -713,7 +712,7 @@ export const useEditorStore = create<EditorStore>()(
 
       useHistoryStore.getState().push({
         type: 'BATCH',
-        description: `Subdivide: ${nodeCount} узлов`,
+        description: `Разбиение ребра: ${nodeCount} узлов`,
         undoData: {
           kind: 'subdivideEdge',
           nodeIds: newNodes.map(n => n.id),
@@ -1491,8 +1490,11 @@ export const useEditorStore = create<EditorStore>()(
       if (!node) return;
 
       const prev: Partial<MapNode> = {};
-      for (const k of Object.keys(updates) as (keyof MapNode)[]) {
-        prev[k] = node[k] as any;
+      for (const key of Object.keys(updates) as (keyof MapNode)[]) {
+        // Присваивание по вычисляемому ключу: TypeScript теряет связь между
+        // ключом и типом значения, поэтому `prev[key] = node[key]` без
+        // приведения не проходит, а `Object.assign` обходится без него.
+        Object.assign(prev, { [key]: node[key] });
       }
 
       useHistoryStore.getState().push({
@@ -1523,7 +1525,9 @@ export const useEditorStore = create<EditorStore>()(
       useHistoryStore.getState().push({
         type: 'ADD_EDGE',
         description: 'Добавлено ребро',
-        undoData: { neighborsBefore, ids: [fromId, toId] },
+        // `neighborsBefore` уже содержит оба узла как ключи, поэтому
+        // отдельный список id был бы избыточным дублем в каждой записи.
+        undoData: { neighborsBefore },
         redoData: { fromId, toId },
       });
 
@@ -1544,7 +1548,9 @@ export const useEditorStore = create<EditorStore>()(
       useHistoryStore.getState().push({
         type: 'REMOVE_EDGE',
         description: 'Удалено ребро',
-        undoData: { neighborsBefore, ids: [fromId, toId] },
+        // `neighborsBefore` уже содержит оба узла как ключи, поэтому
+        // отдельный список id был бы избыточным дублем в каждой записи.
+        undoData: { neighborsBefore },
         redoData: { fromId, toId },
       });
 
@@ -1694,7 +1700,7 @@ export const useEditorStore = create<EditorStore>()(
       const floor = st.currentFloor ?? CAMPUS_FLOOR;
 
       const nodeIds: string[] = [];
-      let currentCounter = st.nodeIdCounter;
+      const currentCounter = st.nodeIdCounter;
       const buildingLower = building.toLowerCase();
 
       for (let i = 0; i < count; i++) {
@@ -1753,14 +1759,14 @@ export const useEditorStore = create<EditorStore>()(
       set((s) => {
         switch (entry.type) {
           case 'ADD_NODE': {
-            const { nodeId } = entry.undoData as any;
+            const { nodeId } = entry.undoData;
             s.nodes.delete(nodeId);
             s.aliases.delete(nodeId);
             s.selectedNodeIds = new Set();
             break;
           }
           case 'REMOVE_NODE': {
-            const { node, neighborsBefore, transitionsBefore, aliases } = entry.undoData as any;
+            const { node, neighborsBefore, transitionsBefore, aliases } = entry.undoData;
             s.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
             applyNeighborsSnapshot(s.nodes, neighborsBefore);
             s.transitions = [...transitionsBefore];
@@ -1770,31 +1776,31 @@ export const useEditorStore = create<EditorStore>()(
             break;
           }
           case 'MOVE_NODE': {
-            const { nodeId, x, y } = entry.undoData as any;
+            const { nodeId, x, y } = entry.undoData;
             const n = s.nodes.get(nodeId);
             if (n) { n.x = x; n.y = y; }
             break;
           }
           case 'UPDATE_NODE': {
-            const { nodeId, updates } = entry.undoData as any;
+            const { nodeId, updates } = entry.undoData;
             const n = s.nodes.get(nodeId);
             if (n) Object.assign(n, updates);
             break;
           }
           case 'ADD_EDGE':
           case 'REMOVE_EDGE': {
-            const { neighborsBefore } = entry.undoData as any;
+            const { neighborsBefore } = entry.undoData;
             applyNeighborsSnapshot(s.nodes, neighborsBefore);
             break;
           }
           case 'ADD_TRANSITION':
           case 'REMOVE_TRANSITION': {
-            const { transitions } = entry.undoData as any;
+            const { transitions } = entry.undoData;
             s.transitions = [...transitions];
             break;
           }
           case 'SET_ALIASES': {
-            const { nodeId, names } = entry.undoData as any;
+            const { nodeId, names } = entry.undoData;
             if (names.length > 0) {
               s.aliases.set(nodeId, [...names]);
             } else {
@@ -1803,8 +1809,8 @@ export const useEditorStore = create<EditorStore>()(
             break;
           }
           case 'BATCH': {
-            const u = entry.undoData as any;
-            if (u.kind === 'line' && u.nodeIds) {
+            const u = entry.undoData;
+            if (u.kind === 'line') {
               for (const [, n] of s.nodes) {
                 n.neighbors = n.neighbors.filter(x => !u.nodeIds.includes(x));
               }
@@ -1869,12 +1875,12 @@ export const useEditorStore = create<EditorStore>()(
       set((s) => {
         switch (entry.type) {
           case 'ADD_NODE': {
-            const { node } = entry.redoData as any;
+            const { node } = entry.redoData;
             s.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
             break;
           }
           case 'REMOVE_NODE': {
-            const { nodeId } = entry.redoData as any;
+            const { nodeId } = entry.redoData;
             for (const [, n] of s.nodes) {
               n.neighbors = n.neighbors.filter(x => x !== nodeId);
             }
@@ -1885,19 +1891,19 @@ export const useEditorStore = create<EditorStore>()(
             break;
           }
           case 'MOVE_NODE': {
-            const { nodeId, x, y } = entry.redoData as any;
+            const { nodeId, x, y } = entry.redoData;
             const n = s.nodes.get(nodeId);
             if (n) { n.x = x; n.y = y; }
             break;
           }
           case 'UPDATE_NODE': {
-            const { nodeId, updates } = entry.redoData as any;
+            const { nodeId, updates } = entry.redoData;
             const n = s.nodes.get(nodeId);
             if (n) Object.assign(n, updates);
             break;
           }
           case 'ADD_EDGE': {
-            const { fromId, toId } = entry.redoData as any;
+            const { fromId, toId } = entry.redoData;
             const a = s.nodes.get(fromId);
             const b = s.nodes.get(toId);
             if (a && b) {
@@ -1907,7 +1913,7 @@ export const useEditorStore = create<EditorStore>()(
             break;
           }
           case 'REMOVE_EDGE': {
-            const { fromId, toId } = entry.redoData as any;
+            const { fromId, toId } = entry.redoData;
             const a = s.nodes.get(fromId);
             const b = s.nodes.get(toId);
             if (a) a.neighbors = a.neighbors.filter(x => x !== toId);
@@ -1916,12 +1922,12 @@ export const useEditorStore = create<EditorStore>()(
           }
           case 'ADD_TRANSITION':
           case 'REMOVE_TRANSITION': {
-            const { transitions } = entry.redoData as any;
+            const { transitions } = entry.redoData;
             s.transitions = [...transitions];
             break;
           }
           case 'SET_ALIASES': {
-            const { nodeId, names } = entry.redoData as any;
+            const { nodeId, names } = entry.redoData;
             if (names.length > 0) {
               s.aliases.set(nodeId, [...names]);
             } else {
@@ -1930,7 +1936,7 @@ export const useEditorStore = create<EditorStore>()(
             break;
           }
           case 'BATCH': {
-            const r = entry.redoData as any;
+            const r = entry.redoData;
             if (r.kind === 'line' && r.nodes) {
               for (const n of r.nodes) {
                 s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
@@ -1958,7 +1964,7 @@ export const useEditorStore = create<EditorStore>()(
                 if (n) n.isPortal = r.isPortal;
               }
             } else if (r.kind === 'chainConnect') {
-              const nodeIds = r.nodeIds as string[];
+              const nodeIds = r.nodeIds;
               for (let i = 0; i < nodeIds.length - 1; i++) {
                 const a = s.nodes.get(nodeIds[i]);
                 const b = s.nodes.get(nodeIds[i + 1]);
@@ -1970,7 +1976,7 @@ export const useEditorStore = create<EditorStore>()(
             } else if (r.kind === 'autofix') {
               for (const [id, neighbors] of Object.entries(r.fixedNodesNeighbors)) {
                 const node = s.nodes.get(id);
-                if (node) node.neighbors = neighbors as string[];
+                if (node) node.neighbors = [...neighbors];
               }
               s.transitions = [...r.fixedTransitions];
             } else if (r.kind === 'splitEdge') {

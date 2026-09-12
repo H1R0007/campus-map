@@ -83,7 +83,10 @@ export const EditorNodes: React.FC = () => {
     dragCandidateRef.current = null;
     try {
       map.dragging.enable();
-    } catch {}
+    } catch {
+      // Карта могла быть уже размонтирована (смена этажа во время
+      // перетаскивания). Панорамирование в таком случае нечего включать.
+    }
   }, [map]);
 
   const handleNodeActivateNonSelect = useCallback(
@@ -235,7 +238,10 @@ export const EditorNodes: React.FC = () => {
         c.dragging = true;
         try {
           map.dragging.disable();
-        } catch {}
+        } catch {
+          // То же, что в finishDrag: отсутствие карты не должно прерывать
+          // обработку перетаскивания узла.
+        }
       }
 
       if (!c.dragging) return;

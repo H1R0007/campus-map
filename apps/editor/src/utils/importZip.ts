@@ -49,7 +49,8 @@ function createZipDatasetSource(zip: JSZip, root: string): DatasetSource {
         return JSON.parse(text.replace(/^\uFEFF/, '').trimStart()) as unknown;
       } catch (cause) {
         throw new Error(
-          `Некорректный JSON в ${path}: ${cause instanceof Error ? cause.message : String(cause)}`
+          `Некорректный JSON в ${path}: ${cause instanceof Error ? cause.message : String(cause)}`,
+          { cause }
         );
       }
     },

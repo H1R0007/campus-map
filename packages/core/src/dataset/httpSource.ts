@@ -32,7 +32,8 @@ export function createHttpDatasetSource(options: HttpDatasetSourceOptions = {}):
         response = await fetchImpl(url);
       } catch (cause) {
         throw new Error(
-          `Не удалось запросить ${url}: ${cause instanceof Error ? cause.message : String(cause)}`
+          `Не удалось запросить ${url}: ${cause instanceof Error ? cause.message : String(cause)}`,
+          { cause }
         );
       }
 
@@ -59,7 +60,8 @@ export function createHttpDatasetSource(options: HttpDatasetSourceOptions = {}):
         return JSON.parse(body) as unknown;
       } catch (cause) {
         throw new Error(
-          `Некорректный JSON в ${url}: ${cause instanceof Error ? cause.message : String(cause)}`
+          `Некорректный JSON в ${url}: ${cause instanceof Error ? cause.message : String(cause)}`,
+          { cause }
         );
       }
     },

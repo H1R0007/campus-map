@@ -3,6 +3,7 @@ import { useMap, useMapEvents } from 'react-leaflet';
 import { PixelMap } from '@campus-map/mapkit';
 import { campusMapUrl, floorMapUrl } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import type { EditorTool } from '../../stores/editorStore';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -145,9 +146,20 @@ const KeyboardHandler: React.FC = () => {
         }
       }
 
-      const toolKeys: Record<string, string> = { v: 'select', n: 'node', e: 'edge', t: 'transition', l: 'line', d: 'delete' };
-      if (!ctrl && toolKeys[e.key.toLowerCase()]) {
-        setActiveTool(toolKeys[e.key.toLowerCase()] as any);
+      // Соответствие клавиш инструментам. Для клавиш, которые инструмент не
+      // переключают, значения нет — проверка на `undefined` и есть фильтр.
+      const toolByShortcut: Record<string, EditorTool> = {
+        v: 'select',
+        n: 'node',
+        e: 'edge',
+        t: 'transition',
+        l: 'line',
+        d: 'delete',
+      };
+      const tool = toolByShortcut[e.key.toLowerCase()];
+
+      if (!ctrl && tool) {
+        setActiveTool(tool);
       }
     };
 

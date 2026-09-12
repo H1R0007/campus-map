@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { transitionTypeLabel, transitionTypeColor, transitionTypeIcon, TRANSITION_TYPES } from '@campus-map/core';
+import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const PropertiesPanel: React.FC = () => {
@@ -34,7 +35,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
   const setEdgeStartNode = useEditorStore((s) => s.setEdgeStartNode);
   const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
-  const transitionType = useEditorStore((s) => s.transitionType);
   const setTransitionType = useEditorStore((s) => s.setTransitionType);
 
   const transitions = useMemo(() => getTransitionsForNode(nodeId), [getTransitionsForNode, nodeId]);
@@ -64,11 +64,16 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const [commentDraft, setCommentDraft] = useState(comment);
   const commentFocused = useRef(false);
 
+  // Координаты читаются как примитивы, а не через объект узла: иначе эффект
+  // перезапускался бы на любое изменение узла и сбрасывал несохранённый ввод.
+  const nodeX = node?.x;
+  const nodeY = node?.y;
+
   useEffect(() => {
-    if (!node) return;
-    setXText(String(node.x));
-    setYText(String(node.y));
-  }, [node?.x, node?.y, nodeId]);
+    if (nodeX === undefined || nodeY === undefined) return;
+    setXText(String(nodeX));
+    setYText(String(nodeY));
+  }, [nodeX, nodeY, nodeId]);
 
   // Смена узла — черновик перезаписывается безусловно, даже если поле
   // осталось в фокусе после программного изменения выделения.
@@ -149,7 +154,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   };
 
   // Start transition from this node
-  const startTransitionFromHere = (type?: typeof transitionType) => {
+  const startTransitionFromHere = (type?: TransitionType) => {
     if (type) setTransitionType(type);
     setActiveTool('transition');
     setTransitionStartNode(nodeId);

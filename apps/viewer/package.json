@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
     "build": "tsc && vite build",
+    "dev": "vite",
     "typecheck": "tsc",
-    "preview": "vite preview",
-    "test": "node ../../tooling/smoke-test.mjs --app viewer --mode prod"
+    "lint": "eslint src",
+    "test": "node ../../tooling/smoke-test.mjs --app viewer --mode prod",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@campus-map/core": "workspace:*",

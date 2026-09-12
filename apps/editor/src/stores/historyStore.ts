@@ -1,5 +1,92 @@
 import { create } from 'zustand';
+import type { MapNode, Transition } from '@campus-map/core';
 
+/**
+ * Контракт истории действий редактора и сам стек отмены.
+ *
+ * Каждая запись описывает, как отменить и как повторить действие. Полезные
+ * нагрузки типизированы исчерпывающим объединением с дискриминантом: раньше
+ * они хранились как `unknown`, и обе ветки применения разбирали их через
+ * `as any` — семнадцать приведений, из-за которых опечатка в имени поля
+ * обнаруживалась только в браузере, уже сломав отмену.
+ */
+
+/** Слепок списков соседей: id узла → его соседи до изменения. */
+export type NeighborSnapshot = Record<string, string[]>;
+
+/** Позиция узла — для группового перемещения. */
+export interface NodePosition {
+  nodeId: string;
+  x: number;
+  y: number;
+}
+
+/** Изменение признака портала у узла. */
+export interface PortalChange {
+  nodeId: string;
+  isPortal: boolean;
+}
+
+/** Слепок алиасов узла: алиасы живут отдельно от узла. */
+export interface AliasSnapshot {
+  id: string;
+  names: string[];
+}
+
+/**
+ * Нагрузки отмены для составных действий.
+ *
+ * Составное действие (`BATCH`) меняет сразу несколько сущностей, поэтому его
+ * нагрузка различается по полю `kind`.
+ */
+export type BatchUndoPayload =
+  | { kind: 'line'; nodeIds: string[] }
+  | {
+      kind: 'deleteMultiple';
+      nodes: MapNode[];
+      neighborsBefore: NeighborSnapshot;
+      transitionsBefore: Transition[];
+      aliases?: AliasSnapshot[];
+    }
+  | { kind: 'moveMultiple'; positions: NodePosition[] }
+  | { kind: 'setPortal'; changes: PortalChange[] }
+  | { kind: 'chainConnect'; neighborsBefore: NeighborSnapshot }
+  | {
+      kind: 'autofix';
+      neighborsBefore: NeighborSnapshot;
+      transitionsBefore: Transition[];
+    }
+  | {
+      kind: 'splitEdge';
+      newNodeId: string;
+      fromId: string;
+      toId: string;
+      neighborsBefore: NeighborSnapshot;
+    }
+  | {
+      kind: 'subdivideEdge';
+      nodeIds: string[];
+      fromId: string;
+      toId: string;
+      neighborsBefore: NeighborSnapshot;
+    };
+
+/** Нагрузки повтора для составных действий. */
+export type BatchRedoPayload =
+  | { kind: 'line'; nodes: MapNode[] }
+  | { kind: 'deleteMultiple'; nodeIds: string[] }
+  | { kind: 'moveMultiple'; positions: NodePosition[] }
+  | { kind: 'setPortal'; nodeIds: string[]; isPortal: boolean }
+  | { kind: 'chainConnect'; nodeIds: string[] }
+  | {
+      kind: 'autofix';
+      fixedNodesNeighbors: NeighborSnapshot;
+      fixedTransitions: Transition[];
+    }
+  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string }
+  | { kind: 'subdivideEdge'; nodes: MapNode[]; fromId: string; toId: string };
+
+/** Тип действия, по которому ветвится применение отмены и повтора. */
 export type ActionType =
   | 'ADD_NODE'
   | 'REMOVE_NODE'
@@ -12,20 +99,106 @@ export type ActionType =
   | 'SET_ALIASES'
   | 'BATCH';
 
-export interface HistoryEntry {
-  type: ActionType;
-  description: string;
-  timestamp: number;
-  undoData: unknown;
-  redoData: unknown;
-}
+/**
+ * Запись истории.
+ *
+ * Объединение с дискриминантом по `type`: пара `undoData`/`redoData` для
+ * каждого действия своя, и `switch (entry.type)` сужает обе сразу.
+ */
+export type HistoryEntry =
+  | {
+      type: 'ADD_NODE';
+      description: string;
+      timestamp: number;
+      undoData: { nodeId: string };
+      redoData: { node: MapNode };
+    }
+  | {
+      type: 'REMOVE_NODE';
+      description: string;
+      timestamp: number;
+      undoData: {
+        node: MapNode;
+        neighborsBefore: NeighborSnapshot;
+        transitionsBefore: Transition[];
+        aliases: string[];
+      };
+      redoData: { nodeId: string };
+    }
+  | {
+      type: 'MOVE_NODE';
+      description: string;
+      timestamp: number;
+      undoData: NodePosition;
+      redoData: NodePosition;
+    }
+  | {
+      type: 'UPDATE_NODE';
+      description: string;
+      timestamp: number;
+      undoData: { nodeId: string; updates: Partial<MapNode> };
+      redoData: { nodeId: string; updates: Partial<MapNode> };
+    }
+  | {
+      type: 'ADD_EDGE';
+      description: string;
+      timestamp: number;
+      undoData: { neighborsBefore: NeighborSnapshot };
+      redoData: { fromId: string; toId: string };
+    }
+  | {
+      type: 'REMOVE_EDGE';
+      description: string;
+      timestamp: number;
+      undoData: { neighborsBefore: NeighborSnapshot };
+      redoData: { fromId: string; toId: string };
+    }
+  | {
+      type: 'ADD_TRANSITION';
+      description: string;
+      timestamp: number;
+      undoData: { transitions: Transition[] };
+      redoData: { transitions: Transition[] };
+    }
+  | {
+      type: 'REMOVE_TRANSITION';
+      description: string;
+      timestamp: number;
+      undoData: { transitions: Transition[] };
+      redoData: { transitions: Transition[] };
+    }
+  | {
+      type: 'SET_ALIASES';
+      description: string;
+      timestamp: number;
+      undoData: { nodeId: string; names: string[] };
+      redoData: { nodeId: string; names: string[] };
+    }
+  | {
+      type: 'BATCH';
+      description: string;
+      timestamp: number;
+      undoData: BatchUndoPayload;
+      redoData: BatchRedoPayload;
+    };
+
+/**
+ * `Omit`, распределённый по членам объединения.
+ *
+ * Обычный `Omit<HistoryEntry, 'timestamp'>` схлопнул бы объединение в один
+ * объект с пересечением полей и потерял связь между `type` и нагрузками.
+ */
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+/** Запись истории без метки времени — её проставляет `push`. */
+export type HistoryEntryInput = DistributiveOmit<HistoryEntry, 'timestamp'>;
 
 interface HistoryState {
   entries: HistoryEntry[];
   currentIndex: number;
   maxEntries: number;
 
-  push: (entry: Omit<HistoryEntry, 'timestamp'>) => void;
+  push: (entry: HistoryEntryInput) => void;
   undo: () => HistoryEntry | null;
   redo: () => HistoryEntry | null;
   clear: () => void;
@@ -43,15 +216,12 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   push: (entry) =>
     set((state) => {
-      // Отсекаем записи после текущей позиции (при новом действии после undo)
+      // Новое действие после отмены делает невозможным повтор того, что было
+      // отменено, поэтому хвост за текущей позицией отбрасывается.
       const newEntries = state.entries.slice(0, state.currentIndex + 1);
 
-      newEntries.push({
-        ...entry,
-        timestamp: Date.now(),
-      });
+      newEntries.push({ ...entry, timestamp: Date.now() } as HistoryEntry);
 
-      // Ограничиваем размер истории
       while (newEntries.length > state.maxEntries) {
         newEntries.shift();
       }
