@@ -11,6 +11,15 @@ export const DiagnosticsPanel: React.FC = () => {
   const transitions = useEditorStore((s) => s.transitions);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
 
+  /**
+   * Замечания загрузчика ядра к исходным файлам.
+   *
+   * Держатся отдельно от структурных предупреждений: эти найдены при чтении
+   * датасета и описывают файлы, а не текущее состояние разметки, поэтому не
+   * исчезают по мере правок и не лечатся автоисправлением.
+   */
+  const loadWarnings = useEditorStore((s) => s.loadWarnings);
+
   const [lastFixReport, setLastFixReport] = useState<string | null>(null);
 
   const report = useMemo(() => {
@@ -39,7 +48,8 @@ export const DiagnosticsPanel: React.FC = () => {
   };
 
   if (!open) {
-    const hasIssues = report.errors.length > 0 || report.warnings.length > 0;
+    const warningCount = report.warnings.length + loadWarnings.length;
+    const hasIssues = report.errors.length > 0 || warningCount > 0;
 
     return (
       <button
@@ -63,7 +73,7 @@ export const DiagnosticsPanel: React.FC = () => {
               color: 'white',
             }}
           >
-            {report.errors.length > 0 ? report.errors.length : report.warnings.length}
+            {report.errors.length > 0 ? report.errors.length : warningCount}
           </span>
         )}
       </button>
@@ -195,8 +205,34 @@ export const DiagnosticsPanel: React.FC = () => {
           </div>
         )}
 
+        {/* Замечания к исходным файлам */}
+        {loadWarnings.length > 0 && (
+          <div
+            className="rounded-xl p-3"
+            style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
+          >
+            <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fbbf24' }}>
+              📄 Замечания к загруженным файлам
+            </div>
+            <p className="mt-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
+              Найдены при чтении датасета. На текущую разметку не влияют и
+              автоисправлением не убираются.
+            </p>
+            <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
+              {loadWarnings.slice(0, 50).map((w, i) => (
+                <li key={i} className="break-words">• {w}</li>
+              ))}
+              {loadWarnings.length > 50 && (
+                <li className="text-yellow-500">... и ещё {loadWarnings.length - 50}</li>
+              )}
+            </ul>
+          </div>
+        )}
+
         {/* All good */}
-        {report.errors.length === 0 && report.warnings.length === 0 && (
+        {report.errors.length === 0 &&
+          report.warnings.length === 0 &&
+          loadWarnings.length === 0 && (
           <div
             className="rounded-xl p-4 text-center"
             style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e' }}

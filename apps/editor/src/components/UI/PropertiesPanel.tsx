@@ -25,6 +25,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const getTransitionsForNode = useEditorStore((s) => s.getTransitionsForNode);
   const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
+  const comment = useEditorStore((s) => s.getNodeComment(nodeId));
+  const setNodeComment = useEditorStore((s) => s.setNodeComment);
   const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
   const addBookmark = useEditorStore((s) => s.addBookmark);
 
@@ -57,11 +59,30 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const [newAlias, setNewAlias] = useState('');
   const aliasInputRef = useRef<HTMLInputElement>(null);
 
+  // Черновик заметки: правка уходит в стор (и в историю отмены) только по
+  // завершению, а не на каждое нажатие клавиши.
+  const [commentDraft, setCommentDraft] = useState(comment);
+  const commentFocused = useRef(false);
+
   useEffect(() => {
     if (!node) return;
     setXText(String(node.x));
     setYText(String(node.y));
   }, [node?.x, node?.y, nodeId]);
+
+  // Смена узла — черновик перезаписывается безусловно, даже если поле
+  // осталось в фокусе после программного изменения выделения.
+  useEffect(() => {
+    commentFocused.current = false;
+    setCommentDraft(comment);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeId]);
+
+  // Значение изменилось извне (отмена или повтор действия) — подхватываем,
+  // но только пока пользователь не печатает.
+  useEffect(() => {
+    if (!commentFocused.current) setCommentDraft(comment);
+  }, [comment]);
 
   useEffect(() => {
     if (editingAliasIndex !== null && aliasInputRef.current) {
@@ -78,6 +99,13 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
       updateNode(node.id, { x, y });
     }
   }, [node, xText, yText, updateNode]);
+
+  const commitComment = useCallback(() => {
+    commentFocused.current = false;
+    if (commentDraft !== comment) {
+      setNodeComment(nodeId, commentDraft);
+    }
+  }, [comment, commentDraft, nodeId, setNodeComment]);
 
   // Alias handlers
   const startEditAlias = (index: number) => {
@@ -431,6 +459,64 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             >
               +
             </button>
+          </div>
+        </section>
+
+        {/* Рабочая заметка разметчика */}
+        <section
+          className="rounded-xl p-3"
+          style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
+        >
+          <div
+            className="text-xs uppercase tracking-wide"
+            style={{ color: 'var(--editor-text-muted)' }}
+          >
+            📝 Заметка разметчика
+          </div>
+
+          <textarea
+            value={commentDraft}
+            rows={3}
+            placeholder="Например: геометрия приблизительная, уточнить у коменданта"
+            onChange={(e) => setCommentDraft(e.target.value)}
+            onFocus={() => {
+              commentFocused.current = true;
+            }}
+            onBlur={commitComment}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                commitComment();
+                e.currentTarget.blur();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                commentFocused.current = false;
+                setCommentDraft(comment);
+                e.currentTarget.blur();
+              }
+            }}
+            className="mt-2 w-full px-3 py-2 rounded-lg text-sm resize-y"
+            style={{
+              backgroundColor: 'var(--editor-panel)',
+              border: '1px solid var(--editor-border)',
+              color: 'white',
+            }}
+          />
+
+          <div className="mt-1 flex items-start gap-2">
+            <p className="text-xs flex-1" style={{ color: 'var(--editor-text-muted)' }}>
+              Не влияет на маршруты и не показывается студентам — это пометка
+              для команды разметки. Ctrl+Enter сохранить, Esc отменить.
+            </p>
+            {commentDraft !== comment && (
+              <button
+                onClick={commitComment}
+                className="px-2 py-1 rounded text-xs font-medium shrink-0"
+                style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
+              >
+                Сохранить
+              </button>
+            )}
           </div>
         </section>
 
