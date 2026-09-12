@@ -5,12 +5,29 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "typecheck": "turbo typecheck",
     "lint": "turbo lint",
+    "test": "turbo test",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@campus-map/core": "workspace:*",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   },
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "pnpm@9.0.0",
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "last 2 versions",
+      "Firefox ESR",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
 }

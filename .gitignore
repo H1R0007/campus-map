@@ -27,7 +27,6 @@ npm-debug.log*
 
 # Cache
 .cache/
-apps/*/public/data
 
 # TypeScript incremental build info
 *.tsbuildinfo

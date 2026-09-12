@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node ../../tooling/smoke-test.mjs --app editor --mode prod"
   },
   "dependencies": {
     "@campus-map/core": "workspace:*",

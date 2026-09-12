@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@campus-map/core':
+        specifier: workspace:*
+        version: link:packages/core
       turbo:
         specifier: ^2.0.0
         version: 2.7.5
@@ -81,6 +84,9 @@ importers:
       '@campus-map/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@campus-map/mapkit':
+        specifier: workspace:*
+        version: link:../../packages/mapkit
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -130,6 +136,33 @@ importers:
 
   packages/core:
     devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
+  packages/mapkit:
+    devDependencies:
+      '@types/leaflet':
+        specifier: ^1.9.8
+        version: 1.9.21
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.27
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.27)
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      react-leaflet:
+        specifier: ^4.2.1
+        version: 4.2.1(leaflet@1.9.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -1444,6 +1477,7 @@ packages:
   glob@11.1.0:
     resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   globalthis@1.0.4:
