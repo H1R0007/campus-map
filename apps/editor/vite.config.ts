@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ['.e2b.app', 'localhost'],
     port: 3001,
     open: true,
   },
