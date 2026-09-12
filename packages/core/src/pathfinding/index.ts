@@ -1,1 +1,0 @@
-export { findPath } from './astar';

@@ -1,23 +1,43 @@
-// packages/core/src/pathfinding/astar.ts
-
-import type { MapNode } from '../types/node';
-import type { PathfindingOptions, PathResult, PathSegment, MultiPathResult } from '../types/pathfinding';
-import type { TransitionType } from '../types/transition';
-import type { Graph } from '../graph/Graph';
+import { distance, edgeKey } from '../geometry.js';
+import type { Graph } from '../graph/Graph.js';
+import type { MapNode } from '../types/node.js';
+import type {
+  MultiPathResult,
+  PathfindingOptions,
+  PathResult,
+  PathSegment,
+} from '../types/pathfinding.js';
+import type { TransitionType } from '../types/transition.js';
 
 /**
- * Элемент приоритетной очереди
+ * Поиск кратчайшего пути алгоритмом A*.
  */
+
+/** Ограничение итераций по умолчанию — защита от зацикливания на битых данных. */
+const DEFAULT_MAX_ITERATIONS = 50_000;
+
+/**
+ * Штраф за ребро, соединяющее разные этажи или корпуса без описанного
+ * перехода. Маршрут через него технически возможен, но делается заведомо
+ * дорогим, чтобы при наличии корректного перехода выбрался именно он.
+ */
+const CROSS_FLOOR_WITHOUT_TRANSITION_COST = 10_000;
+
+/** Элемент приоритетной очереди. */
 interface QueueItem {
   nodeId: string;
   fScore: number;
 }
 
 /**
- * Минимальная приоритетная очередь (min-heap)
+ * Приоритетная очередь на бинарной куче.
+ *
+ * `Array.prototype.sort` на каждой вставке дал бы O(N log N) на шаг и
+ * превратил бы поиск в O(N² log N) — на графах с тысячами узлов это
+ * заметно, поэтому куча обязательна.
  */
 class PriorityQueue {
-  private items: QueueItem[] = [];
+  private readonly items: QueueItem[] = [];
 
   push(item: QueueItem): void {
     this.items.push(item);
@@ -44,7 +64,7 @@ class PriorityQueue {
 
   private bubbleUp(index: number): void {
     while (index > 0) {
-      const parentIndex = Math.floor((index - 1) / 2);
+      const parentIndex = (index - 1) >> 1;
       if (this.items[parentIndex].fScore <= this.items[index].fScore) break;
       [this.items[parentIndex], this.items[index]] = [this.items[index], this.items[parentIndex]];
       index = parentIndex;
@@ -53,16 +73,17 @@ class PriorityQueue {
 
   private bubbleDown(index: number): void {
     const length = this.items.length;
-    while (true) {
-      const leftChild = 2 * index + 1;
-      const rightChild = 2 * index + 2;
+
+    for (;;) {
+      const left = 2 * index + 1;
+      const right = left + 1;
       let smallest = index;
 
-      if (leftChild < length && this.items[leftChild].fScore < this.items[smallest].fScore) {
-        smallest = leftChild;
+      if (left < length && this.items[left].fScore < this.items[smallest].fScore) {
+        smallest = left;
       }
-      if (rightChild < length && this.items[rightChild].fScore < this.items[smallest].fScore) {
-        smallest = rightChild;
+      if (right < length && this.items[right].fScore < this.items[smallest].fScore) {
+        smallest = right;
       }
       if (smallest === index) break;
 
@@ -72,9 +93,7 @@ class PriorityQueue {
   }
 }
 
-/**
- * Нормализованные опции с дефолтами
- */
+/** Опции после подстановки значений по умолчанию. */
 interface NormalizedOptions {
   allowStairs: boolean;
   allowLift: boolean;
@@ -91,41 +110,34 @@ function normalizeOptions(options: PathfindingOptions = {}): NormalizedOptions {
     allowBridge: options.allowBridge ?? true,
     allowEntrance: options.allowEntrance ?? true,
     preferLift: options.preferLift ?? false,
-    maxIterations: options.maxIterations ?? 50000,
+    maxIterations: options.maxIterations ?? DEFAULT_MAX_ITERATIONS,
   };
 }
 
 /**
- * Эвристика — чистое евклидово расстояние (admissible)
- * Не учитываем этажи в эвристике, чтобы не переоценивать
- */
-function heuristic(a: MapNode, b: MapNode): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-/**
- * Евклидово расстояние между узлами
- */
-function euclidean(a: MapNode, b: MapNode): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-/**
- * Веса переходов (чем меньше — тем предпочтительнее)
+ * Веса переходов: чем меньше, тем предпочтительнее.
+ *
+ * Переход всегда «дешевле» длинного пешего отрезка, но дороже короткого:
+ * вход стоит 5 условных метров, лестница — 40. Значения подобраны так,
+ * чтобы маршрут не петлял через лишние лестницы, но и не запрещал их.
  */
 const TRANSITION_WEIGHTS: Record<TransitionType, number> = {
-  entrance: 5,    // Вход/выход — почти бесплатно
-  lift: 15,       // Лифт — быстро
-  bridge: 25,     // Переход между корпусами
-  stairs: 40,     // Лестница — дольше
+  entrance: 5,
+  lift: 15,
+  bridge: 25,
+  stairs: 40,
 };
 
 /**
- * Стоимость ребра между двумя узлами
+ * Стоимость ребра между двумя узлами.
+ *
+ * `Infinity` означает «ребро запрещено настройками» — так A* просто его не
+ * рассматривает, и отдельной ветки фильтрации в обходе не нужно.
+ *
+ * Эта же функция используется и для подсчёта стоимости шагов маршрута,
+ * поэтому сумма `segments[].distance` всегда совпадает с `totalDistance`.
+ * Раньше сегменты считались по «сырым» весам без учёта `preferLift`, из-за
+ * чего итог расходился с суммой шагов ровно на величину надбавки.
  */
 function edgeCost(
   a: MapNode,
@@ -133,38 +145,34 @@ function edgeCost(
   transitionType: TransitionType | null,
   opts: NormalizedOptions
 ): number {
-  // Если есть переход — проверяем разрешения и возвращаем его вес
-  if (transitionType) {
+  if (transitionType !== null) {
     switch (transitionType) {
       case 'stairs':
-        if (!opts.allowStairs) return Infinity;
+        if (!opts.allowStairs) return Number.POSITIVE_INFINITY;
         return opts.preferLift ? TRANSITION_WEIGHTS.stairs * 1.5 : TRANSITION_WEIGHTS.stairs;
       case 'lift':
-        if (!opts.allowLift) return Infinity;
+        if (!opts.allowLift) return Number.POSITIVE_INFINITY;
         return opts.preferLift ? TRANSITION_WEIGHTS.lift * 0.7 : TRANSITION_WEIGHTS.lift;
       case 'bridge':
-        if (!opts.allowBridge) return Infinity;
+        if (!opts.allowBridge) return Number.POSITIVE_INFINITY;
         return TRANSITION_WEIGHTS.bridge;
       case 'entrance':
-        if (!opts.allowEntrance) return Infinity;
-        return TRANSITION_WEIGHTS.entrance;
-      default:
+        if (!opts.allowEntrance) return Number.POSITIVE_INFINITY;
         return TRANSITION_WEIGHTS.entrance;
     }
   }
 
-  // Обычное ребро на одном этаже — евклидово расстояние
+  // Обычное ребро внутри этажа — расстояние в пикселях карты.
   if (a.building === b.building && a.floor === b.floor) {
-    return euclidean(a, b);
+    return distance(a, b);
   }
 
-  // Ребро между разными этажами/зданиями без transition — это ошибка в данных
-  // Но чтобы алгоритм не падал, даём очень высокую цену
-  return 10000;
+  // Ребро между этажами или корпусами без перехода — ошибка в данных.
+  return CROSS_FLOOR_WITHOUT_TRANSITION_COST;
 }
 
 /**
- * Восстановление пути из карты предшественников
+ * Восстанавливает путь по карте предшественников.
  */
 function reconstructPath(cameFrom: Map<string, string>, endId: string): string[] {
   const path: string[] = [endId];
@@ -179,27 +187,27 @@ function reconstructPath(cameFrom: Map<string, string>, endId: string): string[]
 }
 
 /**
- * Построение сегментов пути для инструкций
+ * Разбивает путь на шаги с типами переходов и стоимостями.
  */
-function buildSegments(graph: Graph, path: string[]): PathSegment[] {
+function buildSegments(
+  graph: Graph,
+  path: string[],
+  opts: NormalizedOptions
+): PathSegment[] {
   const segments: PathSegment[] = [];
 
   for (let i = 0; i < path.length - 1; i++) {
     const fromNode = graph.getNode(path[i]);
     const toNode = graph.getNode(path[i + 1]);
-
     if (!fromNode || !toNode) continue;
 
-    const transitionType = graph.getTransitionType(path[i], path[i + 1]);
-    const distance = transitionType
-      ? TRANSITION_WEIGHTS[transitionType]
-      : euclidean(fromNode, toNode);
+    const transitionType = graph.getTransitionType(fromNode.id, toNode.id);
 
     segments.push({
-      fromNode: path[i],
-      toNode: path[i + 1],
+      fromNode: fromNode.id,
+      toNode: toNode.id,
       transitionType,
-      distance,
+      distance: edgeCost(fromNode, toNode, transitionType, opts),
     });
   }
 
@@ -207,42 +215,50 @@ function buildSegments(graph: Graph, path: string[]): PathSegment[] {
 }
 
 /**
- * Поиск кратчайшего пути алгоритмом A*
+ * Общий A*-обход.
+ *
+ * Единственная реализация поиска: `findPath` и `findAlternativePaths`
+ * отличаются только необязательным исключением одного ребра, поэтому
+ * вторая копия алгоритма не нужна.
+ *
+ * @param excludeEdgeKey канонический ключ ребра, которое нельзя использовать
  */
-export function findPath(
+function search(
   graph: Graph,
   startId: string,
   endId: string,
-  options: PathfindingOptions = {}
+  opts: NormalizedOptions,
+  excludeEdgeKey?: string
 ): PathResult {
-  const opts = normalizeOptions(options);
-
   const startNode = graph.getNode(startId);
   const endNode = graph.getNode(endId);
 
   if (!startNode) {
-    return { found: false, path: [], totalDistance: 0, error: `Начальная точка "${startId}" не найдена` };
+    return {
+      found: false,
+      path: [],
+      totalDistance: 0,
+      error: `Начальная точка "${startId}" не найдена`,
+    };
   }
   if (!endNode) {
-    return { found: false, path: [], totalDistance: 0, error: `Конечная точка "${endId}" не найдена` };
+    return {
+      found: false,
+      path: [],
+      totalDistance: 0,
+      error: `Конечная точка "${endId}" не найдена`,
+    };
   }
   if (startId === endId) {
     return { found: true, path: [startId], totalDistance: 0, segments: [] };
   }
 
-  // g-score: стоимость пути от старта до узла
-  const gScore = new Map<string, number>();
-  gScore.set(startId, 0);
-
-  // Откуда пришли
+  const gScore = new Map<string, number>([[startId, 0]]);
   const cameFrom = new Map<string, string>();
+  const closed = new Set<string>();
 
-  // Приоритетная очередь
   const openSet = new PriorityQueue();
-  openSet.push({ nodeId: startId, fScore: heuristic(startNode, endNode) });
-
-  // Множество посещённых (для оптимизации, но с возможностью переоткрытия)
-  const closedSet = new Set<string>();
+  openSet.push({ nodeId: startId, fScore: distance(startNode, endNode) });
 
   let iterations = 0;
 
@@ -252,58 +268,50 @@ export function findPath(
         found: false,
         path: [],
         totalDistance: 0,
-        error: `Превышен лимит итераций (${opts.maxIterations})`
+        error: `Превышен лимит итераций (${opts.maxIterations})`,
       };
     }
 
-    const current = openSet.pop()!;
-    const currentId = current.nodeId;
+    const currentId = openSet.pop()!.nodeId;
 
-    // Достигли цели
     if (currentId === endId) {
       const path = reconstructPath(cameFrom, endId);
-      const segments = buildSegments(graph, path);
-      const totalDistance = gScore.get(endId) ?? 0;
-
       return {
         found: true,
         path,
-        totalDistance,
-        segments,
+        totalDistance: gScore.get(endId) ?? 0,
+        segments: buildSegments(graph, path, opts),
       };
     }
 
-    // Уже в closed set — пропускаем
-    if (closedSet.has(currentId)) continue;
-    closedSet.add(currentId);
+    // Ленивое удаление: узел мог попасть в очередь несколько раз с разной
+    // оценкой, обрабатываем только первое извлечение.
+    if (closed.has(currentId)) continue;
+    closed.add(currentId);
 
     const currentNode = graph.getNode(currentId);
     if (!currentNode) continue;
 
-    // Обрабатываем соседей
-    const neighbors = graph.getNeighbors(currentId);
+    for (const neighborId of graph.getNeighbors(currentId)) {
+      if (closed.has(neighborId)) continue;
 
-    for (const neighborId of neighbors) {
-      if (closedSet.has(neighborId)) continue;
+      if (excludeEdgeKey !== undefined && edgeKey(currentId, neighborId) === excludeEdgeKey) {
+        continue;
+      }
 
       const neighborNode = graph.getNode(neighborId);
       if (!neighborNode) continue;
 
       const transitionType = graph.getTransitionType(currentId, neighborId);
       const cost = edgeCost(currentNode, neighborNode, transitionType, opts);
-
       if (!Number.isFinite(cost)) continue;
 
-      const tentativeG = (gScore.get(currentId) ?? Infinity) + cost;
-      const previousG = gScore.get(neighborId) ?? Infinity;
+      const tentativeG = (gScore.get(currentId) ?? Number.POSITIVE_INFINITY) + cost;
+      if (tentativeG >= (gScore.get(neighborId) ?? Number.POSITIVE_INFINITY)) continue;
 
-      if (tentativeG < previousG) {
-        cameFrom.set(neighborId, currentId);
-        gScore.set(neighborId, tentativeG);
-
-        const fScore = tentativeG + heuristic(neighborNode, endNode);
-        openSet.push({ nodeId: neighborId, fScore });
-      }
+      cameFrom.set(neighborId, currentId);
+      gScore.set(neighborId, tentativeG);
+      openSet.push({ nodeId: neighborId, fScore: tentativeG + distance(neighborNode, endNode) });
     }
   }
 
@@ -311,13 +319,41 @@ export function findPath(
     found: false,
     path: [],
     totalDistance: 0,
-    error: 'Путь не найден — точки не связаны'
+    error: 'Путь не найден — точки не связаны',
   };
 }
 
 /**
- * Поиск нескольких альтернативных путей
- * Использует метод "penalty" — после нахождения пути увеличиваем стоимость его рёбер
+ * Ищет кратчайший путь между двумя узлами.
+ *
+ * Эвристика — евклидово расстояние без учёта этажа и корпуса. Она
+ * допустима (никогда не переоценивает), поэтому результат оптимален.
+ * Для кросс-этажных маршрутов эвристика слабая, но корректная: стоимость
+ * перехода всё равно меньше любого реального обходного пути.
+ */
+export function findPath(
+  graph: Graph,
+  startId: string,
+  endId: string,
+  options: PathfindingOptions = {}
+): PathResult {
+  return search(graph, startId, endId, normalizeOptions(options));
+}
+
+/**
+ * Ищет основной путь и альтернативные варианты.
+ *
+ * Метод исключения рёбер: поочерёдно запрещаем каждое ребро основного пути
+ * и пересчитываем маршрут. Если после запрета путь всё ещё существует и
+ * отличается от уже найденных — это альтернатива.
+ *
+ * Обход рёбер детерминирован (от старта к финишу), поэтому результат
+ * воспроизводим от запуска к запуску. Прежняя версия выбирала ребро
+ * двойным взятием остатка от середины пути и вела неиспользуемый набор
+ * `usedEdges`; поведение было трудно предсказать и невозможно объяснить.
+ *
+ * На графе-дереве альтернатив нет по определению — это корректный
+ * результат, а не ошибка.
  */
 export function findAlternativePaths(
   graph: Graph,
@@ -326,153 +362,31 @@ export function findAlternativePaths(
   options: PathfindingOptions = {},
   maxPaths: number = 3
 ): MultiPathResult {
-  const primary = findPath(graph, startId, endId, options);
+  const opts = normalizeOptions(options);
+  const primary = search(graph, startId, endId, opts);
 
-  if (!primary.found) {
-    return { primary, alternatives: [] };
-  }
-
-  if (primary.path.length < 2) {
-    // Слишком короткий путь — альтернатив нет
+  if (!primary.found || maxPaths < 2 || primary.path.length < 2) {
     return { primary, alternatives: [] };
   }
 
   const alternatives: PathResult[] = [];
-  const usedEdges = new Set<string>();
+  const seenPaths = new Set<string>([primary.path.join(',')]);
+  const wanted = maxPaths - 1;
 
-  // Добавляем рёбра основного пути
-  for (let i = 0; i < primary.path.length - 1; i++) {
-    const edgeKey = [primary.path[i], primary.path[i + 1]].sort().join('|');
-    usedEdges.add(edgeKey);
+  for (let i = 0; i < primary.path.length - 1 && alternatives.length < wanted; i++) {
+    const exclude = edgeKey(primary.path[i], primary.path[i + 1]);
+    const candidate = search(graph, startId, endId, opts, exclude);
+
+    if (!candidate.found) continue;
+
+    const key = candidate.path.join(',');
+    if (seenPaths.has(key)) continue;
+
+    seenPaths.add(key);
+    alternatives.push(candidate);
   }
 
-  // Ищем альтернативы, исключая рёбра
-  for (let attempt = 0; attempt < maxPaths * 2 && alternatives.length < maxPaths - 1; attempt++) {
-    const pathToExclude = alternatives.length === 0 ? primary : alternatives[alternatives.length - 1];
-
-    if (pathToExclude.path.length < 2) continue;
-
-    // Пробуем исключить разные рёбра основного пути
-    const edgeIndex = Math.floor(pathToExclude.path.length / 2) + (attempt % (pathToExclude.path.length - 1));
-    const actualIndex = edgeIndex % (pathToExclude.path.length - 1);
-
-    const excludeFrom = pathToExclude.path[actualIndex];
-    const excludeTo = pathToExclude.path[actualIndex + 1];
-
-    // Создаём временный граф без этого ребра
-    const altPath = findPathExcludingEdge(graph, startId, endId, excludeFrom, excludeTo, options);
-
-    if (altPath.found) {
-      // Проверяем что путь действительно отличается
-      const pathKey = altPath.path.join(',');
-      const isDuplicate =
-        pathKey === primary.path.join(',') ||
-        alternatives.some(a => a.path.join(',') === pathKey);
-
-      if (!isDuplicate) {
-        alternatives.push(altPath);
-      }
-    }
-  }
-
-  // Сортируем альтернативы по длине
   alternatives.sort((a, b) => a.totalDistance - b.totalDistance);
 
-  return { primary, alternatives: alternatives.slice(0, maxPaths - 1) };
-}
-
-/**
- * Поиск пути с исключением конкретного ребра
- */
-function findPathExcludingEdge(
-  graph: Graph,
-  startId: string,
-  endId: string,
-  excludeFrom: string,
-  excludeTo: string,
-  options: PathfindingOptions
-): PathResult {
-  const opts = normalizeOptions(options);
-
-  const startNode = graph.getNode(startId);
-  const endNode = graph.getNode(endId);
-
-  if (!startNode || !endNode) {
-    return { found: false, path: [], totalDistance: 0 };
-  }
-
-  const gScore = new Map<string, number>();
-  gScore.set(startId, 0);
-
-  const cameFrom = new Map<string, string>();
-  const openSet = new PriorityQueue();
-  openSet.push({ nodeId: startId, fScore: heuristic(startNode, endNode) });
-
-  const closedSet = new Set<string>();
-  let iterations = 0;
-
-  while (!openSet.isEmpty) {
-    if (++iterations > opts.maxIterations) {
-      return { found: false, path: [], totalDistance: 0 };
-    }
-
-    const current = openSet.pop()!;
-    const currentId = current.nodeId;
-
-    if (currentId === endId) {
-      const path = reconstructPath(cameFrom, endId);
-      const segments = buildSegments(graph, path);
-      return {
-        found: true,
-        path,
-        totalDistance: gScore.get(endId) ?? 0,
-        segments,
-      };
-    }
-
-    if (closedSet.has(currentId)) continue;
-    closedSet.add(currentId);
-
-    const currentNode = graph.getNode(currentId);
-    if (!currentNode) continue;
-
-    const neighbors = graph.getNeighbors(currentId);
-
-    for (const neighborId of neighbors) {
-      // Исключаем запрещённое ребро
-      if (
-        (currentId === excludeFrom && neighborId === excludeTo) ||
-        (currentId === excludeTo && neighborId === excludeFrom)
-      ) {
-        continue;
-      }
-
-      if (closedSet.has(neighborId)) continue;
-
-      const neighborNode = graph.getNode(neighborId);
-      if (!neighborNode) continue;
-
-      const transitionType = graph.getTransitionType(currentId, neighborId);
-      const cost = edgeCost(currentNode, neighborNode, transitionType, opts);
-
-      if (!Number.isFinite(cost)) continue;
-
-      const tentativeG = (gScore.get(currentId) ?? Infinity) + cost;
-
-      if (tentativeG < (gScore.get(neighborId) ?? Infinity)) {
-        cameFrom.set(neighborId, currentId);
-        gScore.set(neighborId, tentativeG);
-        openSet.push({ nodeId: neighborId, fScore: tentativeG + heuristic(neighborNode, endNode) });
-      }
-    }
-  }
-
-  return { found: false, path: [], totalDistance: 0 };
-}
-
-/**
- * Получить веса переходов (для UI)
- */
-export function getTransitionWeights(): Record<TransitionType, number> {
-  return { ...TRANSITION_WEIGHTS };
+  return { primary, alternatives: alternatives.slice(0, wanted) };
 }
