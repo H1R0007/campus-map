@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { transitionTypeLabel, transitionTypeColor, transitionTypeIcon, TRANSITION_TYPES } from '@campus-map/core';
+import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const PropertiesPanel: React.FC = () => {
@@ -21,19 +22,19 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const removeNode = useEditorStore((s) => s.removeNode);
   const addEdge = useEditorStore((s) => s.addEdge);
   const removeEdge = useEditorStore((s) => s.removeEdge);
-  const addTransition = useEditorStore((s) => s.addTransition);
   const removeTransition = useEditorStore((s) => s.removeTransition);
   const getTransitionsForNode = useEditorStore((s) => s.getTransitionsForNode);
   const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
+  const comment = useEditorStore((s) => s.getNodeComment(nodeId));
+  const setNodeComment = useEditorStore((s) => s.setNodeComment);
   const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
   const addBookmark = useEditorStore((s) => s.addBookmark);
-  
+
   // Tool actions
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
   const setEdgeStartNode = useEditorStore((s) => s.setEdgeStartNode);
   const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
-  const transitionType = useEditorStore((s) => s.transitionType);
   const setTransitionType = useEditorStore((s) => s.setTransitionType);
 
   const transitions = useMemo(() => getTransitionsForNode(nodeId), [getTransitionsForNode, nodeId]);
@@ -41,8 +42,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
 
   const unconnectedNodes = useMemo(() => {
     if (!node) return [];
-    return nodes.filter(n => 
-      n.id !== nodeId && 
+    return nodes.filter(n =>
+      n.id !== nodeId &&
       !node.neighbors.includes(n.id)
     ).slice(0, 10);
   }, [nodes, node, nodeId]);
@@ -51,18 +52,42 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const [yText, setYText] = useState('');
   const [showConnectPicker, setShowConnectPicker] = useState(false);
   const [showTransitionPicker, setShowTransitionPicker] = useState(false);
-  
+
   // Inline alias editing
   const [editingAliasIndex, setEditingAliasIndex] = useState<number | null>(null);
   const [editingAliasValue, setEditingAliasValue] = useState('');
   const [newAlias, setNewAlias] = useState('');
   const aliasInputRef = useRef<HTMLInputElement>(null);
 
+  // Черновик заметки: правка уходит в стор (и в историю отмены) только по
+  // завершению, а не на каждое нажатие клавиши.
+  const [commentDraft, setCommentDraft] = useState(comment);
+  const commentFocused = useRef(false);
+
+  // Координаты читаются как примитивы, а не через объект узла: иначе эффект
+  // перезапускался бы на любое изменение узла и сбрасывал несохранённый ввод.
+  const nodeX = node?.x;
+  const nodeY = node?.y;
+
   useEffect(() => {
-    if (!node) return;
-    setXText(String(node.x));
-    setYText(String(node.y));
-  }, [node?.x, node?.y, nodeId]);
+    if (nodeX === undefined || nodeY === undefined) return;
+    setXText(String(nodeX));
+    setYText(String(nodeY));
+  }, [nodeX, nodeY, nodeId]);
+
+  // Смена узла — черновик перезаписывается безусловно, даже если поле
+  // осталось в фокусе после программного изменения выделения.
+  useEffect(() => {
+    commentFocused.current = false;
+    setCommentDraft(comment);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeId]);
+
+  // Значение изменилось извне (отмена или повтор действия) — подхватываем,
+  // но только пока пользователь не печатает.
+  useEffect(() => {
+    if (!commentFocused.current) setCommentDraft(comment);
+  }, [comment]);
 
   useEffect(() => {
     if (editingAliasIndex !== null && aliasInputRef.current) {
@@ -79,6 +104,13 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
       updateNode(node.id, { x, y });
     }
   }, [node, xText, yText, updateNode]);
+
+  const commitComment = useCallback(() => {
+    commentFocused.current = false;
+    if (commentDraft !== comment) {
+      setNodeComment(nodeId, commentDraft);
+    }
+  }, [comment, commentDraft, nodeId, setNodeComment]);
 
   // Alias handlers
   const startEditAlias = (index: number) => {
@@ -122,7 +154,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   };
 
   // Start transition from this node
-  const startTransitionFromHere = (type?: typeof transitionType) => {
+  const startTransitionFromHere = (type?: TransitionType) => {
     if (type) setTransitionType(type);
     setActiveTool('transition');
     setTransitionStartNode(nodeId);
@@ -140,15 +172,15 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
       }}
     >
       {/* Header */}
-      <div 
-        className="px-4 py-3 flex items-start justify-between" 
+      <div
+        className="px-4 py-3 flex items-start justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-white font-semibold">Свойства</span>
             {node.isPortal && (
-              <span 
+              <span
                 className="px-2 py-0.5 rounded text-xs font-medium"
                 style={{ backgroundColor: '#f59e0b', color: 'white' }}
               >
@@ -156,8 +188,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               </span>
             )}
           </div>
-          <div 
-            className="text-xs font-mono break-all mt-1" 
+          <div
+            className="text-xs font-mono break-all mt-1"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             {node.id}
@@ -176,31 +208,31 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        
+
         {/* Quick Actions */}
-        <section 
-          className="rounded-xl p-3" 
+        <section
+          className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div 
-            className="text-xs uppercase tracking-wide mb-2" 
+          <div
+            className="text-xs uppercase tracking-wide mb-2"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             Быстрые действия
           </div>
-          
+
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => updateNode(node.id, { isPortal: !node.isPortal })}
               className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
-              style={{ 
+              style={{
                 backgroundColor: node.isPortal ? '#f59e0b' : 'var(--editor-accent)',
                 color: 'white',
               }}
             >
               {node.isPortal ? '⭐ Портал' : '☆ Портал'}
             </button>
-            
+
             <button
               onClick={() => addBookmark(nodeId)}
               className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors hover:opacity-90"
@@ -224,7 +256,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             <button
               onClick={() => setShowTransitionPicker(!showTransitionPicker)}
               className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
-              style={{ 
+              style={{
                 backgroundColor: showTransitionPicker ? 'var(--editor-highlight)' : 'var(--editor-accent)',
                 color: 'white',
               }}
@@ -244,7 +276,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                     setShowTransitionPicker(false);
                   }}
                   className="px-2 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-colors hover:opacity-90"
-                  style={{ 
+                  style={{
                     backgroundColor: transitionTypeColor(type),
                     color: 'white',
                   }}
@@ -259,7 +291,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           <button
             onClick={() => setShowConnectPicker(!showConnectPicker)}
             className="w-full mt-2 px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
-            style={{ 
+            style={{
               backgroundColor: showConnectPicker ? 'var(--editor-highlight)' : 'var(--editor-accent)',
               color: 'white',
             }}
@@ -269,7 +301,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
 
           {showConnectPicker && unconnectedNodes.length > 0 && (
             <div className="mt-2 space-y-1">
-              <div 
+              <div
                 className="max-h-32 overflow-y-auto rounded-lg p-1"
                 style={{ backgroundColor: 'var(--editor-panel)' }}
               >
@@ -292,12 +324,12 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
         </section>
 
         {/* Context */}
-        <section 
-          className="rounded-xl p-3" 
+        <section
+          className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div 
-            className="text-xs uppercase tracking-wide" 
+          <div
+            className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             Контекст
@@ -309,12 +341,12 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
         </section>
 
         {/* Position */}
-        <section 
-          className="rounded-xl p-3" 
+        <section
+          className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div 
-            className="text-xs uppercase tracking-wide" 
+          <div
+            className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             Позиция
@@ -328,10 +360,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 onBlur={commitXY}
                 onKeyDown={(e) => e.key === 'Enter' && commitXY()}
                 className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
-                style={{ 
-                  backgroundColor: 'var(--editor-panel)', 
-                  border: '1px solid var(--editor-border)', 
-                  color: 'white' 
+                style={{
+                  backgroundColor: 'var(--editor-panel)',
+                  border: '1px solid var(--editor-border)',
+                  color: 'white'
                 }}
               />
             </div>
@@ -343,10 +375,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 onBlur={commitXY}
                 onKeyDown={(e) => e.key === 'Enter' && commitXY()}
                 className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
-                style={{ 
-                  backgroundColor: 'var(--editor-panel)', 
-                  border: '1px solid var(--editor-border)', 
-                  color: 'white' 
+                style={{
+                  backgroundColor: 'var(--editor-panel)',
+                  border: '1px solid var(--editor-border)',
+                  color: 'white'
                 }}
               />
             </div>
@@ -354,12 +386,12 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
         </section>
 
         {/* Aliases - Inline Editing */}
-        <section 
-          className="rounded-xl p-3" 
+        <section
+          className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div 
-            className="text-xs uppercase tracking-wide" 
+          <div
+            className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             🏷️ Алиасы ({aliases.length})
@@ -367,7 +399,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
 
           <div className="mt-2 space-y-1">
             {aliases.map((alias, idx) => (
-              <div 
+              <div
                 key={`${alias}-${idx}`}
                 className="flex items-center gap-2 py-1"
               >
@@ -389,7 +421,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                     }}
                   />
                 ) : (
-                  <span 
+                  <span
                     className="flex-1 px-2 py-1 rounded text-sm cursor-pointer hover:bg-white/10 truncate"
                     onClick={() => startEditAlias(idx)}
                     title="Кликните для редактирования"
@@ -398,7 +430,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                     {alias}
                   </span>
                 )}
-                
+
                 <button
                   onClick={() => removeAlias(idx)}
                   className="p-1 rounded hover:bg-red-500/20 transition-colors"
@@ -418,10 +450,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               onKeyDown={(e) => e.key === 'Enter' && addNewAlias()}
               placeholder="Новый алиас..."
               className="flex-1 px-3 py-2 rounded-lg text-sm"
-              style={{ 
-                backgroundColor: 'var(--editor-panel)', 
-                border: '1px solid var(--editor-border)', 
-                color: 'white' 
+              style={{
+                backgroundColor: 'var(--editor-panel)',
+                border: '1px solid var(--editor-border)',
+                color: 'white'
               }}
             />
             <button
@@ -435,20 +467,78 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           </div>
         </section>
 
-        {/* Neighbors */}
-        <section 
-          className="rounded-xl p-3" 
+        {/* Рабочая заметка разметчика */}
+        <section
+          className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div 
-            className="text-xs uppercase tracking-wide" 
+          <div
+            className="text-xs uppercase tracking-wide"
+            style={{ color: 'var(--editor-text-muted)' }}
+          >
+            📝 Заметка разметчика
+          </div>
+
+          <textarea
+            value={commentDraft}
+            rows={3}
+            placeholder="Например: геометрия приблизительная, уточнить у коменданта"
+            onChange={(e) => setCommentDraft(e.target.value)}
+            onFocus={() => {
+              commentFocused.current = true;
+            }}
+            onBlur={commitComment}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                commitComment();
+                e.currentTarget.blur();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                commentFocused.current = false;
+                setCommentDraft(comment);
+                e.currentTarget.blur();
+              }
+            }}
+            className="mt-2 w-full px-3 py-2 rounded-lg text-sm resize-y"
+            style={{
+              backgroundColor: 'var(--editor-panel)',
+              border: '1px solid var(--editor-border)',
+              color: 'white',
+            }}
+          />
+
+          <div className="mt-1 flex items-start gap-2">
+            <p className="text-xs flex-1" style={{ color: 'var(--editor-text-muted)' }}>
+              Не влияет на маршруты и не показывается студентам — это пометка
+              для команды разметки. Ctrl+Enter сохранить, Esc отменить.
+            </p>
+            {commentDraft !== comment && (
+              <button
+                onClick={commitComment}
+                className="px-2 py-1 rounded text-xs font-medium shrink-0"
+                style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
+              >
+                Сохранить
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Neighbors */}
+        <section
+          className="rounded-xl p-3"
+          style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
+        >
+          <div
+            className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             🔗 Соседи ({node.neighbors.length})
           </div>
 
-          <div 
-            className="mt-2 rounded-lg overflow-hidden" 
+          <div
+            className="mt-2 rounded-lg overflow-hidden"
             style={{ border: '1px solid var(--editor-border)', backgroundColor: 'var(--editor-panel)' }}
           >
             {node.neighbors.length === 0 ? (
@@ -485,19 +575,19 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
         </section>
 
         {/* Transitions */}
-        <section 
-          className="rounded-xl p-3" 
+        <section
+          className="rounded-xl p-3"
           style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
         >
-          <div 
-            className="text-xs uppercase tracking-wide" 
+          <div
+            className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
             🚪 Переходы ({transitions.length})
           </div>
 
-          <div 
-            className="mt-2 rounded-lg overflow-hidden" 
+          <div
+            className="mt-2 rounded-lg overflow-hidden"
             style={{ border: '1px solid var(--editor-border)', backgroundColor: 'var(--editor-panel)' }}
           >
             {transitions.length === 0 ? (
@@ -509,7 +599,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 {transitions.map((t, idx) => {
                   const other = t.fromNode === node.id ? t.toNode : t.fromNode;
                   const color = transitionTypeColor(t.type);
-                  
+
                   return (
                     <li
                       key={`${t.fromNode}-${t.toNode}-${idx}`}
@@ -517,7 +607,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                       style={{ borderBottom: '1px solid var(--editor-border)' }}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span 
+                        <span
                           className="px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1"
                           style={{ backgroundColor: color, color: 'white' }}
                         >
@@ -525,7 +615,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                         </span>
                         <button
                           onClick={() => selectSingleNode(other)}
-                          className="font-mono text-xs truncate hover:text-white transition-colors" 
+                          className="font-mono text-xs truncate hover:text-white transition-colors"
                           style={{ color: 'var(--editor-text-muted)' }}
                         >
                           {other}
@@ -548,8 +638,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
       </div>
 
       {/* Footer */}
-      <div 
-        className="p-4 flex gap-2" 
+      <div
+        className="p-4 flex gap-2"
         style={{ borderTop: '1px solid var(--editor-border)' }}
       >
         <button
@@ -576,8 +666,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
 };
 
 const InfoBox: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div 
-    className="rounded-lg p-2" 
+  <div
+    className="rounded-lg p-2"
     style={{ backgroundColor: 'var(--editor-panel)', border: '1px solid var(--editor-border)' }}
   >
     <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>{label}</div>

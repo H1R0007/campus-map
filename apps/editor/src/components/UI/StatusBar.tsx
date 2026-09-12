@@ -14,54 +14,54 @@ export const StatusBar: React.FC = () => {
   const edgeStartNodeId = useEditorStore((state) => state.edgeStartNodeId);
   const transitionStartNodeId = useEditorStore((state) => state.transitionStartNodeId);
   const lineTool = useEditorStore((state) => state.lineTool);
-  
+
   const historyEntries = useHistoryStore((state) => state.entries);
   const historyIndex = useHistoryStore((state) => state.currentIndex);
 
   const currentMeta = currentBuilding ? buildingMetas.get(currentBuilding) : null;
-  const locationText = currentBuilding 
+  const locationText = currentBuilding
     ? `${currentMeta?.name ?? currentBuilding} / Этаж ${currentFloor}`
     : 'Кампус';
 
   const toolInfo: Record<string, { name: string; hint: string }> = {
-    select: { 
-      name: 'Выбор', 
-      hint: 'ЛКМ — инфо | Shift+ЛКМ — мультивыбор | ПКМ — редактировать/drag | Ctrl+ПКМ — область' 
+    select: {
+      name: 'Выбор',
+      hint: 'ЛКМ — инфо | Shift+ЛКМ — мультивыбор | ПКМ — редактировать/drag | Ctrl+ПКМ — область'
     },
-    node: { 
-      name: 'Узел', 
-      hint: 'ЛКМ — создать узел' 
+    node: {
+      name: 'Узел',
+      hint: 'ЛКМ — создать узел'
     },
-    edge: { 
-      name: 'Ребро', 
-      hint: edgeStartNodeId 
+    edge: {
+      name: 'Ребро',
+      hint: edgeStartNodeId
         ? '🟢 ЛКМ по второму узлу — создать связь | Esc — отмена'
-        : 'ЛКМ — выбрать первый узел' 
+        : 'ЛКМ — выбрать первый узел'
     },
-    transition: { 
-      name: 'Переход', 
+    transition: {
+      name: 'Переход',
       hint: transitionStartNodeId
         ? '🔵 ЛКМ по второму узлу — создать переход | Esc — отмена'
-        : 'ЛКМ — выбрать первый узел' 
+        : 'ЛКМ — выбрать первый узел'
     },
-    line: { 
-      name: 'Линия', 
-      hint: !lineTool.start 
+    line: {
+      name: 'Линия',
+      hint: !lineTool.start
         ? 'ЛКМ — начальная точка'
         : !lineTool.end
         ? 'ЛКМ — конечная точка'
         : '✓ Настройте в панели справа'
     },
-    delete: { 
-      name: 'Удаление', 
-      hint: 'ЛКМ — удалить узел/ребро' 
+    delete: {
+      name: 'Удаление',
+      hint: 'ЛКМ — удалить узел/ребро'
     },
   };
 
   const currentTool = toolInfo[activeTool] || { name: activeTool, hint: '' };
 
   return (
-    <div 
+    <div
       className="h-9 flex items-center justify-between px-4 text-xs select-none"
       style={{ backgroundColor: 'var(--editor-panel)', borderTop: '1px solid var(--editor-border)' }}
     >
@@ -70,11 +70,11 @@ export const StatusBar: React.FC = () => {
         <span style={{ color: 'var(--editor-text-muted)' }}>
           📍 <span className="text-white">{locationText}</span>
         </span>
-        
+
         <span style={{ color: 'var(--editor-text-muted)' }}>
           {nodes.size} узлов • {transitions.length} переходов
         </span>
-        
+
         {selectedNodeIds.size > 0 && (
           <span style={{ color: 'var(--editor-highlight)' }}>
             ✓ Выбрано: {selectedNodeIds.size}
@@ -97,7 +97,7 @@ export const StatusBar: React.FC = () => {
       <div className="flex items-center gap-3">
         <span style={{ color: 'var(--editor-text-muted)' }}>Ctrl+F поиск</span>
         <span style={{ color: 'var(--editor-text-muted)' }}>{historyIndex + 1}/{historyEntries.length}</span>
-        
+
         {hasUnsavedChanges ? (
           <span className="flex items-center gap-1.5" style={{ color: '#fbbf24' }}>
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />

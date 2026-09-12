@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ImageOverlay, MapContainer, useMap, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { useMap, useMapEvents } from 'react-leaflet';
+import { PixelMap } from '@campus-map/mapkit';
+import { campusMapUrl, floorMapUrl } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import type { EditorTool } from '../../stores/editorStore';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -10,42 +12,6 @@ import { SelectionBox } from './SelectionBox';
 import { GridOverlay } from './GridOverlay';
 import { RouteOverlay } from '../UI/RouteSimulator';
 import { AliasLabels } from './AliasLabels';
-
-const FALLBACK = { width: 1200, height: 800 };
-
-function useImageSize(url: string, fallback: { width: number; height: number }) {
-  const [size, setSize] = useState(fallback);
-
-  useEffect(() => {
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled) return;
-      if (img.width > 0 && img.height > 0) setSize({ width: img.width, height: img.height });
-      else setSize(fallback);
-    };
-    img.onerror = () => {
-      if (!cancelled) setSize(fallback);
-    };
-    img.src = url;
-    return () => {
-      cancelled = true;
-    };
-  }, [url, fallback.width, fallback.height]);
-
-  return size;
-}
-
-const FitToBounds: React.FC<{ bounds: L.LatLngBoundsExpression }> = ({ bounds }) => {
-  const map = useMap();
-  useEffect(() => {
-    try {
-      map.fitBounds(bounds, { padding: [20, 20] });
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(bounds)]);
-  return null;
-};
 
 const CameraController: React.FC = () => {
   const map = useMap();
@@ -180,9 +146,20 @@ const KeyboardHandler: React.FC = () => {
         }
       }
 
-      const toolKeys: Record<string, string> = { v: 'select', n: 'node', e: 'edge', t: 'transition', l: 'line', d: 'delete' };
-      if (!ctrl && toolKeys[e.key.toLowerCase()]) {
-        setActiveTool(toolKeys[e.key.toLowerCase()] as any);
+      // Соответствие клавиш инструментам. Для клавиш, которые инструмент не
+      // переключают, значения нет — проверка на `undefined` и есть фильтр.
+      const toolByShortcut: Record<string, EditorTool> = {
+        v: 'select',
+        n: 'node',
+        e: 'edge',
+        t: 'transition',
+        l: 'line',
+        d: 'delete',
+      };
+      const tool = toolByShortcut[e.key.toLowerCase()];
+
+      if (!ctrl && tool) {
+        setActiveTool(tool);
       }
     };
 
@@ -327,41 +304,38 @@ const MapEventHandler: React.FC = () => {
   return null;
 };
 
+/**
+ * Карта редактора.
+ *
+ * Обвязка подложки (определение размера плана, границы, центрирование,
+ * подгонка viewport, пересоздание карты при смене этажа) приходит из
+ * `PixelMap` пакета `@campus-map/mapkit`. Раньше здесь жили собственные копии
+ * `useImageSize` и `FitToBounds`, разошедшиеся с навигатором: например,
+ * зависимость эффекта подгонки строилась через `JSON.stringify(bounds)`.
+ *
+ * Пропсы отличаются от навигатора осознанно: редактору нужен больший
+ * максимальный зум, штатные кнопки Leaflet, отключённый зум двойным кликом
+ * (мешает выделению) и приглушённая подложка, чтобы узлы читались.
+ * Ограничение панорамирования пределами плана не включается — разметчик
+ * должен иметь возможность работать за краями изображения.
+ */
 export const EditorMap: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
 
   const mapUrl = useMemo(() => {
-    if (!currentBuilding) return '/data/campus/map.png';
-    return `/data/buildings/${currentBuilding}/floors/${currentFloor}/map.png`;
+    if (currentBuilding === null || currentFloor === null) return campusMapUrl();
+    return floorMapUrl(currentBuilding, currentFloor);
   }, [currentBuilding, currentFloor]);
 
-  const size = useImageSize(mapUrl, FALLBACK);
-
-  const bounds: L.LatLngBoundsExpression = useMemo(() => {
-    return [
-      [0, 0],
-      [size.height, size.width],
-    ];
-  }, [size.height, size.width]);
-
-  const center: [number, number] = useMemo(() => [size.height / 2, size.width / 2], [size.height, size.width]);
-
   return (
-    <MapContainer
-      key={mapUrl}
-      center={center}
-      zoom={0}
-      minZoom={-2}
+    <PixelMap
+      url={mapUrl}
       maxZoom={6}
-      crs={L.CRS.Simple}
-      zoomControl={true}
-      attributionControl={false}
+      zoomControl
       doubleClickZoom={false}
-      className="w-full h-full"
+      overlayOpacity={0.6}
     >
-      <ImageOverlay url={mapUrl} bounds={bounds} opacity={0.6} />
-      <FitToBounds bounds={bounds} />
       <CameraController />
       <KeyboardHandler />
 
@@ -376,6 +350,6 @@ export const EditorMap: React.FC = () => {
       <AliasLabels />
 
       <MapEventHandler />
-    </MapContainer>
+    </PixelMap>
   );
 };

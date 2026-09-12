@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useEditorStore } from '../../stores/editorStore';
 
@@ -20,7 +20,7 @@ export const RecentActions: React.FC = () => {
         border: '1px solid var(--editor-border)',
       }}
     >
-      <div 
+      <div
         className="px-3 py-2 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
@@ -48,13 +48,13 @@ export const RecentActions: React.FC = () => {
           </button>
         </div>
       </div>
-      
+
       <div className="max-h-40 overflow-y-auto">
         {recentEntries.map((entry, i) => (
           <div
             key={entry.timestamp}
             className="px-3 py-2 text-xs flex items-center gap-2"
-            style={{ 
+            style={{
               borderBottom: '1px solid var(--editor-border)',
               opacity: i === 0 ? 1 : 0.6,
             }}

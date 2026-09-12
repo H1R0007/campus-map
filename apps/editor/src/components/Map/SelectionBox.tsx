@@ -8,7 +8,7 @@ export const SelectionBox: React.FC = () => {
   if (!selectionBox) return null;
 
   const { startX, startY, endX, endY } = selectionBox;
-  
+
   const bounds: [[number, number], [number, number]] = [
     [Math.min(startY, endY), Math.min(startX, endX)],
     [Math.max(startY, endY), Math.max(startX, endX)],

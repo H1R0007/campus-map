@@ -1,18 +1,28 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import 'leaflet/dist/leaflet.css';
 import App from './App';
 import './index.css';
 
-// PWA �����������
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // ���������� ������ � dev-������
-    });
-  });
+/**
+ * Точка входа навигатора.
+ *
+ * Стили Leaflet импортируются из npm-пакета, а не подключаются с CDN в
+ * `index.html`: внешний ресурс не должен быть точкой отказа сервиса,
+ * развёрнутого у вуза, и только так работает офлайн-режим PWA.
+ *
+ * Регистрация service worker здесь не нужна — её выполняет
+ * `vite-plugin-pwa` (`registerType: 'autoUpdate'`). Ручная регистрация
+ * `/sw.js` дублировала её и в dev-режиме всегда падала, потому что по этому
+ * пути отдаётся `index.html`.
+ */
+
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('Не найден контейнер #root — проверьте index.html');
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(container).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>

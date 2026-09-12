@@ -1,125 +1,72 @@
-// apps/editor/src/utils/importZip.ts
-
 import JSZip from 'jszip';
-import type { MapNode, Transition, BuildingMeta } from '@campus-map/core';
-import { parseTransitionType } from '@campus-map/core';
-
-type ImportedDataset = {
-  nodes: MapNode[];
-  transitions: Transition[];
-  buildingMetas: BuildingMeta[];
-  aliases: { id: string; names: string[] }[];
-};
+import { loadDataset } from '@campus-map/core';
+import type { DatasetLoadResult, DatasetSource } from '@campus-map/core';
 
 /**
- * ������ JSON �� zip � ������� �� BOM
+ * Импорт датасета из ZIP-архива.
+ *
+ * Архив читается тем же пайплайном `loadDataset`, что и данные с сервера:
+ * ядро намеренно не знает, откуда приходят файлы, и работает через интерфейс
+ * {@link DatasetSource}. Здесь реализован источник поверх JSZip.
+ *
+ * Раньше в этом файле жила вторая копия обхода каталогов и нормализации —
+ * та же, что в `App.tsx` и в загрузчике ядра. Копии уже разошлись: эта, в
+ * отличие от ядра, отбрасывала поле `comment` у узлов и не сообщала о
+ * проблемах в данных, ограничиваясь `console.warn`.
  */
-async function readJson(zip: JSZip, path: string): Promise<any> {
-  const file = zip.file(path);
-  if (!file) throw new Error(`Missing file in zip: ${path}`);
-  
-  let text = await file.async('string');
-  
-  // ������� BOM ���� ����
-  text = text.replace(/^\uFEFF/, '');
-  
-  // ������� ��������� ��������� ������� � ������
-  text = text.trimStart();
-  
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error(`Failed to parse JSON at ${path}: ${e instanceof Error ? e.message : 'Unknown error'}`);
-  }
-}
 
+/**
+ * Определяет корень данных внутри архива.
+ *
+ * Экспорт редактора кладёт файлы в `data/…`, но архив мог быть собран
+ * вручную и содержать `campus/…` сразу в корне.
+ */
 function detectRoot(zip: JSZip): string {
-  // zip ����� ����: data/..., ���� ����� campus/...
-  const hasData = zip.file('data/campus/meta.json') != null;
-  return hasData ? 'data/' : '';
+  return zip.file('data/campus/meta.json') !== null ? 'data/' : '';
 }
 
-export async function importDatasetFromZip(file: File): Promise<ImportedDataset> {
-  const zip = await JSZip.loadAsync(file);
-  const root = detectRoot(zip);
+/**
+ * Источник датасета поверх распакованного ZIP.
+ *
+ * @param root префикс каталога данных внутри архива, см. {@link detectRoot}.
+ */
+function createZipDatasetSource(zip: JSZip, root: string): DatasetSource {
+  return {
+    async readJson(path: string): Promise<unknown | null> {
+      const file = zip.file(`${root}${path}`);
 
-  const campusMeta = await readJson(zip, `${root}campus/meta.json`);
-  const campusGraph = await readJson(zip, `${root}campus/graph.json`);
-
-  const buildingMetas: BuildingMeta[] = [];
-  const nodes: MapNode[] = [];
-
-  // campus nodes
-  for (const n of campusGraph.nodes ?? []) {
-    nodes.push({
-      id: n.id,
-      x: n.x ?? 0,
-      y: n.y ?? 0,
-      building: n.building ?? 'CAMPUS',
-      floor: n.floor ?? 0,
-      neighbors: n.neighbors ?? [],
-      isPortal: n.isPortal ?? false,
-    });
-  }
-
-  // buildings
-  for (const b of campusMeta.buildings ?? []) {
-    const bid = b.id;
-    
-    try {
-      const meta = await readJson(zip, `${root}buildings/${bid}/meta.json`);
-      buildingMetas.push(meta);
-
-      for (const fl of meta.floors ?? []) {
-        const floorNum = fl.floor;
-        
-        try {
-          const fg = await readJson(zip, `${root}buildings/${bid}/floors/${floorNum}/graph.json`);
-          
-          for (const n of fg.nodes ?? []) {
-            nodes.push({
-              id: n.id,
-              x: n.x ?? 0,
-              y: n.y ?? 0,
-              building: bid,
-              floor: floorNum,
-              neighbors: n.neighbors ?? [],
-              isPortal: n.isPortal ?? false,
-            });
-          }
-        } catch (e) {
-          console.warn(`Failed to load floor ${floorNum} of ${bid}:`, e);
-        }
+      // Отсутствие файла не ошибка здесь: обязателен он или нет, решает
+      // загрузчик ядра — он же и предупреждение сформулирует.
+      if (file === null) {
+        return null;
       }
-    } catch (e) {
-      console.warn(`Failed to load building ${bid}:`, e);
-    }
-  }
 
-  // transitions
-  let transitions: Transition[] = [];
-  try {
-    const tj = await readJson(zip, `${root}transitions.json`);
-    transitions = (tj.transitions ?? []).map((t: any) => ({
-      fromNode: t.from.node,
-      toNode: t.to.node,
-      type: parseTransitionType(t.transition_type ?? 'entrance'),
-    }));
-  } catch {
-    transitions = [];
-  }
+      const text = await file.async('string');
 
-  // aliases
-  let aliases: { id: string; names: string[] }[] = [];
-  try {
-    const aj = await readJson(zip, `${root}aliases.json`);
-    aliases = (aj.aliases ?? []).map((a: any) => ({
-      id: a.id,
-      names: a.names ?? (a.name ? [a.name] : []),
-    }));
-  } catch {
-    aliases = [];
-  }
+      try {
+        // BOM и ведущие пробелы ломают `JSON.parse`, а в архивах, собранных
+        // разными редакторами, встречаются регулярно.
+        return JSON.parse(text.replace(/^\uFEFF/, '').trimStart()) as unknown;
+      } catch (cause) {
+        throw new Error(
+          `Некорректный JSON в ${path}: ${cause instanceof Error ? cause.message : String(cause)}`,
+          { cause }
+        );
+      }
+    },
+  };
+}
 
-  return { nodes, transitions, buildingMetas, aliases };
+/**
+ * Читает датасет из ZIP-файла.
+ *
+ * @returns нормализованный датасет и список предупреждений загрузчика —
+ *   тот же результат, что даёт загрузка по HTTP, поэтому передаётся в
+ *   `loadData` без дополнительных преобразований.
+ * @throws если архив не читается или в нём нет `campus/meta.json`.
+ */
+export async function importDatasetFromZip(file: File): Promise<DatasetLoadResult> {
+  const zip = await JSZip.loadAsync(file);
+
+  return loadDataset(createZipDatasetSource(zip, detectRoot(zip)));
 }

@@ -77,36 +77,6 @@
         "a1_corridor"
       ],
       "isPortal": false
-    },
-    {
-      "id": "building_a_1_node_1",
-      "x": 526,
-      "y": 236,
-      "neighbors": [
-        "building_a_1_node_2",
-        "building_a_1_node_3"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "building_a_1_node_2",
-      "x": 617,
-      "y": 338,
-      "neighbors": [
-        "building_a_1_node_1",
-        "building_a_1_node_3"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "building_a_1_node_3",
-      "x": 674,
-      "y": 178,
-      "neighbors": [
-        "building_a_1_node_2",
-        "building_a_1_node_1"
-      ],
-      "isPortal": false
     }
   ]
 }

@@ -83,16 +83,16 @@ export const Toolbar: React.FC = () => {
   const handleImportFile = async (file: File) => {
     setIsImporting(true);
     try {
-      const data = await importDatasetFromZip(file);
-      loadData({
-        nodes: data.nodes,
-        transitions: data.transitions,
-        buildingMetas: data.buildingMetas,
-        aliases: data.aliases,
-      });
+      // Импорт возвращает тот же результат, что и загрузка по HTTP:
+      // датасет уже нормализован ядром, дополнительно преобразовывать нечего.
+      const { dataset, warnings } = await importDatasetFromZip(file);
+      loadData(dataset, warnings);
       useEditorStore.getState().setCurrentBuilding(null);
-    } catch (e) {
-      alert('Ошибка импорта: ' + (e instanceof Error ? e.message : 'Unknown'));
+    } catch (cause) {
+      alert(
+        'Ошибка импорта: ' +
+          (cause instanceof Error ? cause.message : 'не удалось прочитать архив')
+      );
     } finally {
       setIsImporting(false);
       if (fileRef.current) fileRef.current.value = '';

@@ -1,123 +1,62 @@
 import { useCallback, useState } from 'react';
-import { Graph, AliasManager } from '@campus-map/core';
+import {
+  AliasManager,
+  Graph,
+  createHttpDatasetSource,
+  indexBuildingMetas,
+  loadDataset,
+} from '@campus-map/core';
 import { useMapStore } from '../stores/mapStore';
 
-const DATA_BASE_PATH = '/data';
+/**
+ * Загрузка датасета кампуса в стор карты.
+ *
+ * Сам пайплайн чтения и нормализации живёт в ядре (`loadDataset`) и один на
+ * все приложения — навигатор, редактор и импорт из ZIP. Здесь остаётся
+ * только привязка к HTTP и запись результата в стор.
+ */
 
-interface LoaderState {
+interface DataLoaderState {
   isLoading: boolean;
   error: string | null;
 }
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Неизвестная ошибка';
+}
+
 export function useDataLoader() {
-  const [state, setState] = useState<LoaderState>({
-    isLoading: false,
-    error: null,
-  });
-
-  const {
-    setGraph,
-    setAliasManager,
-    setCampusMeta,
-    addBuildingMeta,
-    setDataLoaded,
-  } = useMapStore();
-
-  const loadJson = async <T>(path: string): Promise<T> => {
-    const response = await fetch(`${DATA_BASE_PATH}${path}`);
-    if (!response.ok) {
-      throw new Error(`Failed to load ${path}: ${response.status}`);
-    }
-    return response.json();
-  };
+  const [state, setState] = useState<DataLoaderState>({ isLoading: false, error: null });
+  const setData = useMapStore((s) => s.setData);
 
   const loadAllData = useCallback(async () => {
     setState({ isLoading: true, error: null });
 
     try {
-      const graph = new Graph();
+      const { dataset, warnings } = await loadDataset(createHttpDatasetSource());
+
+      // Ядро не пишет в консоль, поэтому о нештатных данных сообщает сюда.
+      // Загрузка не прерывается: частичные данные лучше полного отказа.
+      for (const warning of warnings) {
+        console.warn(`[campus-map] ${warning}`);
+      }
+
       const aliasManager = new AliasManager();
+      aliasManager.load(dataset.aliases);
 
-      // 1. ��������� ���������� �������
-      const campusMeta = await loadJson<{
-        buildings: { id: string; name?: string }[];
-        mapSize: { width: number; height: number };
-      }>('/campus/meta.json');
-      setCampusMeta(campusMeta);
-
-      // 2. ��������� ���� �������
-      const campusGraph = await loadJson<{ nodes: unknown[] }>('/campus/graph.json');
-      graph.loadNodes(campusGraph as Parameters<typeof graph.loadNodes>[0], 'CAMPUS', 0);
-
-      // 3. ��������� ������ ������
-      for (const building of campusMeta.buildings) {
-        try {
-          const buildingMeta = await loadJson<{
-            id: string;
-            name: string;
-            floors: { floor: number; mapPath: string; graphPath: string }[];
-            bounds?: { x: number; y: number; width: number; height: number };
-          }>(`/buildings/${building.id}/meta.json`);
-
-          addBuildingMeta(building.id, {
-            id: buildingMeta.id,
-            name: buildingMeta.name,
-            floors: buildingMeta.floors,
-            bounds: buildingMeta.bounds,
-          });
-
-          // 4. ��������� ����� ������
-          for (const floor of buildingMeta.floors) {
-            try {
-              const floorGraph = await loadJson<{ nodes: unknown[] }>(
-                `/buildings/${building.id}/floors/${floor.floor}/graph.json`
-              );
-              graph.loadNodes(
-                floorGraph as Parameters<typeof graph.loadNodes>[0],
-                building.id,
-                floor.floor
-              );
-            } catch (e) {
-              console.warn(`Failed to load floor ${floor.floor} of ${building.id}:`, e);
-            }
-          }
-        } catch (e) {
-          console.warn(`Failed to load building ${building.id}:`, e);
-        }
-      }
-
-      // 5. ��������� ��������
-      try {
-        const transitions = await loadJson<{ transitions: unknown[] }>('/transitions.json');
-        graph.loadTransitions(transitions as Parameters<typeof graph.loadTransitions>[0]);
-      } catch (e) {
-        console.warn('Failed to load transitions:', e);
-      }
-
-      // 6. ��������� ������
-      try {
-        const aliases = await loadJson<{ aliases: unknown[] }>('/aliases.json');
-        aliasManager.load(aliases as Parameters<typeof aliasManager.load>[0]);
-      } catch (e) {
-        console.warn('Failed to load aliases:', e);
-      }
-
-      // ��������� � store
-      setGraph(graph);
-      setAliasManager(aliasManager);
-      setDataLoaded(true);
-
-      console.log(`Loaded: ${graph.nodeCount} nodes, ${graph.transitionCount} transitions`);
+      setData({
+        graph: Graph.fromDataset(dataset),
+        aliasManager,
+        campusMeta: dataset.campusMeta,
+        buildingMetas: indexBuildingMetas(dataset.buildingMetas),
+      });
 
       setState({ isLoading: false, error: null });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      setState({ isLoading: false, error: message });
+      console.error('[campus-map] не удалось загрузить данные', error);
+      setState({ isLoading: false, error: describeError(error) });
     }
-  }, [setGraph, setAliasManager, setCampusMeta, addBuildingMeta, setDataLoaded]);
+  }, [setData]);
 
-  return {
-    ...state,
-    loadAllData,
-  };
+  return { ...state, loadAllData };
 }

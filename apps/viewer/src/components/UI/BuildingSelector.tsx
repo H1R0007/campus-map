@@ -1,33 +1,34 @@
 import React from 'react';
-import { useMapStore } from '../../stores/mapStore';
+import { lowestFloorOf, useMapStore } from '../../stores/mapStore';
 
+/**
+ * Выбор корпуса на карте кампуса.
+ *
+ * Показывается только в режиме кампуса и ведёт на низший этаж корпуса —
+ * именно оттуда начинается подъём наверх.
+ */
 export const BuildingSelector: React.FC = () => {
-  const viewMode = useMapStore((state) => state.viewMode);
-  const campusMeta = useMapStore((state) => state.campusMeta);
-  const buildingMetas = useMapStore((state) => state.buildingMetas);
-  const setActiveFloor = useMapStore((state) => state.setActiveFloor);
-  const getFloorsForBuilding = useMapStore((state) => state.getFloorsForBuilding);
+  const activeFloor = useMapStore((s) => s.activeFloor);
+  const campusMeta = useMapStore((s) => s.campusMeta);
+  const buildingMetas = useMapStore((s) => s.buildingMetas);
+  const setActiveFloor = useMapStore((s) => s.setActiveFloor);
 
-  // ���������� ������ �� �������
-  if (viewMode !== 'campus') {
-    return null;
-  }
+  if (activeFloor !== null || !campusMeta || !buildingMetas) return null;
 
   return (
-    <div 
+    <div
       className="absolute top-4 left-4 right-4 md:left-auto md:right-4 md:w-auto"
       style={{ zIndex: 1000 }}
     >
       <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-        {campusMeta?.buildings.map((building) => {
+        {campusMeta.buildings.map((building) => {
           const meta = buildingMetas.get(building.id);
-          const floors = getFloorsForBuilding(building.id);
-          const firstFloor = floors[floors.length - 1] ?? 1;
 
           return (
             <button
               key={building.id}
-              onClick={() => setActiveFloor(building.id, firstFloor)}
+              type="button"
+              onClick={() => setActiveFloor(building.id, lowestFloorOf(meta))}
               className="
                 flex-shrink-0
                 px-4 py-2.5 rounded-xl
@@ -38,10 +39,10 @@ export const BuildingSelector: React.FC = () => {
                 flex items-center gap-2
               "
             >
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              {meta?.name ?? building.id}
+              {meta?.name ?? building.name ?? building.id}
             </button>
           );
         })}

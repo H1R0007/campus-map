@@ -40,7 +40,7 @@ export const LayersPanel: React.FC = () => {
         {/* Корпуса */}
         <div className="mt-4">
           <p className="px-3 py-1 text-xs font-medium text-gray-500 uppercase">Корпуса</p>
-          
+
           {buildings.map((building) => (
             <div key={building.id} className="mt-1">
               {/* Заголовок корпуса */}
@@ -96,7 +96,7 @@ export const LayersPanel: React.FC = () => {
       {/* Статистика */}
       <div className="p-4 border-t border-editor-accent">
         <p className="text-xs text-gray-500">
-          {currentBuilding 
+          {currentBuilding
             ? `${buildingMetas.get(currentBuilding)?.name}, этаж ${currentFloor}`
             : 'Уровень кампуса'
           }

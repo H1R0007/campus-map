@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const FilterPanel: React.FC = () => {
@@ -91,7 +91,7 @@ export const FilterPanel: React.FC = () => {
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--editor-text-muted)' }}>
             Подсветка проблем
           </div>
-          
+
           <FilterToggle
             label={`Сироты без связей (${orphanCount})`}
             icon="🚫"
@@ -123,14 +123,14 @@ export const FilterPanel: React.FC = () => {
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--editor-text-muted)' }}>
             Сетка
           </div>
-          
+
           <FilterToggle
             label="Включить сетку"
             icon="📐"
             checked={gridSettings.enabled}
             onChange={(v) => setGridSettings({ enabled: v })}
           />
-          
+
           {gridSettings.enabled && (
             <>
               <FilterToggle
@@ -146,7 +146,7 @@ export const FilterPanel: React.FC = () => {
                 onChange={(v) => setGridSettings({ snap: v })}
                 hint="Узлы будут привязываться к пересечениям линий сетки"
               />
-              
+
               <div className="mt-3">
                 <label className="text-xs flex justify-between" style={{ color: 'var(--editor-text-muted)' }}>
                   <span>Размер ячейки</span>
@@ -194,7 +194,7 @@ const FilterToggle: React.FC<{
     <div className="flex-1">
       <div className="flex items-center gap-1">
         <span className="text-sm">{icon}</span>
-        <span 
+        <span
           className="text-sm group-hover:text-white transition-colors"
           style={{ color: checked && color ? color : (checked ? 'white' : 'var(--editor-text-muted)') }}
         >

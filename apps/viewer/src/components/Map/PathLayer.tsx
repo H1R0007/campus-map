@@ -1,69 +1,64 @@
 import React from 'react';
 import { Polyline } from 'react-leaflet';
+import { isNodeInScope } from '@campus-map/core';
 import { useRouteStore } from '../../stores/routeStore';
-import { useMapStore } from '../../stores/mapStore';
+import { scopeOf, useMapStore } from '../../stores/mapStore';
 
+/** Оформление линии маршрута. */
+const ROUTE_STYLE = {
+  color: '#2563eb',
+  weight: 4,
+  opacity: 0.85,
+  lineCap: 'round' as const,
+  lineJoin: 'round' as const,
+};
+
+/**
+ * Линия маршрута на текущем плане.
+ *
+ * Маршрут проходит через несколько этажей и корпусов, а показывается один
+ * план, поэтому путь разбивается на непрерывные видимые отрезки: узлы чужого
+ * этажа разрывают линию, и каждый отрезок рисуется отдельно.
+ *
+ * Отрезок короче двух точек не рисуется — одиночная точка линией не является.
+ */
 export const PathLayer: React.FC = () => {
-  const currentRoute = useRouteStore((state) => state.currentRoute);
-  const graph = useMapStore((state) => state.graph);
-  const viewMode = useMapStore((state) => state.viewMode);
-  const activeFloor = useMapStore((state) => state.activeFloor);
+  const currentRoute = useRouteStore((s) => s.currentRoute);
+  const graph = useMapStore((s) => s.graph);
+  const activeFloor = useMapStore((s) => s.activeFloor);
 
-  if (!currentRoute?.found || !graph) {
-    return null;
-  }
+  if (!currentRoute?.found || !graph) return null;
 
-  // �������� �������� ���� ��� �������� ����
+  const scope = scopeOf(activeFloor);
+
   const segments: [number, number][][] = [];
-  let currentSegment: [number, number][] = [];
+  let current: [number, number][] = [];
 
-  for (let i = 0; i < currentRoute.path.length; i++) {
-    const node = graph.getNode(currentRoute.path[i]);
+  for (const nodeId of currentRoute.path) {
+    const node = graph.getNode(nodeId);
     if (!node) continue;
 
-    // ��������� ��������� ����
-    let isVisible = false;
-    if (viewMode === 'campus') {
-      isVisible = node.building === 'CAMPUS';
-    } else if (activeFloor) {
-      isVisible = node.building === activeFloor.buildingId && node.floor === activeFloor.floor;
+    if (isNodeInScope(node, scope)) {
+      // Leaflet в CRS.Simple принимает координаты как [y, x]: вертикальная
+      // ось карты соответствует y узла в пикселях плана.
+      current.push([node.y, node.x]);
+      continue;
     }
 
-    if (isVisible) {
-      currentSegment.push([node.y, node.x]);
-    } else {
-      // ���� ������� ������� �� ������ � ��������� � �������� �����
-      if (currentSegment.length > 1) {
-        segments.push(currentSegment);
-      }
-      currentSegment = [];
-    }
+    if (current.length > 1) segments.push(current);
+    current = [];
   }
 
-  // ��������� ��������� �������
-  if (currentSegment.length > 1) {
-    segments.push(currentSegment);
-  }
+  if (current.length > 1) segments.push(current);
 
-  if (segments.length === 0) {
-    return null;
-  }
+  if (segments.length === 0) return null;
 
   return (
     <>
       {segments.map((positions, index) => (
-        <Polyline
-          key={index}
-          positions={positions}
-          pathOptions={{
-            color: '#2563eb',
-            weight: 4,
-            opacity: 0.8,
-            lineCap: 'round',
-            lineJoin: 'round',
-            dashArray: undefined,
-          }}
-        />
+        // Ключ по индексу допустим: список пересоздаётся целиком при каждом
+        // изменении маршрута или этажа, порядок отрезков стабилен.
+        <Polyline key={index} positions={positions} pathOptions={ROUTE_STYLE} />
       ))}
     </>
   );

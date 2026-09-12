@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const ContextMenu: React.FC = () => {

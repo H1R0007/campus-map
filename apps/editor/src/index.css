@@ -2,24 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Тема редактора объявлена только здесь. Tailwind-классы `*-editor-*`
+ * ссылаются на эти переменные (см. tailwind.config.js), поэтому менять
+ * оформление можно в одном месте.
+ *
+ * Статусные цвета (успех / предупреждение / ошибка) намеренно не вынесены в
+ * переменные: часть зелёного и янтарного в компонентах приходит из
+ * `transitionTypeColor()` ядра и принадлежит типу перехода, а не теме.
+ * Смешивать их в одном наборе переменных значит создать ложную связь.
+ */
 :root {
     --editor-bg: #0b1020;
     --editor-panel: #0f172a; /* slate-900 */
     --editor-accent: #111c33;
-    --editor-border: rgba(255,255,255,0.08);
+    --editor-border: rgba(255, 255, 255, 0.08);
     --editor-highlight: #e94560;
-    --editor-text: rgba(255,255,255,0.92);
-    --editor-text-muted: rgba(255,255,255,0.55);
-    --ok: #22c55e;
-    --warn: #fbbf24;
-    --err: #fca5a5;
+    --editor-text: rgba(255, 255, 255, 0.92);
+    --editor-text-muted: rgba(255, 255, 255, 0.55);
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
     height: 100%;
     width: 100%;
     overflow: hidden;
@@ -27,12 +38,56 @@ html, body, #root {
 
 body {
     margin: 0;
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    /* Системный стек: редактор не должен зависеть от внешних шрифтовых
+       сервисов и обязан открываться в изолированной сети вуза. */
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: var(--editor-bg);
     color: var(--editor-text);
 }
 
-/* Leaflet */
+input,
+textarea,
+select,
+button {
+    font: inherit;
+}
+
+button:focus-visible {
+    outline: 2px solid var(--editor-highlight);
+    outline-offset: 2px;
+}
+
+input[type='checkbox'] {
+    accent-color: var(--editor-highlight);
+}
+
+/* Полосы прокрутки. Firefox не поддерживает ::-webkit-scrollbar, поэтому
+   заданы и стандартные свойства. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* --- Leaflet --- */
+
 .leaflet-container {
     background: #0a0f1e !important;
     font-family: inherit;
@@ -48,62 +103,30 @@ body {
     display: none !important;
 }
 
-input, textarea, select, button {
-    font: inherit;
-}
-
-    button:focus-visible {
-        outline: 2px solid var(--editor-highlight);
-        outline-offset: 2px;
-    }
-
-    input[type="checkbox"] {
-        accent-color: var(--editor-highlight);
-    }
-
-/* Scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.12);
-    border-radius: 10px;
-}
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255,255,255,0.18);
-    }
-
+/*
+ * Подсказки поверх узлов.
+ *
+ * У Leaflet `.leaflet-tooltip` свои фон, рамка и стрелка, поэтому значения
+ * переопределяются с `!important`. Правило одно на класс: раньше ниже
+ * существовал дубль `.leaflet-tooltip.quick-info-tooltip` с тенью без
+ * `!important`, который перекрывался `box-shadow: none !important` отсюда,
+ * то есть тень не применялась никогда.
+ */
 .quick-info-tooltip {
     background: transparent !important;
     border: none !important;
-    box-shadow: none !important;
     padding: 0 !important;
-}
-
-    .quick-info-tooltip::before {
-        display: none !important;
-    }
-
-.leaflet-tooltip.quick-info-tooltip {
-    background: transparent;
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
 .alias-label-tooltip {
     background: transparent !important;
     border: none !important;
-    box-shadow: none !important;
     padding: 0 !important;
+    box-shadow: none !important;
 }
 
-    .alias-label-tooltip::before {
-        display: none !important;
-    }
+.quick-info-tooltip::before,
+.alias-label-tooltip::before {
+    display: none !important;
+}

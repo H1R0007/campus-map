@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Повторный пуш в ту же ветку отменяет устаревший прогон: проверка нужна на
+# актуальном состоянии, а не на каждом промежуточном коммите.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Сборка, типы, линтер, тесты
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Версию pnpm берёт из поля `packageManager` в package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Только frozen-lockfile: расхождение lock-файла с манифестами должен
+      # ловить CI, а не разработчик при локальной установке.
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      # Порядок важен и задан в turbo.json: `typecheck`, `lint` и `test`
+      # зависят от `^build`, потому что приложения резолвят `@campus-map/core`
+      # и `@campus-map/mapkit` через собранный `dist`, а не через исходники.
+      - name: Сборка пакетов и приложений
+        run: pnpm build
+
+      - name: Проверка типов
+        run: pnpm typecheck
+
+      - name: Линтер
+        run: pnpm lint
+
+      # Тесты ядра (Vitest) и смоук-тесты раздачи обоих приложений: последние
+      # поднимают прод-сборку и проверяют, в частности, что отсутствующий файл
+      # данных отдаёт 404, а не index.html с кодом 200.
+      - name: Тесты
+        run: pnpm test

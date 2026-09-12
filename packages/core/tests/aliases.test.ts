@@ -1,0 +1,108 @@
+import { describe, expect, it } from 'vitest';
+import { AliasManager } from '../src/index.js';
+import { fixtureDataset } from './helpers/datasetFixture.js';
+
+async function loadedManager(): Promise<AliasManager> {
+  const dataset = await fixtureDataset();
+  const manager = new AliasManager();
+  manager.load(dataset.aliases);
+  return manager;
+}
+
+/**
+ * Нечёткий поиск по названиям.
+ *
+ * Это единственный способ ввести пункт назначения в навигаторе, поэтому
+ * проверяются и точное совпадение, и нормализация, и опечатки, и поведение
+ * на границах (пустая строка, нулевой лимит).
+ */
+describe('AliasManager', () => {
+  it('индексирует все формы имён из датасета', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.size).toBe(64);
+  });
+
+  it('разрешает точное совпадение', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.resolve('Главный вход')).toBe('campus_gate');
+  });
+
+  it('нормализует регистр, лишние пробелы и пунктуацию', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.resolve('  главный   вход ')).toBe('campus_gate');
+    expect(manager.resolve('ГЛАВНЫЙ ВХОД')).toBe('campus_gate');
+  });
+
+  it('для неизвестного названия возвращает null', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.resolve('нет такого места')).toBeNull();
+  });
+
+  it('отдаёт основное и все дополнительные имена узла', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.getPrimaryAliasForId('a2_room204')).toBe('А-204');
+    expect(manager.getAliasesForId('a2_room204')).toHaveLength(4);
+    expect(manager.getAliasesForId('nope')).toEqual([]);
+  });
+
+  it('предлагает варианты по номеру аудитории', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.suggest('101', 3)[0]?.id).toBe('a1_room101');
+  });
+
+  it('предлагает варианты по префиксу', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.suggest('конф', 3)[0]?.id).toBe('a3_conference');
+  });
+
+  it('находит аудиторию при неверной раскладке клавиатуры', async () => {
+    const manager = await loadedManager();
+
+    // «,bibcjntrf» — это «библиотека», набранная в английской раскладке.
+    expect(manager.suggest(',bibcjntrf', 5).some((s) => s.id === 'b1_library')).toBe(true);
+  });
+
+  it('на пустом запросе и нулевом лимите не предлагает ничего', async () => {
+    const manager = await loadedManager();
+
+    expect(manager.suggest('', 5)).toEqual([]);
+    expect(manager.suggest('ауд', 0)).toEqual([]);
+  });
+
+  it('кэш предложений не отравляется меньшим лимитом', async () => {
+    const manager = await loadedManager();
+
+    // Раньше запрос с limit=2 кэшировался и на limit=10, из-за чего
+    // расширенный список подсказок оказывался обрезанным до двух пунктов.
+    const short = manager.suggest('аудитория', 2);
+    const long = manager.suggest('аудитория', 10);
+
+    expect(short).toHaveLength(2);
+    expect(long.length).toBeGreaterThan(short.length);
+  });
+
+  it('упорядочивает подсказки по убыванию релевантности', async () => {
+    const manager = await loadedManager();
+    const suggestions = manager.suggest('аудитория', 10);
+
+    for (let i = 1; i < suggestions.length; i += 1) {
+      expect(suggestions[i - 1].score).toBeGreaterThanOrEqual(suggestions[i].score);
+    }
+  });
+
+  it('пустой менеджер не падает на любом запросе', () => {
+    const manager = new AliasManager();
+
+    expect(manager.size).toBe(0);
+    expect(manager.resolve('что угодно')).toBeNull();
+    expect(manager.suggest('что угодно', 5)).toEqual([]);
+    expect(manager.getPrimaryAliasForId('x')).toBeNull();
+  });
+});

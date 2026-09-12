@@ -1,0 +1,593 @@
+# Аудит проекта `campus-map`
+
+**Дата:** 2026-09-12
+**Ветка:** `arena/01a09745-campus-map` (от `master` @ `42ff3b2`)
+**Объём:** 104 файла в репозитории, 62 файла TS/TSX, 10 950 строк кода
+
+---
+
+## 1. Состав проекта
+
+pnpm + turborepo монорепо, три пакета:
+
+| Пакет | Файлов | Строк | Назначение |
+|---|---|---|---|
+| `packages/core` | 13 | 1 357 | Граф, A*, алиасы/поиск, типы |
+| `apps/viewer` | 16 | 1 478 | Мобильный навигатор (PWA, Leaflet) |
+| `apps/editor` | 33 | 8 115 | Десктопный редактор карт |
+
+Стек: React 18 + TypeScript 5.4 + Vite 5 + Leaflet/react-leaflet + Zustand (+immer в редакторе) + Tailwind. Данные — статические JSON/PNG в `data/`.
+
+**Данные:** 45 узлов, 6 переходов, 3 корпуса (А: 3 этажа, Б: 2, В: 1) + кампус. 21 запись алиасов на 64 имени. 7 PNG-карт (~2.1 МБ).
+
+### Что реально работает (проверено прогоном ядра на реальных данных)
+
+Ядро — самая здоровая часть проекта. A* с бинарной кучей, веса переходов, фильтры по типам переходов, поиск с fuzzy-матчингом и автопереключением раскладки QWERTY→ЙЦУКЕН.
+
+Прогон на реальных данных, 5/5 базовых кейсов пройдено:
+
+```
+campus_gate -> a3_conference   OK  dist=1093.0  hops=11
+campus_gate -> c1_pool         OK  dist=844.8   hops=7
+a1_room101  -> b2_lab          OK  dist=1218.6  hops=15  (кросс-корпус, 2 этажа)
+campus_gate -> campus_gate     OK  dist=0       hops=1
+несуществующий узел            OK  found=false + error
+allowStairs:false              OK  путь в корпус А корректно не находится
+allowEntrance:false            OK  кампус отсекается от корпусов
+```
+
+Поиск по алиасам работает хорошо, в т.ч. опечатки и wrong-layout:
+
+```
+"Кабинет декана" -> a2_room204        ",bibcjntrf" -> Буфет, Бассейн, Библиотека
+"конф"           -> a3_conference     "ghj[jl"     -> Проходная, Площадь, ...
+"бассейн"        -> c1_pool           "cnekybw"    -> Столовая, Спортзал
+```
+
+Кэш `suggest()` (TTL 400 мс, лимит 128) корректен, `limit` уважается.
+
+---
+
+## 2. Ответ на вопрос «всё ли запушено»
+
+**Нет, не всё.** Ниже — то, чего в репозитории нет, но на что код явно рассчитывает.
+
+### 2.1. Критично: данные не доезжают до приложений
+
+Оба приложения грузят данные по абсолютному пути `/data/...`:
+
+- `apps/viewer/src/hooks/useDataLoader.ts:5` — `const DATA_BASE_PATH = '/data'`
+- `apps/editor/src/App.tsx:70+` — `fetch('/data/campus/meta.json')` и т.д.
+
+Но каталогов `apps/viewer/public/` и `apps/editor/public/` **в репозитории нет**, а `.gitignore` содержит строку:
+
+```
+apps/*/public/data
+```
+
+То есть у вас локально данные лежали в `apps/*/public/data` и **намеренно не коммитились**, но механизма их туда положить в репозитории тоже нет — ни скрипта `copy-data`, ни `postinstall`, ни symlink. Чистый клон репозитория → оба приложения показывают экран «Не удалось загрузить» / «Ошибка загрузки».
+
+> Для тестирования я создал симлинки `apps/{viewer,editor}/public/data -> ../../../data` (они в `.gitignore`, в git не попали).
+
+### 2.2. PWA- и фавикон-ассеты отсутствуют полностью
+
+Объявлены, но файлов нет ни одного:
+
+| Объявлено в | Файл |
+|---|---|
+| `apps/viewer/index.html:12` | `/favicon.svg` |
+| `apps/viewer/index.html:13` | `/apple-touch-icon.png` |
+| `apps/viewer/vite.config.ts:11` | `favicon.ico`, `robots.txt`, `apple-touch-icon.png` |
+| `apps/viewer/vite.config.ts:22,27` | `pwa-192x192.png`, `pwa-512x512.png` |
+
+Проверено curl: все отдают **200 с `Content-Type: text/html`** — это SPA-fallback отдаёт `index.html`, а не файл. Манифест ссылается на несуществующие иконки → установка PWA сломана.
+
+### 2.3. Линтер не существует
+
+```
+> eslint src --ext ts,tsx
+sh: 1: eslint: not found
+```
+
+- `eslint` отсутствует в `devDependencies` всех пакетов;
+- конфига нет вообще (ни `.eslintrc*`, ни `eslint.config.*`);
+- скрипт `lint` есть **только у viewer**, у `core` и `editor` его нет, хотя `turbo.json` объявляет задачу `lint`;
+- в коде при этом стоят `// eslint-disable-next-line react-hooks/exhaustive-deps` — то есть линтер когда-то был.
+
+### 2.4. Прочее отсутствующее
+
+- **README** — нет ни одного `.md` файла в репозитории.
+- **Тесты** — 0 файлов (`*.test.*`, `*.spec.*`), тестовый фреймворк не подключён.
+- **CI** — нет `.github/`.
+- **`.editorconfig`** — нет. Это прямая причина бардака с кодировками (см. 3.2).
+- **Git-история** — ровно 1 коммит `42ff3b2 "better all"`. Вся предыдущая история потеряна/сквошнута, восстановить «что было до» невозможно.
+
+---
+
+## 3. Блокеры сборки
+
+### 3.1. `pnpm build` не работает
+
+```
+@campus-map/viewer:build: tsconfig.json(16,5): error TS6306:
+  Referenced project 'packages/core' must have setting "composite": true.
+ERROR  run failed: command exited (2)
+```
+
+Два независимых дефекта конфигурации:
+
+1. **TS6306** — `apps/*/tsconfig.json` объявляют `"references": [{ "path": "../../packages/core" }]`, но в `packages/core/tsconfig.json` нет `"composite": true`.
+2. **TS6059** — даже если убрать references, падает на другом: в apps стоит `"rootDir": "./src"`, но vite-алиас и `tsconfig.paths` направляют `@campus-map/core` в `../../packages/core/src`. tsc втягивает исходники ядра в программу и они оказываются вне `rootDir`.
+
+Конфигурация противоречива сама по себе: одновременно объявлены и project references (→ потреблять собранный `dist`), и алиас на `src` (→ потреблять исходники).
+
+**Важно:** сам `vite build` проходит успешно для обоих приложений (viewer: 106 модулей, editor: 134 модуля). Блокирует сборку исключительно шаг `tsc`.
+
+### 3.2. 23 файла в CP1251 — русский текст ломается в браузере
+
+Репозиторий в **смешанных кодировках**: 69 файлов в UTF-8, 23 в Windows-1251. Плюс 13 файлов с UTF-8 BOM.
+
+Это не косметика. Vite/esbuild читают исходники как UTF-8, и русские **строковые литералы** (не только комментарии) доезжают до пользователя мусором. Проверено — вот что реально отдаёт dev-сервер браузеру:
+
+```js
+// packages/core/src/pathfinding/astar.ts — как это видит пользователь
+error: `  "${startId}"  `
+```
+
+Это сообщение выводится в UI: `BottomSheet.tsx` → «Маршрут не найден: {currentRoute.error}».
+
+Подтверждённый user-visible мусор:
+
+| Файл | Что увидит пользователь |
+|---|---|
+| `packages/core/src/pathfinding/astar.ts` (4 строки) | «Маршрут не найден:  ...» |
+| `apps/viewer/src/components/UI/ZoomControls.tsx` (3) | `aria-label` = «Приблизить/Отдалить/Сбросить вид» → скринридер прочитает мусор |
+| `apps/editor/src/App.tsx` (1) | «Неизвестная ошибка» в ErrorBoundary |
+
+Полный список CP1251-файлов: `packages/core/src/{graph/Graph.ts, pathfinding/astar.ts, types/{node,building,alias,pathfinding}.ts}`, `apps/viewer/{vite.config.ts, tailwind.config.js, src/main.tsx, src/App.tsx, src/components/Map/{CampusMap,MarkerLayer,PathLayer}.tsx, src/components/UI/{BuildingSelector,ZoomControls}.tsx, src/hooks/useDataLoader.ts, src/stores/mapStore.ts}`, `apps/editor/src/{App.tsx, stores/historyStore.ts, utils/importZip.ts, components/Map/{EditorEdges,EditorTransitions,LineToolPreview}.tsx}`.
+
+Любопытная деталь: `apps/viewer/vite.config.ts` в CP1251 содержит `description: '  '` — это поле уйдёт в PWA-манифест.
+
+### 3.3. 5 ошибок типов — все на мёртвый код
+
+При `noUnusedLocals: true` (включён в `tsconfig.base.json`):
+
+```
+editor: BookmarksPanel.tsx(12)   'getNodeAliases' объявлен, не используется
+editor: PropertiesPanel.tsx(24)  'addTransition' объявлен, не используется
+editor: utils/autoFix.ts(81)     'id' объявлен, не используется
+viewer: RouteInfo.tsx(10)        'graph' объявлен, не используется
+viewer: ZoomControls.tsx(7)      'zoomLevel' объявлен, не используется
+```
+
+---
+
+## 4. Баги рантайма
+
+### 4.1. `preferLift` рассинхронизирует расстояние и шаги
+
+`findPath()` считает `totalDistance` через `edgeCost()` (с множителями `preferLift`), а `buildSegments()` — через «сырые» `TRANSITION_WEIGHTS`. Замер на реальных данных:
+
+```
+opts={}                totalDistance=426.02   Σsegments=426.02   OK
+opts={preferLift:true} totalDistance=466.02   Σsegments=426.02   РАСХОЖДЕНИЕ 40.00
+```
+
+Любой UI, показывающий дистанцию по шагам, не сойдётся с итогом.
+
+### 4.2. `allowDoor` — несуществующее поле
+
+`apps/viewer/src/stores/routeStore.ts:44`:
+
+```ts
+options: { allowStairs: true, allowLift: true, allowBridge: true, allowDoor: true }
+```
+
+В `PathfindingOptions` поля `allowDoor` **нет** — есть `allowEntrance`. Это остаток старой схемы (в `parseTransitionType` ещё жив case `'door' // обратная совместимость`).
+
+Компилятор это **не ловит** — объект уходит через дженерик zustand `create<T>()`, excess property check не срабатывает. Функционально «случайно работает», потому что `normalizeOptions` подставляет `allowEntrance ?? true`.
+
+Побочный эффект: `allowEntrance` нигде в UI не выставляется, а `setOptions` ни разу не вызывается → **фильтр «не выходить на улицу» пользователю недоступен**, хотя ядро его полностью поддерживает.
+
+### 4.3. Невидимый спиннер загрузки
+
+`apps/viewer/src/App.tsx:22`:
+
+```html
+<div class="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+```
+
+Класса `border-3` в Tailwind по умолчанию нет (есть 0/2/4/8), и в `tailwind.config.js` `borderWidth` не расширен → класс не генерируется, рамка нулевая, спиннер не виден. Остаётся только текст «Загрузка карты...».
+
+### 4.4. Две системы тем в редакторе с разными цветами
+
+| Токен | `tailwind.config.js` (`editor.*`) | `index.css` (`--editor-*`) | |
+|---|---|---|---|
+| bg | `#1a1a2e` | `#0b1020` | **расходятся** |
+| panel | `#16213e` | `#0f172a` | **расходятся** |
+| accent | `#0f3460` | `#111c33` | **расходятся** |
+| highlight | `#e94560` | `#e94560` | совпадает |
+
+CSS-переменные используются в **265** местах. Tailwind-палитра — ровно в **одном** файле: `components/UI/LayersPanel.tsx` (`bg-editor-panel`, `border-editor-accent`, `bg-editor-highlight`). Итог: левая панель слоёв визуально другого оттенка, чем все остальные панели редактора.
+
+### 4.5. Двойная регистрация service worker
+
+`apps/viewer/src/main.tsx` вручную регистрирует `/sw.js`, но `vite-plugin-pwa` с `registerType: 'autoUpdate'` генерирует собственную регистрацию (`dist/registerSW.js`). В dev `/sw.js` не существует (отдаётся `index.html`), регистрация падает и глушится пустым `.catch(() => {})`.
+
+Аналогично `index.html` вручную подключает `/manifest.webmanifest`, который плагин и так генерирует.
+
+### 4.6. PWA precache тянет все данные
+
+Прод-сборка viewer: `precache 25 entries (2365.44 KiB)` — в precache попадают все JSON и PNG. Для студенческого навигатора с офлайн-режимом это может быть и осознанно, но сейчас это не задокументированное решение, а побочный эффект `globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']`.
+
+### 4.7. `packages/core/dist` неработоспособен и никем не потребляется
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module
+  'packages/core/dist/types/index' imported from dist/index.js
+```
+
+Пакет объявлен как `"type": "module"`, но `tsc` эмитит относительные импорты без расширений (`./types/index`) — Node ESM такое не резолвит.
+
+При этом `dist` **вообще никто не использует**: оба приложения через vite-алиас и `tsconfig.paths` ходят в `../../packages/core/src`. То есть `main`/`types`/`exports` в `packages/core/package.json` и скрипт `build` — декорация, а `dependsOn: ["^build"]` в `turbo.json` каждый раз выполняет бесполезную работу (и именно она сейчас единственная проходит успешно).
+
+---
+
+## 5. Мёртвый код
+
+Прямой ответ на запрос «чтобы всё написанное использовалось, а не висело мёртвым грузом».
+
+### 5.1. Целиком мёртвые файлы — 357 строк
+
+| Файл | Строк | Статус |
+|---|---|---|
+| `apps/editor/src/components/UI/AliasEditor.tsx` | 186 | Не импортируется **нигде**. Внутри ещё 4 клона самого себя. Редактирование алиасов фактически живёт в `PropertiesPanel.tsx` |
+| `apps/viewer/src/components/UI/RouteInfo.tsx` | 99 | Не импортируется. Дублирует collapsed-карточку маршрута в `BottomSheet.tsx` (тот же «Маршрут готов», тот же расчёт `~мин`, тот же `clearRoute`) |
+| `apps/viewer/src/components/UI/ZoomControls.tsx` | 72 | Не импортируется. Плюс сломан: вызывает `useMap()` вне `<MapContainer>` (упал бы при рендере), `handleResetView` хардкодит `[390, 738]` |
+| `packages/core/src/{graph,pathfinding,aliases}/index.ts` | 3 | Три барреля по 1 строке. Корневой `index.ts` импортирует напрямую из `./graph/Graph`, `./pathfinding/astar`, `./aliases/AliasManager` |
+
+### 5.2. Мёртвые экспорты ядра
+
+- `getTransitionWeights()` — экспортируется из `packages/core/src/index.ts`, **не используется ни в одном приложении**.
+
+### 5.3. Мёртвый API `editorStore` (95 действий)
+
+12 действий не вызываются ни из одного компонента, 11 из них мёртвы полностью:
+
+```
+generateNodeId            snapToGrid                  startRouteAnimation
+setCameraCenter           setNodeComment              stopRouteAnimation
+addToSelection            getNodeComment
+removeFromSelection       setInlineEditNode
+                          setRoutePathfindingOptions
+```
+
+(`selectNodesInRect` — вызывается внутри самого store.)
+
+Отдельно про `setCameraCenter`: состояние `cameraCenterRequest` **живое** — его читают в `EditorMap.tsx:52` и присваивают напрямую в `editorStore.ts:857` и `:868`. Публичный action `setCameraCenter` (`:868`) просто дублирует то, что уже делается инлайн в соседнем действии.
+
+### 5.4. Мёртвое состояние
+
+- `mapStore.zoomLevel` + `setZoomLevel` — единственный потребитель `zoomLevel` это мёртвый `ZoomControls`; `setZoomLevel` не вызывается никогда. Значение навсегда `1` и не связано с реальным зумом Leaflet.
+- `editorStore.inlineEditNodeId` + `setInlineEditNode` — потребителей в компонентах нет.
+- **`editorStore.comments` (`NodeComments`)** — самый дорогой случай. Полноценная фича «комментарий к узлу»: состояние, `setNodeComment`/`getNodeComment`, снимки для undo/redo, каскадное удаление при удалении узла, восстановление из истории — **~20 мест аккуратного буккипинга**. При этом:
+  - UI для просмотра/редактирования **нет** (ни один `.tsx` не обращается к `comments`);
+  - `setNodeComment`/`getNodeComment` не вызываются никогда;
+  - в ZIP **не экспортируется** (`exportData.ts` и `importZip.ts` про комментарии не знают) → даже если бы UI был, данные терялись бы при экспорте.
+
+### 5.5. Мёртвые CSS и данные
+
+- `apps/viewer/src/index.css`: `animate-fade-in`, `animate-pulse-soft` — 0 использований; `animate-slide-up` — единственное использование в мёртвом `RouteInfo.tsx`.
+- **`BuildingMeta.bounds`** — declared в типах ядра, присутствует во всех трёх `meta.json`, загружается в стор (`useDataLoader.ts:66`), выгружается обратно (`exportData.ts:71`) и **никогда не читается**. Мёртвое поле данных.
+- `CampusMeta.mapSize` — используется только как fallback в `CampusMap.tsx:55`, когда картинка не загрузилась. Реальный размер берётся из PNG через `useImageSize`. В данных `mapSize: 1200×800`, а `campus/map.png` — 1476×780, то есть значение уже расходится с реальностью и просто игнорируется.
+- `MapNode.isPortal` — 11 узлов помечены. Редактор флаг активно использует (рисует ⭐, переключает, фильтрует, считает в статистике). Но **viewer и pathfinding флаг полностью игнорируют** — на навигацию он не влияет никак.
+
+### 5.6. Недостижимые ветки
+
+- `edgeCost()` в `astar.ts`: `default: return TRANSITION_WEIGHTS.entrance` — `switch` исчерпывающий по `TransitionType`, ветка недостижима.
+- `getTransitionVerb()` в `routeInstructions.ts`: `default: return 'Пройдите'` — то же самое.
+
+---
+
+## 6. Дублирование
+
+Прогон `jscpd` (порог 40 токенов): **27 клонов**. Ниже — содержательные, без тривиальных конфигов.
+
+### 6.1. Идентичные функции
+
+`packages/core/src/pathfinding/astar.ts` — `heuristic()` (L106) и `euclidean()` (L115) **побайтово идентичны**:
+
+```ts
+function heuristic(a: MapNode, b: MapNode): number {
+  const dx = a.x - b.x; const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+function euclidean(a: MapNode, b: MapNode): number {
+  const dx = a.x - b.x; const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+```
+
+### 6.2. Две копии A*
+
+`findPath()` (~90 строк) и `findPathExcludingEdge()` (~90 строк) отличаются **четырьмя строками** — проверкой исключённого ребра в цикле по соседям. Всё остальное (инициализация, куча, closedSet, лимит итераций, восстановление пути) скопировано. Лечится одним параметром `excludeEdge?: [string, string]`.
+
+### 6.3. Три независимых загрузчика данных
+
+Один и тот же пайплайн «прочитать campus/meta → campus/graph → по корпусам meta + graph этажей → transitions → aliases» написан трижды:
+
+| Где | Как |
+|---|---|
+| `apps/viewer/src/hooks/useDataLoader.ts` | Через `Graph` + `AliasManager` из ядра |
+| `apps/editor/src/App.tsx:66-146` | Инлайн в `useEffect`, ручной маппинг в массивы |
+| `apps/editor/src/utils/importZip.ts` | То же, но из ZIP |
+
+И они **расходятся в поведении**. Маппинг типа перехода:
+
+```ts
+// App.tsx:121        — НЕ нормализует, fallback невалидный
+type: t.transition_type ?? t.type ?? 'unknown'
+
+// importZip.ts:106   — нормализует через ядро
+type: parseTransitionType(t.transition_type ?? 'entrance')
+```
+
+`'unknown'` не входит в `TransitionType`. Сейчас данные содержат только валидные `'entrance'`/`'stairs'`, поэтому не стреляет. Но как только в `transitions.json` встретится `'elevator'` или `'door'` (а `parseTransitionType` их явно поддерживает как legacy) — одни и те же данные, загруженные с диска и из ZIP, дадут **разные типы переходов**, а `App.tsx` положит в стор невалидное значение.
+
+Плюс `exportData.ts` дублирует маппинг узлов дважды внутри себя (campus-ветка L47-54 и floor-ветка L82-90).
+
+### 6.4. Дубли между приложениями
+
+`useImageSize()` + `FitToBounds` — ~30 строк, скопированы из `apps/editor/src/components/Map/EditorMap.tsx:12-42` в `apps/viewer/src/components/Map/CampusMap.tsx:6-39`. Кандидат на общий пакет (`packages/ui` или хук в `core`).
+
+### 6.5. Дубли внутри viewer
+
+- **Проверка видимости узла** — одна логика в двух компонентах:
+  `MarkerLayer.tsx:38-48` (функция `isVisible`) и `PathLayer.tsx:23-30` (инлайн `isVisible`). Обе: `viewMode === 'campus' ? node.building === 'CAMPUS' : node.building === activeFloor.buildingId && node.floor === activeFloor.floor`.
+- **`setFromQuery` / `setToQuery`** (`routeStore.ts:47-57` и `:63-73`) — 11 почти идентичных строк, включая одинаковый комментарий `// NEW: direct id support`. Лечатся одним `setQuery(field, value)`.
+
+### 6.6. Дубли внутри editor
+
+| Клон | Строки |
+|---|---|
+| `PropertiesPanel.tsx` L476-515 ↔ L431-462 (блоки переходов) | 40 |
+| `BookmarksPanel.tsx` L42-71 ↔ `StatisticsPanel.tsx` L56-80 (обёртка панели) | 30 |
+| `RouteSimulator.tsx` L359-377 ↔ L310-328 | 19 |
+| `App.tsx` L157-175 ↔ L39-146 (экран ошибки ↔ загрузчик) | 19 |
+| `ContextMenu.tsx` L29-42 ↔ `EdgeContextMenu.tsx` L31-44 | 14 |
+| `EditorEdges.tsx` L14-24 ↔ `EditorTransitions.tsx` L15-25 | 11 |
+| `DiagnosticsPanel.tsx` L8-14 ↔ `StatisticsPanel.tsx` L6-11 (узлы текущего этажа) | 7 |
+| `LineToolPreview.tsx` L68-85 ↔ L52-68 | 18 |
+
+### 6.7. Мёртвая переменная в алгоритме
+
+`findAlternativePaths()` в `astar.ts`:
+
+```ts
+const usedEdges = new Set<string>();
+for (let i = 0; i < primary.path.length - 1; i++) {
+  usedEdges.add([primary.path[i], primary.path[i+1]].sort().join('|'));
+}
+```
+
+`usedEdges` заполняется и **никогда не читается**. Судя по комментарию («используем метод penalty»), задумывался штраф за использованные рёбра, а реализовано исключение одного ребра через `findPathExcludingEdge`. Заодно сама эвристика выбора ребра сомнительна:
+
+```ts
+const edgeIndex = Math.floor(pathToExclude.path.length / 2) + (attempt % (pathToExclude.path.length - 1));
+const actualIndex = edgeIndex % (pathToExclude.path.length - 1);
+```
+
+Двойное взятие остатка и смещение от середины — неочевидно и не задокументировано. На текущих данных `findAlternativePaths` возвращает 0 альтернатив (граф-дерево, альтернатив действительно нет), так что проверить качество подхода не на чем.
+
+### 6.8. Дубли конфигурации
+
+`tsconfig.json`, `vite.config.ts`, `index.html`, `tailwind.config.js`, `postcss.config.js` почти идентичны между `apps/editor` и `apps/viewer`. Обе копии уже разъехались (см. 4.4). Кандидаты на вынос в общий пресет.
+
+---
+
+## 7. Качество данных
+
+Хорошая новость: датасет **консистентен**. Проверено программно:
+
+- висячих рёбер (neighbor → несуществующий узел): **0**
+- асимметричных рёбер (A→B есть, B→A нет): **0**
+- переходов на несуществующие узлы: **0**
+- алиасов на несуществующие узлы: **0**
+- конфликтов алиасов (одно имя → разные id): **0**
+- дублей имён внутри записи алиаса: **0**
+
+### 7.1. Изолированный компонент — тестовый мусор в данных
+
+```
+Компонент #1 (42 узла): campus + корпуса А/Б/В
+Компонент #2 (3 узла):  building_a_1_node_1, building_a_1_node_2, building_a_1_node_3
+```
+
+Три узла на 1 этаже корпуса А, соединённые только друг с другом, с авто-сгенерированными id и **без алиасов**. Координаты (526,236), (617,338), (674,178). Это явно остаток ручного тестирования редактора, забытый в датасете.
+
+**252 из 1980 пар узлов недостижимы** — все из-за этой тройки.
+
+Важно про диагностику: `StatisticsPanel` это покажет (`isGraphConnected()` → `componentCount: 2`), а вот `DiagnosticsPanel` — **нет**, потому что `validateDataset()` связность не проверяет (только висячие/асимметричные рёбра, валидность переходов и соответствие building/floor). То есть «Диагностика» будет зелёной при разорванном графе.
+
+### 7.2. BOM в `data/aliases.json`
+
+Файл начинается с `\uFEFF`. Браузерный `response.json()` это переживёт (UTF-8 decode по спецификации снимает BOM), но любой Node-инструментарий падает:
+
+```
+JSONDecodeError: Unexpected UTF-8 BOM (decode using utf-8-sig)
+```
+
+Показательно, что в `importZip.ts:26` уже написана защита `text.replace(/^\uFEFF/, '')` — с проблемой вы уже сталкивались, но лечили следствие, а не источник.
+
+BOM также стоит в 12 исходниках: `EditorNodes.tsx`, `LineToolPanel.tsx`, `ContextMenu.tsx`, `DiagnosticsPanel.tsx`, `FilterPanel.tsx`, `RecentActions.tsx`, `RouteSimulator.tsx`, `SearchPanel.tsx`, `StatisticsPanel.tsx`, `BottomSheet.tsx`, `FloorSelector.tsx`, `RouteInfo.tsx`.
+
+### 7.3. Покрытие алиасами
+
+24 узла из 45 без алиасов. Большинство оправданы (транзитные: `a1_corridor`, `campus_path_a`, лестницы, входы), но `building_a_1_node_*` — мусор (см. 7.1).
+
+### 7.4. Картинки-заглушки
+
+Все 7 PNG — случайные изображения, не планы этажей. Размеры не совпадают ни с `mapSize` (1200×800 при реальной картинке 1476×780), ни между этажами одного корпуса (`building_a` floor 1 и 3: 967×477, floor 2: 1136×716). Координаты узлов в `graph.json` привязаны к пиксельной системе этих картинок, поэтому **при замене ассетов на настоящие все 45 координат придётся переразмечать**. Это надо закладывать в оценку работ по заказу.
+
+---
+
+## 8. Прочие наблюдения по качеству
+
+**Хорошее:**
+- `tsconfig.base.json` строгий: `strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`. Именно благодаря ему мёртвый код сейчас виден.
+- `PriorityQueue` — честная бинарная куча, не `Array.sort()`.
+- `AliasManager` — продуманный скоринг (точное/префикс/подстрока/акроним/подпоследовательность/Левенштейн с cutoff), автопереключение раскладки, кэш с TTL и ограничением размера.
+- `Graph` держит индексы (`transitionIndex`, `transitionTypeIndex`) для O(1) lookup.
+- `autoFix.ts` — вменяемый многоэтапный фиксер с подробным отчётом и опасной операцией (`removeOrphans`), выключенной по умолчанию.
+- `ErrorBoundary` в редакторе.
+- История действий (`historyStore`) со снимками и ограничением 200 записей.
+
+**Что требует внимания:**
+- `Graph.getTransition()` — линейный перебор всех переходов, хотя рядом уже есть `transitionTypeIndex` для O(1). Сейчас вызывается редко, но это несоответствие в классе.
+- `Graph.getTransitionType()` и `removeTransition()` строят ключ `[a,b].sort().join('|')` — этот паттерн повторяется в 4 местах (`Graph.loadTransitions`, `addTransition`, `getTransitionType`, `removeTransition`) и ещё в `autoFix.ts` и `findAlternativePaths`. Просится хелпер `edgeKey(a, b)`.
+- 31 использование `any` / `as any`. Концентрация — в undo/redo (`editorStore.ts:1763-1913`, ~14 приведений `entry.undoData as any`). `HistoryEntry.undoData: unknown` + ручные приведения = типизация фактически отключена на самом рискованном участке. Просится discriminated union по `type`.
+- `loadData: (data: any) => void` в `editorStore.ts:243` — публичный API без типа.
+- Магическое число `10000` в `edgeCost()` для ребра между этажами без перехода.
+- `heuristic()` не учитывает этаж/корпус — формально допустимо (admissible), но для кросс-этажных маршрутов эвристика вырождается.
+- 19 `console.*` в коде, из них 2 `console.log` на горячем пути (`AliasManager.load`, `useDataLoader`).
+- Комментарии-маркеры инкрементальных правок, которые надо убрать: `// NEW: direct id support` (×2), `// NEW: id -> display aliases`, `// NEW: взять "главный" алиас`, `// === EXISTING METHODS ===`.
+- `validateDataset()` пишет сообщения **по-английски**, хотя весь остальной UI редактора русский. Эти строки показываются пользователю в `DiagnosticsPanel`.
+- `BuildingSelector.tsx:25`: `const firstFloor = floors[floors.length - 1] ?? 1` — `getFloorsForBuilding` сортирует по убыванию, поэтому «первый этаж» берётся с конца. Результат верный, но читается как ошибка. Просится явный `Math.min(...floors)`.
+- `editorStore.ts` — 2195 строк, 95 действий в одном файле. Это 20% всего кода проекта и главный кандидат на декомпозицию (nodes / edges / transitions / selection / history / route-simulation / ui-panels).
+- `index.css` редактора — сбитые отступы у вложенных блоков (`button:focus-visible`, `::-webkit-scrollbar-thumb:hover`, `.quick-info-tooltip::before` съехали на 4 пробела).
+
+---
+
+## 9. Что я изменил в репозитории
+
+Чтобы просто **запустить** приложения для тестирования, пришлось внести одну правку (2 строки):
+
+```diff
+ # apps/viewer/vite.config.ts и apps/editor/vite.config.ts
+   server: {
++    allowedHosts: ['.e2b.app', 'localhost'],
+     port: 3000,
+```
+
+Без этого Vite 5.4 отвечает `403 Blocked request. This host is not allowed` на любой запрос через прокси/туннель. Кодировку файлов при правке сохранил (viewer — CP1251, editor — UTF-8).
+
+Всё остальное — только анализ, код не тронут. Симлинки `apps/*/public/data` созданы локально и попадают под `.gitignore`. Артефакты сборки (`dist/`, `.turbo/`) удалены.
+
+---
+
+## 10. Рекомендуемый порядок работ
+
+### P0 — разблокировать сборку и запуск (≈0.5–1 день)
+
+1. **Привести все файлы к UTF-8 без BOM.** Механически: перекодировать 23 CP1251-файла, снять BOM с 13. Добавить `.editorconfig` с `charset = utf-8`. Это единственная задача, которую нельзя откладывать — она портит пользовательский вывод прямо сейчас.
+2. **Починить сборку.** Выбрать одну стратегию потребления `core`:
+   - *вариант А (проще):* убрать `references` из `apps/*/tsconfig.json`, убрать `rootDir`, оставить алиас на `src`. Тогда `dist` и `main`/`exports` в core можно удалить вместе с бесполезным шагом сборки.
+   - *вариант Б (правильнее):* `"composite": true` в core, в apps убрать алиас на `src` и потреблять `dist`. Понадобится также починить ESM-расширения (4.7) — `moduleResolution: "nodenext"` или плагин, добавляющий `.js`.
+3. **Добавить скрипт синхронизации данных** (`pnpm sync-data` → symlink/copy `data/` в `apps/*/public/data`) и дёрнуть его из `postinstall`. Либо перевести apps на vite-алиас `/data` → `../../data` и убрать строку из `.gitignore`.
+4. **Убрать 5 ошибок TS6133** — вместе с удалением мёртвых файлов (п.5) они исчезнут сами.
+
+### P1 — удалить мёртвый груз (≈1 день)
+
+5. Удалить `AliasEditor.tsx`, `RouteInfo.tsx`, `ZoomControls.tsx`, три барреля `index.ts`, `getTransitionWeights()`, мёртвые CSS-анимации.
+6. Разобраться с `comments`: либо сделать UI + экспорт в ZIP, либо выпилить весь буккипинг (~20 мест). Держать полностью невидимую фичу с undo/redo — худший из вариантов.
+7. Вычистить 11 мёртвых действий `editorStore` и мёртвые поля состояния (`zoomLevel`/`setZoomLevel`, `inlineEditNodeId`).
+8. Убрать `BuildingMeta.bounds` из типов, данных и экспорта — либо начать использовать.
+9. Убрать недостижимые `default`-ветки в `edgeCost` и `getTransitionVerb`.
+10. Убрать мёртвый `usedEdges` из `findAlternativePaths`.
+
+### P2 — устранить дублирование (≈2–3 дня)
+
+11. Схлопнуть `heuristic()`/`euclidean()` в одну функцию.
+12. Объединить `findPath()` и `findPathExcludingEdge()` через опциональный `excludeEdge`.
+13. **Вынести загрузку данных в один модуль** (логично — в `packages/core` или новый `packages/data`), использовать его во viewer, в `App.tsx` редактора и в `importZip`. Это автоматически устранит расхождение `parseTransitionType` vs `'unknown'` (6.3).
+14. Вынести `useImageSize`/`FitToBounds` в общий пакет.
+15. Извлечь `isNodeVisible(viewMode, activeFloor, node)` в общий хелпер для `MarkerLayer`/`PathLayer`.
+16. Схлопнуть `setFromQuery`/`setToQuery` в `setQuery(field, value)`.
+17. Вынести обёртку панели редактора (заголовок + крестик + позиционирование) в общий `<EditorPanel>` — покрывает клоны `BookmarksPanel`/`StatisticsPanel`/`ContextMenu`/`EdgeContextMenu`.
+18. Ввести одну систему тем. Рекомендую оставить CSS-переменные (265 использований) и переписать `LayersPanel.tsx` на них, удалив палитру `editor.*` из `tailwind.config.js`.
+19. Вынести `edgeKey(a, b)` в ядро.
+
+### P3 — функциональные баги (≈1–2 дня)
+
+20. Починить расхождение `totalDistance` / `Σsegments` при `preferLift` (4.1).
+21. Заменить `allowDoor` на `allowEntrance` и **вывести настройки маршрута в UI** — ядро поддерживает 5 опций, пользователь не управляет ни одной (4.2).
+22. Починить спиннер (`border-3` → `border-4`) (4.3).
+23. Разобраться с двойной регистрацией SW и дублем манифеста — оставить только `vite-plugin-pwa` (4.5).
+24. Добавить связность графа в `validateDataset()`, чтобы `DiagnosticsPanel` ловил разрывы (7.1).
+25. Удалить `building_a_1_node_1/2/3` из данных (7.1).
+26. Снять BOM с `data/aliases.json` (7.2).
+
+### P4 — инфраструктура под официальный заказ (≈2–3 дня)
+
+27. **README**: что за проект, архитектура, как запустить, формат данных, как добавлять корпус/этаж.
+28. **ESLint** (+ `eslint-plugin-react-hooks`) — конфиг, зависимость, скрипт `lint` во все три пакета. Сейчас `turbo lint` падает.
+29. **Тесты.** В первую очередь на `packages/core` — это чистые функции, тестируются тривиально и уже сейчас покрыты моим ad-hoc прогоном: A*, веса переходов, фильтры, `AliasManager.suggest/resolve`, `Graph` индексы. Дальше — `autoFix`, `validateData`, `buildRouteSteps`.
+30. **CI** (GitHub Actions): `pnpm install → typecheck → lint → test → build`. Сейчас ни один из этих шагов не проходит, и это невидно до ручного запуска.
+31. Решить судьбу `isPortal` (5.5) — либо использовать во viewer/маршрутизации, либо убрать.
+32. Типизировать undo/redo через discriminated union вместо 14 `as any` (раздел 8).
+33. Декомпозировать `editorStore.ts` (2195 строк).
+
+---
+
+## Приложение A. CP1251-файлы (23)
+
+```
+packages/core/src/graph/Graph.ts
+packages/core/src/pathfinding/astar.ts
+packages/core/src/types/alias.ts
+packages/core/src/types/building.ts
+packages/core/src/types/node.ts
+packages/core/src/types/pathfinding.ts
+apps/viewer/tailwind.config.js
+apps/viewer/vite.config.ts
+apps/viewer/src/App.tsx
+apps/viewer/src/main.tsx
+apps/viewer/src/components/Map/CampusMap.tsx
+apps/viewer/src/components/Map/MarkerLayer.tsx
+apps/viewer/src/components/Map/PathLayer.tsx
+apps/viewer/src/components/UI/BuildingSelector.tsx
+apps/viewer/src/components/UI/ZoomControls.tsx
+apps/viewer/src/hooks/useDataLoader.ts
+apps/viewer/src/stores/mapStore.ts
+apps/editor/src/App.tsx
+apps/editor/src/components/Map/EditorEdges.tsx
+apps/editor/src/components/Map/EditorTransitions.tsx
+apps/editor/src/components/Map/LineToolPreview.tsx
+apps/editor/src/stores/historyStore.ts
+apps/editor/src/utils/importZip.ts
+```
+
+## Приложение B. Файлы с BOM (13)
+
+```
+data/aliases.json
+apps/viewer/src/components/UI/BottomSheet.tsx
+apps/viewer/src/components/UI/FloorSelector.tsx
+apps/viewer/src/components/UI/RouteInfo.tsx
+apps/editor/src/components/Map/EditorNodes.tsx
+apps/editor/src/components/Tools/LineToolPanel.tsx
+apps/editor/src/components/UI/ContextMenu.tsx
+apps/editor/src/components/UI/DiagnosticsPanel.tsx
+apps/editor/src/components/UI/FilterPanel.tsx
+apps/editor/src/components/UI/RecentActions.tsx
+apps/editor/src/components/UI/RouteSimulator.tsx
+apps/editor/src/components/UI/SearchPanel.tsx
+apps/editor/src/components/UI/StatisticsPanel.tsx
+```
+
+## Приложение C. Отсутствующие файлы
+
+```
+apps/viewer/public/data/          (+ apps/editor/public/data/)  — механизм не закоммичен
+apps/viewer/public/favicon.svg
+apps/viewer/public/favicon.ico
+apps/viewer/public/apple-touch-icon.png
+apps/viewer/public/pwa-192x192.png
+apps/viewer/public/pwa-512x512.png
+apps/viewer/public/robots.txt
+README.md                          (любая документация)
+.eslintrc / eslint.config.js       (+ eslint в зависимостях)
+.editorconfig
+.github/workflows/*
+**/*.test.ts / **/*.spec.ts
+```
