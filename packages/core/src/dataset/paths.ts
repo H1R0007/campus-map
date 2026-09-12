@@ -44,3 +44,30 @@ export function floorGraphPath(buildingId: string, floor: number): string {
 export function floorMapPath(buildingId: string, floor: number): string {
   return floorAssetPath(buildingId, floor, 'map.png');
 }
+
+/**
+ * Превращает относительный путь датасета в URL.
+ *
+ * Приложения не должны склеивать `/data/...` строковыми шаблонами сами:
+ * корень может отличаться (подпапка при деплое), а опечатка в пути молча
+ * превращается в 404.
+ */
+export function datasetUrl(path: string, baseUrl: string = `/${DATA_ROOT}`): string {
+  return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
+/**
+ * URL карты этажа.
+ */
+export function floorMapUrl(
+  buildingId: string,
+  floor: number,
+  baseUrl: string = `/${DATA_ROOT}`
+): string {
+  return datasetUrl(floorMapPath(buildingId, floor), baseUrl);
+}
+
+/** URL карты кампуса. */
+export function campusMapUrl(baseUrl: string = `/${DATA_ROOT}`): string {
+  return datasetUrl(CAMPUS_MAP_PATH, baseUrl);
+}

@@ -31,9 +31,12 @@ export {
   DATA_ROOT,
   TRANSITIONS_PATH,
   buildingMetaPath,
+  campusMapUrl,
+  datasetUrl,
   floorAssetPath,
   floorGraphPath,
   floorMapPath,
+  floorMapUrl,
 } from './dataset/paths.js';
 
 // Загрузка и нормализация датасета
@@ -47,6 +50,14 @@ export {
   createHttpDatasetSource,
   type HttpDatasetSourceOptions,
 } from './dataset/httpSource.js';
+
+// Область видимости карты
+export {
+  buildingDisplayName,
+  isNodeInScope,
+  scopeOfNode,
+  type ViewScope,
+} from './scope.js';
 
 // Граф
 export { Graph } from './graph/Graph.js';
