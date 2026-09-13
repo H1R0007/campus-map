@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import type { PathResult, PathfindingOptions } from '@campus-map/core';
 import { DEFAULT_PATHFINDING_OPTIONS, findPath } from '@campus-map/core';
 import { resolvePoint } from '../utils/deepLink';
-import { useMapStore } from './mapStore';
+import { routePassesScope } from '../utils/routeFloors';
+import { scopeOf, useMapStore } from './mapStore';
 import { useSettingsStore } from './settingsStore';
 
 /** Какое из двух полей ввода сейчас редактируется. */
@@ -88,9 +89,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
   /**
    * Строит маршрут между уже разрешёнными точками и показывает его.
    *
+   * @param view `start` — новый маршрут, карта переходит к его началу;
+   *        `keep` — пересчёт того же маршрута, открытый вид остаётся, если
+   *        новый путь через него проходит (запись 5)
    * @returns результат поиска либо `null`, если строить не из чего.
    */
-  const computeRoute = (): PathResult | null => {
+  const computeRoute = (view: 'start' | 'keep'): PathResult | null => {
     const { fromNodeId, toNodeId, options } = get();
     const graph = useMapStore.getState().graph;
 
@@ -102,10 +106,16 @@ export const useRouteStore = create<RouteState>((set, get) => {
     const route = findPath(graph, fromNodeId, toNodeId, options);
     set({ currentRoute: route });
 
+    if (!route.found) return route;
+
     // Карта переходит туда, где маршрут начинается. Без этого построенный
     // маршрут не было видно: навигатор стартует в виде кампуса, а слой
-    // маршрута рисует только узлы текущей области видимости.
-    if (route.found) useMapStore.getState().showNode(route.path[0]);
+    // маршрута рисует только узлы текущей области видимости. Пересчёт того же
+    // маршрута не уводит человека с этажа, который он рассматривает, — если
+    // линия на этом этаже осталась.
+    const map = useMapStore.getState();
+    const keepView = view === 'keep' && routePassesScope(graph, route.path, scopeOf(map.activeFloor));
+    if (!keepView) map.showNode(route.path[0]);
 
     return route;
   };
@@ -136,7 +146,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
       if (fromNodeId === null || toNodeId === null) return null;
 
       // Маршрут между этими точками уже показан — `dropStaleRoute` его оставил.
-      return currentRoute ?? computeRoute();
+      return currentRoute ?? computeRoute('start');
     },
 
     setOptions: (patch) => {
@@ -144,12 +154,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
       // Пересчитываем только уже показанный маршрут. Раньше условием было
       // «обе точки разрешены», и переключение галочки строило маршрут,
-      // которого пользователь не просил.
-      if (get().currentRoute) computeRoute();
+      // которого пользователь не просил. Концы прежние — вид карты остаётся.
+      if (get().currentRoute) computeRoute('keep');
     },
 
     buildRoute: () => {
-      computeRoute();
+      computeRoute('start');
     },
 
     clearRoute: () =>
@@ -177,7 +187,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
       // Маршрут был показан — пересчитываем в обратную сторону сразу, без
       // лишнего нажатия. Если его не было, обмен местами — это просто правка
       // полей, и строить маршрут по своей инициативе не нужно.
-      if (hadRoute) computeRoute();
+      if (hadRoute) computeRoute('start');
     },
   };
 });

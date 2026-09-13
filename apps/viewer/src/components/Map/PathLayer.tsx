@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
@@ -48,10 +48,19 @@ export const PathLayer: React.FC = () => {
     return visiblePolylines(currentRoute.path, graph, scopeOf(activeFloor));
   }, [currentRoute, graph, activeFloor]);
 
-  useEffect(() => {
-    if (segments.length === 0) return;
+  // Вид подгоняется, когда видимая линия действительно изменилась, а не на
+  // каждый новый объект маршрута. Смена ограничения, не изменившая путь,
+  // пересчитывает маршрут с теми же точками — без ключа карта отъезжала бы из
+  // приближения, в котором человек рассматривал этаж.
+  const geometryKey = segments.map((line) => line.join(';')).join('|');
+  const latestSegments = useRef(segments);
+  latestSegments.current = segments;
 
-    const bounds = L.latLngBounds(segments.flat());
+  useEffect(() => {
+    const visible = latestSegments.current;
+    if (visible.length === 0) return;
+
+    const bounds = L.latLngBounds(visible.flat());
     if (!bounds.isValid()) return;
 
     map.fitBounds(bounds, { ...fitPaddingOf(MAP_CHROME_INSETS, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
@@ -59,7 +68,7 @@ export const PathLayer: React.FC = () => {
     // определяется асинхронно, и при его появлении `PixelMap` заново
     // центрируется на всём изображении. Без повторной подгонки маршрут
     // «уезжал» ровно в тот момент, когда картинка догружалась.
-  }, [segments, map, geometry.bounds]);
+  }, [geometryKey, map, geometry.bounds]);
 
   if (segments.length === 0) return null;
 

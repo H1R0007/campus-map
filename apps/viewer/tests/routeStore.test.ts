@@ -147,6 +147,29 @@ describe('ограничения маршрута', () => {
 
     expect(useRouteStore.getState().currentRoute?.found).toBe(false);
   });
+
+  it('не уводит карту с открытого этажа, через который идёт пересчитанный маршрут', () => {
+    useRouteStore.getState().setPoint('from', 'a1_hall');
+    useRouteStore.getState().setPoint('to', 'a2_room201');
+    // Человек рассматривает второй этаж маршрута, а карта открылась на первом.
+    useMapStore.getState().setActiveFloor('building_a', 2);
+
+    useRouteStore.getState().setOptions({ preferLift: true });
+
+    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 2 });
+  });
+
+  it('ведёт к началу, если пересчитанный маршрут через открытый вид не проходит', () => {
+    useRouteStore.getState().setPoint('from', 'a1_hall');
+    useRouteStore.getState().setPoint('to', 'campus_gate');
+    useMapStore.getState().setActiveFloor('building_a', 2);
+
+    useRouteStore.getState().setOptions({ preferLift: true });
+
+    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 1 });
+  });
 });
 
 describe('точка маршрута узлом', () => {
