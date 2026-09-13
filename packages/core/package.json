@@ -19,7 +19,7 @@
     "lint": "eslint src tests",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
   },
   "devDependencies": {
     "typescript": "^5.4.0",

@@ -7,9 +7,10 @@
     "build": "tsc && vite build",
     "dev": "vite",
     "typecheck": "tsc",
-    "lint": "eslint src",
-    "test": "node ../../tooling/smoke-test.mjs --app editor --mode prod",
-    "preview": "vite preview"
+    "lint": "eslint src vite.config.ts",
+    "test": "node ../../tooling/verify-dist-data.mjs --app editor && node ../../tooling/smoke-test.mjs --app editor --mode prod",
+    "preview": "vite preview",
+    "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
   },
   "dependencies": {
     "@campus-map/core": "workspace:*",
