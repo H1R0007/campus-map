@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { useRouteStore, type RouteField } from '../../stores/routeStore';
 import { messagesFor, useLanguage } from '../../i18n';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { scopeLabel } from '../../utils/placeLabels';
 import { routeSummary } from '../../utils/routeSummary';
 import { PlaceCard } from './PlaceCard';
@@ -14,8 +15,8 @@ import { RouteSteps } from './RouteSteps';
  *
  * Свёрнутой показывает одно из трёх, по важности: карточку места, выбранного
  * на карте; готовый маршрут со сводкой; приглашение к поиску. Развёрнутой —
- * поля (`RouteFields`), ограничения (`RouteOptions`) и шаги маршрута
- * (`RouteSteps`). Раньше всё это жило одним файлом на пятьсот строк.
+ * модальный диалог с полями (`RouteFields`), ограничениями (`RouteOptions`) и
+ * шагами маршрута (`RouteSteps`).
  */
 
 /**
@@ -26,6 +27,8 @@ import { RouteSteps } from './RouteSteps';
 const COLLAPSED_POSITION =
   'fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-3 right-3 md:left-4 md:right-auto md:w-96 z-[1000]';
 
+const SHEET_TITLE_ID = 'route-sheet-title';
+
 export const BottomSheet: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeInput, setActiveInput] = useState<RouteField | null>(null);
@@ -33,6 +36,9 @@ export const BottomSheet: React.FC = () => {
 
   const fromInputRef = useRef<HTMLInputElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const collapsedActionRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
 
   const fromQuery = useRouteStore((s) => s.fromQuery);
   const toQuery = useRouteStore((s) => s.toQuery);
@@ -53,12 +59,29 @@ export const BottomSheet: React.FC = () => {
   const language = useLanguage();
   const messages = messagesFor(language);
 
+  const close = () => {
+    restoreFocus.current = true;
+    setIsExpanded(false);
+    setActiveInput(null);
+  };
+
+  useDialogFocus(sheetRef, isExpanded, close);
+
   // Фокус на поле, которое пользователь только что выбрал.
   useEffect(() => {
     if (!isExpanded) return;
     if (activeInput === 'from') fromInputRef.current?.focus();
     if (activeInput === 'to') toInputRef.current?.focus();
   }, [isExpanded, activeInput]);
+
+  // Кнопка, которой шторку открыли, при разворачивании исчезла из разметки.
+  // После закрытия фокус возвращается на ту, что появилась вместо неё, —
+  // иначе клавиатура и экранный диктор начинали бы снова с начала страницы.
+  useEffect(() => {
+    if (isExpanded || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    collapsedActionRef.current?.focus();
+  }, [isExpanded]);
 
   // Высота свёрнутой карточки — в CSS-переменную: колонка этажей и масштаба
   // заканчивается над карточкой, а карточка места выше поисковой.
@@ -80,11 +103,6 @@ export const BottomSheet: React.FC = () => {
 
   const currentScopeLabel = buildingMetas ? scopeLabel(scopeOf(activeFloor), buildingMetas, language) : '';
   const canBuild = fromNodeId !== null && toNodeId !== null;
-
-  const close = () => {
-    setIsExpanded(false);
-    setActiveInput(null);
-  };
 
   /** Открывает шторку на поле, которое осталось заполнить. */
   const openSheet = (field: RouteField | null) => {
@@ -172,6 +190,7 @@ export const BottomSheet: React.FC = () => {
               </div>
 
               <button
+                ref={collapsedActionRef}
                 type="button"
                 onClick={() => openSheet(null)}
                 className="px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
@@ -209,6 +228,7 @@ export const BottomSheet: React.FC = () => {
       <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2">
           <button
+            ref={collapsedActionRef}
             type="button"
             onClick={() => openSheet('to')}
             className="w-full p-2 rounded-xl flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
@@ -236,11 +256,19 @@ export const BottomSheet: React.FC = () => {
           карту с маршрутом не заслоняет — затемнять нечего. */}
       <div className="fixed inset-0 bg-black/20 z-[999] md:hidden" onClick={close} aria-hidden="true" />
 
-      <div className="fixed bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-96 z-[1000]">
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={SHEET_TITLE_ID}
+        className="fixed bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-96 z-[1000]"
+      >
         <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden pb-[env(safe-area-inset-bottom)] md:pb-0">
           <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-gray-100">
             <div className="min-w-0">
-              <div className="font-semibold text-gray-800">{messages.route.title}</div>
+              <h2 id={SHEET_TITLE_ID} className="font-semibold text-gray-800">
+                {messages.route.title}
+              </h2>
               <div className="text-xs text-gray-600 truncate">{messages.route.view(currentScopeLabel)}</div>
             </div>
 
@@ -298,9 +326,10 @@ export const BottomSheet: React.FC = () => {
             <RouteSteps />
 
             {currentRoute && !currentRoute.found && (
-              <div role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
                 {/* Причина — по коду ядра: его текстовое описание рассчитано на
-                    разработчика и существует только по-русски. */}
+                    разработчика и существует только по-русски. Объявление для
+                    экранного диктора делает `RouteAnnouncer`. */}
                 <p>{messages.route.notFound(messages.route.failure[currentRoute.reason ?? 'unreachable'])}</p>
 
                 {/* Запрет лестниц — единственное ограничение в интерфейсе, из-за

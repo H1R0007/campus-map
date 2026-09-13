@@ -1,11 +1,12 @@
-import React from 'react';
-import type { RefObject } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { KeyboardEvent, RefObject } from 'react';
 import { messagesFor, useLanguage } from '../../i18n';
 import { useSuggestions } from '../../hooks/useSuggestions';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import type { RouteField } from '../../stores/routeStore';
 import { ambiguousMatches } from '../../utils/ambiguity';
+import { moveActiveOption } from '../../utils/listNavigation';
 import { nodePlaceLabel } from '../../utils/placeLabels';
 
 interface RouteFieldsProps {
@@ -17,8 +18,17 @@ interface RouteFieldsProps {
   toInputRef: RefObject<HTMLInputElement>;
 }
 
+const LISTBOX_ID = 'route-suggestions';
+const optionId = (index: number) => `route-suggestion-${index}`;
+
 /**
  * Поля «Откуда» и «Куда» с подсказками.
+ *
+ * Поле — комбобокс по ARIA: стрелки двигают выбор по подсказкам, Enter
+ * выбирает, Escape закрывает список. Фокус при этом остаётся в поле, а
+ * экранный диктор читает выбранную подсказку через `aria-activedescendant`.
+ * Раньше подсказки были просто кнопками под полем: с клавиатуры до них
+ * добирались табуляцией, теряя введённый текст из виду.
  *
  * Подсказки вычисляются, а не хранятся: это чистая функция от запроса и
  * загруженных алиасов. Под полями — выбор среди одноимённых мест: точно
@@ -45,10 +55,71 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
   const messages = messagesFor(language);
 
   const activeQuery = activeInput === null ? '' : activeInput === 'from' ? fromQuery : toQuery;
+  const activeNodeId = activeInput === null ? null : activeInput === 'from' ? fromNodeId : toNodeId;
   const suggestions = useSuggestions(activeQuery);
+
+  const [activeOption, setActiveOption] = useState(-1);
+  // Escape скрывает список до следующей правки текста: иначе он появлялся бы
+  // снова на том же запросе при первой же перерисовке.
+  const [dismissedQuery, setDismissedQuery] = useState<string | null>(null);
+
+  // Список, в котором только уже выбранная точка, не открывается: иначе он
+  // выпадал при каждом переходе в заполненное поле табуляцией, и первый
+  // Escape закрывал его вместо шторки. Другие места с похожим именем
+  // по-прежнему показываются.
+  const onlyChosenPoint = activeNodeId !== null && suggestions.every((s) => s.id === activeNodeId);
+  const listOpen =
+    activeInput !== null && suggestions.length > 0 && !onlyChosenPoint && dismissedQuery !== activeQuery;
+
+  // Новый запрос или другое поле — выбор подсказки начинается заново.
+  useEffect(() => {
+    setActiveOption(-1);
+  }, [activeQuery, activeInput]);
 
   const placeOf = (nodeId: string) =>
     graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, nodeId, language) : '';
+
+  const handleKeyDown = (field: RouteField) => (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!listOpen || activeInput !== field) return;
+
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowUp': {
+        event.preventDefault();
+        const direction = event.key === 'ArrowDown' ? 'down' : 'up';
+        setActiveOption((index) => moveActiveOption(index, suggestions.length, direction));
+        break;
+      }
+      case 'Enter': {
+        const suggestion = suggestions[activeOption];
+        if (suggestion) {
+          event.preventDefault();
+          onPointChosen(field, suggestion.id, suggestion.alias);
+        }
+        break;
+      }
+      case 'Escape':
+        // Сначала закрывается список, а не вся шторка: событие не должно
+        // дойти до обработчика Escape у диалога.
+        event.preventDefault();
+        event.stopPropagation();
+        setDismissedQuery(activeQuery);
+        break;
+    }
+  };
+
+  /** ARIA-атрибуты комбобокса для поля. */
+  const comboboxProps = (field: RouteField) => {
+    const expanded = listOpen && activeInput === field;
+    return {
+      role: 'combobox' as const,
+      'aria-autocomplete': 'list' as const,
+      'aria-expanded': expanded,
+      'aria-controls': expanded ? LISTBOX_ID : undefined,
+      'aria-activedescendant': expanded && activeOption >= 0 ? optionId(activeOption) : undefined,
+      onKeyDown: handleKeyDown(field),
+    };
+  };
 
   const ambiguity = (['from', 'to'] as const)
     .map((field) => {
@@ -77,6 +148,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
             placeholder={messages.search.from}
             aria-label={messages.search.from}
             autoComplete="off"
+            {...comboboxProps('from')}
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-green-400 transition-colors"
           />
 
@@ -88,6 +160,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
             placeholder={messages.search.to}
             aria-label={messages.search.to}
             autoComplete="off"
+            {...comboboxProps('to')}
             className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-blue-400 transition-colors"
           />
         </div>
@@ -95,7 +168,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
         <button
           type="button"
           onClick={swapPoints}
-          className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors mt-2"
+          className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors mt-2"
           title={messages.search.swap}
           aria-label={messages.search.swap}
         >
@@ -103,18 +176,30 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
         </button>
       </div>
 
-      {activeInput && suggestions.length > 0 && (
-        <div className="border border-gray-100 rounded-xl overflow-hidden">
+      {listOpen && activeInput && (
+        <div
+          id={LISTBOX_ID}
+          role="listbox"
+          aria-label={messages.search.suggestions}
+          className="border border-gray-100 rounded-xl overflow-hidden"
+        >
           {suggestions.map((s, i) => (
-            <button
+            <div
               key={`${s.id}-${i}`}
-              type="button"
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === activeOption}
+              // Нажатие мышью не должно уводить фокус из поля: иначе поле
+              // теряло бы комбобокс раньше, чем подсказка выбрана.
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => onPointChosen(activeInput, s.id, s.alias)}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+              className={`cursor-pointer px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 ${
+                i === activeOption ? 'bg-blue-50' : 'hover:bg-gray-50'
+              }`}
             >
               <div className="text-sm text-gray-800">{s.alias}</div>
               <div className="text-xs text-gray-600">{placeOf(s.id)}</div>
-            </button>
+            </div>
           ))}
         </div>
       )}

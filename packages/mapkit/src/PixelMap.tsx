@@ -270,6 +270,15 @@ export function PixelMap({
   // рисуются — в резервных габаритах) или данные прислали подсказку `mapSize`.
   const sizeKnown = status !== 'loading' || fallbackSize !== undefined;
 
+  // Кто попросил систему не анимировать интерфейс, получает карту без
+  // анимаций масштаба и затухания: плавный пролёт к маршруту у части людей
+  // вызывает головокружение. Опции Leaflet применяются при создании карты,
+  // поэтому настройка читается один раз.
+  const animate = useMemo(
+    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches,
+    []
+  );
+
   return (
     <MapContainer
       // Начальный вид — до первой подгонки в `PlanViewport`.
@@ -277,6 +286,9 @@ export function PixelMap({
       zoom={0}
       maxZoom={maxZoom}
       zoomSnap={ZOOM_SNAP}
+      zoomAnimation={animate}
+      fadeAnimation={animate}
+      markerZoomAnimation={animate}
       crs={PLAN_CRS}
       zoomControl={zoomControl}
       attributionControl={false}
