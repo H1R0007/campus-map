@@ -1,0 +1,16 @@
+{
+  // Тесты не входят в основной проект: он `composite` с `rootDir: src`, и
+  // каталог `tests` в нём сломал бы раскладку `dist`. Отдельный проект нужен,
+  // чтобы тесты проверялись типами — vitest транспилирует без проверки.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "rootDir": "."
+  },
+  "include": ["tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

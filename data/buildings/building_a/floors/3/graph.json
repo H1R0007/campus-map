@@ -1,35 +1,112 @@
 {
   "nodes": [
     {
-      "id": "a3_stairs",
-      "x": 270,
-      "y": 300,
-      "neighbors": [ "a3_corridor" ],
-      "isPortal": true
+      "id": "a3_corridor_w",
+      "x": 193,
+      "y": 239,
+      "neighbors": [
+        "a3_corridor",
+        "a3_stairs",
+        "a3_room301",
+        "a3_room302",
+        "a3_room304"
+      ],
+      "isPortal": false
     },
     {
       "id": "a3_corridor",
-      "x": 200,
-      "y": 250,
-      "neighbors": [ "a3_stairs", "a3_room301", "a3_room302", "a3_conference" ]
+      "x": 484,
+      "y": 239,
+      "neighbors": [
+        "a3_corridor_w",
+        "a3_corridor_e",
+        "a3_lift",
+        "a3_room305"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_corridor_e",
+      "x": 774,
+      "y": 239,
+      "neighbors": [
+        "a3_corridor",
+        "a3_conference",
+        "a3_rector"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_stairs",
+      "x": 58,
+      "y": 239,
+      "neighbors": [
+        "a3_corridor_w"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "a3_lift",
+      "x": 484,
+      "y": 143,
+      "neighbors": [
+        "a3_corridor"
+      ],
+      "isPortal": true
     },
     {
       "id": "a3_room301",
-      "x": 130,
-      "y": 250,
-      "neighbors": [ "a3_corridor" ]
+      "x": 193,
+      "y": 86,
+      "neighbors": [
+        "a3_corridor_w"
+      ],
+      "isPortal": false
     },
     {
       "id": "a3_room302",
-      "x": 130,
-      "y": 200,
-      "neighbors": [ "a3_corridor" ]
+      "x": 338,
+      "y": 86,
+      "neighbors": [
+        "a3_corridor_w"
+      ],
+      "isPortal": false
     },
     {
       "id": "a3_conference",
-      "x": 270,
-      "y": 220,
-      "neighbors": [ "a3_corridor" ]
+      "x": 696,
+      "y": 86,
+      "neighbors": [
+        "a3_corridor_e"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_room304",
+      "x": 193,
+      "y": 391,
+      "neighbors": [
+        "a3_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_room305",
+      "x": 484,
+      "y": 391,
+      "neighbors": [
+        "a3_corridor"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_rector",
+      "x": 774,
+      "y": 391,
+      "neighbors": [
+        "a3_corridor_e"
+      ],
+      "isPortal": false
     }
   ]
 }

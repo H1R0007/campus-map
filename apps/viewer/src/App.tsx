@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
 import { CampusMap } from './components/Map/CampusMap';
 import { BottomSheet } from './components/UI/BottomSheet';
-import { FloorSelector } from './components/UI/FloorSelector';
-import { BuildingSelector } from './components/UI/BuildingSelector';
+import { LinkNotice } from './components/UI/LinkNotice';
+import { MapHeader } from './components/UI/MapHeader';
+import { RouteAnnouncer } from './components/UI/RouteAnnouncer';
 import { useMapStore } from './stores/mapStore';
 import { useDataLoader } from './hooks/useDataLoader';
+import { useRouteLink } from './hooks/useRouteLink';
+import { useLanguage, useMessages } from './i18n';
 
 /**
  * Корневой компонент навигатора.
@@ -20,10 +23,20 @@ import { useDataLoader } from './hooks/useDataLoader';
 const App: React.FC = () => {
   const { isLoading, error, loadAllData } = useDataLoader();
   const isDataLoaded = useMapStore((s) => s.graph !== null);
+  const language = useLanguage();
+  const messages = useMessages();
+  const link = useRouteLink();
 
   useEffect(() => {
     void loadAllData();
   }, [loadAllData]);
+
+  // Язык документа следует за языком интерфейса: по нему экранный диктор
+  // выбирает произношение, а браузер — переносы и предложение перевести
+  // страницу.
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   // Первый кадр — ещё до того, как эффект успел выставить `isLoading`.
   // Раньше здесь возвращался `null`, и пользователь видел белый экран.
@@ -34,11 +47,11 @@ const App: React.FC = () => {
           {/* border-4: класса border-3 в Tailwind нет по умолчанию, и он не
               был расширен в конфиге — из-за этого индикатор был невидимым. */}
           <div
-            className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"
             role="status"
-            aria-label="Загрузка карты"
+            aria-label={messages.app.loading}
           />
-          <p className="text-gray-600">Загрузка карты…</p>
+          <p className="text-gray-600">{messages.app.loading}</p>
         </div>
       </div>
     );
@@ -53,7 +66,9 @@ const App: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-lg font-semibold text-gray-800 mb-2">Не удалось загрузить карту</h1>
+          <h1 className="text-lg font-semibold text-gray-800 mb-2">{messages.app.loadFailed}</h1>
+          {/* Техническая причина не переводится: она нужна тому, кому о ней
+              сообщат, а не студенту. */}
           <p className="text-sm text-gray-500 mb-4 break-words">{error}</p>
           <button
             type="button"
@@ -62,9 +77,9 @@ const App: React.FC = () => {
             // заставляет заново поднимать всё приложение, тогда как хук
             // умеет повторить ровно неудавшийся запрос.
             onClick={() => void loadAllData()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
           >
-            Попробовать снова
+            {messages.app.retry}
           </button>
         </div>
       </div>
@@ -74,9 +89,10 @@ const App: React.FC = () => {
   return (
     <div className="h-full w-full relative overflow-hidden">
       <CampusMap />
-      <BuildingSelector />
-      <FloorSelector />
+      <MapHeader />
+      <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
       <BottomSheet />
+      <RouteAnnouncer />
     </div>
   );
 };

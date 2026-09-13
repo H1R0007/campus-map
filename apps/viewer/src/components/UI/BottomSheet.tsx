@@ -1,58 +1,71 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { PathfindingOptions, ViewScope } from '@campus-map/core';
-import { useRouteStore, type RouteField } from '../../stores/routeStore';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
-import { useSuggestions } from '../../hooks/useSuggestions';
-import { buildRouteSteps, formatDuration, nodePlaceLabel } from '../../utils/routeInstructions';
+import { useRouteStore, type RouteField } from '../../stores/routeStore';
+import { messagesFor, useLanguage } from '../../i18n';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { scopeLabel } from '../../utils/placeLabels';
+import { routeSummary } from '../../utils/routeSummary';
+import { PlaceCard } from './PlaceCard';
+import { RouteFields } from './RouteFields';
+import { RouteOptions } from './RouteOptions';
+import { RouteSteps } from './RouteSteps';
 
 /**
- * Нижняя панель: поиск маршрута и пошаговые инструкции.
+ * Нижняя панель навигатора.
  *
- * Единственное место в навигаторе, где показывается результат построения
- * маршрута. Прежний `RouteInfo.tsx` дублировал сводную карточку и не был
- * подключён, поэтому удалён.
+ * Свёрнутой показывает одно из трёх, по важности: карточку места, выбранного
+ * на карте; готовый маршрут со сводкой; приглашение к поиску. Развёрнутой —
+ * модальный диалог с полями (`RouteFields`), ограничениями (`RouteOptions`) и
+ * шагами маршрута (`RouteSteps`).
  */
 
-/** Ограничения маршрута, вынесенные в интерфейс. */
-const OPTION_TOGGLES = [
-  { key: 'allowStairs', label: 'Лестницы' },
-  { key: 'allowLift', label: 'Лифты' },
-  { key: 'allowBridge', label: 'Переходы' },
-  { key: 'allowEntrance', label: 'Входы' },
-  { key: 'preferLift', label: 'Предпочитать лифт' },
-] as const satisfies readonly { key: keyof PathfindingOptions; label: string }[];
+/**
+ * Место свёрнутой карточки: над системной полосой iPhone, на широком экране —
+ * у левого края, чтобы не закрывать середину карты с маршрутом. Высота
+ * карточки учтена в `MAP_CHROME_INSETS`.
+ */
+const COLLAPSED_POSITION =
+  'fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-3 right-3 md:left-4 md:right-auto md:w-96 z-[1000]';
+
+const SHEET_TITLE_ID = 'route-sheet-title';
 
 export const BottomSheet: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeInput, setActiveInput] = useState<RouteField | null>(null);
-  const [showOptions, setShowOptions] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const fromInputRef = useRef<HTMLInputElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const collapsedActionRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
 
-  const {
-    fromQuery,
-    toQuery,
-    fromNodeId,
-    toNodeId,
-    currentRoute,
-    options,
-    setQuery,
-    selectSuggestion,
-    setOptions,
-    buildRoute,
-    clearRoute,
-    swapPoints,
-  } = useRouteStore();
+  const fromQuery = useRouteStore((s) => s.fromQuery);
+  const toQuery = useRouteStore((s) => s.toQuery);
+  const fromNodeId = useRouteStore((s) => s.fromNodeId);
+  const toNodeId = useRouteStore((s) => s.toNodeId);
+  const currentRoute = useRouteStore((s) => s.currentRoute);
+  const options = useRouteStore((s) => s.options);
+  const setPoint = useRouteStore((s) => s.setPoint);
+  const setOptions = useRouteStore((s) => s.setOptions);
+  const buildRoute = useRouteStore((s) => s.buildRoute);
+  const clearRoute = useRouteStore((s) => s.clearRoute);
 
   const graph = useMapStore((s) => s.graph);
-  const aliasManager = useMapStore((s) => s.aliasManager);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
-  const setActiveFloor = useMapStore((s) => s.setActiveFloor);
-  const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const selectedNodeId = useMapStore((s) => s.selectedNodeId);
 
-  const scope = scopeOf(activeFloor);
+  const language = useLanguage();
+  const messages = messagesFor(language);
+
+  const close = () => {
+    restoreFocus.current = true;
+    setIsExpanded(false);
+    setActiveInput(null);
+  };
+
+  useDialogFocus(sheetRef, isExpanded, close);
 
   // Фокус на поле, которое пользователь только что выбрал.
   useEffect(() => {
@@ -61,93 +74,147 @@ export const BottomSheet: React.FC = () => {
     if (activeInput === 'to') toInputRef.current?.focus();
   }, [isExpanded, activeInput]);
 
-  // Подсказки вычисляются, а не хранятся: это чистая функция от запроса и
-  // загруженных алиасов. Раньше два списка лежали в сторе и переписывались
-  // на каждое нажатие клавиши.
-  const activeQuery = activeInput === null ? '' : activeInput === 'from' ? fromQuery : toQuery;
-  const suggestions = useSuggestions(activeQuery);
+  // Кнопка, которой шторку открыли, при разворачивании исчезла из разметки.
+  // После закрытия фокус возвращается на ту, что появилась вместо неё, —
+  // иначе клавиатура и экранный диктор начинали бы снова с начала страницы.
+  useEffect(() => {
+    if (isExpanded || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    collapsedActionRef.current?.focus();
+  }, [isExpanded]);
 
-  const steps = useMemo(() => {
-    if (!graph || !buildingMetas || !currentRoute?.found) return [];
-    return buildRouteSteps({
-      graph,
-      path: currentRoute.path,
-      buildingMetas,
-      aliasManager,
+  // Высота свёрнутой карточки — в CSS-переменную: колонка этажей и масштаба
+  // заканчивается над карточкой, а карточка места выше поисковой.
+  const sheetObserver = useRef<ResizeObserver | null>(null);
+  const measureCollapsed = useCallback((element: HTMLDivElement | null) => {
+    sheetObserver.current?.disconnect();
+    sheetObserver.current = null;
+    if (element === null) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      document.documentElement.style.setProperty(
+        '--campus-sheet-height',
+        `${Math.round(entry.contentRect.height)}px`
+      );
     });
-  }, [graph, buildingMetas, currentRoute, aliasManager]);
+    observer.observe(element);
+    sheetObserver.current = observer;
+  }, []);
 
-  const scopeLabel = scope.mode === 'campus'
-    ? 'Кампус'
-    : `${buildingMetas?.get(scope.buildingId)?.name ?? scope.buildingId}, этаж ${scope.floor}`;
-
+  const currentScopeLabel = buildingMetas ? scopeLabel(scopeOf(activeFloor), buildingMetas, language) : '';
   const canBuild = fromNodeId !== null && toNodeId !== null;
 
-  const close = () => {
-    setIsExpanded(false);
-    setActiveInput(null);
+  /** Открывает шторку на поле, которое осталось заполнить. */
+  const openSheet = (field: RouteField | null) => {
+    setIsExpanded(true);
+    setActiveInput(field);
   };
 
-  /** Переключает карту на область видимости шага маршрута. */
-  const openScope = (target?: ViewScope) => {
-    if (!target) return;
-    if (target.mode === 'campus') {
-      clearActiveFloor();
+  /**
+   * Делится маршрутом: системным окном, а где его нет — копированием адреса.
+   *
+   * Адрес уже описывает маршрут: его концы в адресной строке держит
+   * `useRouteLink`, и получатель ссылки увидит тот же маршрут.
+   */
+  const shareRoute = async () => {
+    const url = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ url, title: messages.route.title });
+        return;
+      } catch (error) {
+        // Закрытое пользователем окно «Поделиться» — не ошибка. Любой другой
+        // отказ (запрет в контексте страницы) — повод скопировать ссылку.
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Буфер обмена недоступен (небезопасный контекст, запрет браузера).
+      // Ссылка при этом уже стоит в адресной строке — показывать нечего.
+    }
+  };
+
+  /** Точка выбрана подсказкой или среди одноимённых мест. */
+  const handlePointChosen = (field: RouteField, nodeId: string, label: string) => {
+    const route = setPoint(field, nodeId, label);
+
+    // Вторая точка выбрана и маршрут построен — шторка уступает место карте с
+    // линией. Если построить не удалось, шторка остаётся открытой с причиной.
+    if (route?.found) {
+      close();
       return;
     }
-    setActiveFloor(target.buildingId, target.floor);
-  };
 
-  const handleSuggestionClick = (field: RouteField, suggestionId: string, alias: string) => {
-    selectSuggestion(field, { alias, id: suggestionId, score: 0 });
-
-    // После выбора «откуда» переводим фокус на «куда» — это следующий шаг
-    // естественного сценария.
-    if (field === 'from') {
-      setActiveInput('to');
-      setTimeout(() => toInputRef.current?.focus(), 0);
+    // Второй точки ещё нет — фокус на её поле: это следующий шаг сценария.
+    if (route === null) {
+      const other: RouteField = field === 'from' ? 'to' : 'from';
+      setActiveInput(other);
+      setTimeout(() => (other === 'to' ? toInputRef : fromInputRef).current?.focus(), 0);
     }
   };
 
   if (!isExpanded) {
-    if (currentRoute?.found) {
-      // Время в пути есть только в метрическом режиме. Без привязки планов к
-      // территории его не показываем вовсе: выдуманное число хуже отсутствующего.
-      const duration = currentRoute.durationSeconds;
-
+    // Выбранное на карте место важнее показанного маршрута: человек только что
+    // нажал на план и ждёт ответа именно на это.
+    if (selectedNodeId !== null) {
       return (
-        <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
+        <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
+          <PlaceCard nodeId={selectedNodeId} onOpenSheet={openSheet} />
+        </div>
+      );
+    }
+
+    if (graph && currentRoute?.found) {
+      return (
+        <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-4 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-start flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold" aria-hidden="true">✓</span>
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-gray-800">
-                  Маршрут готов{duration !== null && ` • ${formatDuration(duration)}`}
+                {/* Сводка: время и длина в метрическом режиме, корпуса и этажи — в пиксельном. */}
+                <div className="text-sm font-semibold text-gray-800 truncate">
+                  {messages.route.ready} · {routeSummary(graph, currentRoute, language)}
                 </div>
-                <div className="text-xs text-gray-500 truncate">
-                  {fromQuery} → {toQuery}
+                <div className="text-xs text-gray-600 truncate" aria-live="polite">
+                  {linkCopied ? messages.route.linkCopied : `${fromQuery} → ${toQuery}`}
                 </div>
               </div>
 
               <button
+                ref={collapsedActionRef}
                 type="button"
-                onClick={() => {
-                  setIsExpanded(true);
-                  setActiveInput(null);
-                }}
-                className="px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                onClick={() => openSheet(null)}
+                className="px-3 py-2 rounded-xl text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
               >
-                Шаги
+                {messages.route.showSteps}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void shareRoute()}
+                className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label={messages.route.share}
+                title={messages.route.share}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
               </button>
 
               <button
                 type="button"
                 onClick={clearRoute}
-                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
-                aria-label="Сбросить маршрут"
+                className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label={messages.route.resetRoute}
               >
                 ✕
               </button>
@@ -158,206 +225,124 @@ export const BottomSheet: React.FC = () => {
     }
 
     return (
-      <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-        <button
-          type="button"
-          onClick={() => {
-            setIsExpanded(true);
-            setActiveInput('to');
-          }}
-          className="w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-4 flex items-center gap-4 hover:border-gray-200 transition-all"
-        >
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold" aria-hidden="true">🔎</span>
-          </div>
-          <div className="flex-1 text-left">
-            <div className="text-gray-800 font-medium">Куда вы хотите попасть?</div>
-            <div className="text-xs text-gray-500">{scopeLabel}</div>
-          </div>
-        </button>
+      <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2">
+          <button
+            ref={collapsedActionRef}
+            type="button"
+            onClick={() => openSheet('to')}
+            className="w-full p-2 rounded-xl flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold" aria-hidden="true">🔎</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-gray-800 font-medium truncate">{messages.search.prompt}</div>
+              <div className="text-xs text-gray-600 truncate">
+                {/* Начало уже задано (ссылка «вы здесь», карта) — это важнее вида карты. */}
+                {fromNodeId !== null ? messages.search.fromPoint(fromQuery) : currentScopeLabel}
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-[999]" onClick={close} aria-hidden="true" />
+      {/* На телефоне шторка закрывает карту, и затемнение подсказывает, что
+          нажатие мимо её закроет. На широком экране панель стоит сбоку и
+          карту с маршрутом не заслоняет — затемнять нечего. */}
+      <div className="fixed inset-0 bg-black/20 z-[999] md:hidden" onClick={close} aria-hidden="true" />
 
-      <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-        <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden">
-          <div className="px-5 pt-4 pb-3 flex items-start justify-between border-b border-gray-100">
-            <div>
-              <div className="font-semibold text-gray-800">Маршрут</div>
-              <div className="text-xs text-gray-500">Вид: {scopeLabel}</div>
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={SHEET_TITLE_ID}
+        className="fixed bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-96 z-[1000]"
+      >
+        <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden pb-safe-bottom md:pb-0">
+          <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-gray-100">
+            <div className="min-w-0">
+              <h2 id={SHEET_TITLE_ID} className="font-semibold text-gray-800">
+                {messages.route.title}
+              </h2>
+              <div className="text-xs text-gray-600 truncate">{messages.route.view(currentScopeLabel)}</div>
             </div>
 
             <button
               type="button"
               onClick={close}
-              className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
-              aria-label="Закрыть"
+              className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label={messages.route.close}
             >
               ✕
             </button>
           </div>
 
           <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            <div className="flex gap-3 items-start">
-              <div className="flex flex-col items-center pt-3" aria-hidden="true">
-                <div className={`w-3 h-3 rounded-full ${fromNodeId ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <div className="w-0.5 bg-gray-200 my-2 h-10" />
-                <div className={`w-3 h-3 rounded-full ${toNodeId ? 'bg-blue-500' : 'bg-gray-300'}`} />
-              </div>
+            <RouteFields
+              activeInput={activeInput}
+              onFocusField={setActiveInput}
+              onPointChosen={handlePointChosen}
+              fromInputRef={fromInputRef}
+              toInputRef={toInputRef}
+            />
 
-              <div className="flex-1 space-y-2">
-                <input
-                  ref={fromInputRef}
-                  value={fromQuery}
-                  onChange={(e) => setQuery('from', e.target.value)}
-                  onFocus={() => setActiveInput('from')}
-                  placeholder="Откуда"
-                  aria-label="Откуда"
-                  autoComplete="off"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-green-400 transition-colors"
-                />
-
-                <input
-                  ref={toInputRef}
-                  value={toQuery}
-                  onChange={(e) => setQuery('to', e.target.value)}
-                  onFocus={() => setActiveInput('to')}
-                  placeholder="Куда"
-                  aria-label="Куда"
-                  autoComplete="off"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-blue-400 transition-colors"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={swapPoints}
-                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors mt-2"
-                title="Поменять местами"
-                aria-label="Поменять местами"
-              >
-                ⇅
-              </button>
-            </div>
-
-            {activeInput && suggestions.length > 0 && (
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={`${s.id}-${i}`}
-                    type="button"
-                    onClick={() => handleSuggestionClick(activeInput, s.id, s.alias)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="text-sm text-gray-800">{s.alias}</div>
-                    <div className="text-xs text-gray-500">
-                      {graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, s.id) : ''}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Ограничения маршрута. Ядро поддерживало их всегда, но до этого
-                момента пользователь не мог управлять ни одним. */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowOptions((v) => !v)}
-                className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
-                aria-expanded={showOptions}
-              >
-                {showOptions ? '▾' : '▸'} Настройки маршрута
-              </button>
-
-              {showOptions && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {OPTION_TOGGLES.map(({ key, label }) => {
-                    const enabled = options[key] !== false;
-
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setOptions({ [key]: !enabled } as Partial<PathfindingOptions>)}
-                        aria-pressed={enabled}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          enabled
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <RouteOptions />
 
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  buildRoute();
-                  setActiveInput(null);
-                }}
-                disabled={!canBuild}
-                className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  canBuild
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                Построить
-              </button>
+              {/* Построенный маршрут уже на экране — кнопка «Построить» над ним
+                  только занимала место. */}
+              {!currentRoute?.found && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    buildRoute();
+                    setActiveInput(null);
+                  }}
+                  disabled={!canBuild}
+                  className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
+                    canBuild ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {messages.route.build}
+                </button>
+              )}
 
               <button
                 type="button"
                 onClick={clearRoute}
-                className="px-4 py-3 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                className={`py-3 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors ${
+                  currentRoute?.found ? 'flex-1' : 'px-4'
+                }`}
               >
-                Сброс
+                {currentRoute?.found ? messages.route.resetRoute : messages.route.reset}
               </button>
             </div>
 
-            {currentRoute?.found && steps.length > 0 && (
-              <div className="pt-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  Шаги маршрута
-                </div>
-
-                <div className="space-y-2">
-                  {steps.map((step, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-600 flex-shrink-0">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm text-gray-800">{step.text}</div>
-                        {step.scope && (
-                          <button
-                            type="button"
-                            onClick={() => openScope(step.scope)}
-                            className="mt-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors"
-                          >
-                            Открыть {step.scope.mode === 'campus' ? 'кампус' : `этаж ${step.scope.floor}`}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <RouteSteps />
 
             {currentRoute && !currentRoute.found && (
-              <div className="text-sm text-red-600">
-                Маршрут не найден: {currentRoute.error ?? 'проверьте точки'}
+              <div className="rounded-xl bg-red-50 p-3 text-sm text-red-800">
+                {/* Причина — по коду ядра: его текстовое описание рассчитано на
+                    разработчика и существует только по-русски. Объявление для
+                    экранного диктора делает `RouteAnnouncer`. */}
+                <p>{messages.route.notFound(messages.route.failure[currentRoute.reason ?? 'unreachable'])}</p>
+
+                {/* Запрет лестниц — единственное ограничение в интерфейсе, из-за
+                    которого точки перестают быть связаны: снять его — одна кнопка. */}
+                {currentRoute.reason === 'unreachable' && options.allowStairs === false && (
+                  <button
+                    type="button"
+                    onClick={() => setOptions({ allowStairs: true })}
+                    className="mt-2 px-3 py-2 rounded-lg bg-white font-medium text-red-800 hover:bg-red-100 transition-colors"
+                  >
+                    {messages.route.allowStairs}
+                  </button>
+                )}
               </div>
             )}
           </div>

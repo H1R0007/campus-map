@@ -2,160 +2,214 @@ import type {
   AliasManager,
   BuildingMeta,
   Graph,
+  MapNode,
+  PathResult,
+  PathSegment,
   TransitionType,
   ViewScope,
 } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, buildingDisplayName, scopeOfNode, transitionTypeLabel } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, scopeOfNode } from '@campus-map/core';
+import { formatFloor, messagesFor } from '../i18n';
+import type { Messages } from '../i18n';
+import type { Language } from '../i18n/languages';
+import { nodePlaceLabel } from './placeLabels';
 
 /**
- * Пошаговые инструкции маршрута на русском языке.
+ * Пошаговые инструкции маршрута на языке интерфейса.
  */
 
-interface RouteStep {
-  /** Текст шага. */
-  text: string;
+/**
+ * Вид шага: начало, пеший участок, переход между этажами или корпусами и
+ * прибытие, если маршрут кончается сразу за переходом.
+ */
+export type RouteStepKind = 'start' | 'walk' | 'transition' | 'arrive';
+
+export interface RouteStep {
+  kind: RouteStepKind;
+
+  /** Действие — без имён из данных: «Поднимитесь на лифте». */
+  title: string;
 
   /**
-   * Область видимости, в которой шаг происходит.
-   *
-   * Позволяет интерфейсу одной кнопкой переключить карту на нужный этаж:
-   * тип общий с ядром, поэтому здесь не нужно своё описание «подсказки».
+   * Где это происходит — имена из данных в именительном падеже: «Этаж 3»,
+   * «Корпус Б, этаж 2». Отдельно от действия, потому что произвольное имя
+   * нельзя поставить в падеж ни в одном языке.
    */
-  scope?: ViewScope;
-}
+  place: string;
 
-type Direction = 'up' | 'down';
+  /** Тип перехода — для значка шага; у пеших участков, начала и прибытия — `null`. */
+  transition: TransitionType | null;
 
-/**
- * Глагол перехода с учётом направления.
- *
- * `switch` исчерпывающий по `TransitionType`, поэтому ветки по умолчанию нет:
- * если тип расширят, компилятор укажет на это место.
- */
-function transitionVerb(type: TransitionType, direction: Direction | 'same'): string {
-  switch (type) {
-    case 'stairs':
-      if (direction === 'up') return 'Поднимитесь по лестнице';
-      if (direction === 'down') return 'Спуститесь по лестнице';
-      return 'Пройдите по лестнице';
-    case 'lift':
-      if (direction === 'up') return 'Поднимитесь на лифте';
-      if (direction === 'down') return 'Спуститесь на лифте';
-      return 'Воспользуйтесь лифтом';
-    case 'bridge':
-      return 'Перейдите по переходу';
-    case 'entrance':
-      return 'Пройдите через вход';
-  }
-}
+  /** Область карты, где шаг происходит: кнопка шага открывает её. */
+  scope: ViewScope;
 
-/** Карта «id корпуса → отображаемое имя» для хелперов ядра. */
-function buildingNames(buildingMetas: ReadonlyMap<string, BuildingMeta>): Map<string, string> {
-  const names = new Map<string, string>();
-  for (const [id, meta] of buildingMetas) names.set(id, meta.name);
-  return names;
-}
+  /** Длина участка по плану, метры; `null` в пиксельном режиме и у начала. */
+  distanceMeters: number | null;
 
-/**
- * Где находится узел: «Корпус А, этаж 3» или «Кампус».
- *
- * Нужно там, где название помещения само по себе не различает точку: пять
- * корпусов дают пять «аудиторий 101». Раньше в подсказках поиска вместо этого
- * показывался внутренний id узла (`a1_room101`) — он различает точки, но
- * студенту ничего не говорит.
- */
-export function nodePlaceLabel(
-  graph: Graph,
-  buildingMetas: ReadonlyMap<string, BuildingMeta>,
-  nodeId: string
-): string {
-  const node = graph.getNode(nodeId);
-  if (!node) return '';
-
-  const building = buildingDisplayName(node.building, buildingNames(buildingMetas));
-
-  return node.building === CAMPUS_BUILDING_ID ? building : `${building}, этаж ${node.floor}`;
+  /** Время участка, секунды; `null` в пиксельном режиме и у начала. */
+  durationSeconds: number | null;
 }
 
 interface BuildRouteStepsParams {
   graph: Graph;
-  path: string[];
+  route: PathResult;
   buildingMetas: ReadonlyMap<string, BuildingMeta>;
   aliasManager: AliasManager | null;
+  language: Language;
+}
+
+/** Сумма физики шагов; `null`, если у шагов её нет (пиксельный режим). */
+function total(segments: readonly PathSegment[], pick: (segment: PathSegment) => number | null): number | null {
+  let sum = 0;
+  for (const segment of segments) {
+    const value = pick(segment);
+    if (value === null) return null;
+    sum += value;
+  }
+  return sum;
+}
+
+/** «Дойдите до лифта» — к какому переходу ведёт пеший участок. */
+function walkTitle(messages: Messages, type: TransitionType, from: MapNode): string {
+  if (type === 'entrance') {
+    return from.building === CAMPUS_BUILDING_ID
+      ? messages.instructions.walkTo.entrance
+      : messages.instructions.walkTo.exit;
+  }
+  return messages.instructions.walkTo[type];
 }
 
 /**
- * Строит список шагов маршрута.
+ * Строит шаги маршрута по его разбивке из ядра (`PathResult.segments`).
  *
- * Описываются только значимые события: старт, смена корпуса, смена этажа и
- * финиш. Перечислять каждый поворот коридора бессмысленно — на плане линия
- * маршрута и так всё показывает.
+ * Поиск уже разложил путь на шаги с типами переходов и физикой — раньше
+ * инструкции обходили путь заново и теряли это. Описываются значимые события:
+ * начало, пеший участок до перехода, сам переход и участок до цели. Цепочка
+ * лестницы или лифта через несколько этажей — один шаг: «Поднимитесь на лифте
+ * — Этаж 5», а не пять одинаковых. У маршрута по одному этажу есть
+ * содержательный шаг — участок до цели с его длиной, — а не только «старт» и
+ * «финиш».
  */
 export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
-  const { graph, path, buildingMetas, aliasManager } = params;
-  const steps: RouteStep[] = [];
+  const { graph, route, buildingMetas, aliasManager, language } = params;
+  const segments = route.segments;
+  if (!route.found || segments === undefined || route.path.length < 2) return [];
 
-  if (path.length < 2) return steps;
+  const start = graph.getNode(route.path[0]);
+  const end = graph.getNode(route.path[route.path.length - 1]);
+  if (!start || !end) return [];
 
-  const start = graph.getNode(path[0]);
-  const end = graph.getNode(path[path.length - 1]);
-  if (!start || !end) return steps;
-
-  const names = buildingNames(buildingMetas);
-
-  const buildingLabel = (id: string) => buildingDisplayName(id, names);
-  const nodeLabel = (id: string) => aliasManager?.getPrimaryAliasForId(id) ?? id;
-  const placeLabel = (nodeId: string) => {
-    const node = graph.getNode(nodeId);
-    if (!node) return nodeId;
-    return `${nodeLabel(nodeId)} — ${buildingLabel(node.building)}`;
+  const messages = messagesFor(language);
+  const placeOf = (node: MapNode) => nodePlaceLabel(graph, buildingMetas, node.id, language);
+  const pointOf = (node: MapNode) => {
+    const name = aliasManager?.getPrimaryAliasForId(node.id, language) ?? null;
+    return name === null ? placeOf(node) : `${name}, ${placeOf(node)}`;
   };
 
-  steps.push({ text: `Старт: ${placeLabel(start.id)}`, scope: scopeOfNode(start) });
+  const steps: RouteStep[] = [
+    {
+      kind: 'start',
+      title: messages.instructions.start,
+      place: pointOf(start),
+      transition: null,
+      scope: scopeOfNode(start),
+      distanceMeters: null,
+      durationSeconds: null,
+    },
+  ];
 
-  for (let i = 1; i < path.length; i++) {
-    const a = graph.getNode(path[i - 1]);
-    const b = graph.getNode(path[i]);
-    if (!a || !b) continue;
+  let index = 0;
 
-    const type = graph.getTransitionType(a.id, b.id);
-    if (type === null) continue;
+  // Цикл кончается только шагом до цели или прибытием: проход сразу после
+  // последнего перехода даёт пустой пеший участок — это и есть прибытие.
+  for (;;) {
+    // Пеший участок: подряд идущие шаги без перехода.
+    const legStart = index;
+    while (index < segments.length && segments[index].transitionType === null) index++;
+    const leg = segments.slice(legStart, index);
 
-    // Смена корпуса.
-    if (a.building !== b.building) {
-      if (b.building === CAMPUS_BUILDING_ID) {
-        steps.push({ text: 'Выйдите на территорию кампуса.', scope: scopeOfNode(b) });
-      } else if (a.building === CAMPUS_BUILDING_ID) {
-        steps.push({
-          text: `Войдите в ${buildingLabel(b.building)} (этаж ${b.floor}).`,
-          scope: scopeOfNode(b),
-        });
-      } else {
-        steps.push({
-          text: `Перейдите из ${buildingLabel(a.building)} в ${buildingLabel(b.building)}.`,
-          scope: scopeOfNode(b),
-        });
-      }
-      continue;
+    if (index === segments.length) {
+      steps.push(
+        leg.length > 0
+          ? {
+              kind: 'walk',
+              title: messages.instructions.walkToDestination,
+              place: pointOf(end),
+              transition: null,
+              scope: scopeOfNode(end),
+              distanceMeters: total(leg, (s) => s.distanceMeters),
+              durationSeconds: total(leg, (s) => s.durationSeconds),
+            }
+          : {
+              kind: 'arrive',
+              title: messages.instructions.arrive,
+              place: pointOf(end),
+              transition: null,
+              scope: scopeOfNode(end),
+              distanceMeters: null,
+              durationSeconds: null,
+            }
+      );
+      break;
     }
 
-    // Смена этажа внутри корпуса.
-    if (a.floor !== b.floor) {
-      const direction: Direction = b.floor > a.floor ? 'up' : 'down';
+    // Переход. Лестница и лифт в данных — цепочки между соседними этажами, и
+    // поездка через несколько этажей описывается одним шагом.
+    const type = segments[index].transitionType as TransitionType;
+    const chainStart = index;
+    index++;
+    if (type === 'stairs' || type === 'lift') {
+      while (index < segments.length && segments[index].transitionType === type) index++;
+    }
+    const chain = segments.slice(chainStart, index);
+
+    const from = graph.getNode(chain[0].fromNode);
+    const to = graph.getNode(chain[chain.length - 1].toNode);
+    if (!from || !to) continue;
+
+    if (leg.length > 0) {
       steps.push({
-        text: `${transitionVerb(type, direction)} на этаж ${b.floor}.`,
-        scope: scopeOfNode(b),
+        kind: 'walk',
+        title: walkTitle(messages, type, from),
+        place: aliasManager?.getPrimaryAliasForId(from.id, language) ?? placeOf(from),
+        transition: null,
+        scope: scopeOfNode(from),
+        distanceMeters: total(leg, (s) => s.distanceMeters),
+        durationSeconds: total(leg, (s) => s.durationSeconds),
       });
-      continue;
     }
 
-    // Переход того же типа в пределах этажа — редкий, но допустимый случай.
-    if (type === 'entrance') {
-      steps.push({ text: `Пройдите через ${transitionTypeLabel(type).toLowerCase()}.` });
+    let title: string;
+    let place: string;
+
+    if (from.building !== to.building) {
+      title =
+        type === 'bridge'
+          ? messages.instructions.move.bridge.same
+          : to.building === CAMPUS_BUILDING_ID
+            ? messages.instructions.exitToCampus
+            : from.building === CAMPUS_BUILDING_ID
+              ? messages.instructions.enterBuilding
+              : messages.instructions.changeBuilding;
+      place = placeOf(to);
+    } else if (from.floor !== to.floor) {
+      title = messages.instructions.move[type][to.floor > from.floor ? 'up' : 'down'];
+      place = messages.map.floor(formatFloor(to.floor));
+    } else {
+      title = messages.instructions.move[type].same;
+      place = placeOf(to);
     }
+
+    steps.push({
+      kind: 'transition',
+      title,
+      place,
+      transition: type,
+      scope: scopeOfNode(to),
+      distanceMeters: total(chain, (s) => s.distanceMeters),
+      durationSeconds: total(chain, (s) => s.durationSeconds),
+    });
   }
-
-  steps.push({ text: `Финиш: ${placeLabel(end.id)}`, scope: scopeOfNode(end) });
 
   return steps;
 }
@@ -163,14 +217,12 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
 /**
  * Время в пути для карточки маршрута: «~4 мин».
  *
- * Принимает `PathResult.durationSeconds` — физику пути из ядра. Прежняя
- * оценка делила условную стоимость (пиксели плана плюс веса переходов) на
- * выдуманную скорость и менялась от галочки «предпочитать лифт».
+ * Принимает `PathResult.durationSeconds` — физику пути из ядра.
  *
  * Округление вверх: студенту, который торопится на пару, заниженная оценка
  * вреднее завышенной. Меньше минуты показывается минутой — «~0 мин» ничего
  * не сообщает.
  */
-export function formatDuration(seconds: number): string {
-  return `~${Math.max(1, Math.ceil(seconds / 60))} мин`;
+export function formatDuration(seconds: number, language: Language): string {
+  return messagesFor(language).route.duration(Math.max(1, Math.ceil(seconds / 60)));
 }

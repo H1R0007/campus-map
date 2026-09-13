@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AliasManager } from '@campus-map/core';
+import { AliasManager, DEFAULT_PATHFINDING_OPTIONS } from '@campus-map/core';
 import { useMapStore } from '../src/stores/mapStore';
 import { useRouteStore } from '../src/stores/routeStore';
+import { useSettingsStore } from '../src/stores/settingsStore';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
@@ -15,13 +16,15 @@ import { fixtureGraph } from './helpers/graphFixture';
 
 const ALIASES = [
   { id: 'a2_room201', names: ['А-201', '201'] },
-  { id: 'campus_gate', names: ['Главный вход'] },
+  { id: 'campus_gate', names: ['Главный вход'], translations: { en: { names: ['Main gate'] } } },
   { id: 'a1_hall', names: ['Холл А'] },
 ];
 
 function loadFixture(): void {
   const aliasManager = new AliasManager();
   aliasManager.load(ALIASES);
+
+  useSettingsStore.setState({ language: 'ru' });
 
   useMapStore.setState({
     graph: fixtureGraph(),
@@ -38,9 +41,14 @@ function loadFixture(): void {
       ],
     ]),
     activeFloor: null,
+    selectedNodeId: null,
   });
 
   useRouteStore.getState().clearRoute();
+
+  // Ограничения тоже сбрасываются: `clearRoute` их не трогает, и запрет
+  // лестниц из одного теста делал недостижимым второй этаж во всех следующих.
+  useRouteStore.setState({ options: { ...DEFAULT_PATHFINDING_OPTIONS } });
 }
 
 beforeEach(loadFixture);
@@ -138,5 +146,49 @@ describe('ограничения маршрута', () => {
     useRouteStore.getState().setOptions({ allowStairs: false });
 
     expect(useRouteStore.getState().currentRoute?.found).toBe(false);
+  });
+});
+
+describe('точка маршрута узлом', () => {
+  it('первая точка маршрут не строит, вторая — строит и показывает', () => {
+    expect(useRouteStore.getState().setPoint('to', 'a2_room201')).toBeNull();
+    expect(useRouteStore.getState().currentRoute).toBeNull();
+
+    const route = useRouteStore.getState().setPoint('from', 'a1_hall');
+
+    expect(route?.found).toBe(true);
+    expect(useRouteStore.getState().currentRoute).toBe(route);
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 1 });
+  });
+
+  it('набор текста в поле маршрут по-прежнему не строит', () => {
+    // Выбор точки — явное намерение, а промежуточный текст при наборе — нет.
+    useRouteStore.getState().setQuery('from', 'Холл А');
+    useRouteStore.getState().setQuery('to', 'А-201');
+
+    expect(useRouteStore.getState().currentRoute).toBeNull();
+  });
+
+  it('подпись поля — имя узла на языке интерфейса', () => {
+    useSettingsStore.setState({ language: 'en' });
+    useRouteStore.getState().setPoint('from', 'campus_gate');
+    expect(useRouteStore.getState().fromQuery).toBe('Main gate');
+
+    // Узел без перевода подписывается исходным именем.
+    useRouteStore.getState().setPoint('to', 'a1_hall');
+    expect(useRouteStore.getState().toQuery).toBe('Холл А');
+  });
+
+  it('подсказка передаёт имя, которое увидел пользователь', () => {
+    useRouteStore.getState().setPoint('to', 'a2_room201', '201');
+
+    expect(useRouteStore.getState().toQuery).toBe('201');
+  });
+
+  it('повторный выбор тех же точек не перестраивает показанный маршрут', () => {
+    useRouteStore.getState().setPoint('from', 'a1_hall');
+    const first = useRouteStore.getState().setPoint('to', 'a2_room201');
+
+    expect(useRouteStore.getState().setPoint('to', 'a2_room201')).toBe(first);
   });
 });

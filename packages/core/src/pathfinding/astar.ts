@@ -3,6 +3,7 @@ import type { Graph } from '../graph/Graph.js';
 import { DEFAULT_PATHFINDING_OPTIONS } from '../types/pathfinding.js';
 import type {
   MultiPathResult,
+  PathFailureReason,
   PathfindingOptions,
   PathResult,
   PathSegment,
@@ -159,9 +160,17 @@ function stripUndefined(options: PathfindingOptions): PathfindingOptions {
   return result;
 }
 
-/** Результат «пути нет» с причиной. */
-function notFound(error: string): PathResult {
-  return { found: false, path: [], cost: 0, distanceMeters: null, durationSeconds: null, error };
+/** Результат «пути нет»: код причины для интерфейса и описание для разработчика. */
+function notFound(reason: PathFailureReason, error: string): PathResult {
+  return {
+    found: false,
+    path: [],
+    cost: 0,
+    distanceMeters: null,
+    durationSeconds: null,
+    reason,
+    error,
+  };
 }
 
 /**
@@ -202,14 +211,17 @@ function describePath(
     const transitionType = graph.getTransitionType(from.id, to.id);
     const boarding = transitionType === 'lift' && !inLift;
 
+    const step = stepPhysics(graph, from, to, transitionType, boarding);
+
     segments.push({
       fromNode: from.id,
       toNode: to.id,
       transitionType,
       cost: stepCost(graph, from, to, transitionType, boarding, opts),
+      distanceMeters: step?.meters ?? null,
+      durationSeconds: step?.seconds ?? null,
     });
 
-    const step = stepPhysics(graph, from, to, transitionType, boarding);
     if (total !== null && step !== null) {
       total.meters += step.meters;
       total.seconds += step.seconds;
@@ -244,8 +256,8 @@ function search(
   const startNode = graph.getNode(startId);
   const endNode = graph.getNode(endId);
 
-  if (!startNode) return notFound(`Начальная точка "${startId}" не найдена`);
-  if (!endNode) return notFound(`Конечная точка "${endId}" не найдена`);
+  if (!startNode) return notFound('unknown-start', `Начальная точка "${startId}" не найдена`);
+  if (!endNode) return notFound('unknown-end', `Конечная точка "${endId}" не найдена`);
 
   if (startId === endId) {
     return { found: true, path: [startId], cost: 0, ...describePath(graph, [startId], opts) };
@@ -263,7 +275,7 @@ function search(
 
   while (!openSet.isEmpty) {
     if (++iterations > opts.maxIterations) {
-      return notFound(`Превышен лимит итераций (${opts.maxIterations})`);
+      return notFound('iteration-limit', `Превышен лимит итераций (${opts.maxIterations})`);
     }
 
     const current = openSet.pop()!;
@@ -313,7 +325,7 @@ function search(
     }
   }
 
-  return notFound('Путь не найден — точки не связаны');
+  return notFound('unreachable', 'Путь не найден — точки не связаны');
 }
 
 /**

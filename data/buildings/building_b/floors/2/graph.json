@@ -1,35 +1,93 @@
 {
   "nodes": [
     {
-      "id": "b2_stairs",
-      "x": 600,
-      "y": 120,
-      "neighbors": [ "b2_corridor" ],
-      "isPortal": true
+      "id": "b2_corridor_w",
+      "x": 178,
+      "y": 252,
+      "neighbors": [
+        "b2_corridor",
+        "b2_bridge",
+        "b2_lab",
+        "b2_room203"
+      ],
+      "isPortal": false
     },
     {
       "id": "b2_corridor",
-      "x": 600,
-      "y": 170,
-      "neighbors": [ "b2_stairs", "b2_room201", "b2_room202", "b2_lab" ]
+      "x": 445,
+      "y": 252,
+      "neighbors": [
+        "b2_corridor_w",
+        "b2_corridor_e",
+        "b2_room202"
+      ],
+      "isPortal": false
     },
     {
-      "id": "b2_room201",
-      "x": 530,
-      "y": 170,
-      "neighbors": [ "b2_corridor" ]
+      "id": "b2_corridor_e",
+      "x": 711,
+      "y": 252,
+      "neighbors": [
+        "b2_corridor",
+        "b2_stairs",
+        "b2_room204"
+      ],
+      "isPortal": false
     },
     {
-      "id": "b2_room202",
-      "x": 530,
-      "y": 130,
-      "neighbors": [ "b2_corridor" ]
+      "id": "b2_stairs",
+      "x": 836,
+      "y": 252,
+      "neighbors": [
+        "b2_corridor_e"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "b2_bridge",
+      "x": 53,
+      "y": 252,
+      "neighbors": [
+        "b2_corridor_w"
+      ],
+      "isPortal": true
     },
     {
       "id": "b2_lab",
-      "x": 670,
-      "y": 150,
-      "neighbors": [ "b2_corridor" ]
+      "x": 178,
+      "y": 91,
+      "neighbors": [
+        "b2_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b2_room202",
+      "x": 445,
+      "y": 91,
+      "neighbors": [
+        "b2_corridor"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b2_room203",
+      "x": 178,
+      "y": 412,
+      "neighbors": [
+        "b2_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b2_room204",
+      "x": 711,
+      "y": 412,
+      "neighbors": [
+        "b2_corridor_e"
+      ],
+      "isPortal": false,
+      "comment": "Геометрия приблизительная — сверить с официальным планом"
     }
   ]
 }

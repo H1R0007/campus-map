@@ -1,36 +1,112 @@
 {
   "nodes": [
     {
+      "id": "b1_corridor_w",
+      "x": 271,
+      "y": 364,
+      "neighbors": [
+        "b1_corridor",
+        "b1_library",
+        "b1_canteen"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b1_corridor",
+      "x": 678,
+      "y": 364,
+      "neighbors": [
+        "b1_corridor_w",
+        "b1_corridor_e",
+        "b1_hall",
+        "b1_room101"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b1_corridor_e",
+      "x": 1085,
+      "y": 364,
+      "neighbors": [
+        "b1_corridor",
+        "b1_stairs",
+        "b1_room102",
+        "b1_toilet"
+      ],
+      "isPortal": false
+    },
+    {
       "id": "b1_entrance",
-      "x": 600,
-      "y": 220,
-      "neighbors": [ "b1_hall" ],
+      "x": 678,
+      "y": 683,
+      "neighbors": [
+        "b1_hall"
+      ],
       "isPortal": true
     },
     {
       "id": "b1_hall",
-      "x": 600,
-      "y": 170,
-      "neighbors": [ "b1_entrance", "b1_library", "b1_stairs", "b1_cafe" ]
-    },
-    {
-      "id": "b1_library",
-      "x": 530,
-      "y": 140,
-      "neighbors": [ "b1_hall" ]
-    },
-    {
-      "id": "b1_cafe",
-      "x": 670,
-      "y": 140,
-      "neighbors": [ "b1_hall" ]
+      "x": 678,
+      "y": 523,
+      "neighbors": [
+        "b1_entrance",
+        "b1_corridor"
+      ],
+      "isPortal": false
     },
     {
       "id": "b1_stairs",
-      "x": 600,
-      "y": 120,
-      "neighbors": [ "b1_hall" ],
+      "x": 1275,
+      "y": 364,
+      "neighbors": [
+        "b1_corridor_e"
+      ],
       "isPortal": true
+    },
+    {
+      "id": "b1_library",
+      "x": 366,
+      "y": 131,
+      "neighbors": [
+        "b1_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b1_room101",
+      "x": 881,
+      "y": 131,
+      "neighbors": [
+        "b1_corridor"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b1_room102",
+      "x": 1085,
+      "y": 131,
+      "neighbors": [
+        "b1_corridor_e"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b1_canteen",
+      "x": 271,
+      "y": 596,
+      "neighbors": [
+        "b1_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b1_toilet",
+      "x": 1085,
+      "y": 596,
+      "neighbors": [
+        "b1_corridor_e"
+      ],
+      "isPortal": false
     }
   ]
 }

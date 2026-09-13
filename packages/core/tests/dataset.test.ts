@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, loadDataset } from '../src/index.js';
 import type { DatasetSource } from '../src/index.js';
-import { createFsDatasetSource, loadFixtureDataset } from './helpers/datasetFixture.js';
+import { createFsDatasetSource } from './helpers/realDataset.js';
+import { loadSampleDataset } from './helpers/sampleDataset.js';
 
 /**
  * Загрузка и нормализация датасета.
@@ -11,26 +12,27 @@ import { createFsDatasetSource, loadFixtureDataset } from './helpers/datasetFixt
  * `building` и `floor` узла определяются путём файла, а не содержимым.
  */
 describe('loadDataset', () => {
-  it('загружает реальный датасет без предупреждений', async () => {
-    const { dataset, warnings } = await loadFixtureDataset();
+  it('загружает корректный датасет без предупреждений и без потерь', async () => {
+    // Числа — из схемы синтетического кампуса в `helpers/sampleDataset.ts`.
+    const { dataset, warnings } = await loadSampleDataset();
 
     expect(warnings).toEqual([]);
-    expect(dataset.nodes.length).toBeGreaterThan(0);
-    expect(dataset.buildingMetas.length).toBe(3);
-    expect(dataset.transitions.length).toBe(6);
-    expect(dataset.aliases.length).toBe(21);
+    expect(dataset.nodes.length).toBe(20);
+    expect(dataset.buildingMetas.length).toBe(2);
+    expect(dataset.transitions.length).toBe(4);
+    expect(dataset.aliases.length).toBe(7);
   });
 
   it('проставляет узлам кампуса building и floor из расположения файла', async () => {
-    const { dataset } = await loadFixtureDataset();
+    const { dataset } = await loadSampleDataset();
     const campusNodes = dataset.nodes.filter((n) => n.building === CAMPUS_BUILDING_ID);
 
-    expect(campusNodes.length).toBe(8);
+    expect(campusNodes.length).toBe(4);
     expect(campusNodes.every((n) => n.floor === CAMPUS_FLOOR)).toBe(true);
   });
 
   it('берёт building и floor узла корпуса из пути файла, а не из полей JSON', async () => {
-    const { dataset } = await loadFixtureDataset();
+    const { dataset } = await loadSampleDataset();
     const secondFloor = dataset.nodes.filter((n) => n.id.startsWith('a2_'));
 
     expect(secondFloor.length).toBeGreaterThan(0);
@@ -38,7 +40,7 @@ describe('loadDataset', () => {
   });
 
   it('не оставляет в BuildingMeta поля bounds', async () => {
-    const { dataset } = await loadFixtureDataset();
+    const { dataset } = await loadSampleDataset();
 
     expect(dataset.buildingMetas.every((meta) => !('bounds' in meta))).toBe(true);
   });

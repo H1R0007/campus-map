@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Graph, findConnectedComponents } from '../src/index.js';
 import type { MapNode } from '../src/index.js';
-import { fixtureDataset } from './helpers/datasetFixture.js';
+import { sampleDataset } from './helpers/sampleDataset.js';
 
 function node(id: string, neighbors: string[] = []): MapNode {
   return { id, x: 0, y: 0, building: 'b', floor: 1, neighbors, isPortal: false };
@@ -15,8 +15,8 @@ function node(id: string, neighbors: string[] = []): MapNode {
  * определение изолированных узлов.
  */
 describe('findConnectedComponents', () => {
-  it('реальный датасет связен целиком', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+  it('датасет из корпусов и этажей связен целиком', async () => {
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findConnectedComponents(graph);
 
     expect(result.connected).toBe(true);

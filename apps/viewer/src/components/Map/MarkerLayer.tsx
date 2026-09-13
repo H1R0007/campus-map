@@ -3,7 +3,8 @@ import { Marker } from 'react-leaflet';
 import { isNodeInScope } from '@campus-map/core';
 import { useRouteStore } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
-import { END_ICON, START_ICON } from './markerIcons';
+import { useLanguage } from '../../i18n';
+import { endpointIcon } from './markerIcons';
 
 /**
  * Маркеры начала и конца маршрута.
@@ -17,6 +18,7 @@ export const MarkerLayer: React.FC = () => {
   const toNodeId = useRouteStore((s) => s.toNodeId);
   const graph = useMapStore((s) => s.graph);
   const activeFloor = useMapStore((s) => s.activeFloor);
+  const language = useLanguage();
 
   if (!graph) return null;
 
@@ -30,8 +32,12 @@ export const MarkerLayer: React.FC = () => {
 
   return (
     <>
-      {showFrom && <Marker position={[fromNode!.y, fromNode!.x]} icon={START_ICON} zIndexOffset={1000} />}
-      {showTo && <Marker position={[toNode!.y, toNode!.x]} icon={END_ICON} zIndexOffset={1000} />}
+      {showFrom && (
+        <Marker position={[fromNode!.y, fromNode!.x]} icon={endpointIcon('start', language)} zIndexOffset={1000} />
+      )}
+      {showTo && (
+        <Marker position={[toNode!.y, toNode!.x]} icon={endpointIcon('end', language)} zIndexOffset={1000} />
+      )}
     </>
   );
 };

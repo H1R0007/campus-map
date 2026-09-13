@@ -1,22 +1,31 @@
 import React, { useEffect, useMemo } from 'react';
 import { Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { usePixelMapGeometry } from '@campus-map/mapkit';
+import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
 import { useRouteStore } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { visiblePolylines } from '../../utils/routeGeometry';
+import { MAP_CHROME_INSETS } from './mapChrome';
 
-/** Оформление линии маршрута. */
+/**
+ * Оформление линии маршрута. Цвет задаёт класс `ROUTE_CLASS` из токенов темы
+ * (`index.css`): атрибут SVG `stroke` не понимает CSS-переменных.
+ */
 const ROUTE_STYLE = {
-  color: '#2563eb',
   weight: 4,
   opacity: 0.85,
   lineCap: 'round' as const,
   lineJoin: 'round' as const,
 };
 
-/** Отступ вокруг маршрута при подгонке вида, пиксели экрана. */
-const FIT_PADDING: [number, number] = [56, 56];
+/** Класс линии маршрута в `index.css`. */
+const ROUTE_CLASS = 'campus-route-line';
+
+/**
+ * Запас вокруг маршрута сверх места под интерфейс, пиксели экрана: начало и
+ * конец линии не должны прилипать к шапке и карточке.
+ */
+const ROUTE_MARGIN = 32;
 
 /**
  * Линия маршрута на текущем плане.
@@ -45,7 +54,7 @@ export const PathLayer: React.FC = () => {
     const bounds = L.latLngBounds(segments.flat());
     if (!bounds.isValid()) return;
 
-    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: map.getMaxZoom() });
+    map.fitBounds(bounds, { ...fitPaddingOf(MAP_CHROME_INSETS, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
     // `geometry.bounds` в зависимостях не случайно: реальный размер плана
     // определяется асинхронно, и при его появлении `PixelMap` заново
     // центрируется на всём изображении. Без повторной подгонки маршрут
@@ -59,7 +68,10 @@ export const PathLayer: React.FC = () => {
       {segments.map((positions, index) => (
         // Ключ по индексу допустим: список пересоздаётся целиком при каждом
         // изменении маршрута или этажа, порядок отрезков стабилен.
-        <Polyline key={index} positions={positions} pathOptions={ROUTE_STYLE} />
+        // Класс — отдельным пропом, а не в `pathOptions`: react-leaflet применяет
+        // `pathOptions` через `setStyle`, а Leaflet ставит класс только при
+        // создании пути, и из `pathOptions` он молча не доходил до SVG.
+        <Polyline key={index} positions={positions} pathOptions={ROUTE_STYLE} className={ROUTE_CLASS} />
       ))}
     </>
   );

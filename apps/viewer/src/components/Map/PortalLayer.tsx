@@ -1,12 +1,7 @@
 import React from 'react';
-import { Marker, Tooltip } from 'react-leaflet';
-import {
-  transitionTypeLabel,
-  type Graph,
-  type MapNode,
-  type TransitionType,
-} from '@campus-map/core';
+import { Marker } from 'react-leaflet';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { portalTypeOf } from '../../utils/portals';
 import { portalIcon } from './markerIcons';
 
 /**
@@ -18,7 +13,9 @@ import { portalIcon } from './markerIcons';
  * способы попасть на другой этаж или выйти наружу.
  *
  * Тип перехода определяется по соседям узла, поэтому иконка сразу показывает,
- * лестница это, лифт или вход.
+ * лестница это, лифт или вход. Название типа — в карточке места, которая
+ * открывается нажатием рядом с иконкой (`PlaceLayer`): прежняя подсказка при
+ * наведении на неинтерактивном маркере не срабатывала никогда.
  */
 export const PortalLayer: React.FC = () => {
   const graph = useMapStore((s) => s.graph);
@@ -40,37 +37,17 @@ export const PortalLayer: React.FC = () => {
 
   return (
     <>
-      {portals.map((node) => {
-        const type = portalTypeOf(graph, node);
-        return (
-          <Marker
-            key={node.id}
-            position={[node.y, node.x]}
-            icon={portalIcon(type)}
-            // Маркер справочный: нажатие не должно перехватывать клики по карте.
-            interactive={false}
-            keyboard={false}
-          >
-            <Tooltip direction="top" offset={[0, -10]} opacity={1} className="portal-tooltip">
-              {type ? transitionTypeLabel(type) : 'Переход'}
-            </Tooltip>
-          </Marker>
-        );
-      })}
+      {portals.map((node) => (
+        <Marker
+          key={node.id}
+          position={[node.y, node.x]}
+          icon={portalIcon(portalTypeOf(graph, node))}
+          // Нажатие обрабатывает карта: слой мест выбирает ближайший узел в
+          // радиусе касания, и маркер не должен перехватывать событие.
+          interactive={false}
+          keyboard={false}
+        />
+      ))}
     </>
   );
 };
-
-/**
- * Тип перехода, обслуживающий узел.
- *
- * У узла может быть несколько переходов (например, лестница и лифт рядом) —
- * берётся первый найденный, этого достаточно для иконки-ориентира.
- */
-function portalTypeOf(graph: Graph, node: MapNode): TransitionType | null {
-  for (const neighborId of graph.getNeighbors(node.id)) {
-    const type = graph.getTransitionType(node.id, neighborId);
-    if (type !== null) return type;
-  }
-  return null;
-}

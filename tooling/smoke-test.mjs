@@ -86,6 +86,7 @@ const CHECKS = [
 
   // --- клиентская маршрутизация продолжает работать ---
   { url: '/some/deep/route', code: 200, contentType: 'text/html', title: 'SPA-переход' },
+  { url: '/?at=a1_entrance&lang=en', code: 200, contentType: 'text/html', title: 'ссылка «вы здесь» (QR-код)' },
 ];
 
 function parseArgs(argv) {

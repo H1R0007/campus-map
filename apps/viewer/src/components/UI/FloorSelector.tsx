@@ -1,65 +1,80 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { floorsOfBuilding, useMapStore } from '../../stores/mapStore';
+import { useRouteStore } from '../../stores/routeStore';
+import { formatFloor, messagesFor, useLanguage } from '../../i18n';
+import { routeFloorsIn } from '../../utils/routeFloors';
+
+const NO_FLOORS: ReadonlySet<number> = new Set();
 
 /**
- * Панель этажей внутри корпуса.
+ * Этажи открытого корпуса — сверху вниз, как в здании.
  *
- * Этажи перечислены сверху вниз, как в реальном здании, поэтому список
- * отсортирован по убыванию. Кнопка «назад» возвращает к карте кампуса.
+ * Список занимает свободную высоту колонки (`MapRail`) и прокручивается: у
+ * корпуса в 11 этажей с подвалом кнопки на телефоне не помещаются. Активный
+ * этаж прокручивается в видимую часть. Этажи, через которые идёт маршрут,
+ * отмечены точкой — видно, куда переключаться, не открывая шаги.
+ *
+ * Возврат на территорию и имя корпуса — в шапке карты (`MapHeader`).
  */
 export const FloorSelector: React.FC = () => {
   const activeFloor = useMapStore((s) => s.activeFloor);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
+  const graph = useMapStore((s) => s.graph);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
-  const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const currentRoute = useRouteStore((s) => s.currentRoute);
+  const language = useLanguage();
+  const messages = messagesFor(language);
+
+  const activeButtonRef = useRef<HTMLButtonElement>(null);
+  const buildingId = activeFloor?.buildingId ?? null;
+
+  const routeFloors = useMemo(
+    () =>
+      graph && buildingId !== null && currentRoute?.found
+        ? routeFloorsIn(graph, currentRoute.path, buildingId)
+        : NO_FLOORS,
+    [graph, buildingId, currentRoute]
+  );
+
+  useEffect(() => {
+    activeButtonRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeFloor]);
 
   if (activeFloor === null || !buildingMetas) return null;
 
-  const meta = buildingMetas.get(activeFloor.buildingId);
-  const floors = floorsOfBuilding(meta);
+  const floors = floorsOfBuilding(buildingMetas.get(activeFloor.buildingId));
 
   return (
-    <div
-      className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2"
-      style={{ zIndex: 1000 }}
-    >
-      <button
-        type="button"
-        onClick={clearActiveFloor}
-        className="w-10 h-10 rounded-xl bg-white shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:shadow-lg transition-all mb-2"
-        title="Вернуться к кампусу"
-        aria-label="Вернуться к карте кампуса"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-      </button>
+    <nav aria-label={messages.map.floors} className="campus-floor-list">
+      {floors.map((floor) => {
+        const isActive = floor === activeFloor.floor;
+        const isOnRoute = routeFloors.has(floor);
+        const label = messages.map.floor(formatFloor(floor));
 
-      <div className="bg-white rounded-xl shadow-md px-3 py-1.5 mb-1">
-        <span className="text-xs font-medium text-gray-600">
-          {meta?.name ?? activeFloor.buildingId}
-        </span>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        {floors.map((floor) => {
-          const isActive = floor === activeFloor.floor;
-
-          return (
-            <button
-              key={floor}
-              type="button"
-              onClick={() => setActiveFloor(activeFloor.buildingId, floor)}
-              aria-current={isActive ? 'true' : undefined}
-              className={`w-10 h-10 flex items-center justify-center text-sm font-medium transition-colors ${
-                isActive ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {floor}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+        return (
+          <button
+            key={floor}
+            ref={isActive ? activeButtonRef : undefined}
+            type="button"
+            onClick={() => setActiveFloor(activeFloor.buildingId, floor)}
+            aria-current={isActive ? 'true' : undefined}
+            aria-label={isOnRoute ? messages.map.floorOnRoute(label) : label}
+            className={`relative w-11 h-11 flex-shrink-0 flex items-center justify-center text-sm font-semibold transition-colors ${
+              isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            {formatFloor(floor)}
+            {isOnRoute && (
+              <span
+                aria-hidden="true"
+                className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
+                  isActive ? 'bg-white' : 'bg-primary'
+                }`}
+              />
+            )}
+          </button>
+        );
+      })}
+    </nav>
   );
 };

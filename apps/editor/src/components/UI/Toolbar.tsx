@@ -1,10 +1,6 @@
 import React, { useRef, useState } from 'react';
-import {
-  TRANSITION_TYPES,
-  transitionTypeLabel,
-  transitionTypeIcon,
-  transitionTypeColor,
-} from '@campus-map/core';
+import { TRANSITION_TYPES, transitionTypeLabel } from '@campus-map/core';
+import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore, EditorTool } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
@@ -128,7 +124,7 @@ export const Toolbar: React.FC = () => {
             <>
               <div className="mx-2 w-px h-6" style={{ backgroundColor: 'var(--editor-border)' }} />
               {TRANSITION_TYPES.map((tp) => {
-                const color = transitionTypeColor(tp);
+                const color = TRANSITION_COLORS[tp];
                 return (
                   <button
                     key={tp}
@@ -140,7 +136,7 @@ export const Toolbar: React.FC = () => {
                       border: `1px solid ${color}`,
                     }}
                   >
-                    <span>{transitionTypeIcon(tp)}</span>
+                    <TransitionGlyph type={tp} size={14} />
                     <span>{transitionTypeLabel(tp)}</span>
                   </button>
                 );

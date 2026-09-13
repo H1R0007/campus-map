@@ -1,34 +1,94 @@
 {
   "transitions": [
     {
-      "from": { "node": "campus_entrance_a" },
-      "to": { "node": "a1_entrance" },
+      "from": {
+        "node": "campus_entrance_a"
+      },
+      "to": {
+        "node": "a1_entrance"
+      },
       "transition_type": "entrance"
     },
     {
-      "from": { "node": "campus_entrance_b" },
-      "to": { "node": "b1_entrance" },
+      "from": {
+        "node": "campus_entrance_a_yard"
+      },
+      "to": {
+        "node": "a1_entrance_yard"
+      },
       "transition_type": "entrance"
     },
     {
-      "from": { "node": "campus_entrance_c" },
-      "to": { "node": "c1_entrance" },
+      "from": {
+        "node": "campus_entrance_b"
+      },
+      "to": {
+        "node": "b1_entrance"
+      },
       "transition_type": "entrance"
     },
     {
-      "from": { "node": "a1_stairs" },
-      "to": { "node": "a2_stairs" },
+      "from": {
+        "node": "campus_entrance_c"
+      },
+      "to": {
+        "node": "c1_entrance"
+      },
+      "transition_type": "entrance"
+    },
+    {
+      "from": {
+        "node": "a1_stairs"
+      },
+      "to": {
+        "node": "a2_stairs"
+      },
       "transition_type": "stairs"
     },
     {
-      "from": { "node": "a2_stairs" },
-      "to": { "node": "a3_stairs" },
+      "from": {
+        "node": "a2_stairs"
+      },
+      "to": {
+        "node": "a3_stairs"
+      },
       "transition_type": "stairs"
     },
     {
-      "from": { "node": "b1_stairs" },
-      "to": { "node": "b2_stairs" },
+      "from": {
+        "node": "a1_lift"
+      },
+      "to": {
+        "node": "a2_lift"
+      },
+      "transition_type": "lift"
+    },
+    {
+      "from": {
+        "node": "a2_lift"
+      },
+      "to": {
+        "node": "a3_lift"
+      },
+      "transition_type": "lift"
+    },
+    {
+      "from": {
+        "node": "b1_stairs"
+      },
+      "to": {
+        "node": "b2_stairs"
+      },
       "transition_type": "stairs"
+    },
+    {
+      "from": {
+        "node": "a2_bridge"
+      },
+      "to": {
+        "node": "b2_bridge"
+      },
+      "transition_type": "bridge"
     }
   ]
 }

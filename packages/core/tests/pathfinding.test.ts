@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Graph, createCampusProjection, findAlternativePaths, findPath } from '../src/index.js';
 import type { BuildingMeta, CampusMeta, MapNode, PathfindingOptions, Transition } from '../src/index.js';
-import { fixtureDataset } from './helpers/datasetFixture.js';
+import { sampleDataset } from './helpers/sampleDataset.js';
 
 function node(id: string, x: number, y: number, building = 'b', floor = 1, neighbors: string[] = []): MapNode {
   return { id, x, y, building, floor, neighbors, isPortal: false };
@@ -14,13 +14,14 @@ function segmentsSum(segments: { cost: number }[] | undefined): number {
 
 describe('findPath', () => {
   it('находит маршруты фиксированной длины (регрессия)', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
+    // Число узлов пути; сами пути видны на схеме в `helpers/sampleDataset.ts`.
     const cases: [string, string, number][] = [
-      ['campus_gate', 'a3_conference', 11],
-      ['campus_gate', 'c1_pool', 7],
-      ['a1_room101', 'b2_lab', 15],
-      ['campus_gate', 'a1_room101', 8],
+      ['campus_gate', 'a3_conference', 10],
+      ['campus_gate', 'a1_room101', 7],
+      ['a1_room101', 'a3_room301', 8],
+      ['a1_room101', 'b1_library', 10],
     ];
 
     for (const [from, to, hops] of cases) {
@@ -33,7 +34,7 @@ describe('findPath', () => {
   });
 
   it('старт совпадает с финишем: нулевая стоимость и нет шагов', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findPath(graph, 'campus_gate', 'campus_gate');
 
     expect(result.found).toBe(true);
@@ -42,23 +43,25 @@ describe('findPath', () => {
     expect(result.segments).toHaveLength(0);
   });
 
-  it('для недостижимой цели возвращает found=false и причину', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+  it('для неизвестной точки возвращает found=false и код причины', async () => {
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findPath(graph, 'campus_gate', 'NO_SUCH_NODE');
 
     expect(result.found).toBe(false);
     expect(result.path).toEqual([]);
+    expect(result.reason).toBe('unknown-end');
     expect(result.error).toBeDefined();
+    expect(findPath(graph, 'NO_SUCH_NODE', 'campus_gate').reason).toBe('unknown-start');
   });
 
   it('сообщение об ошибке на русском', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     expect(findPath(graph, 'campus_gate', 'NO_SUCH_NODE').error).toMatch(/[а-яА-Я]/);
   });
 
   it('сумма стоимостей шагов равна стоимости пути при любых опциях', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     const optionSets: PathfindingOptions[] = [
       {},
@@ -83,7 +86,7 @@ describe('findPath', () => {
   });
 
   it('согласованность сохраняется на маршруте через несколько корпусов', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findPath(graph, 'campus_gate', 'a3_conference', { preferLift: true });
 
     expect(result.found).toBe(true);
@@ -93,19 +96,22 @@ describe('findPath', () => {
   });
 
   it('allowStairs:false отрезает этаж, доступный только по лестнице', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
-    expect(findPath(graph, 'a1_room101', 'a3_room301', { allowStairs: false }).found).toBe(false);
+    const result = findPath(graph, 'a1_room101', 'a3_room301', { allowStairs: false });
+
+    expect(result.found).toBe(false);
+    expect(result.reason).toBe('unreachable');
   });
 
   it('allowEntrance:false отрезает корпуса от территории кампуса', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     expect(findPath(graph, 'campus_gate', 'a1_room101', { allowEntrance: false }).found).toBe(false);
   });
 
   it('запрет типа перехода не мешает маршруту внутри этажа', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findPath(graph, 'a1_room101', 'a1_room102', {
       allowStairs: false,
       allowLift: false,
@@ -135,6 +141,7 @@ describe('findPath', () => {
     const result = findPath(graph, 'n0', 'n49', { maxIterations: 5 });
 
     expect(result.found).toBe(false);
+    expect(result.reason).toBe('iteration-limit');
     expect(result.error).toBeDefined();
   });
 });
@@ -188,12 +195,18 @@ describe('findPath: время и длина пути', () => {
   const HALL_WALK = 5 / 1.3;
 
   it('в пиксельном режиме ни длины, ни времени нет', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findPath(graph, 'a1_room101', 'a3_room301');
 
     expect(result.found).toBe(true);
     expect(result.distanceMeters).toBeNull();
     expect(result.durationSeconds).toBeNull();
+
+    // И у шагов тоже: у пикселей разных планов нет ни метров, ни секунд.
+    expect(result.segments?.length).toBeGreaterThan(0);
+    expect(
+      result.segments?.every((s) => s.distanceMeters === null && s.durationSeconds === null)
+    ).toBe(true);
   });
 
   it('ожидание лифта входит в поездку один раз, а не на каждом этаже', () => {
@@ -243,29 +256,51 @@ describe('findPath: время и длина пути', () => {
     expect(result.found).toBe(true);
     expect(Math.abs(segmentsSum(result.segments) - result.cost)).toBeLessThan(1e-9);
   });
+
+  it('время и длина шагов складываются в итог пути', () => {
+    const result = findPath(tower(), 'f1_hall', 'f4_hall');
+    const segments = result.segments ?? [];
+
+    // Инструкции показывают время участков, и оно обязано сходиться с итогом
+    // в карточке маршрута.
+    const seconds = segments.reduce((total, s) => total + (s.durationSeconds ?? Number.NaN), 0);
+    const meters = segments.reduce((total, s) => total + (s.distanceMeters ?? Number.NaN), 0);
+
+    expect(seconds).toBeCloseTo(result.durationSeconds ?? Number.NaN, 9);
+    expect(meters).toBeCloseTo(result.distanceMeters ?? Number.NaN, 9);
+  });
+
+  it('ожидание лифта входит в шаг посадки, а не в каждый шаг поездки', () => {
+    const lift = (findPath(tower(), 'f1_hall', 'f4_hall').segments ?? []).filter(
+      (s) => s.transitionType === 'lift'
+    );
+
+    // Этаж — 4 м со скоростью 1 м/с; 30 с ожидания только у первого шага цепочки.
+    expect(lift.map((s) => s.durationSeconds)).toEqual([34, 4, 4]);
+  });
 });
 
 describe('findAlternativePaths', () => {
   it('возвращает основной путь и альтернативы', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
     const result = findAlternativePaths(graph, 'campus_gate', 'a3_conference', {}, 3);
 
     expect(result.primary.found).toBe(true);
-    // Датасет по топологии близок к дереву: независимых объездов нет.
+    // Синтетический кампус — дерево: независимых объездов нет.
     expect(result.alternatives).toEqual([]);
   });
 
   it('maxPaths меньше двух — альтернатив не ищет', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     expect(findAlternativePaths(graph, 'campus_gate', 'a3_conference', {}, 1).alternatives).toEqual([]);
   });
 
   it('результат детерминирован', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
-    const first = findAlternativePaths(graph, 'campus_gate', 'c1_pool', {}, 3);
-    const second = findAlternativePaths(graph, 'campus_gate', 'c1_pool', {}, 3);
+    const first = findAlternativePaths(graph, 'campus_gate', 'b1_library', {}, 3);
+    const second = findAlternativePaths(graph, 'campus_gate', 'b1_library', {}, 3);
 
     expect(first).toEqual(second);
   });

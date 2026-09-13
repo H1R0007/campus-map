@@ -8,7 +8,8 @@ import {
   floorGraphPath,
   loadDataset,
 } from '../src/index.js';
-import type { DatasetSource } from '../src/index.js';
+import { memorySource } from './helpers/memorySource.js';
+import type { DatasetFiles } from './helpers/memorySource.js';
 
 /**
  * Поведение загрузчика на битых и нестандартных данных.
@@ -21,34 +22,8 @@ import type { DatasetSource } from '../src/index.js';
  * загрузчика, а не содержимое продуктового `data/`.
  */
 
-type Files = Record<string, unknown>;
-
-interface RecordingSource extends DatasetSource {
-  requested: string[];
-}
-
-/**
- * Источник данных в памяти.
- *
- * @param delayOf задержка ответа по пути — чтобы проверить, что результат
- *        не зависит от порядка прихода ответов при параллельной загрузке
- */
-function memorySource(files: Files, delayOf?: (path: string) => number): RecordingSource {
-  const requested: string[] = [];
-
-  return {
-    requested,
-    async readJson(path) {
-      requested.push(path);
-      const delay = delayOf?.(path) ?? 0;
-      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-      return Object.prototype.hasOwnProperty.call(files, path) ? files[path] : null;
-    },
-  };
-}
-
 /** Кампус с двумя корпусами по два этажа — минимум, где порядок имеет значение. */
-function twoBuildingFiles(): Files {
+function twoBuildingFiles(): DatasetFiles {
   return {
     [CAMPUS_META_PATH]: {
       buildings: [{ id: 'bA', name: 'Корпус А' }, { id: 'bB', name: 'Корпус Б' }],
@@ -114,7 +89,7 @@ describe('loadDataset: параллельная загрузка', () => {
 });
 
 describe('loadDataset: координаты узла', () => {
-  function withNode(node: Record<string, unknown>): Files {
+  function withNode(node: Record<string, unknown>): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: { buildings: [], mapSize: { width: 1, height: 1 } },
       [CAMPUS_GRAPH_PATH]: { nodes: [{ neighbors: [], ...node }] },
@@ -198,7 +173,7 @@ describe('loadDataset: идентификаторы', () => {
 
 describe('loadDataset: метаданные этажа', () => {
   /** Корпус с единственным этажом, описанным переданной записью. */
-  function withFloor(floor: Record<string, unknown>): Files {
+  function withFloor(floor: Record<string, unknown>): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: {
         buildings: [{ id: 'bA', name: 'Корпус А' }],
@@ -241,7 +216,7 @@ describe('loadDataset: метаданные этажа', () => {
 
 describe('loadDataset: входной этаж корпуса', () => {
   /** Корпус с этажами 0 и 1 и заданным значением `entranceFloor`. */
-  function withEntrance(entranceFloor: unknown): Files {
+  function withEntrance(entranceFloor: unknown): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: {
         buildings: [{ id: 'bA', name: 'Корпус А' }],
@@ -296,7 +271,7 @@ describe('loadDataset: привязка к метрике кампуса', () =>
     campus?: Record<string, unknown>;
     building?: Record<string, unknown>;
     floors?: Record<string, unknown>[];
-  }): Files {
+  }): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: {
         buildings: [{ id: 'bA', name: 'Корпус А' }],
@@ -392,5 +367,85 @@ describe('loadDataset: привязка к метрике кампуса', () =>
     const { warnings } = await loadDataset(memorySource(placed({})));
 
     expect(warnings).toEqual([]);
+  });
+});
+
+describe('loadDataset: переводы названий', () => {
+  /** Корпус и одно помещение; `translations` дописываются корпусу и алиасу. */
+  function translated(parts: { building?: unknown; alias?: unknown }): DatasetFiles {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: {
+        id: 'bA',
+        name: 'Корпус А',
+        floors: [{ floor: 1 }],
+        translations: parts.building,
+      },
+      [floorGraphPath('bA', 1)]: { nodes: [{ id: 'a1_library', x: 1, y: 1, neighbors: [] }] },
+      [TRANSITIONS_PATH]: { transitions: [] },
+      [ALIASES_PATH]: {
+        aliases: [{ id: 'a1_library', names: ['Библиотека'], translations: parts.alias }],
+      },
+    };
+  }
+
+  it('переводы корпуса и помещения читаются без предупреждений', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(
+        translated({
+          building: { en: { name: 'Building A' } },
+          alias: { en: { names: ['Library', 'library', 'Reading room'] } },
+        })
+      )
+    );
+
+    expect(warnings).toEqual([]);
+    expect(dataset.buildingMetas[0].translations).toEqual({ en: { name: 'Building A' } });
+    // Повтор формы имени отбрасывается так же, как в основных именах.
+    expect(dataset.aliases[0].translations).toEqual({ en: { names: ['Library', 'Reading room'] } });
+  });
+
+  it('без переводов поля нет и в результате', async () => {
+    // `undefined` в поле экспорт редактора не пишет, но пустой объект записал бы.
+    const { dataset } = await loadDataset(memorySource(translated({})));
+
+    expect('translations' in dataset.buildingMetas[0]).toBe(false);
+    expect('translations' in dataset.aliases[0]).toBe(false);
+  });
+
+  it('код языка не по правилу отбрасывается с предупреждением, остальные переводы остаются', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(
+        translated({
+          building: { EN: { name: 'Building A' }, 'en-US': { name: 'Building A' }, kk: { name: 'А корпусы' } },
+        })
+      )
+    );
+
+    expect(dataset.buildingMetas[0].translations).toEqual({ kk: { name: 'А корпусы' } });
+    expect(warnings.filter((w) => w.includes('код языка'))).toHaveLength(2);
+  });
+
+  it('перевод без имени отбрасывается с предупреждением', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(translated({ building: { en: { name: '' } }, alias: { en: { names: [] } } }))
+    );
+
+    expect(dataset.buildingMetas[0].translations).toBeUndefined();
+    expect(dataset.aliases[0].translations).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('translations.en'))).toHaveLength(2);
+  });
+
+  it('translations не объектом — поле пропущено с предупреждением', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(translated({ alias: ['Library'] }))
+    );
+
+    expect(dataset.aliases[0].translations).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('translations'))).toHaveLength(1);
   });
 });

@@ -51,6 +51,20 @@ const QWERTY_TO_CYRILLIC: Readonly<Record<string, string>> = Object.freeze({
   ',': 'б', '.': 'ю', '`': 'ё',
 });
 
+/**
+ * Латинские буквы, совпадающие с кириллическими и видом, и звучанием, → кириллица.
+ *
+ * `b`, `h`, `p`, `y` не входят намеренно. Латинская «B» — транслитерация «Б», а
+ * видом совпадает с «В»; «H» по виду «Н», а по звучанию «Х»; «P» по виду «Р», а
+ * по звучанию «П». Свёртка по одному виду уверенно вела бы в чужой корпус.
+ * «ё» сворачивается в «е»: в названиях её пишут через раз.
+ */
+const HOMOGLYPHS: Readonly<Record<string, string>> = Object.freeze({
+  a: 'а', e: 'е', k: 'к', m: 'м', o: 'о', t: 'т', c: 'с', x: 'х', ё: 'е',
+});
+
+const HOMOGLYPH_PATTERN = new RegExp(`[${Object.keys(HOMOGLYPHS).join('')}]`, 'g');
+
 export class AliasManager {
   /**
    * Нормализованное имя → id узлов с таким именем.
@@ -68,6 +82,9 @@ export class AliasManager {
 
   /** id узла → его имена в порядке объявления; первое считается основным. */
   private idToAliases = new Map<string, string[]>();
+
+  /** id узла → переводы его имён, как они пришли из данных. */
+  private idToTranslations = new Map<string, NonNullable<AliasEntry['translations']>>();
 
   private cache = new Map<string, CacheEntry>();
 
@@ -87,6 +104,7 @@ export class AliasManager {
     this.aliasToIds.clear();
     this.index = [];
     this.idToAliases.clear();
+    this.idToTranslations.clear();
     this.cache.clear();
 
     const seen = new Set<string>();
@@ -101,38 +119,55 @@ export class AliasManager {
       const displayNameOrder: string[] = [];
 
       for (const display of names) {
-        if (!display) continue;
-
-        const normalized = this.normalize(display);
-        if (!normalized) continue;
-
-        const key = `${entry.id}|${normalized}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        const owners = this.aliasToIds.get(normalized);
-        if (owners) {
-          if (!owners.includes(entry.id)) owners.push(entry.id);
-        } else {
-          this.aliasToIds.set(normalized, [entry.id]);
-        }
-
-        const tokens = this.tokenize(normalized);
-        this.index.push({
-          id: entry.id,
-          display,
-          normalized,
-          tokens,
-          acronym: this.makeAcronym(tokens),
-        });
-
-        displayNameOrder.push(display);
+        if (this.indexName(entry.id, display, seen)) displayNameOrder.push(display);
       }
 
       if (displayNameOrder.length > 0) {
         this.idToAliases.set(entry.id, displayNameOrder);
       }
+
+      // Имена на других языках ищутся наравне с основными: студент набирает
+      // название на своём языке, даже если не переключил язык интерфейса.
+      if (entry.translations) this.idToTranslations.set(entry.id, entry.translations);
+      for (const translation of Object.values(entry.translations ?? {})) {
+        for (const display of translation.names) this.indexName(entry.id, display, seen);
+      }
     }
+  }
+
+  /**
+   * Добавляет одну форму имени узла в индекс.
+   *
+   * @param seen пары «узел + нормализованное имя», уже попавшие в индекс
+   * @returns `false`, если имя пустое или у узла уже есть такая форма
+   */
+  private indexName(id: string, display: string, seen: Set<string>): boolean {
+    if (!display) return false;
+
+    const normalized = this.normalize(display);
+    if (!normalized) return false;
+
+    const key = `${id}|${normalized}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+
+    const owners = this.aliasToIds.get(normalized);
+    if (owners) {
+      if (!owners.includes(id)) owners.push(id);
+    } else {
+      this.aliasToIds.set(normalized, [id]);
+    }
+
+    const tokens = this.tokenize(normalized);
+    this.index.push({
+      id,
+      display,
+      normalized,
+      tokens,
+      acronym: this.makeAcronym(tokens),
+    });
+
+    return true;
   }
 
   /** Число проиндексированных форм имён. */
@@ -171,13 +206,21 @@ export class AliasManager {
    * нормализации имён принадлежит этому классу — вторая его копия в
    * загрузчике разошлась бы с первой.
    *
-   * @returns нормализованное имя → id узлов
+   * @returns имя в том виде, в каком оно впервые встретилось в данных, → id
+   *          узлов. Не нормализованная форма: после свёртки латинских
+   *          двойников она нечитаема («Canteen» → «саnтееn»), а список
+   *          показывается разметчику.
    */
   ambiguousAliases(): Map<string, readonly string[]> {
     const result = new Map<string, readonly string[]>();
+    const seen = new Set<string>();
 
-    for (const [normalized, ids] of this.aliasToIds) {
-      if (ids.length > 1) result.set(normalized, ids);
+    for (const record of this.index) {
+      if (seen.has(record.normalized)) continue;
+      seen.add(record.normalized);
+
+      const ids = this.aliasToIds.get(record.normalized) ?? EMPTY;
+      if (ids.length > 1) result.set(record.display, ids);
     }
 
     return result;
@@ -190,9 +233,16 @@ export class AliasManager {
 
   /**
    * Основное имя узла — первое в списке алиасов.
-   * Используется в пошаговых инструкциях маршрута.
+   *
+   * С языком интерфейса — первое имя перевода на этот язык. Без перевода
+   * возвращается исходное имя: помещение без английского названия англоязычный
+   * интерфейс покажет по-русски, но покажет, а не потеряет.
    */
-  getPrimaryAliasForId(id: string): string | null {
+  getPrimaryAliasForId(id: string, language?: string): string | null {
+    const translated =
+      language !== undefined ? this.idToTranslations.get(id)?.[language]?.names[0] : undefined;
+    if (translated !== undefined) return translated;
+
     const list = this.idToAliases.get(id);
     return list && list.length > 0 ? list[0] : null;
   }
@@ -263,10 +313,19 @@ export class AliasManager {
     return unique.slice(0, limit);
   }
 
-  /** Приводит имя к форме, пригодной для сравнения. */
+  /**
+   * Приводит имя к форме, пригодной для сравнения.
+   *
+   * Кроме регистра и пунктуации сворачивает латинские буквы, которые совпадают
+   * с кириллическими и видом, и звучанием, а «ё» — в «е». Номер «А-305» на
+   * табличке кириллический, а иностранный студент — и любой, у кого включена
+   * английская раскладка, — набирает «A-305» латиницей. Свёртка одинаково
+   * применяется к индексу и к запросу, поэтому английским именам она не мешает.
+   */
   private normalize(s: string): string {
     return s
       .toLowerCase()
+      .replace(HOMOGLYPH_PATTERN, (ch) => HOMOGLYPHS[ch] ?? ch)
       .replace(/[_\-/\\]/g, ' ')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .replace(/\s+/g, ' ')

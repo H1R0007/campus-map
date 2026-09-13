@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import type {
+  AliasEntry,
   BuildingMeta,
   CampusMeta,
   FloorMeta,
@@ -41,7 +42,7 @@ export interface ExportOptions {
   nodes: Map<string, MapNode>;
   transitions: Transition[];
   buildingMetas: Map<string, BuildingMeta>;
-  aliases?: { id: string; names: string[] }[];
+  aliases?: AliasEntry[];
 
   /**
    * Метаданные кампуса, из которых датасет был загружен.
@@ -215,6 +216,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
           name: meta.name,
           entranceFloor: meta.entranceFloor,
           placement: meta.placement,
+          translations: meta.translations,
           floors: meta.floors.map(
             (f) =>
               ({
@@ -264,10 +266,29 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
     )
   );
 
-  // === Алиасы: пустые списки не несут смысла ===
+  // === Алиасы ===
+  // Запись без основных имён не пишется: перевод без имени на языке данных
+  // нечем показать в интерфейсе, для языка которого перевода нет.
   dataFolder.file(
     'aliases.json',
-    JSON.stringify({ aliases: aliases.filter((a) => a.names.length > 0) }, null, 2)
+    JSON.stringify(
+      {
+        aliases: aliases
+          .filter((a) => (a.names?.length ?? 0) > 0)
+          .map(
+            (a) =>
+              ({
+                id: a.id,
+                // Устаревшая одиночная форма не пишется: загрузчик приводит её к `names`.
+                name: undefined,
+                names: a.names,
+                translations: a.translations,
+              }) satisfies EveryField<AliasEntry>
+          ),
+      },
+      null,
+      2
+    )
   );
 
   zip.file('README.md', ZIP_README.replace('{timestamp}', new Date().toISOString()));

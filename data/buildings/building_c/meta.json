@@ -1,9 +1,18 @@
 {
   "id": "building_c",
   "name": "Корпус В",
+  "translations": {
+    "en": {
+      "name": "Building V"
+    }
+  },
   "floors": [
     {
-      "floor": 1
+      "floor": 1,
+      "mapSize": {
+        "width": 792,
+        "height": 389
+      }
     }
   ]
 }

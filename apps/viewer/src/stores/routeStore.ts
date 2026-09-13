@@ -1,13 +1,9 @@
 import { create } from 'zustand';
-import type {
-  AliasManager,
-  Graph,
-  PathResult,
-  PathfindingOptions,
-  SearchSuggestion,
-} from '@campus-map/core';
-import { DEFAULT_PATHFINDING_OPTIONS, findPath, scopeOfNode } from '@campus-map/core';
+import type { PathResult, PathfindingOptions } from '@campus-map/core';
+import { DEFAULT_PATHFINDING_OPTIONS, findPath } from '@campus-map/core';
+import { resolvePoint } from '../utils/deepLink';
 import { useMapStore } from './mapStore';
+import { useSettingsStore } from './settingsStore';
 
 /** Какое из двух полей ввода сейчас редактируется. */
 export type RouteField = 'from' | 'to';
@@ -23,8 +19,23 @@ interface RouteState {
 
   options: PathfindingOptions;
 
+  /** Правка текста поля. Маршрут не строит — см. запись 5 в `DECISIONS.md`. */
   setQuery: (field: RouteField, query: string) => void;
-  selectSuggestion: (field: RouteField, suggestion: SearchSuggestion) => void;
+
+  /**
+   * Точка маршрута, заданная узлом, — единственный способ сделать это из
+   * интерфейса: подсказкой поиска, нажатием на карту, ссылкой.
+   *
+   * Если после этого известны обе точки, маршрут строится сразу: вторую
+   * точку пользователь выбрал явно, и отдельное нажатие «Построить» ничего бы
+   * не добавило. Набор текста в поле маршрут по-прежнему не строит.
+   *
+   * @param label текст поля; по умолчанию — основное имя узла на языке
+   *        интерфейса (подсказка передаёт имя, которое пользователь увидел)
+   * @returns маршрут между точками либо `null`, если второй точки ещё нет
+   */
+  setPoint: (field: RouteField, nodeId: string, label?: string) => PathResult | null;
+
   setOptions: (options: Partial<PathfindingOptions>) => void;
   buildRoute: () => void;
   clearRoute: () => void;
@@ -48,58 +59,7 @@ function routeMatches(
   return route.path[0] === fromNodeId && route.path[route.path.length - 1] === toNodeId;
 }
 
-/**
- * Переводит карту туда, где маршрут начинается.
- *
- * Без этого построение маршрута не показывало маршрут: навигатор стартует в
- * виде кампуса, а `PathLayer` рисует только узлы текущей области видимости,
- * поэтому линия целиком отфильтровывалась и пользователь видел неизменную
- * карту с подписью «Маршрут готов».
- *
- * Правило «какому виду принадлежит узел» берётся из ядра (`scopeOfNode`), а
- * не выводится здесь по полям узла.
- */
-function focusRouteStart(graph: Graph, route: PathResult): void {
-  const startNode = route.path.length > 0 ? graph.getNode(route.path[0]) : undefined;
-  if (!startNode) return;
-
-  const scope = scopeOfNode(startNode);
-  const { setActiveFloor, clearActiveFloor } = useMapStore.getState();
-
-  if (scope.mode === 'campus') {
-    clearActiveFloor();
-  } else {
-    setActiveFloor(scope.buildingId, scope.floor);
-  }
-}
-
-/**
- * Разрешает введённый текст в id узла.
- *
- * Сначала — точное совпадение с алиасом, затем прямой id узла: это позволяет
- * открывать ссылку вида `?from=a1_room101` и отлаживать данные без алиасов.
- */
-function resolveQuery(
-  query: string,
-  graph: Graph | null,
-  aliasManager: AliasManager | null
-): string | null {
-  const trimmed = query.trim();
-  if (!trimmed) return null;
-
-  const byAlias = aliasManager?.resolve(trimmed) ?? null;
-  if (byAlias) return byAlias;
-
-  return graph?.hasNode(trimmed) ? trimmed : null;
-}
-
 export const useRouteStore = create<RouteState>((set, get) => {
-  /**
-   * Общая реализация для полей «откуда» и «куда».
-   *
-   * Прежде `setFromQuery` и `setToQuery` были двумя копиями одиннадцати
-   * строк и успели получить одинаковый комментарий-маркер правки.
-   */
   /**
    * Сбрасывает показанный маршрут, если он больше не ведёт между выбранными
    * точками. Иначе карточка печатала бы новый текст запроса рядом со старой
@@ -111,25 +71,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
     }
   };
 
-  const applyQuery = (field: RouteField, query: string) => {
-    const { graph, aliasManager } = useMapStore.getState();
-    const nodeId = resolveQuery(query, graph, aliasManager);
-
+  /** Общая запись точки для обоих полей: текст, узел и снятие устаревшего маршрута. */
+  const applyPoint = (field: RouteField, query: string, nodeId: string | null) => {
     set(
       field === 'from'
         ? { fromQuery: query, fromNodeId: nodeId }
         : { toQuery: query, toNodeId: nodeId }
-    );
-
-    const { fromNodeId, toNodeId } = get();
-    dropStaleRoute(fromNodeId, toNodeId);
-  };
-
-  const applySuggestion = (field: RouteField, suggestion: SearchSuggestion) => {
-    set(
-      field === 'from'
-        ? { fromQuery: suggestion.alias, fromNodeId: suggestion.id }
-        : { toQuery: suggestion.alias, toNodeId: suggestion.id }
     );
 
     const { fromNodeId, toNodeId } = get();
@@ -153,7 +100,10 @@ export const useRouteStore = create<RouteState>((set, get) => {
     const route = findPath(graph, fromNodeId, toNodeId, options);
     set({ currentRoute: route });
 
-    if (route.found) focusRouteStart(graph, route);
+    // Карта переходит туда, где маршрут начинается. Без этого построенный
+    // маршрут не было видно: навигатор стартует в виде кампуса, а слой
+    // маршрута рисует только узлы текущей области видимости.
+    if (route.found) useMapStore.getState().showNode(route.path[0]);
 
     return route;
   };
@@ -169,9 +119,23 @@ export const useRouteStore = create<RouteState>((set, get) => {
     // и расхождение между двумя наборами никто бы не заметил.
     options: { ...DEFAULT_PATHFINDING_OPTIONS },
 
-    setQuery: (field, query) => applyQuery(field, query),
+    setQuery: (field, query) => {
+      const { graph, aliasManager } = useMapStore.getState();
+      applyPoint(field, query, resolvePoint(query, graph, aliasManager));
+    },
 
-    selectSuggestion: (field, suggestion) => applySuggestion(field, suggestion),
+    setPoint: (field, nodeId, label) => {
+      const aliasManager = useMapStore.getState().aliasManager;
+      const language = useSettingsStore.getState().language;
+
+      applyPoint(field, label ?? aliasManager?.getPrimaryAliasForId(nodeId, language) ?? nodeId, nodeId);
+
+      const { fromNodeId, toNodeId, currentRoute } = get();
+      if (fromNodeId === null || toNodeId === null) return null;
+
+      // Маршрут между этими точками уже показан — `dropStaleRoute` его оставил.
+      return currentRoute ?? computeRoute();
+    },
 
     setOptions: (patch) => {
       set({ options: { ...get().options, ...patch } });

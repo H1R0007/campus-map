@@ -60,14 +60,3 @@ export function scopeOfNode(node: MapNode): ViewScope {
     ? { mode: 'campus' }
     : { mode: 'floor', buildingId: node.building, floor: node.floor };
 }
-
-/**
- * Отображаемое имя корпуса для подписей.
- */
-export function buildingDisplayName(
-  buildingId: string,
-  names: ReadonlyMap<string, string>
-): string {
-  if (buildingId === CAMPUS_BUILDING_ID) return 'Кампус';
-  return names.get(buildingId) ?? buildingId;
-}

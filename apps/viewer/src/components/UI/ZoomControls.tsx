@@ -1,6 +1,8 @@
 import React from 'react';
 import { useMap } from 'react-leaflet';
-import { usePixelMapGeometry } from '@campus-map/mapkit';
+import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
+import { useMessages } from '../../i18n';
+import { MAP_CHROME_INSETS } from '../Map/mapChrome';
 
 /**
  * Кнопки масштаба.
@@ -8,26 +10,27 @@ import { usePixelMapGeometry } from '@campus-map/mapkit';
  * Штатный зум Leaflet отключён на карте, потому что его оформление
  * выбивается из мобильного интерфейса; этот компонент заменяет его.
  *
- * Должен рендериться внутри `<PixelMap>`: использует и контекст карты, и
- * геометрию подложки. «Сбросить вид» подгоняет viewport под границы текущего
- * плана, поэтому работает одинаково для кампуса и для любого этажа —
- * прежняя версия была жёстко привязана к координатам одной конкретной карты.
+ * Должен рендериться внутри `<PixelMap>` (в колонке `MapRail`): использует и
+ * контекст карты, и геометрию подложки. «Показать план целиком» подгоняет вид
+ * под границы текущего плана с отступами под интерфейс — так же, как при
+ * открытии плана.
  */
 export const ZoomControls: React.FC = () => {
   const map = useMap();
   const { bounds } = usePixelMapGeometry();
+  const messages = useMessages();
 
   const resetView = () => {
-    map.fitBounds(bounds, { padding: [20, 20] });
+    map.fitBounds(bounds, fitPaddingOf(MAP_CHROME_INSETS));
   };
 
   return (
-    <div className="campus-zoom-controls" style={{ zIndex: 1000 }}>
+    <div className="campus-zoom-controls">
       <button
         type="button"
         onClick={() => map.zoomIn()}
         className="campus-zoom-controls__button"
-        aria-label="Приблизить"
+        aria-label={messages.map.zoomIn}
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -38,7 +41,7 @@ export const ZoomControls: React.FC = () => {
         type="button"
         onClick={() => map.zoomOut()}
         className="campus-zoom-controls__button"
-        aria-label="Отдалить"
+        aria-label={messages.map.zoomOut}
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -49,7 +52,7 @@ export const ZoomControls: React.FC = () => {
         type="button"
         onClick={resetView}
         className="campus-zoom-controls__button campus-zoom-controls__button--reset"
-        aria-label="Показать план целиком"
+        aria-label={messages.map.fitPlan}
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path

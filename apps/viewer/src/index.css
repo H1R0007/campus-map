@@ -13,8 +13,15 @@
  * анимации остались от удалённого `RouteInfo`.
  */
 
+/* Цвета темы — каналы RGB без `rgb()`: так Tailwind подставляет прозрачность
+   (`bg-primary/10`), а правило CSS берёт цвет как `rgb(var(--color-primary))`.
+   Фирменный цвет вуза — #0063CC. Классы Tailwind (`tailwind.config.js`),
+   правила ниже и canvas-слои карты (`utils/themeColor.ts`) берут цвета
+   отсюда; других объявлений фирменного цвета нет. */
 :root {
-    --color-primary: #2563eb;
+    --color-primary: 0 99 204;       /* #0063CC */
+    --color-primary-hover: 0 82 163; /* #0052A3 */
+    --color-start: 22 163 74;        /* #16A34A — начало маршрута */
     --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -30,10 +37,10 @@ html, body, #root {
 
 body {
     margin: 0;
-    /* Системный стек: навигатор не загружает веб-шрифты. Раньше первым в
-       списке стоял 'Inter', которого в приложении не было ни в npm, ни по
-       ссылке, — на машинах без установленного Inter declaration была
-       недостоверной, а стек всё равно падал на системный. */
+    /* Системный стек, и объявлен он только здесь: навигатор не загружает
+       веб-шрифты, а `tailwind.config.js` шрифт не переопределяет. Раньше
+       первым стоял 'Inter', которого в приложении не было ни в npm, ни по
+       ссылке, — стек всё равно падал на системный. */
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: #f5f5f5;
     -webkit-font-smoothing: antialiased;
@@ -77,12 +84,73 @@ button {
     border: none !important;
 }
 
+/* ===== Шапка и колонка управления картой ===== */
+
+/* Отступы этих блоков учтены в `MAP_CHROME_INSETS` и меняются вместе с ним.
+   Пустое место в ряду и в колонке жесты не перехватывает: карту можно тянуть
+   между кнопками. */
+
+.campus-map-header {
+    position: absolute;
+    top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    left: 0.75rem;
+    right: 0.75rem;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.campus-map-header > * {
+    pointer-events: auto;
+}
+
+/* Лента корпусов прокручивается жестом; системная полоса под чипами
+   выглядела как отдельный элемент интерфейса. */
+.campus-no-scrollbar {
+    scrollbar-width: none;
+}
+
+.campus-no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Правая колонка между шапкой и нижней карточкой: этажи сверху занимают
+   остаток высоты и прокручиваются, масштаб прижат к низу. */
+.campus-map-rail {
+    position: absolute;
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    /* Над свёрнутой карточкой любой высоты: высоту пишет `BottomSheet`. */
+    bottom: calc(var(--campus-sheet-height, 4.875rem) + 1.875rem + var(--safe-area-bottom));
+    right: 0.75rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+    pointer-events: none;
+}
+
+.campus-map-rail > * {
+    pointer-events: auto;
+}
+
+.campus-floor-list {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 /* ===== Кнопки масштаба ===== */
 
 .campus-zoom-controls {
-    position: absolute;
-    right: 1rem;
-    bottom: calc(6.5rem + var(--safe-area-bottom));
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -113,8 +181,43 @@ button {
     margin-top: 0.25rem;
 }
 
-/* ===== Маркеры ===== */
+/* ===== Состояние плана ===== */
 
+/* Подпись поверх скрытой подложки; нажатия проходят сквозь неё к карте. */
+.campus-plan-status {
+    position: absolute;
+    top: 4.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(17, 24, 39, 0.85);
+    color: #ffffff;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+}
+
+/* ===== Маршрут и маркеры ===== */
+
+/* Линия и концы маршрута красятся классами: Leaflet ставит атрибуты SVG
+   `stroke` и `fill`, которые не понимают `var()`, а правило CSS их
+   перекрывает. */
+.campus-route-line {
+    stroke: rgb(var(--color-primary));
+}
+
+.campus-endpoint--start {
+    fill: rgb(var(--color-start));
+}
+
+.campus-endpoint--end {
+    fill: rgb(var(--color-primary));
+}
+
+/* Подложку точки перехода задаёт цвет её типа (`TRANSITION_COLORS`), значок —
+   белый `currentColor`. */
 .campus-marker--portal span {
     display: flex;
     align-items: center;
@@ -124,30 +227,13 @@ button {
     border-radius: 9999px;
     border: 2px solid #ffffff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-    font-size: 11px;
-    line-height: 1;
-}
-
-/* Подсказка перехода: убираем штатную рамку и хвост Leaflet. */
-.portal-tooltip {
-    background: rgba(17, 24, 39, 0.9);
     color: #ffffff;
-    border: none;
-    border-radius: 0.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    white-space: nowrap;
-}
-
-.portal-tooltip::before {
-    display: none;
 }
 
 /* ===== Фокус ===== */
 
 button:focus-visible,
 input:focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid rgb(var(--color-primary));
     outline-offset: 2px;
 }

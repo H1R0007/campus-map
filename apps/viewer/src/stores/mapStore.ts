@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { scopeOfFloor } from '@campus-map/core';
+import { scopeOfFloor, scopeOfNode } from '@campus-map/core';
 import type {
   AliasManager,
   BuildingMeta,
@@ -47,9 +47,28 @@ interface MapState {
    */
   activeFloor: ActiveFloor | null;
 
+  /**
+   * Место, выбранное нажатием на карту: узел, для которого показана карточка
+   * «Отсюда / Сюда». Состояние интерфейса — вычислить его не из чего.
+   *
+   * Принадлежит показанному плану: смена этажа выбор снимает, иначе карточка
+   * описывала бы место, которого на карте нет.
+   */
+  selectedNodeId: string | null;
+
   setData: (data: MapData) => void;
   setActiveFloor: (buildingId: string, floor: number) => void;
   clearActiveFloor: () => void;
+  selectNode: (nodeId: string | null) => void;
+
+  /**
+   * Показывает область карты, где находится узел: его этаж или территорию.
+   *
+   * Одно правило для построенного маршрута (карта переходит к началу) и для
+   * ссылки «вы здесь»; какому виду принадлежит узел, решает ядро
+   * (`scopeOfNode`), а не разбор полей узла на месте.
+   */
+  showNode: (nodeId: string) => void;
 }
 
 /**
@@ -104,6 +123,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   buildingMetas: null,
 
   activeFloor: null,
+  selectedNodeId: null,
 
   setData: (data) => set(data),
 
@@ -114,11 +134,24 @@ export const useMapStore = create<MapState>((set, get) => ({
     const current = get().activeFloor;
     if (current?.buildingId === buildingId && current.floor === floor) return;
 
-    set({ activeFloor: { buildingId, floor } });
+    set({ activeFloor: { buildingId, floor }, selectedNodeId: null });
   },
 
   clearActiveFloor: () => {
     if (get().activeFloor === null) return;
-    set({ activeFloor: null });
+    set({ activeFloor: null, selectedNodeId: null });
+  },
+
+  selectNode: (nodeId) => {
+    if (get().selectedNodeId !== nodeId) set({ selectedNodeId: nodeId });
+  },
+
+  showNode: (nodeId) => {
+    const node = get().graph?.getNode(nodeId);
+    if (!node) return;
+
+    const scope = scopeOfNode(node);
+    if (scope.mode === 'campus') get().clearActiveFloor();
+    else get().setActiveFloor(scope.buildingId, scope.floor);
   },
 }));

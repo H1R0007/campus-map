@@ -2,34 +2,81 @@
   "nodes": [
     {
       "id": "c1_entrance",
-      "x": 1000,
-      "y": 320,
-      "neighbors": [ "c1_hall" ],
+      "x": 396,
+      "y": 366,
+      "neighbors": [
+        "c1_hall"
+      ],
       "isPortal": true
     },
     {
       "id": "c1_hall",
-      "x": 1000,
-      "y": 270,
-      "neighbors": [ "c1_entrance", "c1_gym", "c1_pool", "c1_lockers" ]
+      "x": 396,
+      "y": 272,
+      "neighbors": [
+        "c1_entrance",
+        "c1_corridor_w",
+        "c1_corridor_e"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_corridor_w",
+      "x": 198,
+      "y": 175,
+      "neighbors": [
+        "c1_hall",
+        "c1_gym",
+        "c1_lockers"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_corridor_e",
+      "x": 594,
+      "y": 175,
+      "neighbors": [
+        "c1_hall",
+        "c1_pool",
+        "c1_athletics"
+      ],
+      "isPortal": false
     },
     {
       "id": "c1_gym",
-      "x": 950,
-      "y": 230,
-      "neighbors": [ "c1_hall" ]
+      "x": 198,
+      "y": 58,
+      "neighbors": [
+        "c1_corridor_w"
+      ],
+      "isPortal": false
     },
     {
       "id": "c1_pool",
-      "x": 1050,
-      "y": 230,
-      "neighbors": [ "c1_hall" ]
+      "x": 594,
+      "y": 58,
+      "neighbors": [
+        "c1_corridor_e"
+      ],
+      "isPortal": false
     },
     {
       "id": "c1_lockers",
-      "x": 1000,
-      "y": 220,
-      "neighbors": [ "c1_hall" ]
+      "x": 119,
+      "y": 292,
+      "neighbors": [
+        "c1_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_athletics",
+      "x": 673,
+      "y": 292,
+      "neighbors": [
+        "c1_corridor_e"
+      ],
+      "isPortal": false
     }
   ]
 }

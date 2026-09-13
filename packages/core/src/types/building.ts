@@ -128,8 +128,22 @@ export interface BuildingMeta {
   /** Привязка планов корпуса к территории кампуса. */
   placement?: BuildingPlacement;
 
+  /**
+   * Имя корпуса на других языках интерфейса: код языка (`en`) → перевод.
+   *
+   * `name` — на языке данных, русском; без перевода интерфейс показывает его.
+   */
+  translations?: Record<string, BuildingTranslation>;
+
   /** Список этажей */
   floors: FloorMeta[];
+}
+
+/**
+ * Перевод метаданных корпуса. Повторяет переводимые поля записи.
+ */
+export interface BuildingTranslation {
+  name: string;
 }
 
 /**
@@ -154,4 +168,14 @@ export interface CampusMeta {
    * датасет работает в пиксельном режиме, даже если все корпуса привязаны.
    */
   metersPerPixel?: number;
+}
+
+/**
+ * Имя корпуса на языке интерфейса; без перевода — исходное.
+ *
+ * Правило выбора живёт рядом с форматом перевода, а не в каждом приложении:
+ * иначе навигатор и редактор однажды разошлись бы в том, что показывать.
+ */
+export function buildingName(meta: BuildingMeta, language: string): string {
+  return meta.translations?.[language]?.name ?? meta.name;
 }
