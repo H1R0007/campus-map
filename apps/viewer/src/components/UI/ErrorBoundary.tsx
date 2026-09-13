@@ -41,7 +41,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             {messages.app.reload}
           </button>

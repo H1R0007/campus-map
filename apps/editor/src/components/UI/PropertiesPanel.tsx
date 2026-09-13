@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { transitionTypeLabel, transitionTypeColor, transitionTypeIcon, TRANSITION_TYPES } from '@campus-map/core';
+import { transitionTypeLabel, TRANSITION_TYPES } from '@campus-map/core';
+import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 
@@ -277,11 +278,11 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                   }}
                   className="px-2 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-colors hover:opacity-90"
                   style={{
-                    backgroundColor: transitionTypeColor(type),
+                    backgroundColor: TRANSITION_COLORS[type],
                     color: 'white',
                   }}
                 >
-                  {transitionTypeIcon(type)} {transitionTypeLabel(type)}
+                  <TransitionGlyph type={type} size={14} /> {transitionTypeLabel(type)}
                 </button>
               ))}
             </div>
@@ -598,7 +599,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               <ul className="max-h-32 overflow-y-auto">
                 {transitions.map((t, idx) => {
                   const other = t.fromNode === node.id ? t.toNode : t.fromNode;
-                  const color = transitionTypeColor(t.type);
+                  const color = TRANSITION_COLORS[t.type];
 
                   return (
                     <li
@@ -611,7 +612,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                           className="px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1"
                           style={{ backgroundColor: color, color: 'white' }}
                         >
-                          {transitionTypeIcon(t.type)}
+                          <TransitionGlyph type={t.type} size={14} />
                         </span>
                         <button
                           onClick={() => selectSingleNode(other)}

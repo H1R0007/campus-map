@@ -60,7 +60,7 @@ export const FloorSelector: React.FC = () => {
             aria-current={isActive ? 'true' : undefined}
             aria-label={isOnRoute ? messages.map.floorOnRoute(label) : label}
             className={`relative w-11 h-11 flex-shrink-0 flex items-center justify-center text-sm font-semibold transition-colors ${
-              isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+              isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
             {formatFloor(floor)}
@@ -68,7 +68,7 @@ export const FloorSelector: React.FC = () => {
               <span
                 aria-hidden="true"
                 className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                  isActive ? 'bg-white' : 'bg-blue-600'
+                  isActive ? 'bg-white' : 'bg-primary'
                 }`}
               />
             )}

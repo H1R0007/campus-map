@@ -13,8 +13,15 @@
  * анимации остались от удалённого `RouteInfo`.
  */
 
+/* Цвета темы — каналы RGB без `rgb()`: так Tailwind подставляет прозрачность
+   (`bg-primary/10`), а правило CSS берёт цвет как `rgb(var(--color-primary))`.
+   Фирменный цвет вуза — #0063CC. Классы Tailwind (`tailwind.config.js`),
+   правила ниже и canvas-слои карты (`utils/themeColor.ts`) берут цвета
+   отсюда; других объявлений фирменного цвета нет. */
 :root {
-    --color-primary: #2563eb;
+    --color-primary: 0 99 204;       /* #0063CC */
+    --color-primary-hover: 0 82 163; /* #0052A3 */
+    --color-start: 22 163 74;        /* #16A34A — начало маршрута */
     --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -30,10 +37,10 @@ html, body, #root {
 
 body {
     margin: 0;
-    /* Системный стек: навигатор не загружает веб-шрифты. Раньше первым в
-       списке стоял 'Inter', которого в приложении не было ни в npm, ни по
-       ссылке, — на машинах без установленного Inter declaration была
-       недостоверной, а стек всё равно падал на системный. */
+    /* Системный стек, и объявлен он только здесь: навигатор не загружает
+       веб-шрифты, а `tailwind.config.js` шрифт не переопределяет. Раньше
+       первым стоял 'Inter', которого в приложении не было ни в npm, ни по
+       ссылке, — стек всё равно падал на системный. */
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: #f5f5f5;
     -webkit-font-smoothing: antialiased;
@@ -192,8 +199,25 @@ button {
     white-space: nowrap;
 }
 
-/* ===== Маркеры ===== */
+/* ===== Маршрут и маркеры ===== */
 
+/* Линия и концы маршрута красятся классами: Leaflet ставит атрибуты SVG
+   `stroke` и `fill`, которые не понимают `var()`, а правило CSS их
+   перекрывает. */
+.campus-route-line {
+    stroke: rgb(var(--color-primary));
+}
+
+.campus-endpoint--start {
+    fill: rgb(var(--color-start));
+}
+
+.campus-endpoint--end {
+    fill: rgb(var(--color-primary));
+}
+
+/* Подложку точки перехода задаёт цвет её типа (`TRANSITION_COLORS`), значок —
+   белый `currentColor`. */
 .campus-marker--portal span {
     display: flex;
     align-items: center;
@@ -203,14 +227,13 @@ button {
     border-radius: 9999px;
     border: 2px solid #ffffff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-    font-size: 11px;
-    line-height: 1;
+    color: #ffffff;
 }
 
 /* ===== Фокус ===== */
 
 button:focus-visible,
 input:focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid rgb(var(--color-primary));
     outline-offset: 2px;
 }

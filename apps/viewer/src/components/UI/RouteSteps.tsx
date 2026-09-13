@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { ViewScope } from '@campus-map/core';
+import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import { messagesFor, useLanguage } from '../../i18n';
 import type { Language } from '../../i18n/languages';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
@@ -27,6 +28,10 @@ function stepMeta(step: RouteStep, language: Language): string | null {
  * Весь шаг — кнопка, открывающая его этаж, а текущий вид карты подсвечен:
  * раньше под каждым шагом стояла отдельная маленькая кнопка «Открыть этаж N»,
  * и что сейчас на карте, по списку было не понять.
+ *
+ * У шага-перехода вместо номера — значок того же вида и цвета, что точка
+ * перехода на плане: лифт в списке узнаётся на карте. Номер для экранного
+ * диктора даёт сам нумерованный список.
  */
 export const RouteSteps: React.FC = () => {
   const currentRoute = useRouteStore((s) => s.currentRoute);
@@ -73,12 +78,25 @@ export const RouteSteps: React.FC = () => {
                 onClick={() => openScope(step.scope)}
                 aria-current={isCurrent ? 'step' : undefined}
                 className={`w-full flex items-start gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                  isCurrent ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  isCurrent ? 'bg-primary/10' : 'hover:bg-gray-50'
                 }`}
               >
-                <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-700 flex-shrink-0">
-                  {index + 1}
-                </span>
+                {step.kind === 'transition' && step.transition !== null ? (
+                  <span
+                    aria-hidden="true"
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                    style={{ backgroundColor: TRANSITION_COLORS[step.transition] }}
+                  >
+                    <TransitionGlyph type={step.transition} size={14} />
+                  </span>
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-700 flex-shrink-0"
+                  >
+                    {index + 1}
+                  </span>
+                )}
                 {/* Действие и место — отдельными строками: место — имя из
                     данных, и склонять его нельзя. */}
                 <span className="flex-1 min-w-0">

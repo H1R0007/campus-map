@@ -84,7 +84,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId, onOpenSheet }) => 
           <button
             type="button"
             onClick={() => choose('to')}
-            className="flex-1 h-11 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             {messages.place.to}
           </button>

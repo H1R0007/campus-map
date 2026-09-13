@@ -175,7 +175,7 @@ export const BottomSheet: React.FC = () => {
         <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-4 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-start flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-bold" aria-hidden="true">✓</span>
               </div>
 
@@ -193,7 +193,7 @@ export const BottomSheet: React.FC = () => {
                 ref={collapsedActionRef}
                 type="button"
                 onClick={() => openSheet(null)}
-                className="px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                className="px-3 py-2 rounded-xl text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
               >
                 {messages.route.showSteps}
               </button>
@@ -233,7 +233,7 @@ export const BottomSheet: React.FC = () => {
             onClick={() => openSheet('to')}
             className="w-full p-2 rounded-xl flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
           >
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold" aria-hidden="true">🔎</span>
             </div>
             <div className="flex-1 min-w-0">
@@ -263,7 +263,7 @@ export const BottomSheet: React.FC = () => {
         aria-labelledby={SHEET_TITLE_ID}
         className="fixed bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-96 z-[1000]"
       >
-        <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden pb-[env(safe-area-inset-bottom)] md:pb-0">
+        <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden pb-safe-bottom md:pb-0">
           <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-gray-100">
             <div className="min-w-0">
               <h2 id={SHEET_TITLE_ID} className="font-semibold text-gray-800">
@@ -305,7 +305,7 @@ export const BottomSheet: React.FC = () => {
                   }}
                   disabled={!canBuild}
                   className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    canBuild ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                    canBuild ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-gray-500 cursor-not-allowed'
                   }`}
                 >
                   {messages.route.build}

@@ -6,23 +6,17 @@ export default {
   ],
   theme: {
     extend: {
+      // Значения цветов — CSS-переменные из `src/index.css`, каналами RGB, чтобы
+      // работала прозрачность (`bg-primary/10`). Здесь только ссылки на них:
+      // фирменный цвет объявлен в одном месте, и оттуда же его берут слои карты.
       colors: {
         primary: {
-          50: '#e6f0ff',
-          100: '#b3d1ff',
-          200: '#80b3ff',
-          300: '#4d94ff',
-          400: '#1a75ff',
-          500: '#0063CC', // основной синий
-          600: '#0052a3',
-          700: '#00407a',
-          800: '#002e52',
-          900: '#001c29',
+          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
+          hover: 'rgb(var(--color-primary-hover) / <alpha-value>)',
         },
+        start: 'rgb(var(--color-start) / <alpha-value>)',
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
+      // Шрифт не переопределяется: системный стек объявлен в `src/index.css`.
       spacing: {
         'safe-bottom': 'env(safe-area-inset-bottom)',
         'safe-top': 'env(safe-area-inset-top)',

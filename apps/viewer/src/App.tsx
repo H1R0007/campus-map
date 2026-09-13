@@ -47,7 +47,7 @@ const App: React.FC = () => {
           {/* border-4: класса border-3 в Tailwind нет по умолчанию, и он не
               был расширен в конфиге — из-за этого индикатор был невидимым. */}
           <div
-            className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"
             role="status"
             aria-label={messages.app.loading}
           />
@@ -77,7 +77,7 @@ const App: React.FC = () => {
             // заставляет заново поднимать всё приложение, тогда как хук
             // умеет повторить ровно неудавшийся запрос.
             onClick={() => void loadAllData()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             {messages.app.retry}
           </button>

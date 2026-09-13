@@ -101,35 +101,3 @@ export function transitionTypeLabel(type: TransitionType): string {
       return 'Переход';
   }
 }
-
-/**
- * Иконка для типа перехода.
- */
-export function transitionTypeIcon(type: TransitionType): string {
-  switch (type) {
-    case 'entrance':
-      return '🚪';
-    case 'stairs':
-      return '🪜';
-    case 'lift':
-      return '🛗';
-    case 'bridge':
-      return '🌉';
-  }
-}
-
-/**
- * Цвет для типа перехода (hex).
- */
-export function transitionTypeColor(type: TransitionType): string {
-  switch (type) {
-    case 'entrance':
-      return '#f59e0b'; // amber
-    case 'stairs':
-      return '#22c55e'; // green
-    case 'lift':
-      return '#3b82f6'; // blue
-    case 'bridge':
-      return '#a855f7'; // purple
-  }
-}

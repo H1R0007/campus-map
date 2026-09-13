@@ -134,9 +134,9 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
     <>
       <div className="flex gap-3 items-start">
         <div className="flex flex-col items-center pt-3" aria-hidden="true">
-          <div className={`w-3 h-3 rounded-full ${fromNodeId ? 'bg-green-500' : 'bg-gray-300'}`} />
+          <div className={`w-3 h-3 rounded-full ${fromNodeId ? 'bg-start' : 'bg-gray-300'}`} />
           <div className="w-0.5 bg-gray-200 my-2 h-10" />
-          <div className={`w-3 h-3 rounded-full ${toNodeId ? 'bg-blue-500' : 'bg-gray-300'}`} />
+          <div className={`w-3 h-3 rounded-full ${toNodeId ? 'bg-primary' : 'bg-gray-300'}`} />
         </div>
 
         <div className="flex-1 space-y-2">
@@ -149,7 +149,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
             aria-label={messages.search.from}
             autoComplete="off"
             {...comboboxProps('from')}
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-green-400 transition-colors"
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-start transition-colors"
           />
 
           <input
@@ -161,7 +161,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
             aria-label={messages.search.to}
             autoComplete="off"
             {...comboboxProps('to')}
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-blue-400 transition-colors"
+            className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-primary transition-colors"
           />
         </div>
 
@@ -194,7 +194,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => onPointChosen(activeInput, s.id, s.alias)}
               className={`cursor-pointer px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 ${
-                i === activeOption ? 'bg-blue-50' : 'hover:bg-gray-50'
+                i === activeOption ? 'bg-primary/10' : 'hover:bg-gray-50'
               }`}
             >
               <div className="text-sm text-gray-800">{s.alias}</div>

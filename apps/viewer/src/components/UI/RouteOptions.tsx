@@ -14,7 +14,7 @@ const Toggle: React.FC<ToggleProps> = ({ pressed, label, onToggle }) => (
     onClick={onToggle}
     aria-pressed={pressed}
     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      pressed ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      pressed ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
     }`}
   >
     {label}

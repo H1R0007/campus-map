@@ -15,9 +15,13 @@
   "scripts": {
     "build": "tsc --build",
     "dev": "tsc --build --watch",
-    "typecheck": "tsc --build",
-    "lint": "eslint src",
+    "typecheck": "tsc --build && tsc -p tsconfig.test.json",
+    "lint": "eslint src tests",
+    "test": "vitest run",
     "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
+  },
+  "dependencies": {
+    "@campus-map/core": "workspace:*"
   },
   "peerDependencies": {
     "leaflet": "^1.9.4",
@@ -33,6 +37,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
   }
 }

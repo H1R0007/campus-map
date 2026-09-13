@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { transitionTypeColor } from '@campus-map/core';
+import { TRANSITION_COLORS } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const EditorTransitions: React.FC = () => {
@@ -52,8 +52,8 @@ export const EditorTransitions: React.FC = () => {
 
         const isHovered = hoveredTransition?.from === t.fromNode && hoveredTransition?.to === t.toNode;
 
-        // Используем цвет из core
-        const color = transitionTypeColor(t.type);
+        // Цвет типа перехода — общий с навигатором.
+        const color = TRANSITION_COLORS[t.type];
 
         return (
           <Polyline

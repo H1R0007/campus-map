@@ -4,6 +4,7 @@ import L from 'leaflet';
 import type { MapNode } from '@campus-map/core';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { pickNode } from '../../utils/mapPicking';
+import { themeColor } from '../../utils/themeColor';
 
 /** Радиус касания, CSS-пиксели: примерно подушечка пальца. */
 const TAP_RADIUS = 28;
@@ -29,8 +30,10 @@ export const PlaceLayer: React.FC = () => {
   const selectNode = useMapStore((s) => s.selectNode);
   const map = useMap();
 
-  // Сотни точек этажа — один canvas, а не сотни SVG-элементов.
+  // Сотни точек этажа — один canvas, а не сотни SVG-элементов. Классов
+  // canvas не получает, поэтому фирменный цвет берётся из токена темы.
   const renderer = useMemo(() => L.canvas({ padding: 0.5 }), []);
+  const primary = useMemo(() => themeColor('--color-primary'), []);
 
   const nodes = useMemo(() => {
     if (!graph) return [];
@@ -68,7 +71,7 @@ export const PlaceLayer: React.FC = () => {
             radius={4}
             renderer={renderer}
             interactive={false}
-            pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#ffffff', fillOpacity: 1 }}
+            pathOptions={{ color: primary, weight: 2, fillColor: '#ffffff', fillOpacity: 1 }}
           />
         ))}
 
@@ -78,7 +81,7 @@ export const PlaceLayer: React.FC = () => {
           radius={14}
           renderer={renderer}
           interactive={false}
-          pathOptions={{ color: '#2563eb', weight: 3, fillColor: '#2563eb', fillOpacity: 0.2 }}
+          pathOptions={{ color: primary, weight: 3, fillColor: primary, fillOpacity: 0.2 }}
         />
       )}
     </>
