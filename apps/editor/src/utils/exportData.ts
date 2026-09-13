@@ -212,6 +212,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
         {
           id: meta.id,
           name: meta.name,
+          entranceFloor: meta.entranceFloor,
           floors: meta.floors.map(
             (f) => ({ floor: f.floor, mapSize: f.mapSize }) satisfies EveryField<FloorMeta>
           ),

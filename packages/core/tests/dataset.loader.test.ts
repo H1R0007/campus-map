@@ -238,3 +238,46 @@ describe('loadDataset: метаданные этажа', () => {
     expect(source.requested).toContain(floorGraphPath('bA', 1));
   });
 });
+
+describe('loadDataset: входной этаж корпуса', () => {
+  /** Корпус с этажами 0 и 1 и заданным значением `entranceFloor`. */
+  function withEntrance(entranceFloor: unknown): Files {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: {
+        id: 'bA',
+        name: 'Корпус А',
+        entranceFloor,
+        floors: [{ floor: 0 }, { floor: 1 }],
+      },
+      [floorGraphPath('bA', 0)]: { nodes: [] },
+      [floorGraphPath('bA', 1)]: { nodes: [] },
+    };
+  }
+
+  it('номер объявленного этажа читается', async () => {
+    const { dataset, warnings } = await loadDataset(memorySource(withEntrance(0)));
+
+    expect(dataset.buildingMetas[0].entranceFloor).toBe(0);
+    expect(warnings.filter((w) => w.includes('entranceFloor'))).toEqual([]);
+  });
+
+  it('этаж, которого нет в списке, отбрасывается с предупреждением', async () => {
+    // Навигатор открыл бы по нему несуществующий план — серый холст.
+    const { dataset, warnings } = await loadDataset(memorySource(withEntrance(5)));
+
+    expect(dataset.buildingMetas[0].entranceFloor).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('entranceFloor'))).toHaveLength(1);
+  });
+
+  it('строка вместо числа отбрасывается с предупреждением', async () => {
+    const { dataset, warnings } = await loadDataset(memorySource(withEntrance('1')));
+
+    expect(dataset.buildingMetas[0].entranceFloor).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('entranceFloor'))).toHaveLength(1);
+  });
+});

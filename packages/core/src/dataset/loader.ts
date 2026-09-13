@@ -107,6 +107,32 @@ function readMapSize(value: unknown, where: string, warnings: string[]): MapSize
 }
 
 /**
+ * Необязательный входной этаж корпуса.
+ *
+ * Обязан совпадать с одним из объявленных этажей: навигатор открывает его по
+ * выбору корпуса, и несуществующий номер дал бы серый холст вместо плана.
+ */
+function readEntranceFloor(
+  value: unknown,
+  floors: FloorMeta[],
+  path: string,
+  warnings: string[]
+): number | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  const floor = asStrictNumber(value);
+  if (floor !== undefined && floors.some((meta) => meta.floor === floor)) {
+    return floor;
+  }
+
+  warnings.push(
+    `${path}: entranceFloor ${JSON.stringify(value)} не совпадает ни с одним ` +
+      `объявленным этажом — поле пропущено`
+  );
+  return undefined;
+}
+
+/**
  * Приводит сырой узел к `MapNode`.
  *
  * `building` и `floor` берутся из расположения файла, а не из JSON: экспорт
@@ -346,6 +372,14 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
       name: asOptionalString(rawMeta.name) ?? entry.name ?? entry.id,
       floors: normalizeFloors(rawMeta, metaPath, metaWarnings),
     };
+
+    const entranceFloor = readEntranceFloor(
+      rawMeta.entranceFloor,
+      meta.floors,
+      metaPath,
+      metaWarnings
+    );
+    if (entranceFloor !== undefined) meta.entranceFloor = entranceFloor;
 
     if (meta.id !== entry.id) {
       metaWarnings.push(
