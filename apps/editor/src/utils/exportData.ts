@@ -185,6 +185,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
       {
         buildings: Array.from(buildingMetas.values()).map((b) => ({ id: b.id, name: b.name })),
         mapSize: resolveCampusMapSize(campusNodes, campusMeta),
+        metersPerPixel: campusMeta?.metersPerPixel,
       } satisfies EveryField<CampusMeta>,
       null,
       2
@@ -213,8 +214,15 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
           id: meta.id,
           name: meta.name,
           entranceFloor: meta.entranceFloor,
+          placement: meta.placement,
           floors: meta.floors.map(
-            (f) => ({ floor: f.floor, mapSize: f.mapSize }) satisfies EveryField<FloorMeta>
+            (f) =>
+              ({
+                floor: f.floor,
+                mapSize: f.mapSize,
+                placement: f.placement,
+                elevationMeters: f.elevationMeters,
+              }) satisfies EveryField<FloorMeta>
           ),
         } satisfies EveryField<BuildingMeta>,
         null,

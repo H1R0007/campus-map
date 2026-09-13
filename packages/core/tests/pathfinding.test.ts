@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Graph, findAlternativePaths, findPath } from '../src/index.js';
-import type { MapNode, PathfindingOptions } from '../src/index.js';
+import { Graph, createCampusProjection, findAlternativePaths, findPath } from '../src/index.js';
+import type { BuildingMeta, CampusMeta, MapNode, PathfindingOptions, Transition } from '../src/index.js';
 import { fixtureDataset } from './helpers/datasetFixture.js';
 
 function node(id: string, x: number, y: number, building = 'b', floor = 1, neighbors: string[] = []): MapNode {
@@ -8,8 +8,8 @@ function node(id: string, x: number, y: number, building = 'b', floor = 1, neigh
 }
 
 /** Сумма стоимостей шагов маршрута. */
-function segmentsSum(segments: { distance: number }[] | undefined): number {
-  return (segments ?? []).reduce((sum, segment) => sum + segment.distance, 0);
+function segmentsSum(segments: { cost: number }[] | undefined): number {
+  return (segments ?? []).reduce((sum, segment) => sum + segment.cost, 0);
 }
 
 describe('findPath', () => {
@@ -28,7 +28,7 @@ describe('findPath', () => {
 
       expect(result.found, `${from} -> ${to}`).toBe(true);
       expect(result.path, `${from} -> ${to}`).toHaveLength(hops);
-      expect(result.totalDistance).toBeGreaterThan(0);
+      expect(result.cost).toBeGreaterThan(0);
     }
   });
 
@@ -38,7 +38,7 @@ describe('findPath', () => {
 
     expect(result.found).toBe(true);
     expect(result.path).toEqual(['campus_gate']);
-    expect(result.totalDistance).toBe(0);
+    expect(result.cost).toBe(0);
     expect(result.segments).toHaveLength(0);
   });
 
@@ -57,7 +57,7 @@ describe('findPath', () => {
     expect(findPath(graph, 'campus_gate', 'NO_SUCH_NODE').error).toMatch(/[а-яА-Я]/);
   });
 
-  it('сумма стоимостей шагов равна totalDistance при любых опциях', async () => {
+  it('сумма стоимостей шагов равна стоимости пути при любых опциях', async () => {
     const graph = Graph.fromDataset(await fixtureDataset());
 
     const optionSets: PathfindingOptions[] = [
@@ -72,11 +72,11 @@ describe('findPath', () => {
       const result = findPath(graph, 'a1_room101', 'a3_room301', options);
       if (!result.found) continue;
 
-      // Расхождение здесь означало бы, что preferLift меняет веса рёбер,
-      // но не пересчитывает стоимости шагов — пользователь увидел бы
-      // «1200 м», а в разбивке было бы 900.
+      // Расхождение здесь означало бы, что preferLift меняет стоимость рёбер,
+      // но не пересчитывает стоимость шагов — итог и разбивка маршрута
+      // описывали бы разные пути.
       expect(
-        Math.abs(segmentsSum(result.segments) - result.totalDistance),
+        Math.abs(segmentsSum(result.segments) - result.cost),
         JSON.stringify(options)
       ).toBeLessThan(1e-9);
     }
@@ -88,7 +88,7 @@ describe('findPath', () => {
 
     expect(result.found).toBe(true);
     expect(
-      Math.abs(segmentsSum(result.segments) - result.totalDistance)
+      Math.abs(segmentsSum(result.segments) - result.cost)
     ).toBeLessThan(1e-9);
   });
 
@@ -136,6 +136,112 @@ describe('findPath', () => {
 
     expect(result.found).toBe(false);
     expect(result.error).toBeDefined();
+  });
+});
+
+describe('findPath: время и длина пути', () => {
+  /**
+   * Корпус из четырёх этажей высотой 4 м, план в масштабе 1 м на пиксель.
+   * На каждом этаже холл посередине: лестница в 5 м левее, лифт в 5 м
+   * правее. Лестница и лифт — цепочки переходов через все этажи, как их и
+   * размечают в данных.
+   */
+  function tower(): Graph {
+    const nodes: MapNode[] = [];
+    const transitions: Transition[] = [];
+
+    for (let floor = 1; floor <= 4; floor++) {
+      nodes.push(
+        node(`f${floor}_stairs`, 0, 0, 'tower', floor, [`f${floor}_hall`]),
+        node(`f${floor}_hall`, 5, 0, 'tower', floor, [`f${floor}_stairs`, `f${floor}_lift`]),
+        node(`f${floor}_lift`, 10, 0, 'tower', floor, [`f${floor}_hall`])
+      );
+
+      if (floor > 1) {
+        transitions.push({ fromNode: `f${floor - 1}_stairs`, toNode: `f${floor}_stairs`, type: 'stairs' });
+        transitions.push({ fromNode: `f${floor - 1}_lift`, toNode: `f${floor}_lift`, type: 'lift' });
+      }
+    }
+
+    const campus: CampusMeta = {
+      buildings: [{ id: 'tower' }],
+      mapSize: { width: 20, height: 20 },
+      metersPerPixel: 1,
+    };
+    const building: BuildingMeta = {
+      id: 'tower',
+      name: 'Башня',
+      placement: {
+        metersPerPixel: 1,
+        originMeters: { x: 0, y: 0 },
+        rotationDeg: 0,
+        baseElevationMeters: 0,
+        floorHeightMeters: 4,
+      },
+      floors: [1, 2, 3, 4].map((floor) => ({ floor })),
+    };
+
+    return new Graph(nodes, transitions, createCampusProjection(campus, [building]));
+  }
+
+  /** Ходьба от холла до лестницы или лифта: 5 м со скоростью 1,3 м/с. */
+  const HALL_WALK = 5 / 1.3;
+
+  it('в пиксельном режиме ни длины, ни времени нет', async () => {
+    const graph = Graph.fromDataset(await fixtureDataset());
+    const result = findPath(graph, 'a1_room101', 'a3_room301');
+
+    expect(result.found).toBe(true);
+    expect(result.distanceMeters).toBeNull();
+    expect(result.durationSeconds).toBeNull();
+  });
+
+  it('ожидание лифта входит в поездку один раз, а не на каждом этаже', () => {
+    const result = findPath(tower(), 'f1_hall', 'f4_hall');
+
+    // Лифт: 30 с ожидания и 12 м подъёма за 12 с. Лестница: те же 12 м за
+    // 60 с. С ожиданием на каждом этаже (90 с) лифт проиграл бы лестнице.
+    expect(result.path).toContain('f2_lift');
+    expect(result.durationSeconds).toBeCloseTo(2 * HALL_WALK + 30 + 12, 9);
+  });
+
+  it('без предпочтений стоимость пути равна времени в пути', () => {
+    const result = findPath(tower(), 'f1_hall', 'f4_hall');
+
+    expect(result.cost).toBeCloseTo(result.durationSeconds ?? Number.NaN, 9);
+  });
+
+  it('preferLift штрафует лестницу, но время того же пути не меняет', () => {
+    const graph = tower();
+    const plain = findPath(graph, 'f1_hall', 'f2_hall', { allowLift: false });
+    const preferring = findPath(graph, 'f1_hall', 'f2_hall', { allowLift: false, preferLift: true });
+
+    // Раньше навигатор делил стоимость на скорость, и время маршрута менялось
+    // от галочки «предпочитать лифт», хотя путь оставался тем же.
+    expect(preferring.path).toEqual(plain.path);
+    expect(preferring.durationSeconds).toBeCloseTo(plain.durationSeconds ?? Number.NaN, 9);
+    expect(preferring.cost).toBeGreaterThan(plain.cost);
+  });
+
+  it('preferLift выбирает лифт там, где лестница быстрее', () => {
+    // На один этаж лестница — 20 с подъёма, лифт — 34 с с ожиданием.
+    const graph = tower();
+
+    expect(findPath(graph, 'f1_hall', 'f2_hall').path).toContain('f2_stairs');
+    expect(findPath(graph, 'f1_hall', 'f2_hall', { preferLift: true }).path).toContain('f2_lift');
+  });
+
+  it('длина пути считается по плану: подъём на лифте её не увеличивает', () => {
+    const result = findPath(tower(), 'f1_hall', 'f4_hall');
+
+    expect(result.distanceMeters).toBeCloseTo(10, 9);
+  });
+
+  it('сумма стоимостей шагов равна стоимости пути и с посадкой в лифт', () => {
+    const result = findPath(tower(), 'f1_hall', 'f4_hall', { preferLift: true });
+
+    expect(result.found).toBe(true);
+    expect(Math.abs(segmentsSum(result.segments) - result.cost)).toBeLessThan(1e-9);
   });
 });
 

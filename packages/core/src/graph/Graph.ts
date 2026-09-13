@@ -1,4 +1,6 @@
 import { edgeKey, floorKey } from '../geometry.js';
+import { createCampusProjection } from '../projection.js';
+import type { CampusProjection, WorldPoint } from '../projection.js';
 import type { Dataset } from '../types/dataset.js';
 import type { MapNode } from '../types/node.js';
 import type { Transition, TransitionType } from '../types/transition.js';
@@ -15,7 +17,9 @@ import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '../dataset/paths.js';
  * - `transitionsByKey` — канонический ключ ребра → переход;
  * - `adjacency`        — id → объединённый список соседей (свои рёбра этажа
  *                        плюс переходы), уже очищенный от несуществующих
- *                        узлов и дубликатов.
+ *                        узлов и дубликатов;
+ * - `world`            — id → точка в пространстве кампуса, если граф
+ *                        метрический (см. `isMetric`).
  *
  * Граф намеренно неизменяемый: редактор хранит собственное мутабельное
  * состояние и собирает из него новый `Graph` перед поиском пути. Прежний
@@ -33,8 +37,17 @@ export class Graph {
   private readonly transitions: Transition[];
   private readonly transitionsByKey: Map<string, Transition>;
   private readonly adjacency: Map<string, string[]>;
+  private readonly world: Map<string, WorldPoint> | null;
 
-  constructor(nodes: Iterable<MapNode> = [], transitions: Iterable<Transition> = []) {
+  /**
+   * @param projection привязка планов к территории кампуса. Без неё, как и с
+   *        пиксельной привязкой, граф пиксельный.
+   */
+  constructor(
+    nodes: Iterable<MapNode> = [],
+    transitions: Iterable<Transition> = [],
+    projection?: CampusProjection
+  ) {
     this.nodes = new Map();
     this.nodesByFloor = new Map();
     this.transitions = [];
@@ -74,13 +87,19 @@ export class Graph {
     for (const [id, neighbors] of this.adjacency) {
       this.adjacency.set(id, dedupeExisting(neighbors, this.nodes));
     }
+
+    this.world = projectNodes(this.nodes, projection);
   }
 
   /**
-   * Собирает граф из нормализованного датасета.
+   * Собирает граф из нормализованного датасета вместе с привязкой его планов.
    */
   static fromDataset(dataset: Dataset): Graph {
-    return new Graph(dataset.nodes, dataset.transitions);
+    return new Graph(
+      dataset.nodes,
+      dataset.transitions,
+      createCampusProjection(dataset.campusMeta, dataset.buildingMetas)
+    );
   }
 
   /** Добавляет узел в индекс смежности с обеих сторон. */
@@ -157,6 +176,29 @@ export class Graph {
   get transitionCount(): number {
     return this.transitions.length;
   }
+
+  /**
+   * Метрический ли граф: у каждого узла есть точка в пространстве кампуса.
+   *
+   * От этого зависят модель стоимости поиска и то, есть ли у маршрута время
+   * в пути.
+   */
+  get isMetric(): boolean {
+    return this.world !== null;
+  }
+
+  /**
+   * Точка узла в пространстве кампуса.
+   *
+   * Живёт в графе, а не в `MapNode`: пиксели узла — авторская истина,
+   * редактор меняет их перетаскиванием, и закэшированная на узле копия
+   * мировых координат устарела бы. Граф же неизменяем и собирается заново.
+   *
+   * @returns `undefined` в пиксельном режиме и для неизвестного узла.
+   */
+  getWorld(nodeId: string): WorldPoint | undefined {
+    return this.world?.get(nodeId);
+  }
 }
 
 const EMPTY_NEIGHBORS: readonly string[] = Object.freeze([]);
@@ -176,4 +218,30 @@ function dedupeExisting(ids: string[], nodes: Map<string, MapNode>): string[] {
   }
 
   return result;
+}
+
+/**
+ * Мировые координаты всех узлов либо `null`, если граф пиксельный.
+ *
+ * Режим один на весь граф. Узел этажа без привязки переводит в пиксельный
+ * режим весь граф, а не остаётся «без метрики» один: у маршрута, часть
+ * которого измерена в метрах, а часть в пикселях, нет ни длины, ни времени.
+ * Загрузчик такого не допускает — узлы бывают только у объявленных этажей, —
+ * но граф из своего состояния собирает и редактор.
+ */
+function projectNodes(
+  nodes: Map<string, MapNode>,
+  projection: CampusProjection | undefined
+): Map<string, WorldPoint> | null {
+  if (projection?.mode !== 'metric') return null;
+
+  const world = new Map<string, WorldPoint>();
+
+  for (const node of nodes.values()) {
+    const point = projection.toWorld(node);
+    if (point === null) return null;
+    world.set(node.id, point);
+  }
+
+  return world;
 }
