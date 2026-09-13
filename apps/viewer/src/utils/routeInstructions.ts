@@ -49,6 +49,34 @@ function transitionVerb(type: TransitionType, direction: Direction | 'same'): st
   }
 }
 
+/** Карта «id корпуса → отображаемое имя» для хелперов ядра. */
+function buildingNames(buildingMetas: ReadonlyMap<string, BuildingMeta>): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const [id, meta] of buildingMetas) names.set(id, meta.name);
+  return names;
+}
+
+/**
+ * Где находится узел: «Корпус А, этаж 3» или «Кампус».
+ *
+ * Нужно там, где название помещения само по себе не различает точку: пять
+ * корпусов дают пять «аудиторий 101». Раньше в подсказках поиска вместо этого
+ * показывался внутренний id узла (`a1_room101`) — он различает точки, но
+ * студенту ничего не говорит.
+ */
+export function nodePlaceLabel(
+  graph: Graph,
+  buildingMetas: ReadonlyMap<string, BuildingMeta>,
+  nodeId: string
+): string {
+  const node = graph.getNode(nodeId);
+  if (!node) return '';
+
+  const building = buildingDisplayName(node.building, buildingNames(buildingMetas));
+
+  return node.building === CAMPUS_BUILDING_ID ? building : `${building}, этаж ${node.floor}`;
+}
+
 interface BuildRouteStepsParams {
   graph: Graph;
   path: string[];
@@ -73,8 +101,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
   const end = graph.getNode(path[path.length - 1]);
   if (!start || !end) return steps;
 
-  const names = new Map<string, string>();
-  for (const [id, meta] of buildingMetas) names.set(id, meta.name);
+  const names = buildingNames(buildingMetas);
 
   const buildingLabel = (id: string) => buildingDisplayName(id, names);
   const nodeLabel = (id: string) => aliasManager?.getPrimaryAliasForId(id) ?? id;

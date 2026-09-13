@@ -36,7 +36,6 @@ interface MapState {
   aliasManager: AliasManager | null;
   campusMeta: CampusMeta | null;
   buildingMetas: Map<string, BuildingMeta> | null;
-  isDataLoaded: boolean;
 
   /**
    * Выбранный этаж. Единственный источник истины о том, что показано:
@@ -74,24 +73,48 @@ export function floorsOfBuilding(meta: BuildingMeta | undefined): number[] {
 }
 
 /**
- * Низший этаж корпуса — точка входа при переходе с карты кампуса.
+ * Этаж, на который попадает студент, выбрав корпус на карте кампуса.
+ *
+ * Раньше брался просто низший этаж. В нынешних тестовых данных подвалов нет,
+ * поэтому это работало, но при переносе официальных планов корпус с этажом
+ * −1 или 0 отправлял бы человека **в подвал** вместо входной группы.
+ *
+ * Правило: низший этаж не ниже первого; если все этажи отрицательные (бывает
+ * у подземных переходов), берётся верхний из них — ближайший к поверхности.
  */
-export function lowestFloorOf(meta: BuildingMeta | undefined): number {
+export function entranceFloorOf(meta: BuildingMeta | undefined): number {
   const floors = floorsOfBuilding(meta);
-  return floors.length > 0 ? floors[floors.length - 1] : 1;
+  if (floors.length === 0) return 1;
+
+  const aboveGround = floors.filter((floor) => floor >= 1);
+
+  return aboveGround.length > 0
+    ? aboveGround[aboveGround.length - 1] // floorsOfBuilding сортирует по убыванию
+    : floors[0];
 }
 
-export const useMapStore = create<MapState>((set) => ({
+export const useMapStore = create<MapState>((set, get) => ({
   graph: null,
   aliasManager: null,
   campusMeta: null,
   buildingMetas: null,
-  isDataLoaded: false,
 
   activeFloor: null,
 
-  setData: (data) => set({ ...data, isDataLoaded: true }),
+  setData: (data) => set(data),
 
-  setActiveFloor: (buildingId, floor) => set({ activeFloor: { buildingId, floor } }),
-  clearActiveFloor: () => set({ activeFloor: null }),
+  setActiveFloor: (buildingId, floor) => {
+    // Повторный выбор того же этажа не должен создавать новый объект:
+    // подписчики сравнивают `activeFloor` по ссылке, а смена ссылки при
+    // неизменном значении пересоздала бы слои карты на ровном месте.
+    const current = get().activeFloor;
+    if (current?.buildingId === buildingId && current.floor === floor) return;
+
+    set({ activeFloor: { buildingId, floor } });
+  },
+
+  clearActiveFloor: () => {
+    if (get().activeFloor === null) return;
+    set({ activeFloor: null });
+  },
 }));

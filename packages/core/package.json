@@ -15,13 +15,14 @@
   "scripts": {
     "build": "tsc --build",
     "dev": "tsc --build --watch",
-    "typecheck": "tsc --build",
+    "typecheck": "tsc --build && tsc -p tsconfig.test.json",
     "lint": "eslint src tests",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
   },
   "devDependencies": {
+    "@types/node": "^22",
     "typescript": "^5.4.0",
     "vitest": "^2.1.0"
   },

@@ -12,16 +12,22 @@ import { useDataLoader } from './hooks/useDataLoader';
  * Три состояния: загрузка, ошибка и карта. Данные грузятся один раз при
  * монтировании; до завершения рендерится индикатор, чтобы карта не успела
  * отрисоваться с пустым графом.
+ *
+ * Признак «данные готовы» — это `graph !== null`, а не отдельное поле стора:
+ * хранимый дубль того, что уже видно по самим данным, рано или поздно
+ * расходится с ними.
  */
 const App: React.FC = () => {
   const { isLoading, error, loadAllData } = useDataLoader();
-  const isDataLoaded = useMapStore((s) => s.isDataLoaded);
+  const isDataLoaded = useMapStore((s) => s.graph !== null);
 
   useEffect(() => {
     void loadAllData();
   }, [loadAllData]);
 
-  if (isLoading) {
+  // Первый кадр — ещё до того, как эффект успел выставить `isLoading`.
+  // Раньше здесь возвращался `null`, и пользователь видел белый экран.
+  if (isLoading || (!isDataLoaded && !error)) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-gray-100">
         <div className="text-center">
@@ -51,7 +57,11 @@ const App: React.FC = () => {
           <p className="text-sm text-gray-500 mb-4 break-words">{error}</p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            // Повторная загрузка, а не `location.reload()`: перезагрузка
+            // страницы выбрасывает уже установленный service worker и
+            // заставляет заново поднимать всё приложение, тогда как хук
+            // умеет повторить ровно неудавшийся запрос.
+            onClick={() => void loadAllData()}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             Попробовать снова
@@ -60,8 +70,6 @@ const App: React.FC = () => {
       </div>
     );
   }
-
-  if (!isDataLoaded) return null;
 
   return (
     <div className="h-full w-full relative overflow-hidden">

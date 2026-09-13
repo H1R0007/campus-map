@@ -6,27 +6,11 @@ import type {
   PathfindingOptions,
   SearchSuggestion,
 } from '@campus-map/core';
-import { findPath } from '@campus-map/core';
+import { DEFAULT_PATHFINDING_OPTIONS, findPath, scopeOfNode } from '@campus-map/core';
 import { useMapStore } from './mapStore';
 
 /** Какое из двух полей ввода сейчас редактируется. */
 export type RouteField = 'from' | 'to';
-
-/**
- * Ограничения маршрута по умолчанию: всё разрешено, лифт не предпочтителен.
- *
- * Все четыре типа переходов выведены в интерфейс — раньше в сторе лежало
- * несуществующее поле `allowDoor`, а настоящее `allowEntrance` не
- * выставлялось и не показывалось пользователю, из-за чего ограничение
- * «не выходить на улицу» было недоступно, хотя ядро его поддерживало.
- */
-const DEFAULT_OPTIONS: PathfindingOptions = {
-  allowStairs: true,
-  allowLift: true,
-  allowBridge: true,
-  allowEntrance: true,
-  preferLift: false,
-};
 
 interface RouteState {
   fromQuery: string;
@@ -35,23 +19,58 @@ interface RouteState {
   fromNodeId: string | null;
   toNodeId: string | null;
 
-  fromSuggestions: SearchSuggestion[];
-  toSuggestions: SearchSuggestion[];
-
-  /** Поле, для которого показан список подсказок. */
-  activeField: RouteField | null;
-
   currentRoute: PathResult | null;
 
   options: PathfindingOptions;
 
   setQuery: (field: RouteField, query: string) => void;
-  setActiveField: (field: RouteField | null) => void;
   selectSuggestion: (field: RouteField, suggestion: SearchSuggestion) => void;
   setOptions: (options: Partial<PathfindingOptions>) => void;
   buildRoute: () => void;
   clearRoute: () => void;
   swapPoints: () => void;
+}
+
+/**
+ * Совпадает ли показанный маршрут с текущими точками.
+ *
+ * Концы маршрута не хранятся отдельно: они и есть первый и последний узел
+ * пути. Лишнее поле здесь означало бы третью копию того, что уже записано
+ * дважды — в запросе и в самом маршруте.
+ */
+function routeMatches(
+  route: PathResult | null,
+  fromNodeId: string | null,
+  toNodeId: string | null
+): boolean {
+  if (!route?.found || route.path.length === 0) return false;
+
+  return route.path[0] === fromNodeId && route.path[route.path.length - 1] === toNodeId;
+}
+
+/**
+ * Переводит карту туда, где маршрут начинается.
+ *
+ * Без этого построение маршрута не показывало маршрут: навигатор стартует в
+ * виде кампуса, а `PathLayer` рисует только узлы текущей области видимости,
+ * поэтому линия целиком отфильтровывалась и пользователь видел неизменную
+ * карту с подписью «Маршрут готов».
+ *
+ * Правило «какому виду принадлежит узел» берётся из ядра (`scopeOfNode`), а
+ * не выводится здесь по полям узла.
+ */
+function focusRouteStart(graph: Graph, route: PathResult): void {
+  const startNode = route.path.length > 0 ? graph.getNode(route.path[0]) : undefined;
+  if (!startNode) return;
+
+  const scope = scopeOfNode(startNode);
+  const { setActiveFloor, clearActiveFloor } = useMapStore.getState();
+
+  if (scope.mode === 'campus') {
+    clearActiveFloor();
+  } else {
+    setActiveFloor(scope.buildingId, scope.floor);
+  }
 }
 
 /**
@@ -81,25 +100,62 @@ export const useRouteStore = create<RouteState>((set, get) => {
    * Прежде `setFromQuery` и `setToQuery` были двумя копиями одиннадцати
    * строк и успели получить одинаковый комментарий-маркер правки.
    */
+  /**
+   * Сбрасывает показанный маршрут, если он больше не ведёт между выбранными
+   * точками. Иначе карточка печатала бы новый текст запроса рядом со старой
+   * линией — и это расхождение ничем не выдавало себя.
+   */
+  const dropStaleRoute = (fromNodeId: string | null, toNodeId: string | null) => {
+    if (!routeMatches(get().currentRoute, fromNodeId, toNodeId)) {
+      set({ currentRoute: null });
+    }
+  };
+
   const applyQuery = (field: RouteField, query: string) => {
     const { graph, aliasManager } = useMapStore.getState();
-
-    const suggestions = query.trim() ? (aliasManager?.suggest(query, 5) ?? []) : [];
     const nodeId = resolveQuery(query, graph, aliasManager);
 
     set(
       field === 'from'
-        ? { fromQuery: query, fromSuggestions: suggestions, fromNodeId: nodeId }
-        : { toQuery: query, toSuggestions: suggestions, toNodeId: nodeId }
+        ? { fromQuery: query, fromNodeId: nodeId }
+        : { toQuery: query, toNodeId: nodeId }
     );
+
+    const { fromNodeId, toNodeId } = get();
+    dropStaleRoute(fromNodeId, toNodeId);
   };
 
   const applySuggestion = (field: RouteField, suggestion: SearchSuggestion) => {
     set(
       field === 'from'
-        ? { fromQuery: suggestion.alias, fromNodeId: suggestion.id, fromSuggestions: [], activeField: null }
-        : { toQuery: suggestion.alias, toNodeId: suggestion.id, toSuggestions: [], activeField: null }
+        ? { fromQuery: suggestion.alias, fromNodeId: suggestion.id }
+        : { toQuery: suggestion.alias, toNodeId: suggestion.id }
     );
+
+    const { fromNodeId, toNodeId } = get();
+    dropStaleRoute(fromNodeId, toNodeId);
+  };
+
+  /**
+   * Строит маршрут между уже разрешёнными точками и показывает его.
+   *
+   * @returns результат поиска либо `null`, если строить не из чего.
+   */
+  const computeRoute = (): PathResult | null => {
+    const { fromNodeId, toNodeId, options } = get();
+    const graph = useMapStore.getState().graph;
+
+    if (!graph || !fromNodeId || !toNodeId) {
+      set({ currentRoute: null });
+      return null;
+    }
+
+    const route = findPath(graph, fromNodeId, toNodeId, options);
+    set({ currentRoute: route });
+
+    if (route.found) focusRouteStart(graph, route);
+
+    return route;
   };
 
   return {
@@ -107,41 +163,27 @@ export const useRouteStore = create<RouteState>((set, get) => {
     toQuery: '',
     fromNodeId: null,
     toNodeId: null,
-    fromSuggestions: [],
-    toSuggestions: [],
-    activeField: null,
     currentRoute: null,
-    options: { ...DEFAULT_OPTIONS },
+
+    // Значения по умолчанию принадлежат ядру: здесь раньше лежала их копия,
+    // и расхождение между двумя наборами никто бы не заметил.
+    options: { ...DEFAULT_PATHFINDING_OPTIONS },
 
     setQuery: (field, query) => applyQuery(field, query),
-
-    setActiveField: (field) => set({ activeField: field }),
 
     selectSuggestion: (field, suggestion) => applySuggestion(field, suggestion),
 
     setOptions: (patch) => {
-      const options = { ...get().options, ...patch };
-      set({ options });
+      set({ options: { ...get().options, ...patch } });
 
-      // Ограничения влияют на результат, поэтому уже построенный маршрут
-      // пересчитывается сразу — иначе панель показала бы устаревший путь.
-      const { fromNodeId, toNodeId } = get();
-      if (fromNodeId && toNodeId) {
-        const graph = useMapStore.getState().graph;
-        if (graph) set({ currentRoute: findPath(graph, fromNodeId, toNodeId, options) });
-      }
+      // Пересчитываем только уже показанный маршрут. Раньше условием было
+      // «обе точки разрешены», и переключение галочки строило маршрут,
+      // которого пользователь не просил.
+      if (get().currentRoute) computeRoute();
     },
 
     buildRoute: () => {
-      const { fromNodeId, toNodeId, options } = get();
-      const graph = useMapStore.getState().graph;
-
-      if (!graph || !fromNodeId || !toNodeId) {
-        set({ currentRoute: null });
-        return;
-      }
-
-      set({ currentRoute: findPath(graph, fromNodeId, toNodeId, options), activeField: null });
+      computeRoute();
     },
 
     clearRoute: () =>
@@ -150,30 +192,26 @@ export const useRouteStore = create<RouteState>((set, get) => {
         toQuery: '',
         fromNodeId: null,
         toNodeId: null,
-        fromSuggestions: [],
-        toSuggestions: [],
         currentRoute: null,
-        activeField: null,
       }),
 
     swapPoints: () => {
-      const { fromQuery, toQuery, fromNodeId, toNodeId } = get();
+      const { fromQuery, toQuery, fromNodeId, toNodeId, currentRoute } = get();
+      const hadRoute = currentRoute !== null;
+
       set({
         fromQuery: toQuery,
         toQuery: fromQuery,
         fromNodeId: toNodeId,
         toNodeId: fromNodeId,
-        fromSuggestions: [],
-        toSuggestions: [],
         // Маршрут направлен, поэтому показывать прежний результат нельзя.
         currentRoute: null,
       });
 
-      // Обе точки на месте — пересчитываем сразу, без лишнего нажатия.
-      const graph = useMapStore.getState().graph;
-      if (graph && toNodeId && fromNodeId) {
-        set({ currentRoute: findPath(graph, toNodeId, fromNodeId, get().options) });
-      }
+      // Маршрут был показан — пересчитываем в обратную сторону сразу, без
+      // лишнего нажатия. Если его не было, обмен местами — это просто правка
+      // полей, и строить маршрут по своей инициативе не нужно.
+      if (hadRoute) computeRoute();
     },
   };
 });
