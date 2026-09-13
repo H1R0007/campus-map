@@ -65,15 +65,6 @@
     },
     {
       "from": {
-        "node": "a2_lift"
-      },
-      "to": {
-        "node": "a3_lift"
-      },
-      "transition_type": "lift"
-    },
-    {
-      "from": {
         "node": "b1_stairs"
       },
       "to": {

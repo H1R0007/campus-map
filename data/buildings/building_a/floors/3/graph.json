@@ -20,7 +20,6 @@
       "neighbors": [
         "a3_corridor_w",
         "a3_corridor_e",
-        "a3_lift",
         "a3_room305"
       ],
       "isPortal": false
@@ -42,15 +41,6 @@
       "y": 239,
       "neighbors": [
         "a3_corridor_w"
-      ],
-      "isPortal": true
-    },
-    {
-      "id": "a3_lift",
-      "x": 484,
-      "y": 143,
-      "neighbors": [
-        "a3_corridor"
       ],
       "isPortal": true
     },
