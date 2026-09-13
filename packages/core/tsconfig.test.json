@@ -1,0 +1,19 @@
+{
+  // Тесты ядра не входят в основной проект: он `composite` с `rootDir: src`,
+  // и добавить в него каталог `tests` нельзя, не сломав раскладку `dist`.
+  //
+  // Без отдельного проекта тесты не проверялись типами вообще: `tsc --build`
+  // видел только `src`, а vitest транспилирует без проверки. Ошибка в тесте
+  // обнаруживалась в момент падения, по невнятной причине.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "rootDir": "."
+  },
+  "include": ["tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

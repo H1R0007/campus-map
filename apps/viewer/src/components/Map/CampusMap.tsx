@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { campusMapUrl, floorMapUrl } from '@campus-map/core';
 import { PixelMap } from '@campus-map/mapkit';
 import { useMapStore } from '../../stores/mapStore';
+import { DATA_BASE_URL } from '../../config/dataBase';
 import { PathLayer } from './PathLayer';
 import { PortalLayer } from './PortalLayer';
 import { MarkerLayer } from './MarkerLayer';
@@ -21,8 +22,8 @@ export const CampusMap: React.FC = () => {
   const mapUrl = useMemo(
     () =>
       activeFloor === null
-        ? campusMapUrl()
-        : floorMapUrl(activeFloor.buildingId, activeFloor.floor),
+        ? campusMapUrl(DATA_BASE_URL)
+        : floorMapUrl(activeFloor.buildingId, activeFloor.floor, DATA_BASE_URL),
     [activeFloor]
   );
 

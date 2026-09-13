@@ -7,6 +7,7 @@ import {
   loadDataset,
 } from '@campus-map/core';
 import { useMapStore } from '../stores/mapStore';
+import { DATA_BASE_URL } from '../config/dataBase';
 
 /**
  * Загрузка датасета кампуса в стор карты.
@@ -33,7 +34,9 @@ export function useDataLoader() {
     setState({ isLoading: true, error: null });
 
     try {
-      const { dataset, warnings } = await loadDataset(createHttpDatasetSource());
+      const { dataset, warnings } = await loadDataset(
+        createHttpDatasetSource({ baseUrl: DATA_BASE_URL })
+      );
 
       // Ядро не пишет в консоль, поэтому о нештатных данных сообщает сюда.
       // Загрузка не прерывается: частичные данные лучше полного отказа.

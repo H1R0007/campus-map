@@ -17,7 +17,7 @@
     "dev": "tsc --build --watch",
     "typecheck": "tsc --build",
     "lint": "eslint src",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
   },
   "peerDependencies": {
     "leaflet": "^1.9.4",

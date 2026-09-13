@@ -7,9 +7,11 @@
     "build": "tsc && vite build",
     "dev": "vite",
     "typecheck": "tsc",
-    "lint": "eslint src",
-    "test": "node ../../tooling/smoke-test.mjs --app viewer --mode prod",
-    "preview": "vite preview"
+    "lint": "eslint src tests vite.config.ts",
+    "test": "vitest run && node ../../tooling/verify-dist-data.mjs --app viewer && node ../../tooling/smoke-test.mjs --app viewer --mode prod",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
   },
   "dependencies": {
     "@campus-map/core": "workspace:*",
@@ -30,6 +32,7 @@
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.0",
     "vite": "^5.2.0",
-    "vite-plugin-pwa": "^0.20.0"
+    "vite-plugin-pwa": "^0.20.0",
+    "vitest": "^2.1.0"
   }
 }

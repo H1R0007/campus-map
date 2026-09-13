@@ -16,6 +16,7 @@ import { ContextMenu } from './components/UI/ContextMenu';
 import { EdgeContextMenu } from './components/UI/EdgeContextMenu';
 import { BookmarksPanel } from './components/UI/BookmarksPanel';
 import { useEditorStore } from './stores/editorStore';
+import { DATA_BASE_URL } from './config/dataBase';
 
 /**
  * Экран ошибки с возможностью перезагрузки.
@@ -84,7 +85,9 @@ const App: React.FC = () => {
         // на ошибках и глушил их пустыми `catch {}`: отсутствующий этаж или
         // битый JSON проходили незамеченными, а `building` и `floor` узлам
         // приходилось проставлять вручную, хотя загрузчик берёт их из пути.
-        const { dataset, warnings } = await loadDataset(createHttpDatasetSource());
+        const { dataset, warnings } = await loadDataset(
+          createHttpDatasetSource({ baseUrl: DATA_BASE_URL })
+        );
 
         if (!cancelled) loadData(dataset, warnings);
       } catch (cause) {

@@ -4,6 +4,7 @@ import { PixelMap } from '@campus-map/mapkit';
 import { campusMapUrl, floorMapUrl } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import type { EditorTool } from '../../stores/editorStore';
+import { DATA_BASE_URL } from '../../config/dataBase';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -324,8 +325,8 @@ export const EditorMap: React.FC = () => {
   const currentFloor = useEditorStore((s) => s.currentFloor);
 
   const mapUrl = useMemo(() => {
-    if (currentBuilding === null || currentFloor === null) return campusMapUrl();
-    return floorMapUrl(currentBuilding, currentFloor);
+    if (currentBuilding === null || currentFloor === null) return campusMapUrl(DATA_BASE_URL);
+    return floorMapUrl(currentBuilding, currentFloor, DATA_BASE_URL);
   }, [currentBuilding, currentFloor]);
 
   return (

@@ -1,8 +1,10 @@
-import React from 'react';
-import { Polyline } from 'react-leaflet';
-import { isNodeInScope } from '@campus-map/core';
+import React, { useEffect, useMemo } from 'react';
+import { Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { usePixelMapGeometry } from '@campus-map/mapkit';
 import { useRouteStore } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { visiblePolylines } from '../../utils/routeGeometry';
 
 /** Оформление линии маршрута. */
 const ROUTE_STYLE = {
@@ -13,43 +15,42 @@ const ROUTE_STYLE = {
   lineJoin: 'round' as const,
 };
 
+/** Отступ вокруг маршрута при подгонке вида, пиксели экрана. */
+const FIT_PADDING: [number, number] = [56, 56];
+
 /**
  * Линия маршрута на текущем плане.
  *
- * Маршрут проходит через несколько этажей и корпусов, а показывается один
- * план, поэтому путь разбивается на непрерывные видимые отрезки: узлы чужого
- * этажа разрывают линию, и каждый отрезок рисуется отдельно.
- *
- * Отрезок короче двух точек не рисуется — одиночная точка линией не является.
+ * Помимо отрисовки слой подгоняет вид под маршрут. Без этого построенный
+ * маршрут можно было не разглядеть: `PixelMap` при смене плана центрируется
+ * на всём изображении, и на плане большого корпуса линия занимала несколько
+ * пикселей.
  */
 export const PathLayer: React.FC = () => {
   const currentRoute = useRouteStore((s) => s.currentRoute);
   const graph = useMapStore((s) => s.graph);
   const activeFloor = useMapStore((s) => s.activeFloor);
 
-  if (!currentRoute?.found || !graph) return null;
+  const map = useMap();
+  const geometry = usePixelMapGeometry();
 
-  const scope = scopeOf(activeFloor);
+  const segments = useMemo(() => {
+    if (!currentRoute?.found || !graph) return [];
+    return visiblePolylines(currentRoute.path, graph, scopeOf(activeFloor));
+  }, [currentRoute, graph, activeFloor]);
 
-  const segments: [number, number][][] = [];
-  let current: [number, number][] = [];
+  useEffect(() => {
+    if (segments.length === 0) return;
 
-  for (const nodeId of currentRoute.path) {
-    const node = graph.getNode(nodeId);
-    if (!node) continue;
+    const bounds = L.latLngBounds(segments.flat());
+    if (!bounds.isValid()) return;
 
-    if (isNodeInScope(node, scope)) {
-      // Leaflet в CRS.Simple принимает координаты как [y, x]: вертикальная
-      // ось карты соответствует y узла в пикселях плана.
-      current.push([node.y, node.x]);
-      continue;
-    }
-
-    if (current.length > 1) segments.push(current);
-    current = [];
-  }
-
-  if (current.length > 1) segments.push(current);
+    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: map.getMaxZoom() });
+    // `geometry.bounds` в зависимостях не случайно: реальный размер плана
+    // определяется асинхронно, и при его появлении `PixelMap` заново
+    // центрируется на всём изображении. Без повторной подгонки маршрут
+    // «уезжал» ровно в тот момент, когда картинка догружалась.
+  }, [segments, map, geometry.bounds]);
 
   if (segments.length === 0) return null;
 

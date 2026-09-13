@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { PathfindingOptions, ViewScope } from '@campus-map/core';
 import { useRouteStore, type RouteField } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
-import { buildRouteSteps, estimateMinutes } from '../../utils/routeInstructions';
+import { useSuggestions } from '../../hooks/useSuggestions';
+import { buildRouteSteps, estimateMinutes, nodePlaceLabel } from '../../utils/routeInstructions';
 
 /**
  * Нижняя панель: поиск маршрута и пошаговые инструкции.
@@ -32,14 +33,11 @@ export const BottomSheet: React.FC = () => {
   const {
     fromQuery,
     toQuery,
-    fromSuggestions,
-    toSuggestions,
     fromNodeId,
     toNodeId,
     currentRoute,
     options,
     setQuery,
-    setActiveField,
     selectSuggestion,
     setOptions,
     buildRoute,
@@ -63,7 +61,11 @@ export const BottomSheet: React.FC = () => {
     if (activeInput === 'to') toInputRef.current?.focus();
   }, [isExpanded, activeInput]);
 
-  const suggestions = activeInput === 'from' ? fromSuggestions : toSuggestions;
+  // Подсказки вычисляются, а не хранятся: это чистая функция от запроса и
+  // загруженных алиасов. Раньше два списка лежали в сторе и переписывались
+  // на каждое нажатие клавиши.
+  const activeQuery = activeInput === null ? '' : activeInput === 'from' ? fromQuery : toQuery;
+  const suggestions = useSuggestions(activeQuery);
 
   const steps = useMemo(() => {
     if (!graph || !buildingMetas || !currentRoute?.found) return [];
@@ -209,10 +211,7 @@ export const BottomSheet: React.FC = () => {
                 <input
                   ref={fromInputRef}
                   value={fromQuery}
-                  onChange={(e) => {
-                    setQuery('from', e.target.value);
-                    setActiveField('from');
-                  }}
+                  onChange={(e) => setQuery('from', e.target.value)}
                   onFocus={() => setActiveInput('from')}
                   placeholder="Откуда"
                   aria-label="Откуда"
@@ -223,10 +222,7 @@ export const BottomSheet: React.FC = () => {
                 <input
                   ref={toInputRef}
                   value={toQuery}
-                  onChange={(e) => {
-                    setQuery('to', e.target.value);
-                    setActiveField('to');
-                  }}
+                  onChange={(e) => setQuery('to', e.target.value)}
                   onFocus={() => setActiveInput('to')}
                   placeholder="Куда"
                   aria-label="Куда"
@@ -256,7 +252,9 @@ export const BottomSheet: React.FC = () => {
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
                   >
                     <div className="text-sm text-gray-800">{s.alias}</div>
-                    <div className="text-xs text-gray-500">{s.id}</div>
+                    <div className="text-xs text-gray-500">
+                      {graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, s.id) : ''}
+                    </div>
                   </button>
                 ))}
               </div>

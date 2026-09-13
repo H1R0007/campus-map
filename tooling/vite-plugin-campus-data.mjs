@@ -16,6 +16,11 @@
  * `DATA_ROOT` берётся из `@campus-map/core`: раскладка данных принадлежит
  * доменному пакету, а инструмент сборки не должен заводить свою копию
  * константы и расходиться с ней.
+ *
+ * Точка монтирования учитывает `base` из конфига Vite, поэтому приложение
+ * одинаково работает и в корне домена, и в подкаталоге. Отдельной опции для
+ * базового пути намеренно нет: второй источник истины о нём разошёлся бы с
+ * тем, что подставляет Vite в `import.meta.env.BASE_URL`.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -110,8 +115,13 @@ export function campusDataPlugin(options = {}) {
     throw new Error(`campusDataPlugin: каталог данных не найден: ${sourceDir}`);
   }
 
-  const mountPath = `/${DATA_ROOT}`;
   const dataDir = path.resolve(sourceDir);
+
+  /**
+   * Точка монтирования с учётом `base`. Заполняется в `configResolved`:
+   * до него базовый путь неизвестен.
+   */
+  let mountPath = `/${DATA_ROOT}`;
 
   /** Каталог сборки — нужен, чтобы preview отдавал 404 по тем же правилам. */
   let outDir = 'dist';
@@ -164,6 +174,32 @@ export function campusDataPlugin(options = {}) {
 
     configResolved(config) {
       outDir = config.build.outDir;
+
+      // `config.base` Vite нормализует так, что он всегда начинается и
+      // заканчивается слэшем: '/' либо '/campus/'.
+      mountPath = `${config.base}${DATA_ROOT}`;
+
+      // Вторая копия датасета внутри приложения. `public/` Vite копирует в
+      // `dist/` сам, поэтому вместе с `generateBundle` этого плагина в
+      // `dist/data/**` оказались бы два писателя, и победитель зависел бы от
+      // порядка. Именно так получалось «в редакторе видно, в навигаторе нет».
+      //
+      // Проверка стоит здесь, а не только в `.gitignore`: игнор прячет копию
+      // от git, но не мешает ей появиться на диске и молча подменить данные.
+      if (config.publicDir) {
+        const strayData = path.join(config.publicDir, DATA_ROOT);
+
+        if (existsSync(strayData)) {
+          throw new Error(
+            `campusDataPlugin: внутри приложения найдена копия датасета: ${strayData}\n` +
+              `Датасет живёт в единственном экземпляре в корне репозитория и раздаётся этим ` +
+              `плагином — в dev, в preview и в сборке. Копию нужно удалить.\n` +
+              `Если это junction или симлинк на Windows, удалять его надо через ` +
+              `«rmdir» (или Directory.Delete(path, false)): «rm -rf» пройдёт по ссылке ` +
+              `и снесёт настоящие данные.`
+          );
+        }
+      }
     },
 
     configureServer(server) {

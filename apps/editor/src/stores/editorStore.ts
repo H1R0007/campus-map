@@ -7,6 +7,7 @@ import {
   CAMPUS_BUILDING_ID,
   CAMPUS_FLOOR,
   Graph,
+  edgeKey,
   findAlternativePaths,
   findConnectedComponents,
   isNodeInScope,
@@ -2133,7 +2134,7 @@ export const useEditorStore = create<EditorStore>()(
 
       nodes.forEach((node) => {
         node.neighbors.forEach((neighborId) => {
-          const key = [node.id, neighborId].sort().join('|');
+          const key = edgeKey(node.id, neighborId);
           if (!seen.has(key) && getNode(neighborId)) {
             seen.add(key);
             edges.push({ from: node.id, to: neighborId });

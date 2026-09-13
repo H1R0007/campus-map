@@ -16,6 +16,14 @@
  *   node tooling/smoke-test.mjs --app viewer --mode prod
  *   node tooling/smoke-test.mjs --app viewer --mode dev
  *   node tooling/smoke-test.mjs --app editor --mode dev
+ *
+ * Развёртывание в подкаталоге проверяется тем же набором:
+ *   CAMPUS_BASE_PATH=/campus/ pnpm --filter @campus-map/viewer build
+ *   node tooling/smoke-test.mjs --app viewer --mode prod --base /campus/
+ *
+ * Базовый путь не выводится из окружения сам: сборка и проверка — разные
+ * запуски, и молчаливое расхождение между ними дало бы зелёный прогон на
+ * неверно собранном приложении.
  */
 
 import { spawn } from 'node:child_process';
@@ -81,11 +89,12 @@ const CHECKS = [
 ];
 
 function parseArgs(argv) {
-  const options = { app: 'viewer', mode: 'prod' };
+  const options = { app: 'viewer', mode: 'prod', base: '/' };
 
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--app') options.app = argv[++i];
     else if (argv[i] === '--mode') options.mode = argv[++i];
+    else if (argv[i] === '--base') options.base = argv[++i];
   }
 
   if (!['viewer', 'editor'].includes(options.app)) {
@@ -95,7 +104,21 @@ function parseArgs(argv) {
     throw new Error(`Неизвестный режим: ${options.mode}`);
   }
 
+  if (!options.base.startsWith('/')) options.base = `/${options.base}`;
+  if (!options.base.endsWith('/')) options.base = `${options.base}/`;
+
   return options;
+}
+
+/**
+ * Переносит путь проверки под базовый путь развёртывания.
+ *
+ * Проверки обхода каталога (`/data/../../package.json`) переносятся так же,
+ * как обычные: плагин смонтирован по базовому пути, и защита должна работать
+ * именно там.
+ */
+function withBase(base, url) {
+  return url === '/' ? base : `${base}${url.slice(1)}`;
 }
 
 /** Ищет свободный TCP-порт. */
@@ -136,12 +159,12 @@ function request(port, urlPath) {
 }
 
 /** Ждёт, пока сервер начнёт отвечать. */
-async function waitForServer(port, timeoutMs = 60_000) {
+async function waitForServer(port, base = '/', timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     try {
-      await request(port, '/');
+      await request(port, base);
       return;
     } catch {
       await new Promise((r) => setTimeout(r, 200));
@@ -152,7 +175,7 @@ async function waitForServer(port, timeoutMs = 60_000) {
 }
 
 async function main() {
-  const { app, mode } = parseArgs(process.argv.slice(2));
+  const { app, mode, base } = parseArgs(process.argv.slice(2));
   const appDir = path.join(repoRoot, 'apps', app);
   const port = await findFreePort();
 
@@ -168,7 +191,9 @@ async function main() {
     '--strictPort',
   ];
 
-  process.stdout.write(`\n${app} / ${mode}: поднимаю vite на порту ${port}\n`);
+  process.stdout.write(
+    `\n${app} / ${mode}${base === '/' ? '' : ` / base ${base}`}: поднимаю vite на порту ${port}\n`
+  );
 
   // `detached` даёт собственную группу процессов — её можно снять целиком.
   const child = spawn(process.execPath, args, {
@@ -199,7 +224,7 @@ async function main() {
   process.on('exit', shutdown);
 
   try {
-    await waitForServer(port);
+    await waitForServer(port, base);
   } catch (cause) {
     shutdown();
     process.stdout.write(`\n--- вывод сервера ---\n${serverOutput}\n`);
@@ -212,11 +237,13 @@ async function main() {
   let failures = 0;
 
   for (const check of applicable) {
+    const url = withBase(base, check.url);
+
     let response;
     try {
-      response = await request(port, check.url);
+      response = await request(port, url);
     } catch (cause) {
-      process.stdout.write(`  ПРОВАЛ  ${check.title.padEnd(38)} ${check.url} — ${cause.message}\n`);
+      process.stdout.write(`  ПРОВАЛ  ${check.title.padEnd(38)} ${url} — ${cause.message}\n`);
       failures += 1;
       continue;
     }
@@ -225,11 +252,11 @@ async function main() {
     const typeOk = !check.contentType || response.contentType.includes(check.contentType);
 
     if (codeOk && typeOk) {
-      process.stdout.write(`  OK      ${check.title.padEnd(38)} ${check.url}\n`);
+      process.stdout.write(`  OK      ${check.title.padEnd(38)} ${url}\n`);
     } else {
       const expected = `${check.code}${check.contentType ? ` ${check.contentType}` : ''}`;
       const actual = `${response.status}${response.contentType ? ` ${response.contentType}` : ''}`;
-      process.stdout.write(`  ПРОВАЛ  ${check.title.padEnd(38)} ${check.url}\n`);
+      process.stdout.write(`  ПРОВАЛ  ${check.title.padEnd(38)} ${url}\n`);
       process.stdout.write(`            ожидали ${expected}, получили ${actual}\n`);
       failures += 1;
     }

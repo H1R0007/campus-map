@@ -7,6 +7,15 @@
       ],
       "outputs": [
         "dist/**"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/data/**",
+        "$TURBO_ROOT$/tooling/**"
+      ],
+      "env": [
+        "CAMPUS_BASE_PATH",
+        "CAMPUS_DATA_DIR"
       ]
     },
     "dev": {
@@ -30,6 +39,11 @@
       "dependsOn": [
         "build",
         "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/data/**",
+        "$TURBO_ROOT$/tooling/**"
       ]
     },
     "clean": {
@@ -37,3 +51,4 @@
     }
   }
 }
+

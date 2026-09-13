@@ -1,11 +1,12 @@
 import React from 'react';
-import { lowestFloorOf, useMapStore } from '../../stores/mapStore';
+import { entranceFloorOf, useMapStore } from '../../stores/mapStore';
 
 /**
  * Выбор корпуса на карте кампуса.
  *
- * Показывается только в режиме кампуса и ведёт на низший этаж корпуса —
- * именно оттуда начинается подъём наверх.
+ * Показывается только в режиме кампуса и ведёт на входной этаж — то есть
+ * низший **надземный**, а не низший вообще: в корпусе с подвалом студент
+ * должен попадать во входную группу, а не в цокольный этаж.
  */
 export const BuildingSelector: React.FC = () => {
   const activeFloor = useMapStore((s) => s.activeFloor);
@@ -28,7 +29,7 @@ export const BuildingSelector: React.FC = () => {
             <button
               key={building.id}
               type="button"
-              onClick={() => setActiveFloor(building.id, lowestFloorOf(meta))}
+              onClick={() => setActiveFloor(building.id, entranceFloorOf(meta))}
               className="
                 flex-shrink-0
                 px-4 py-2.5 rounded-xl

@@ -108,10 +108,29 @@ function normalizeNode(
 
   const x = asFiniteNumber(raw.x, 0);
   const y = asFiniteNumber(raw.y, 0);
-  if (x !== raw.x || y !== raw.y) {
+
+  // Сообщение формируется по каждой оси отдельно. Раньше одно общее
+  // «заменены на 0» печаталось и тогда, когда координата была числом в
+  // строке ("10") и на деле приведена к 10, и тогда, когда битой была только
+  // одна ось из двух. Разметчик получал неверное описание того, что сделано
+  // с его данными.
+  for (const [axis, rawValue, value] of [
+    ['x', raw.x, x],
+    ['y', raw.y, y],
+  ] as const) {
+    if (typeof rawValue === 'number' && Number.isFinite(rawValue)) continue;
+
+    // NaN как значение по умолчанию отличает «строку-число, приведённую к
+    // числу» от «мусора, заменённого нулём», не повторяя правил
+    // `asFiniteNumber` второй раз.
+    const coerced = Number.isFinite(asFiniteNumber(rawValue, Number.NaN));
+
     warnings.push(
-      `${path}: узел "${raw.id}" имеет некорректные координаты ` +
-        `(x=${String(raw.x)}, y=${String(raw.y)}) — заменены на 0`
+      coerced
+        ? `${path}: у узла "${raw.id}" координата ${axis} записана строкой ` +
+            `("${String(rawValue)}") — приведена к числу ${value}`
+        : `${path}: у узла "${raw.id}" некорректная координата ${axis} ` +
+            `(${String(rawValue)}) — заменена на 0`
     );
   }
 
@@ -228,10 +247,17 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
 
   const campusMeta: CampusMeta = {
     buildings: asRecordArray(rawCampusMeta, 'buildings', CAMPUS_META_PATH, warnings).map(
-      (b) => ({
-        id: String(b.id ?? ''),
-        ...(asOptionalString(b.name) !== undefined ? { name: b.name as string } : {}),
-      })
+      (b) => {
+        // `asOptionalString`, а не `String(...)`: объект в поле id иначе
+        // превращался в корпус "[object Object]" и порождал запрос
+        // `buildings/[object Object]/meta.json` с невнятным предупреждением
+        // вместо честного «корпус без id».
+        const name = asOptionalString(b.name);
+        return {
+          id: asOptionalString(b.id) ?? '',
+          ...(name !== undefined ? { name } : {}),
+        };
+      }
     ).filter((b) => {
       if (b.id.length > 0) return true;
       warnings.push(`${CAMPUS_META_PATH}: корпус без id пропущен`);
@@ -248,7 +274,68 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
     warnings.push(`${CAMPUS_META_PATH}: нет mapSize, использован размер по умолчанию 1200×800`);
   }
 
+  // Все остальные чтения зависят только от списка корпусов, но не от
+  // содержимого друг друга. Раньше они шли цепочкой `await` во вложенных
+  // циклах: на целевом объёме (5+ корпусов, до 11 этажей) это ~64
+  // последовательных запроса, то есть секунды задержки до первой отрисовки
+  // на мобильной сети. Теперь — две параллельные волны.
+  //
+  // Разбор результатов при этом идёт строго в порядке объявления. Иначе
+  // `warnings` перемешивались бы между запусками, а «последнее значение» у
+  // дублирующегося id узла зависело бы от того, какой ответ пришёл раньше.
+
+  // Волна 1: всё, что определяется списком корпусов.
+  const [rawCampusGraph, rawMetas, rawTransitions, rawAliases] = await Promise.all([
+    source.readJson(CAMPUS_GRAPH_PATH),
+    Promise.all(campusMeta.buildings.map((entry) => source.readJson(buildingMetaPath(entry.id)))),
+    source.readJson(TRANSITIONS_PATH),
+    source.readJson(ALIASES_PATH),
+  ]);
+
+  // Метаданные корпусов разбираются сразу: список этажей нужен второй волне.
+  // Предупреждения копятся по корпусам и выпускаются ниже вместе с
+  // предупреждениями их этажей — в том же порядке, что и при чтении цепочкой.
+  const buildings = campusMeta.buildings.map((entry, index) => {
+    const metaPath = buildingMetaPath(entry.id);
+    const rawMeta = rawMetas[index];
+    const metaWarnings: string[] = [];
+
+    if (!isRecord(rawMeta)) {
+      metaWarnings.push(`${metaPath}: метаданные корпуса недоступны, корпус пропущен`);
+      return { meta: null, metaWarnings };
+    }
+
+    const meta: BuildingMeta = {
+      id: asOptionalString(rawMeta.id) ?? entry.id,
+      name: asOptionalString(rawMeta.name) ?? entry.name ?? entry.id,
+      floors: normalizeFloors(rawMeta, metaPath, metaWarnings),
+    };
+
+    if (meta.id !== entry.id) {
+      metaWarnings.push(
+        `${metaPath}: id корпуса "${meta.id}" не совпадает с заявленным в ${CAMPUS_META_PATH} ("${entry.id}")`
+      );
+    }
+    if (meta.floors.length === 0) {
+      metaWarnings.push(`${metaPath}: у корпуса "${meta.id}" нет ни одного этажа`);
+    }
+
+    return { meta, metaWarnings };
+  });
+
+  // Волна 2: графы этажей всех корпусов разом.
+  const rawFloorGraphs = await Promise.all(
+    buildings.map(({ meta }) =>
+      meta === null
+        ? Promise.resolve([])
+        : Promise.all(
+            meta.floors.map((floor) => source.readJson(floorGraphPath(meta.id, floor.floor)))
+          )
+    )
+  );
+
   const nodes: MapNode[] = [];
+  const nodeIndexById = new Map<string, number>();
   const seenNodeIds = new Map<string, string>();
 
   const addNodes = (raw: unknown, building: string, floor: number, path: string): void => {
@@ -257,74 +344,57 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
       if (!node) continue;
 
       const previous = seenNodeIds.get(node.id);
-      if (previous !== undefined) {
+      seenNodeIds.set(node.id, path);
+
+      const existingIndex = nodeIndexById.get(node.id);
+      if (previous !== undefined && existingIndex !== undefined) {
         warnings.push(
           `Дублирующийся id узла "${node.id}": встречается в ${previous} и в ${path} — ` +
             `использовано последнее значение`
         );
-        const index = nodes.findIndex((n) => n.id === node.id);
-        if (index !== -1) nodes.splice(index, 1);
+        // Замена на месте по индексу. Раньше здесь был `findIndex` + `splice`
+        // на каждый дубль — квадратичная работа ровно на битом датасете, ради
+        // открытия которого загрузчик и сделан терпимым к ошибкам.
+        nodes[existingIndex] = node;
+        continue;
       }
 
-      seenNodeIds.set(node.id, path);
+      nodeIndexById.set(node.id, nodes.length);
       nodes.push(node);
     }
   };
 
   // 1. Территория кампуса
-  const campusGraphPath = CAMPUS_GRAPH_PATH;
-  const rawCampusGraph = await source.readJson(campusGraphPath);
   if (rawCampusGraph === null) {
-    warnings.push(`${campusGraphPath}: файл отсутствует, узлы кампуса не загружены`);
+    warnings.push(`${CAMPUS_GRAPH_PATH}: файл отсутствует, узлы кампуса не загружены`);
   } else {
-    addNodes(rawCampusGraph, CAMPUS_BUILDING_ID, CAMPUS_FLOOR, campusGraphPath);
+    addNodes(rawCampusGraph, CAMPUS_BUILDING_ID, CAMPUS_FLOOR, CAMPUS_GRAPH_PATH);
   }
 
   // 2. Корпуса и их этажи
   const buildingMetas: BuildingMeta[] = [];
 
-  for (const entry of campusMeta.buildings) {
-    const metaPath = buildingMetaPath(entry.id);
-    const rawMeta = await source.readJson(metaPath);
-
-    if (!isRecord(rawMeta)) {
-      warnings.push(`${metaPath}: метаданные корпуса недоступны, корпус пропущен`);
-      continue;
-    }
-
-    const meta: BuildingMeta = {
-      id: asOptionalString(rawMeta.id) ?? entry.id,
-      name: asOptionalString(rawMeta.name) ?? entry.name ?? entry.id,
-      floors: normalizeFloors(rawMeta, metaPath, warnings),
-    };
-
-    if (meta.id !== entry.id) {
-      warnings.push(
-        `${metaPath}: id корпуса "${meta.id}" не совпадает с заявленным в ${CAMPUS_META_PATH} ("${entry.id}")`
-      );
-    }
-    if (meta.floors.length === 0) {
-      warnings.push(`${metaPath}: у корпуса "${meta.id}" нет ни одного этажа`);
-    }
+  buildings.forEach(({ meta, metaWarnings }, buildingIndex) => {
+    warnings.push(...metaWarnings);
+    if (meta === null) return;
 
     buildingMetas.push(meta);
 
-    for (const floor of meta.floors) {
+    meta.floors.forEach((floor, floorIndex) => {
       const graphPath = floorGraphPath(meta.id, floor.floor);
-      const rawFloorGraph = await source.readJson(graphPath);
+      const rawFloorGraph = rawFloorGraphs[buildingIndex][floorIndex];
 
       if (rawFloorGraph === null) {
         warnings.push(`${graphPath}: файл этажа отсутствует, этаж пропущен`);
-        continue;
+        return;
       }
 
       addNodes(rawFloorGraph, meta.id, floor.floor, graphPath);
-    }
-  }
+    });
+  });
 
   // 3. Переходы между этажами и корпусами
   const transitions: Transition[] = [];
-  const rawTransitions = await source.readJson(TRANSITIONS_PATH);
   if (rawTransitions === null) {
     warnings.push(`${TRANSITIONS_PATH}: файл отсутствует — межэтажные маршруты недоступны`);
   } else {
@@ -336,7 +406,6 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
 
   // 4. Алиасы для поиска
   const aliases: AliasEntry[] = [];
-  const rawAliases = await source.readJson(ALIASES_PATH);
   if (rawAliases === null) {
     warnings.push(`${ALIASES_PATH}: файл отсутствует — поиск по названиям недоступен`);
   } else {
