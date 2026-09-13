@@ -1,3 +1,4 @@
+import { edgeKey } from '@campus-map/core';
 import type { MapNode, Transition } from '@campus-map/core';
 
 export type AutoFixReport = {
@@ -171,7 +172,7 @@ export function autoFixDataset(params: {
       }
 
       // Duplicate
-      const key = [t.fromNode, t.toNode].sort().join('|') + `|${t.type}`;
+      const key = `${edgeKey(t.fromNode, t.toNode)}|${t.type}`;
       if (seenTransitions.has(key)) {
         report.removedDuplicateTransitions++;
         continue;
@@ -226,98 +227,5 @@ export function autoFixDataset(params: {
     fixedTransitions,
     removedNodeIds,
     report,
-  };
-}
-
-/**
- * Проверка данных без изменений
- */
-export function diagnoseDataset(params: {
-  nodes: Map<string, MapNode>;
-  transitions: Transition[];
-}): {
-  issues: string[];
-  warnings: string[];
-  stats: {
-    orphanNodes: number;
-    missingNeighbors: number;
-    asymmetricEdges: number;
-    invalidTransitions: number;
-    duplicateTransitions: number;
-  };
-} {
-  const { nodes, transitions } = params;
-  const issues: string[] = [];
-  const warnings: string[] = [];
-
-  let orphanNodes = 0;
-  let missingNeighbors = 0;
-  let asymmetricEdges = 0;
-  let invalidTransitions = 0;
-  let duplicateTransitions = 0;
-
-  // Проверяем узлы
-  for (const [id, node] of nodes) {
-    // Orphan check
-    const hasNeighbors = node.neighbors.length > 0;
-    const hasTransitions = transitions.some(t => t.fromNode === id || t.toNode === id);
-    if (!hasNeighbors && !hasTransitions) {
-      orphanNodes++;
-      warnings.push(`Узел "${id}" не имеет связей`);
-    }
-
-    // Missing neighbors
-    for (const nb of node.neighbors) {
-      if (!nodes.has(nb)) {
-        missingNeighbors++;
-        issues.push(`Узел "${id}" ссылается на несуществующего соседа "${nb}"`);
-      }
-    }
-
-    // Asymmetric edges
-    for (const nb of node.neighbors) {
-      const neighbor = nodes.get(nb);
-      if (neighbor && !neighbor.neighbors.includes(id)) {
-        asymmetricEdges++;
-        warnings.push(`Асимметричное ребро: "${id}" → "${nb}" (обратное отсутствует)`);
-      }
-    }
-
-    // Invalid coordinates
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
-      issues.push(`Узел "${id}" имеет некорректные координаты`);
-    }
-  }
-
-  // Проверяем transitions
-  const seenTransitions = new Set<string>();
-  for (const t of transitions) {
-    if (!nodes.has(t.fromNode)) {
-      invalidTransitions++;
-      issues.push(`Переход ссылается на несуществующий узел "${t.fromNode}"`);
-    }
-    if (!nodes.has(t.toNode)) {
-      invalidTransitions++;
-      issues.push(`Переход ссылается на несуществующий узел "${t.toNode}"`);
-    }
-
-    const key = [t.fromNode, t.toNode].sort().join('|');
-    if (seenTransitions.has(key)) {
-      duplicateTransitions++;
-      warnings.push(`Дублирующийся переход между "${t.fromNode}" и "${t.toNode}"`);
-    }
-    seenTransitions.add(key);
-  }
-
-  return {
-    issues,
-    warnings,
-    stats: {
-      orphanNodes,
-      missingNeighbors,
-      asymmetricEdges,
-      invalidTransitions,
-      duplicateTransitions,
-    },
   };
 }

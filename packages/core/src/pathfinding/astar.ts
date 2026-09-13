@@ -1,6 +1,7 @@
 import { distance, edgeKey } from '../geometry.js';
 import type { Graph } from '../graph/Graph.js';
 import type { MapNode } from '../types/node.js';
+import { DEFAULT_PATHFINDING_OPTIONS } from '../types/pathfinding.js';
 import type {
   MultiPathResult,
   PathfindingOptions,
@@ -13,9 +14,6 @@ import type { TransitionType } from '../types/transition.js';
  * Поиск кратчайшего пути алгоритмом A*.
  */
 
-/** Ограничение итераций по умолчанию — защита от зацикливания на битых данных. */
-const DEFAULT_MAX_ITERATIONS = 50_000;
-
 /**
  * Штраф за ребро, соединяющее разные этажи или корпуса без описанного
  * перехода. Маршрут через него технически возможен, но делается заведомо
@@ -27,6 +25,15 @@ const CROSS_FLOOR_WITHOUT_TRANSITION_COST = 10_000;
 interface QueueItem {
   nodeId: string;
   fScore: number;
+
+  /**
+   * Стоимость пути до узла на момент постановки в очередь.
+   *
+   * Нужна, чтобы отличить устаревшую запись от актуальной при извлечении:
+   * узел мог попасть в очередь несколько раз, и обрабатывать нужно только
+   * ту запись, которая соответствует лучшему известному пути.
+   */
+  gScore: number;
 }
 
 /**
@@ -103,15 +110,35 @@ interface NormalizedOptions {
   maxIterations: number;
 }
 
+/**
+ * Подставляет значения по умолчанию.
+ *
+ * Раскладывается именно `DEFAULT_PATHFINDING_OPTIONS`, а не список литералов:
+ * иначе набор по умолчанию существует в двух местах и однажды разойдётся —
+ * так уже случилось с `maxIterations`, которого не было в экспортируемом
+ * объекте, хотя поиск его применял.
+ */
 function normalizeOptions(options: PathfindingOptions = {}): NormalizedOptions {
-  return {
-    allowStairs: options.allowStairs ?? true,
-    allowLift: options.allowLift ?? true,
-    allowBridge: options.allowBridge ?? true,
-    allowEntrance: options.allowEntrance ?? true,
-    preferLift: options.preferLift ?? false,
-    maxIterations: options.maxIterations ?? DEFAULT_MAX_ITERATIONS,
-  };
+  return { ...DEFAULT_PATHFINDING_OPTIONS, ...stripUndefined(options) };
+}
+
+/**
+ * Убирает явно переданные `undefined`.
+ *
+ * `{ ...defaults, ...{ preferLift: undefined } }` затёр бы значение по
+ * умолчанию на `undefined`, а такой объект легко получить, собирая опции из
+ * состояния интерфейса.
+ */
+function stripUndefined(options: PathfindingOptions): PathfindingOptions {
+  const result: PathfindingOptions = {};
+
+  for (const [key, value] of Object.entries(options)) {
+    if (value !== undefined) {
+      (result as Record<string, unknown>)[key] = value;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -169,6 +196,42 @@ function edgeCost(
 
   // Ребро между этажами или корпусами без перехода — ошибка в данных.
   return CROSS_FLOOR_WITHOUT_TRANSITION_COST;
+}
+
+/**
+ * Оценка остатка пути до цели.
+ *
+ * **Сейчас всегда ноль, и это единственное корректное значение.** Пояснение
+ * обязательно, потому что напрашивающаяся альтернатива выглядит разумной и
+ * при этом неверна.
+ *
+ * Координаты узла — пиксели плана **своего** этажа, и у каждого плана своя
+ * система координат: общей привязки корпусов к территории в данных пока нет.
+ * Отсюда два следствия.
+ *
+ * 1. Расстояние между узлами разных этажей ничего не измеряет — это разность
+ *    чисел из двух несвязанных систем. Оно легко оказывается в сотни единиц
+ *    там, где настоящая остаточная стоимость равна весу лестницы, то есть 40.
+ *
+ * 2. Менее очевидное: расстояние между узлами **одного** этажа тоже
+ *    переоценивает остаток. Модель стоимости не запрещает уйти на соседний
+ *    этаж и вернуться, а там узлы могут оказаться рядом по своим координатам.
+ *    Тогда «обход» стоит 15 + 10 + 15, тогда как прямая на текущем этаже —
+ *    2000. Физически такого прохода нет, но знание об этом есть только в
+ *    геометрии, которой у нас нет: в терминах модели это законный путь.
+ *
+ * Эвристика, которая переоценивает, недопустима, и A* с ней возвращает
+ * строго неоптимальный маршрут. Проверено: оракул в
+ * `tests/pathfinding.optimality.test.ts` ловит оба варианта.
+ *
+ * Поэтому поиск сейчас вырождается в алгоритм Дейкстры. На графе кампуса это
+ * несущественно — стоимость шага определяют индексы графа, а не эвристика.
+ * Функция оставлена отдельно как единственное место, которое изменится, когда
+ * у планов появится привязка к общей метрике кампуса: тогда оценкой станет
+ * расстояние в метрах, допустимое и согласованное по построению.
+ */
+function heuristic(_from: MapNode, _to: MapNode): number {
+  return 0;
 }
 
 /**
@@ -255,10 +318,9 @@ function search(
 
   const gScore = new Map<string, number>([[startId, 0]]);
   const cameFrom = new Map<string, string>();
-  const closed = new Set<string>();
 
   const openSet = new PriorityQueue();
-  openSet.push({ nodeId: startId, fScore: distance(startNode, endNode) });
+  openSet.push({ nodeId: startId, fScore: heuristic(startNode, endNode), gScore: 0 });
 
   let iterations = 0;
 
@@ -272,7 +334,18 @@ function search(
       };
     }
 
-    const currentId = openSet.pop()!.nodeId;
+    const current = openSet.pop()!;
+    const currentId = current.nodeId;
+
+    // Ленивое удаление: узел мог попасть в очередь несколько раз. Пропускаем
+    // запись, устаревшую относительно лучшего известного пути.
+    //
+    // Закрытого множества здесь намеренно нет. Оно запрещало бы повторную
+    // обработку узла, а это верно только при согласованной эвристике.
+    // Наша эвристика согласованной не является (см. `heuristic`), поэтому
+    // узел, до которого позже нашёлся более дешёвый путь, обязан быть
+    // обработан заново — иначе A* возвращает неоптимальный маршрут.
+    if (current.gScore > (gScore.get(currentId) ?? Number.POSITIVE_INFINITY)) continue;
 
     if (currentId === endId) {
       const path = reconstructPath(cameFrom, endId);
@@ -284,17 +357,10 @@ function search(
       };
     }
 
-    // Ленивое удаление: узел мог попасть в очередь несколько раз с разной
-    // оценкой, обрабатываем только первое извлечение.
-    if (closed.has(currentId)) continue;
-    closed.add(currentId);
-
     const currentNode = graph.getNode(currentId);
     if (!currentNode) continue;
 
     for (const neighborId of graph.getNeighbors(currentId)) {
-      if (closed.has(neighborId)) continue;
-
       if (excludeEdgeKey !== undefined && edgeKey(currentId, neighborId) === excludeEdgeKey) {
         continue;
       }
@@ -306,12 +372,16 @@ function search(
       const cost = edgeCost(currentNode, neighborNode, transitionType, opts);
       if (!Number.isFinite(cost)) continue;
 
-      const tentativeG = (gScore.get(currentId) ?? Number.POSITIVE_INFINITY) + cost;
+      const tentativeG = current.gScore + cost;
       if (tentativeG >= (gScore.get(neighborId) ?? Number.POSITIVE_INFINITY)) continue;
 
       cameFrom.set(neighborId, currentId);
       gScore.set(neighborId, tentativeG);
-      openSet.push({ nodeId: neighborId, fScore: tentativeG + distance(neighborNode, endNode) });
+      openSet.push({
+        nodeId: neighborId,
+        fScore: tentativeG + heuristic(neighborNode, endNode),
+        gScore: tentativeG,
+      });
     }
   }
 
@@ -326,10 +396,24 @@ function search(
 /**
  * Ищет кратчайший путь между двумя узлами.
  *
- * Эвристика — евклидово расстояние без учёта этажа и корпуса. Она
- * допустима (никогда не переоценивает), поэтому результат оптимален.
- * Для кросс-этажных маршрутов эвристика слабая, но корректная: стоимость
- * перехода всё равно меньше любого реального обходного пути.
+ * Результат оптимален для заданной модели стоимости. Это обеспечивают два
+ * свойства вместе, и порознь ни одного не хватает:
+ *
+ * 1. эвристика (`heuristic`) никогда не переоценивает остаток — она даёт
+ *    расстояние только в пределах одной поверхности, где пиксели плана
+ *    сравнимы, и ноль во всех остальных случаях;
+ * 2. обход разрешает переоткрытие узлов — эвристика допустима, но не
+ *    согласованна, а для таких эвристик A* с закрытым множеством возвращает
+ *    неоптимальный путь.
+ *
+ * Цена — поиск между этажами вырождается в алгоритм Дейкстры. На графе
+ * кампуса это несущественно: стоимость шага определяют индексы графа, а не
+ * эвристика. Вернуть эвристике силу можно только вместе с общей метрикой
+ * кампуса (привязка планов к территории), и это отдельная задача.
+ *
+ * Раньше здесь стояло обещание оптимальности, которого код не выполнял:
+ * эвристикой было евклидово расстояние без учёта этажа, то есть разность
+ * координат из двух несвязанных пиксельных систем.
  */
 export function findPath(
   graph: Graph,

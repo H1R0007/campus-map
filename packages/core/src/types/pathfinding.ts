@@ -33,13 +33,23 @@ export interface PathfindingOptions {
  * Живут в ядре, потому что одинаковы для навигатора и редактора: оба
  * приложения держали свой экземпляр этого объекта, и редактор — дважды
  * (начальное состояние и сброс при загрузке данных).
+ *
+ * Тип `Required<…>` здесь важен: он заставляет перечислить **все** поля.
+ * Раньше в этом объекте не было `maxIterations`, а настоящее значение по
+ * умолчанию подставлялось отдельно в поиске — то есть существовало два
+ * независимых источника истины об одном и том же, и вызывающая сторона,
+ * разложившая этот объект, получала не тот набор, с которым работает A*.
  */
-export const DEFAULT_PATHFINDING_OPTIONS: Readonly<PathfindingOptions> = Object.freeze({
+export const DEFAULT_PATHFINDING_OPTIONS: Readonly<Required<PathfindingOptions>> = Object.freeze({
   allowStairs: true,
   allowLift: true,
   allowBridge: true,
   allowEntrance: true,
   preferLift: false,
+
+  // Защита от зацикливания на битых данных. Порог с большим запасом: на
+  // связном графе кампуса реальный поиск укладывается в сотни извлечений.
+  maxIterations: 50_000,
 });
 
 /**

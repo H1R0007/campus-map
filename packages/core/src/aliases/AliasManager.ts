@@ -18,6 +18,17 @@ interface AliasRecord {
   acronym: string;
 }
 
+/**
+ * Вариант запроса, подготовленный один раз на вызов `suggest`.
+ *
+ * Всё, что зависит только от запроса, считается здесь, а не в оценке каждой
+ * записи индекса.
+ */
+interface PreparedQuery {
+  text: string;
+  acronym: string;
+}
+
 /** Содержимое кэша — полный список совпадений до обрезки по limit. */
 interface CacheEntry {
   results: SearchSuggestion[];
@@ -41,8 +52,16 @@ const QWERTY_TO_CYRILLIC: Readonly<Record<string, string>> = Object.freeze({
 });
 
 export class AliasManager {
-  /** Нормализованное имя → id узла. Для точного соответствия. */
-  private aliasToId = new Map<string, string>();
+  /**
+   * Нормализованное имя → id узлов с таким именем.
+   *
+   * Список, а не один id. Раньше здесь была запись `set(normalized, id)`, то
+   * есть при совпадении имён побеждало последнее — молча. На кампусе из пяти
+   * корпусов совпадения неизбежны: «Столовая» есть в каждом, «101» — почти на
+   * каждом этаже. Молчаливая перезапись означает, что поиск уверенно ведёт
+   * студента не туда, и заметить это невозможно ни по данным, ни по коду.
+   */
+  private aliasToIds = new Map<string, string[]>();
 
   /** Все формы имён для нечёткого поиска. */
   private index: AliasRecord[] = [];
@@ -65,7 +84,7 @@ export class AliasManager {
    * Повторный вызов полностью заменяет предыдущее содержимое.
    */
   load(entries: AliasEntry[]): void {
-    this.aliasToId.clear();
+    this.aliasToIds.clear();
     this.index = [];
     this.idToAliases.clear();
     this.cache.clear();
@@ -91,7 +110,12 @@ export class AliasManager {
         if (seen.has(key)) continue;
         seen.add(key);
 
-        this.aliasToId.set(normalized, entry.id);
+        const owners = this.aliasToIds.get(normalized);
+        if (owners) {
+          if (!owners.includes(entry.id)) owners.push(entry.id);
+        } else {
+          this.aliasToIds.set(normalized, [entry.id]);
+        }
 
         const tokens = this.tokenize(normalized);
         this.index.push({
@@ -118,9 +142,45 @@ export class AliasManager {
 
   /**
    * Точный поиск id по имени (с нормализацией регистра и пунктуации).
+   *
+   * При неоднозначности возвращает `null`, а не произвольный из подходящих
+   * узлов: «Столовая» на кампусе из пяти корпусов не определяет точку, и
+   * выбрать за пользователя один из вариантов значит соврать. Вызывающая
+   * сторона должна показать выбор — список даёт {@link resolveAll}.
    */
   resolve(alias: string): string | null {
-    return this.aliasToId.get(this.normalize(alias)) ?? null;
+    const ids = this.aliasToIds.get(this.normalize(alias));
+    return ids !== undefined && ids.length === 1 ? ids[0] : null;
+  }
+
+  /**
+   * Все узлы с таким именем, в порядке объявления в датасете.
+   *
+   * Пустой список — имени нет; больше одного — имя неоднозначно.
+   */
+  resolveAll(alias: string): readonly string[] {
+    return this.aliasToIds.get(this.normalize(alias)) ?? EMPTY;
+  }
+
+  /**
+   * Имена, которые указывают более чем на один узел.
+   *
+   * Не ошибка данных сама по себе (в двух корпусах законно есть «Столовая»),
+   * но точный поиск по такому имени работать не может, и разметчик должен об
+   * этом знать. Метод живёт здесь, а не в загрузчике, потому что правило
+   * нормализации имён принадлежит этому классу — вторая его копия в
+   * загрузчике разошлась бы с первой.
+   *
+   * @returns нормализованное имя → id узлов
+   */
+  ambiguousAliases(): Map<string, readonly string[]> {
+    const result = new Map<string, readonly string[]>();
+
+    for (const [normalized, ids] of this.aliasToIds) {
+      if (ids.length > 1) result.set(normalized, ids);
+    }
+
+    return result;
   }
 
   /** Все имена узла в порядке объявления. */
@@ -157,10 +217,19 @@ export class AliasManager {
     if (!qNorm) return [];
 
     const qAlt = this.normalize(this.swapKeyboardLayout(query));
+
+    // Всё, что зависит только от запроса, считается один раз здесь, а не в
+    // оценке каждой записи. Акроним запроса раньше пересобирался (разбиение
+    // регуляркой + склейка) для каждой записи индекса на каждое нажатие
+    // клавиши — на тысячах помещений это тысячи лишних аллокаций на символ.
+    const prepared: PreparedQuery[] = [qNorm, qAlt]
+      .filter((q) => q.length > 0)
+      .map((q) => ({ text: q, acronym: this.makeAcronym(this.tokenize(q)) }));
+
     const scored: SearchSuggestion[] = [];
 
     for (const record of this.index) {
-      const score = this.scoreMatch(qNorm, qAlt, record);
+      const score = this.scoreMatch(prepared, record);
       if (score > 0) {
         scored.push({ alias: record.display, id: record.id, score });
       }
@@ -171,11 +240,16 @@ export class AliasManager {
       return a.alias.length - b.alias.length;
     });
 
+    // Схлопываются только одинаковые формы имени **одного и того же** узла.
+    // Раньше ключом был один текст, и из двух «Столовых» разных корпусов в
+    // подсказках оставалась одна: вторая становилась недостижимой из
+    // интерфейса, хотя в данных была записана правильно.
     const unique: SearchSuggestion[] = [];
-    const seenDisplay = new Set<string>();
+    const seen = new Set<string>();
     for (const suggestion of scored) {
-      if (seenDisplay.has(suggestion.alias)) continue;
-      seenDisplay.add(suggestion.alias);
+      const key = `${suggestion.id} ${suggestion.alias}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       unique.push(suggestion);
     }
 
@@ -221,52 +295,61 @@ export class AliasManager {
    * совпадения заведомо слабее предыдущего, а вычитание длины имени и
    * позиции разрывает равенства внутри уровня.
    */
-  private scoreMatch(qNorm: string, qAlt: string, record: AliasRecord): number {
-    const scoreOne = (q: string): number => {
-      if (!q) return -1;
+  private scoreMatch(queries: readonly PreparedQuery[], record: AliasRecord): number {
+    let best = -1;
+    let previous: string | null = null;
 
-      if (q === record.normalized) return 100_000;
+    for (const query of queries) {
+      // Запрос в правильной раскладке совпадает с «переключённым» — второй
+      // раз считать ту же оценку незачем.
+      if (query.text === previous) continue;
+      previous = query.text;
 
-      if (record.normalized.startsWith(q)) {
-        return 90_000 - (record.normalized.length - q.length);
+      best = Math.max(best, this.scoreOne(query, record));
+    }
+
+    return best;
+  }
+
+  /** Оценка одного варианта запроса против одной записи индекса. */
+  private scoreOne(query: PreparedQuery, record: AliasRecord): number {
+    const q = query.text;
+
+    if (q === record.normalized) return 100_000;
+
+    if (record.normalized.startsWith(q)) {
+      return 90_000 - (record.normalized.length - q.length);
+    }
+
+    for (const token of record.tokens) {
+      if (token.startsWith(q)) {
+        return 85_000 - record.display.length;
       }
+    }
 
+    const pos = record.normalized.indexOf(q);
+    if (pos !== -1) {
+      return 80_000 - pos * 2 - record.display.length;
+    }
+
+    if (query.acronym && record.acronym.startsWith(query.acronym)) {
+      return 78_000 - record.acronym.length;
+    }
+
+    if (this.isSubsequence(q, record.normalized)) {
+      return 70_000 - record.display.length;
+    }
+
+    if (q.length <= FUZZY_MAX_QUERY_LENGTH) {
       for (const token of record.tokens) {
-        if (token.startsWith(q)) {
-          return 85_000 - record.display.length;
+        const dist = this.levenshtein(q, token, FUZZY_MAX_DISTANCE);
+        if (dist <= FUZZY_MAX_DISTANCE) {
+          return 65_000 - dist * 200 - record.display.length;
         }
       }
+    }
 
-      const pos = record.normalized.indexOf(q);
-      if (pos !== -1) {
-        return 80_000 - pos * 2 - record.display.length;
-      }
-
-      const qAcronym = this.makeAcronym(this.tokenize(q));
-      if (qAcronym && record.acronym.startsWith(qAcronym)) {
-        return 78_000 - record.acronym.length;
-      }
-
-      if (this.isSubsequence(q, record.normalized)) {
-        return 70_000 - record.display.length;
-      }
-
-      if (q.length <= FUZZY_MAX_QUERY_LENGTH) {
-        for (const token of record.tokens) {
-          const dist = this.levenshtein(q, token, FUZZY_MAX_DISTANCE);
-          if (dist <= FUZZY_MAX_DISTANCE) {
-            return 65_000 - dist * 200 - record.display.length;
-          }
-        }
-      }
-
-      return -1;
-    };
-
-    const primary = scoreOne(qNorm);
-    const swapped = qAlt && qAlt !== qNorm ? scoreOne(qAlt) : -1;
-
-    return Math.max(primary, swapped);
+    return -1;
   }
 
   /** Является ли `sub` подпоследовательностью `str`. */

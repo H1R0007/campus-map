@@ -113,13 +113,21 @@ export class Graph {
     return [...this.nodes.values()];
   }
 
-  /** Узлы конкретного этажа конкретного корпуса. */
-  getNodesForFloor(building: string, floor: number): MapNode[] {
-    return this.nodesByFloor.get(floorKey(building, floor)) ?? [];
+  /**
+   * Узлы конкретного этажа конкретного корпуса.
+   *
+   * Возвращает внутренний массив индекса — без копирования, потому что
+   * вызывается на каждую перерисовку слоя карты. Тип `readonly` здесь не
+   * формальность: раньше он был изменяемым, и вызывающая сторона могла
+   * молча дописать узел прямо в индекс неизменяемого графа. Так же устроен
+   * `getNeighbors`.
+   */
+  getNodesForFloor(building: string, floor: number): readonly MapNode[] {
+    return this.nodesByFloor.get(floorKey(building, floor)) ?? EMPTY_NODES;
   }
 
   /** Узлы территории кампуса. */
-  getCampusNodes(): MapNode[] {
+  getCampusNodes(): readonly MapNode[] {
     return this.getNodesForFloor(CAMPUS_BUILDING_ID, CAMPUS_FLOOR);
   }
 
@@ -152,6 +160,9 @@ export class Graph {
 }
 
 const EMPTY_NEIGHBORS: readonly string[] = Object.freeze([]);
+
+/** Общий пустой список узлов: промах по индексу не должен выделять массив. */
+const EMPTY_NODES: readonly MapNode[] = Object.freeze([]);
 
 function dedupeExisting(ids: string[], nodes: Map<string, MapNode>): string[] {
   const seen = new Set<string>();
