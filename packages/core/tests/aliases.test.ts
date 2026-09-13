@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { AliasManager } from '../src/index.js';
-import { fixtureDataset } from './helpers/datasetFixture.js';
+import { sampleDataset } from './helpers/sampleDataset.js';
 
+/** Индекс названий синтетического кампуса (схема — в `helpers/sampleDataset.ts`). */
 async function loadedManager(): Promise<AliasManager> {
-  const dataset = await fixtureDataset();
+  const dataset = await sampleDataset();
   const manager = new AliasManager();
   manager.load(dataset.aliases);
   return manager;
@@ -20,7 +21,7 @@ describe('AliasManager', () => {
   it('индексирует все формы имён из датасета', async () => {
     const manager = await loadedManager();
 
-    expect(manager.size).toBe(64);
+    expect(manager.size).toBe(20);
   });
 
   it('разрешает точное совпадение', async () => {
@@ -45,8 +46,8 @@ describe('AliasManager', () => {
   it('отдаёт основное и все дополнительные имена узла', async () => {
     const manager = await loadedManager();
 
-    expect(manager.getPrimaryAliasForId('a2_room204')).toBe('А-204');
-    expect(manager.getAliasesForId('a2_room204')).toHaveLength(4);
+    expect(manager.getPrimaryAliasForId('campus_gate')).toBe('Главный вход');
+    expect(manager.getAliasesForId('campus_gate')).toHaveLength(4);
     expect(manager.getAliasesForId('nope')).toEqual([]);
   });
 

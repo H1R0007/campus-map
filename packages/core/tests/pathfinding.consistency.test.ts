@@ -5,7 +5,7 @@ import { WALKING_PROFILE, heuristic, stepCost } from '../src/pathfinding/costMod
 import { createCampusProjection } from '../src/projection.js';
 import { DEFAULT_PATHFINDING_OPTIONS } from '../src/types/pathfinding.js';
 import type { BuildingMeta, PathfindingOptions } from '../src/index.js';
-import { fixtureDataset } from './helpers/datasetFixture.js';
+import { loadRealDataset } from './helpers/realDataset.js';
 import { generateCampus, makeRandom } from './helpers/generatedCampus.js';
 
 /**
@@ -93,7 +93,7 @@ describe('согласованность эвристики метрическо
   });
 
   it('ни один шаг реального датасета с условной привязкой не дешевле прямого пути', async () => {
-    const dataset = await fixtureDataset();
+    const { dataset } = await loadRealDataset();
 
     // Планы в data/ — заглушки, и привязки у них нет. Привязка ниже условная,
     // но топология, типы переходов и координаты узлов — настоящие.

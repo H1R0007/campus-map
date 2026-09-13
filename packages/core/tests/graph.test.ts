@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Graph, createCampusProjection } from '../src/index.js';
 import type { BuildingMeta, CampusMeta, MapNode, Transition } from '../src/index.js';
-import { fixtureDataset } from './helpers/datasetFixture.js';
+import { sampleDataset } from './helpers/sampleDataset.js';
 
 function node(id: string, building: string, floor: number, neighbors: string[] = []): MapNode {
   return { id, x: 0, y: 0, building, floor, neighbors, isPortal: false };
@@ -16,24 +16,24 @@ function node(id: string, building: string, floor: number, neighbors: string[] =
  */
 describe('Graph', () => {
   it('строится из датасета', async () => {
-    const dataset = await fixtureDataset();
+    const dataset = await sampleDataset();
     const graph = Graph.fromDataset(dataset);
 
     expect(graph.nodeCount).toBe(dataset.nodes.length);
-    expect(graph.transitionCount).toBe(6);
+    expect(graph.transitionCount).toBe(4);
   });
 
   it('индексирует узлы по корпусу и этажу', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
-    expect(graph.getNodesForFloor('building_a', 1).length).toBe(8);
-    expect(graph.getCampusNodes().length).toBe(8);
+    expect(graph.getNodesForFloor('building_a', 1).length).toBe(6);
+    expect(graph.getCampusNodes().length).toBe(4);
     expect(graph.getNodesForFloor('building_a', 99)).toEqual([]);
     expect(graph.getNodesForFloor('no_such_building', 1)).toEqual([]);
   });
 
   it('возвращает узел по id и сообщает об отсутствии', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     expect(graph.getNode('a1_lobby')?.id).toBe('a1_lobby');
     expect(graph.hasNode('a1_lobby')).toBe(true);
@@ -43,20 +43,20 @@ describe('Graph', () => {
   });
 
   it('тип перехода не зависит от порядка аргументов', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     expect(graph.getTransitionType('a1_stairs', 'a2_stairs')).toBe('stairs');
     expect(graph.getTransitionType('a2_stairs', 'a1_stairs')).toBe('stairs');
   });
 
   it('для обычного ребра на этаже тип перехода равен null', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     expect(graph.getTransitionType('a1_lobby', 'a1_corridor')).toBeNull();
   });
 
   it('список смежности объединяет рёбра этажа и переходы', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
     const neighbors = graph.getNeighbors('a1_stairs');
 
     expect(neighbors).toContain('a1_lobby');   // ребро на этаже
@@ -64,7 +64,7 @@ describe('Graph', () => {
   });
 
   it('список смежности не содержит несуществующих узлов', async () => {
-    const graph = Graph.fromDataset(await fixtureDataset());
+    const graph = Graph.fromDataset(await sampleDataset());
 
     for (const n of graph.getAllNodes()) {
       for (const neighbor of graph.getNeighbors(n.id)) {
@@ -140,8 +140,8 @@ describe('Graph: пространство кампуса', () => {
     expect(graph.getWorld('a')).toBeUndefined();
   });
 
-  it('реальный датасет без привязки — пиксельный', async () => {
-    expect(Graph.fromDataset(await fixtureDataset()).isMetric).toBe(false);
+  it('датасет без привязки — пиксельный', async () => {
+    expect(Graph.fromDataset(await sampleDataset()).isMetric).toBe(false);
   });
 
   it('из датасета с полной привязкой хранит точку каждого узла', () => {

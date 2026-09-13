@@ -8,7 +8,8 @@ import {
   floorGraphPath,
   loadDataset,
 } from '../src/index.js';
-import type { DatasetSource } from '../src/index.js';
+import { memorySource } from './helpers/memorySource.js';
+import type { DatasetFiles } from './helpers/memorySource.js';
 
 /**
  * Поведение загрузчика на битых и нестандартных данных.
@@ -21,34 +22,8 @@ import type { DatasetSource } from '../src/index.js';
  * загрузчика, а не содержимое продуктового `data/`.
  */
 
-type Files = Record<string, unknown>;
-
-interface RecordingSource extends DatasetSource {
-  requested: string[];
-}
-
-/**
- * Источник данных в памяти.
- *
- * @param delayOf задержка ответа по пути — чтобы проверить, что результат
- *        не зависит от порядка прихода ответов при параллельной загрузке
- */
-function memorySource(files: Files, delayOf?: (path: string) => number): RecordingSource {
-  const requested: string[] = [];
-
-  return {
-    requested,
-    async readJson(path) {
-      requested.push(path);
-      const delay = delayOf?.(path) ?? 0;
-      if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-      return Object.prototype.hasOwnProperty.call(files, path) ? files[path] : null;
-    },
-  };
-}
-
 /** Кампус с двумя корпусами по два этажа — минимум, где порядок имеет значение. */
-function twoBuildingFiles(): Files {
+function twoBuildingFiles(): DatasetFiles {
   return {
     [CAMPUS_META_PATH]: {
       buildings: [{ id: 'bA', name: 'Корпус А' }, { id: 'bB', name: 'Корпус Б' }],
@@ -114,7 +89,7 @@ describe('loadDataset: параллельная загрузка', () => {
 });
 
 describe('loadDataset: координаты узла', () => {
-  function withNode(node: Record<string, unknown>): Files {
+  function withNode(node: Record<string, unknown>): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: { buildings: [], mapSize: { width: 1, height: 1 } },
       [CAMPUS_GRAPH_PATH]: { nodes: [{ neighbors: [], ...node }] },
@@ -198,7 +173,7 @@ describe('loadDataset: идентификаторы', () => {
 
 describe('loadDataset: метаданные этажа', () => {
   /** Корпус с единственным этажом, описанным переданной записью. */
-  function withFloor(floor: Record<string, unknown>): Files {
+  function withFloor(floor: Record<string, unknown>): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: {
         buildings: [{ id: 'bA', name: 'Корпус А' }],
@@ -241,7 +216,7 @@ describe('loadDataset: метаданные этажа', () => {
 
 describe('loadDataset: входной этаж корпуса', () => {
   /** Корпус с этажами 0 и 1 и заданным значением `entranceFloor`. */
-  function withEntrance(entranceFloor: unknown): Files {
+  function withEntrance(entranceFloor: unknown): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: {
         buildings: [{ id: 'bA', name: 'Корпус А' }],
@@ -296,7 +271,7 @@ describe('loadDataset: привязка к метрике кампуса', () =>
     campus?: Record<string, unknown>;
     building?: Record<string, unknown>;
     floors?: Record<string, unknown>[];
-  }): Files {
+  }): DatasetFiles {
     return {
       [CAMPUS_META_PATH]: {
         buildings: [{ id: 'bA', name: 'Корпус А' }],
