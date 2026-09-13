@@ -1,6 +1,8 @@
 import React from 'react';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
 
 export const RecentActions: React.FC = () => {
   const entries = useHistoryStore((s) => s.entries);
@@ -35,7 +37,7 @@ export const RecentActions: React.FC = () => {
             style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             title="Отменить (Ctrl+Z)"
           >
-            ↩
+            <Icon name="undo" size={14} />
           </button>
           <button
             onClick={redo}
@@ -44,7 +46,7 @@ export const RecentActions: React.FC = () => {
             style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             title="Повторить (Ctrl+Y)"
           >
-            ↪
+            <Icon name="redo" size={14} />
           </button>
         </div>
       </div>
@@ -59,7 +61,7 @@ export const RecentActions: React.FC = () => {
               opacity: i === 0 ? 1 : 0.6,
             }}
           >
-            <span>{getActionIcon(entry.type)}</span>
+            <Icon name={getActionIcon(entry.type)} size={14} className="flex-shrink-0" />
             <span className="flex-1 truncate" style={{ color: 'white' }}>
               {entry.description}
             </span>
@@ -73,19 +75,23 @@ export const RecentActions: React.FC = () => {
   );
 };
 
-function getActionIcon(type: string): string {
+/**
+ * Значок действия в истории. Удаление ребра и перехода — одними ножницами:
+ * что именно удалено, говорит описание рядом.
+ */
+function getActionIcon(type: string): IconName {
   switch (type) {
-    case 'ADD_NODE': return '➕';
-    case 'REMOVE_NODE': return '🗑️';
-    case 'MOVE_NODE': return '↔️';
-    case 'UPDATE_NODE': return '✏️';
-    case 'ADD_EDGE': return '🔗';
-    case 'REMOVE_EDGE': return '✂️';
-    case 'ADD_TRANSITION': return '🚪';
-    case 'REMOVE_TRANSITION': return '❌';
-    case 'SET_ALIASES': return '🏷️';
-    case 'BATCH': return '📦';
-    default: return '•';
+    case 'ADD_NODE': return 'plus';
+    case 'REMOVE_NODE': return 'trash';
+    case 'MOVE_NODE': return 'move';
+    case 'UPDATE_NODE': return 'edit';
+    case 'ADD_EDGE': return 'link';
+    case 'REMOVE_EDGE': return 'unlink';
+    case 'ADD_TRANSITION': return 'transition';
+    case 'REMOVE_TRANSITION': return 'unlink';
+    case 'SET_ALIASES': return 'tag';
+    case 'BATCH': return 'stack';
+    default: return 'dot';
   }
 }
 

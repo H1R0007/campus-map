@@ -6,14 +6,17 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
 import { validateDataset } from '../../utils/validateData';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
 
-const tools: { id: EditorTool; icon: string; label: string; shortcut: string }[] = [
-  { id: 'select', label: 'Выбор', shortcut: 'V', icon: '👆' },
-  { id: 'node', label: 'Узел', shortcut: 'N', icon: '➕' },
-  { id: 'edge', label: 'Ребро', shortcut: 'E', icon: '🔗' },
-  { id: 'transition', label: 'Переход', shortcut: 'T', icon: '🚪' },
-  { id: 'line', label: 'Линия', shortcut: 'L', icon: '📏' },
-  { id: 'delete', label: 'Удалить', shortcut: 'D', icon: '🗑️' },
+/** Инструменты. Значок `null` — значок выбранного типа перехода. */
+const tools: { id: EditorTool; icon: IconName | null; label: string; shortcut: string }[] = [
+  { id: 'select', label: 'Выбор', shortcut: 'V', icon: 'select' },
+  { id: 'node', label: 'Узел', shortcut: 'N', icon: 'plus' },
+  { id: 'edge', label: 'Ребро', shortcut: 'E', icon: 'link' },
+  { id: 'transition', label: 'Переход', shortcut: 'T', icon: null },
+  { id: 'line', label: 'Линия', shortcut: 'L', icon: 'ruler' },
+  { id: 'delete', label: 'Удалить', shortcut: 'D', icon: 'trash' },
 ];
 
 export const Toolbar: React.FC = () => {
@@ -114,7 +117,9 @@ export const Toolbar: React.FC = () => {
                 color: activeTool === t.id ? 'white' : 'var(--editor-text-muted)',
               }}
             >
-              <span className="mr-1">{t.icon}</span>
+              <span className="mr-1 inline-flex align-middle">
+                {t.icon === null ? <TransitionGlyph type={transitionType} size={16} /> : <Icon name={t.icon} />}
+              </span>
               <span className="hidden sm:inline">{t.label}</span>
             </button>
           ))}
@@ -161,7 +166,7 @@ export const Toolbar: React.FC = () => {
               title="Удалить (Delete)"
               style={{ color: '#fca5a5' }}
             >
-              🗑️
+              <Icon name="trash" />
             </button>
 
             <button
@@ -170,7 +175,7 @@ export const Toolbar: React.FC = () => {
               title="Дублировать (Ctrl+D)"
               style={{ color: 'white' }}
             >
-              📋
+              <Icon name="duplicate" />
             </button>
 
             <button
@@ -179,7 +184,7 @@ export const Toolbar: React.FC = () => {
               title="Копировать (Ctrl+C)"
               style={{ color: 'white' }}
             >
-              📄
+              <Icon name="copy" />
             </button>
 
             {multiSelection && (
@@ -191,7 +196,7 @@ export const Toolbar: React.FC = () => {
                   title="Соединить цепочкой"
                   style={{ color: 'white' }}
                 >
-                  🔗
+                  <Icon name="link" />
                 </button>
                 <button
                   onClick={() => setSelectedPortal(true)}
@@ -199,7 +204,7 @@ export const Toolbar: React.FC = () => {
                   title="Сделать порталами"
                   style={{ color: '#f59e0b' }}
                 >
-                  ⭐
+                  <Icon name="star" />
                 </button>
               </>
             )}
@@ -214,7 +219,7 @@ export const Toolbar: React.FC = () => {
             style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             title="Поиск (Ctrl+F)"
           >
-            🔍
+            <Icon name="search" />
           </button>
 
           {clipboard && (
@@ -224,7 +229,7 @@ export const Toolbar: React.FC = () => {
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
               title="Вставить (Ctrl+V)"
             >
-              📋 Вставить
+              <span className="inline-flex items-center gap-2"><Icon name="paste" />Вставить</span>
             </button>
           )}
 
@@ -236,7 +241,7 @@ export const Toolbar: React.FC = () => {
               title="Отмена (Ctrl+Z)"
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             >
-              ↩
+              <Icon name="undo" />
             </button>
             <button
               onClick={redo}
@@ -245,7 +250,7 @@ export const Toolbar: React.FC = () => {
               title="Повтор (Ctrl+Y)"
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             >
-              ↪
+              <Icon name="redo" />
             </button>
           </div>
 
@@ -270,7 +275,10 @@ export const Toolbar: React.FC = () => {
               opacity: isImporting ? 0.6 : 1,
             }}
           >
-            {isImporting ? '⏳' : '📥'} Импорт
+            <span className="inline-flex items-center gap-2">
+              <Icon name={isImporting ? 'refresh' : 'download'} className={isImporting ? 'animate-spin' : undefined} />
+              Импорт
+            </span>
           </button>
 
           <button
@@ -283,7 +291,10 @@ export const Toolbar: React.FC = () => {
               opacity: isExporting ? 0.6 : 1,
             }}
           >
-            {isExporting ? '⏳' : '📤'} Экспорт
+            <span className="inline-flex items-center gap-2">
+              <Icon name={isExporting ? 'refresh' : 'upload'} className={isExporting ? 'animate-spin' : undefined} />
+              Экспорт
+            </span>
           </button>
         </div>
       </div>
@@ -315,7 +326,7 @@ export const Toolbar: React.FC = () => {
           {validation.errors.length > 0 && (
             <div>
               <div className="text-sm font-medium" style={{ color: '#fca5a5' }}>
-                ❌ Ошибки ({validation.errors.length})
+                <span className="inline-flex items-center gap-2"><Icon name="errorCircle" />Ошибки ({validation.errors.length})</span>
               </div>
               <ul className="mt-1 text-xs space-y-1 max-h-32 overflow-y-auto" style={{ color: 'var(--editor-text-muted)' }}>
                 {validation.errors.slice(0, 10).map((e, i) => (
@@ -329,7 +340,7 @@ export const Toolbar: React.FC = () => {
           {validation.warnings.length > 0 && (
             <div>
               <div className="text-sm font-medium" style={{ color: '#fbbf24' }}>
-                ⚠️ Предупреждения ({validation.warnings.length})
+                <span className="inline-flex items-center gap-2"><Icon name="warning" />Предупреждения ({validation.warnings.length})</span>
               </div>
               <ul className="mt-1 text-xs space-y-1 max-h-32 overflow-y-auto" style={{ color: 'var(--editor-text-muted)' }}>
                 {validation.warnings.slice(0, 10).map((w, i) => (

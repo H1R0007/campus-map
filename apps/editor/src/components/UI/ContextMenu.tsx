@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 
 export const ContextMenu: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -73,7 +74,7 @@ export const ContextMenu: React.FC = () => {
             {node.id}
           </div>
 
-          <MenuItem onClick={() => run(() => selectSingleNode(node.id))} icon="👆" label="Выбрать" />
+          <MenuItem onClick={() => run(() => selectSingleNode(node.id))} icon={<Icon name="select" />} label="Выбрать" />
           <MenuItem
             onClick={() =>
               run(() => {
@@ -81,7 +82,7 @@ export const ContextMenu: React.FC = () => {
                 setEdgeStartNode(node.id);
               })
             }
-            icon="🔗"
+            icon={<Icon name="link" />}
             label="Создать ребро отсюда"
           />
           <MenuItem
@@ -91,7 +92,7 @@ export const ContextMenu: React.FC = () => {
                 setTransitionStartNode(node.id);
               })
             }
-            icon="🚪"
+            icon={<Icon name="transition" />}
             label="Создать переход отсюда"
           />
 
@@ -99,13 +100,13 @@ export const ContextMenu: React.FC = () => {
 
           <MenuItem
             onClick={() => run(() => updateNode(node.id, { isPortal: !node.isPortal }))}
-            icon={node.isPortal ? '⭐' : '☆'}
+            icon={<Icon name="star" filled={node.isPortal} />}
             label={node.isPortal ? 'Снять флаг портала' : 'Сделать порталом'}
           />
 
           <div style={{ borderTop: '1px solid var(--editor-border)' }} />
 
-          <MenuItem onClick={() => run(() => removeNode(node.id))} icon="🗑️" label="Удалить узел" danger />
+          <MenuItem onClick={() => run(() => removeNode(node.id))} icon={<Icon name="trash" />} label="Удалить узел" danger />
         </>
       )}
 
@@ -128,7 +129,7 @@ export const ContextMenu: React.FC = () => {
                 if (contextMenu.edgeFrom && contextMenu.edgeTo) removeEdge(contextMenu.edgeFrom, contextMenu.edgeTo);
               })
             }
-            icon="🔗"
+            icon={<Icon name="unlink" />}
             label="Удалить ребро"
             danger
           />
@@ -139,7 +140,7 @@ export const ContextMenu: React.FC = () => {
                 if (contextMenu.edgeFrom && contextMenu.edgeTo) removeTransition(contextMenu.edgeFrom, contextMenu.edgeTo);
               })
             }
-            icon="🚪"
+            icon={<Icon name="transition" />}
             label="Удалить переход"
             danger
           />
@@ -149,7 +150,7 @@ export const ContextMenu: React.FC = () => {
   );
 };
 
-const MenuItem: React.FC<{ onClick: () => void; icon: string; label: string; danger?: boolean }> = ({
+const MenuItem: React.FC<{ onClick: () => void; icon: React.ReactNode; label: string; danger?: boolean }> = ({
   onClick,
   icon,
   label,
@@ -161,7 +162,7 @@ const MenuItem: React.FC<{ onClick: () => void; icon: string; label: string; dan
     style={{ color: danger ? '#fca5a5' : 'white' }}
     type="button"
   >
-    <span>{icon}</span>
+    <span className="flex w-4 flex-shrink-0 justify-center">{icon}</span>
     <span>{label}</span>
   </button>
 );

@@ -1,5 +1,7 @@
 import React from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
 
 export const FilterPanel: React.FC = () => {
   const filtersOpen = useEditorStore((s) => s.filtersOpen);
@@ -26,7 +28,7 @@ export const FilterPanel: React.FC = () => {
         }}
         title="Фильтры отображения (F)"
       >
-        🎛️ Фильтры
+        <span className="inline-flex items-center gap-2"><Icon name="sliders" />Фильтры</span>
       </button>
     );
   }
@@ -41,7 +43,7 @@ export const FilterPanel: React.FC = () => {
     >
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--editor-border)' }}>
-        <div className="text-white font-semibold">🎛️ Фильтры</div>
+        <div className="text-white font-semibold flex items-center gap-2"><Icon name="sliders" />Фильтры</div>
         <button
           onClick={() => setFiltersOpen(false)}
           className="p-1 rounded hover:bg-white/10"
@@ -59,7 +61,7 @@ export const FilterPanel: React.FC = () => {
           </div>
           <FilterToggle
             label="Подписи алиасов"
-            icon="🏷️"
+            icon="tag"
             checked={displayFilters.showAliasLabels}
             onChange={(v) => setDisplayFilters({ showAliasLabels: v })}
             hint="Показывать названия узлов на карте"
@@ -68,19 +70,19 @@ export const FilterPanel: React.FC = () => {
 
           <FilterToggle
             label="Порталы"
-            icon="⭐"
+            icon="star"
             checked={displayFilters.showPortals}
             onChange={(v) => setDisplayFilters({ showPortals: v })}
           />
           <FilterToggle
             label="Рёбра (связи)"
-            icon="🔗"
+            icon="link"
             checked={displayFilters.showEdges}
             onChange={(v) => setDisplayFilters({ showEdges: v })}
           />
           <FilterToggle
             label="Переходы"
-            icon="🚪"
+            icon="transition"
             checked={displayFilters.showTransitions}
             onChange={(v) => setDisplayFilters({ showTransitions: v })}
           />
@@ -94,7 +96,7 @@ export const FilterPanel: React.FC = () => {
 
           <FilterToggle
             label={`Сироты без связей (${orphanCount})`}
-            icon="🚫"
+            icon="ban"
             checked={displayFilters.highlightOrphans}
             onChange={(v) => setDisplayFilters({ highlightOrphans: v })}
             color="#f97316"
@@ -102,7 +104,7 @@ export const FilterPanel: React.FC = () => {
           />
           <FilterToggle
             label={`Без алиаса (${noAliasCount})`}
-            icon="📝"
+            icon="note"
             checked={displayFilters.highlightNoAlias}
             onChange={(v) => setDisplayFilters({ highlightNoAlias: v })}
             color="#eab308"
@@ -110,7 +112,7 @@ export const FilterPanel: React.FC = () => {
           />
           <FilterToggle
             label={`С ошибками (${errorCount})`}
-            icon="⚠️"
+            icon="warning"
             checked={displayFilters.highlightErrors}
             onChange={(v) => setDisplayFilters({ highlightErrors: v })}
             color="#ef4444"
@@ -126,7 +128,7 @@ export const FilterPanel: React.FC = () => {
 
           <FilterToggle
             label="Включить сетку"
-            icon="📐"
+            icon="grid"
             checked={gridSettings.enabled}
             onChange={(v) => setGridSettings({ enabled: v })}
           />
@@ -135,13 +137,13 @@ export const FilterPanel: React.FC = () => {
             <>
               <FilterToggle
                 label="Показывать сетку"
-                icon="👁️"
+                icon="eye"
                 checked={gridSettings.visible}
                 onChange={(v) => setGridSettings({ visible: v })}
               />
               <FilterToggle
                 label="Привязка к пересечениям"
-                icon="🧲"
+                icon="magnet"
                 checked={gridSettings.snap}
                 onChange={(v) => setGridSettings({ snap: v })}
                 hint="Узлы будут привязываться к пересечениям линий сетки"
@@ -177,7 +179,7 @@ export const FilterPanel: React.FC = () => {
 
 const FilterToggle: React.FC<{
   label: string;
-  icon: string;
+  icon: IconName;
   checked: boolean;
   onChange: (v: boolean) => void;
   color?: string;
@@ -193,7 +195,7 @@ const FilterToggle: React.FC<{
     />
     <div className="flex-1">
       <div className="flex items-center gap-1">
-        <span className="text-sm">{icon}</span>
+        <Icon name={icon} size={14} className="flex-shrink-0 opacity-70" />
         <span
           className="text-sm group-hover:text-white transition-colors"
           style={{ color: checked && color ? color : (checked ? 'white' : 'var(--editor-text-muted)') }}
