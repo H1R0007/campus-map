@@ -30,11 +30,13 @@ interface RouteState {
    * точку пользователь выбрал явно, и отдельное нажатие «Построить» ничего бы
    * не добавило. Набор текста в поле маршрут по-прежнему не строит.
    *
-   * @param label текст поля; по умолчанию — основное имя узла на языке
-   *        интерфейса (подсказка передаёт имя, которое пользователь увидел)
+   * Текст поля — основное имя узла на языке интерфейса, а не форма имени, по
+   * которой место нашлось: поиск идёт по всем языкам, и «Canteen» в русском
+   * интерфейсе поле показывать не должно.
+   *
    * @returns маршрут между точками либо `null`, если второй точки ещё нет
    */
-  setPoint: (field: RouteField, nodeId: string, label?: string) => PathResult | null;
+  setPoint: (field: RouteField, nodeId: string) => PathResult | null;
 
   setOptions: (options: Partial<PathfindingOptions>) => void;
   buildRoute: () => void;
@@ -124,11 +126,11 @@ export const useRouteStore = create<RouteState>((set, get) => {
       applyPoint(field, query, resolvePoint(query, graph, aliasManager));
     },
 
-    setPoint: (field, nodeId, label) => {
+    setPoint: (field, nodeId) => {
       const aliasManager = useMapStore.getState().aliasManager;
       const language = useSettingsStore.getState().language;
 
-      applyPoint(field, label ?? aliasManager?.getPrimaryAliasForId(nodeId, language) ?? nodeId, nodeId);
+      applyPoint(field, aliasManager?.getPrimaryAliasForId(nodeId, language) ?? nodeId, nodeId);
 
       const { fromNodeId, toNodeId, currentRoute } = get();
       if (fromNodeId === null || toNodeId === null) return null;

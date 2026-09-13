@@ -179,10 +179,12 @@ describe('точка маршрута узлом', () => {
     expect(useRouteStore.getState().toQuery).toBe('Холл А');
   });
 
-  it('подсказка передаёт имя, которое увидел пользователь', () => {
-    useRouteStore.getState().setPoint('to', 'a2_room201', '201');
+  it('подпись поля не зависит от того, по какому имени место нашлось', () => {
+    // Поиск находит «Main gate» и в русском интерфейсе, но поле получает имя
+    // на языке интерфейса.
+    useRouteStore.getState().setPoint('from', 'campus_gate');
 
-    expect(useRouteStore.getState().toQuery).toBe('201');
+    expect(useRouteStore.getState().fromQuery).toBe('Главный вход');
   });
 
   it('повторный выбор тех же точек не перестраивает показанный маршрут', () => {

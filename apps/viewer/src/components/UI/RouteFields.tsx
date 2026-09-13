@@ -13,7 +13,7 @@ interface RouteFieldsProps {
   activeInput: RouteField | null;
   onFocusField: (field: RouteField) => void;
   /** Точка выбрана подсказкой или среди одноимённых мест. */
-  onPointChosen: (field: RouteField, nodeId: string, label: string) => void;
+  onPointChosen: (field: RouteField, nodeId: string) => void;
   fromInputRef: RefObject<HTMLInputElement>;
   toInputRef: RefObject<HTMLInputElement>;
 }
@@ -31,9 +31,11 @@ const optionId = (index: number) => `route-suggestion-${index}`;
  * добирались табуляцией, теряя введённый текст из виду.
  *
  * Подсказки вычисляются, а не хранятся: это чистая функция от запроса и
- * загруженных алиасов. Под полями — выбор среди одноимённых мест: точно
- * набранное неоднозначное название иначе оставляло поле неразрешённым без
- * объяснения.
+ * загруженных алиасов. Имя в подсказке — на языке интерфейса, а имя, по
+ * которому место нашлось, — строкой ниже, если в основном его не видно.
+ *
+ * Под полями — выбор среди одноимённых мест: точно набранное неоднозначное
+ * название иначе оставляло поле неразрешённым без объяснения.
  */
 export const RouteFields: React.FC<RouteFieldsProps> = ({
   activeInput,
@@ -94,7 +96,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
         const suggestion = suggestions[activeOption];
         if (suggestion) {
           event.preventDefault();
-          onPointChosen(field, suggestion.id, suggestion.alias);
+          onPointChosen(field, suggestion.id);
         }
         break;
       }
@@ -185,19 +187,20 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
         >
           {suggestions.map((s, i) => (
             <div
-              key={`${s.id}-${i}`}
+              key={s.id}
               id={optionId(i)}
               role="option"
               aria-selected={i === activeOption}
               // Нажатие мышью не должно уводить фокус из поля: иначе поле
               // теряло бы комбобокс раньше, чем подсказка выбрана.
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => onPointChosen(activeInput, s.id, s.alias)}
+              onClick={() => onPointChosen(activeInput, s.id)}
               className={`cursor-pointer px-4 py-3 transition-colors border-b border-gray-100 last:border-b-0 ${
                 i === activeOption ? 'bg-primary/10' : 'hover:bg-gray-50'
               }`}
             >
-              <div className="text-sm text-gray-800">{s.alias}</div>
+              <div className="text-sm text-gray-800">{s.name}</div>
+              {s.matched !== null && <div className="text-xs text-gray-600">{s.matched}</div>}
               <div className="text-xs text-gray-600">{placeOf(s.id)}</div>
             </div>
           ))}
@@ -217,7 +220,7 @@ export const RouteFields: React.FC<RouteFieldsProps> = ({
               <button
                 key={nodeId}
                 type="button"
-                onClick={() => onPointChosen(field, nodeId, name)}
+                onClick={() => onPointChosen(field, nodeId)}
                 className="w-full px-3 py-2 rounded-lg bg-white text-left text-sm text-gray-800 hover:bg-amber-100 transition-colors"
               >
                 {placeOf(nodeId) || nodeId}

@@ -141,8 +141,8 @@ export const BottomSheet: React.FC = () => {
   };
 
   /** Точка выбрана подсказкой или среди одноимённых мест. */
-  const handlePointChosen = (field: RouteField, nodeId: string, label: string) => {
-    const route = setPoint(field, nodeId, label);
+  const handlePointChosen = (field: RouteField, nodeId: string) => {
+    const route = setPoint(field, nodeId);
 
     // Вторая точка выбрана и маршрут построен — шторка уступает место карте с
     // линией. Если построить не удалось, шторка остаётся открытой с причиной.

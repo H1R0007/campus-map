@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { SearchSuggestion } from '@campus-map/core';
+import { useLanguage } from '../i18n';
 import { useMapStore } from '../stores/mapStore';
+import { suggestionOptions } from '../utils/suggestions';
+import type { SuggestionOption } from '../utils/suggestions';
 
 /** Сколько подсказок показывать. Больше не помещается на экране телефона. */
 const SUGGESTION_LIMIT = 5;
@@ -17,15 +19,17 @@ const SUGGESTION_LIMIT = 5;
 const DEBOUNCE_MS = 120;
 
 /**
- * Подсказки по введённому тексту.
+ * Подсказки по введённому тексту — по одной на место, с именем на языке
+ * интерфейса (`suggestionOptions`).
  *
  * Раньше списки подсказок лежали в сторе маршрута и переписывались на каждое
- * нажатие клавиши. Это чистая функция от запроса и загруженных алиасов —
+ * нажатие клавиши. Это чистая функция от запроса, загруженных алиасов и языка —
  * хранить её результат значит завести второй источник истины, который обязан
  * кем-то поддерживаться в актуальном состоянии. Здесь он вычисляется.
  */
-export function useSuggestions(query: string): SearchSuggestion[] {
+export function useSuggestions(query: string): SuggestionOption[] {
   const aliasManager = useMapStore((s) => s.aliasManager);
+  const language = useLanguage();
   const [debouncedQuery, setDebouncedQuery] = useState(query);
 
   useEffect(() => {
@@ -41,6 +45,11 @@ export function useSuggestions(query: string): SearchSuggestion[] {
 
   return useMemo(() => {
     if (!debouncedQuery.trim() || !aliasManager) return [];
-    return aliasManager.suggest(debouncedQuery, SUGGESTION_LIMIT);
-  }, [debouncedQuery, aliasManager]);
+
+    // Весь ранжированный список, а не первые пять форм имени: формы одного
+    // места схлопываются, и пяти записей могло не хватить на пять мест.
+    // Дороже это не стоит — `suggest` ранжирует и кэширует список целиком.
+    const ranked = aliasManager.suggest(debouncedQuery, Number.POSITIVE_INFINITY);
+    return suggestionOptions(ranked, aliasManager, language, SUGGESTION_LIMIT);
+  }, [debouncedQuery, aliasManager, language]);
 }
