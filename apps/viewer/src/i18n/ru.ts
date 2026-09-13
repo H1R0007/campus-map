@@ -35,6 +35,8 @@ export const ru = {
     zoomIn: 'Приблизить',
     zoomOut: 'Отдалить',
     fitPlan: 'Показать план целиком',
+    planLoading: 'Загрузка плана…',
+    planUnavailable: 'План недоступен',
     routeStart: 'Начало маршрута',
     routeEnd: 'Конец маршрута',
   },

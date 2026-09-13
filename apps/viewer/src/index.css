@@ -113,6 +113,24 @@ button {
     margin-top: 0.25rem;
 }
 
+/* ===== Состояние плана ===== */
+
+/* Подпись поверх скрытой подложки; нажатия проходят сквозь неё к карте. */
+.campus-plan-status {
+    position: absolute;
+    top: 4.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(17, 24, 39, 0.85);
+    color: #ffffff;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+}
+
 /* ===== Маркеры ===== */
 
 .campus-marker--portal span {

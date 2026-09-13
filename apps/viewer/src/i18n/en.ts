@@ -23,6 +23,8 @@ export const en: Messages = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     fitPlan: 'Show the whole plan',
+    planLoading: 'Loading the plan…',
+    planUnavailable: 'The plan is unavailable',
     routeStart: 'Route start',
     routeEnd: 'Route end',
   },

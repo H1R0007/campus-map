@@ -1,9 +1,9 @@
-import { createContext, useContext, useEffect, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ImageOverlay, MapContainer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { FALLBACK_IMAGE_SIZE, useImageSize } from './useImageSize.js';
-import type { ImageSize } from './useImageSize.js';
+import type { ImageSize, ImageStatus } from './useImageSize.js';
 
 /** Геометрия подложки, доступная слоям внутри карты. */
 export interface PixelMapGeometry {
@@ -11,6 +11,8 @@ export interface PixelMapGeometry {
   size: ImageSize;
   /** Границы изображения в системе координат карты. */
   bounds: L.LatLngBounds;
+  /** Загружен ли план: по нему слои показывают индикатор или заглушку. */
+  status: ImageStatus;
 }
 
 const PixelMapContext = createContext<PixelMapGeometry | null>(null);
@@ -33,27 +35,53 @@ export function usePixelMapGeometry(): PixelMapGeometry {
   return geometry;
 }
 
-/**
- * Подгоняет viewport под границы изображения при каждом их изменении.
- */
-function FitToBounds({
-  bounds,
-  padding,
-}: {
+/** На какую долю своего размера план можно увести за край экрана. */
+const PAN_MARGIN = 0.2;
+
+/** Размер контейнера по умолчанию — весь родитель, без CSS-фреймворка приложения. */
+const FILL_PARENT: CSSProperties = Object.freeze({ width: '100%', height: '100%' });
+
+interface PlanViewportProps {
   bounds: L.LatLngBounds;
-  padding: [number, number];
-}) {
+  fitKey: string;
+  sizeKnown: boolean;
+  padding: number;
+  constrainToBounds: boolean;
+}
+
+/**
+ * Пределы и вид карты при смене плана — на живом экземпляре карты.
+ *
+ * `MapContainer` применяет центр, зум и `maxBounds` только при создании.
+ * Поэтому раньше карта пересоздавалась на каждый план (`key={url}`): терялись
+ * масштаб и положение, слои монтировались заново, а до загрузки картинки вид
+ * перескакивал дважды — на резервные габариты и на настоящие. Теперь
+ * экземпляр один, а границы меняются вызовами Leaflet. На этом же держится
+ * будущая непрерывная карта: зум с территории в корпус без пересоздания.
+ */
+function PlanViewport({ bounds, fitKey, sizeKnown, padding, constrainToBounds }: PlanViewportProps) {
   const map = useMap();
+  const fittedKey = useRef<string | null>(null);
 
   useEffect(() => {
-    // fitBounds бросает исключение на ещё не инициализированной карте,
-    // например когда контейнер имеет нулевую высоту.
+    if (constrainToBounds) map.setMaxBounds(bounds.pad(PAN_MARGIN));
+  }, [map, bounds, constrainToBounds]);
+
+  useEffect(() => {
+    // Подгоняется смена ключа, а не каждое изменение границ: этаж того же
+    // корпуса открывается в прежнем масштабе и на прежнем месте. Пока размер
+    // плана неизвестен, подгонять не к чему — вид прыгнул бы второй раз после
+    // загрузки картинки.
+    if (!sizeKnown || fittedKey.current === fitKey) return;
+
     try {
-      map.fitBounds(bounds, { padding });
+      map.fitBounds(bounds, { padding: [padding, padding], animate: false });
+      fittedKey.current = fitKey;
     } catch {
-      /* карта ещё не готова — подгоним на следующем изменении границ */
+      // fitBounds бросает исключение на карте с нулевым размером контейнера.
+      // Ключ не запоминается, и подгонка повторится при следующем изменении.
     }
-  }, [map, bounds, padding]);
+  }, [map, bounds, fitKey, sizeKnown, padding]);
 
   return null;
 }
@@ -62,8 +90,21 @@ export interface PixelMapProps {
   /** URL растровой карты (кампус, этаж корпуса). */
   url: string;
 
-  /** Размер, используемый до загрузки изображения и при ошибке. */
+  /**
+   * Размер плана из данных — до загрузки изображения.
+   *
+   * С подсказкой вид подгоняется сразу; без неё — после загрузки картинки.
+   */
   fallbackSize?: ImageSize;
+
+  /**
+   * Когда подгонять вид под план целиком: при смене этого ключа.
+   *
+   * Смена плана с тем же ключом сохраняет масштаб и положение. По умолчанию —
+   * URL, то есть каждый план открывается целиком; навигатор передаёт корпус,
+   * чтобы этажи одного здания листались на месте.
+   */
+  fitKey?: string;
 
   /** Минимальный зум. Отрицательный позволяет отдалиться дальше 1:1. */
   minZoom?: number;
@@ -92,6 +133,9 @@ export interface PixelMapProps {
 
   className?: string;
 
+  /** Встроенный стиль контейнера; по умолчанию карта заполняет родителя. */
+  style?: CSSProperties;
+
   children?: ReactNode;
 }
 
@@ -104,11 +148,12 @@ export interface PixelMapProps {
  *
  * Компонент закрывает всю обвязку, которая раньше была скопирована в
  * навигатор и редактор: определение размера картинки, построение границ,
- * центрирование, подгонку viewport и пересоздание карты при смене плана.
+ * подгонку viewport и смену плана.
  */
 export function PixelMap({
   url,
-  fallbackSize = FALLBACK_IMAGE_SIZE,
+  fallbackSize,
+  fitKey = url,
   minZoom = -2,
   maxZoom = 4,
   zoomControl = false,
@@ -116,35 +161,27 @@ export function PixelMap({
   overlayOpacity = 1,
   constrainToBounds = false,
   fitPadding = 20,
-  className = 'w-full h-full',
+  className,
+  style = FILL_PARENT,
   children,
 }: PixelMapProps) {
-  const { width, height } = useImageSize(url, fallbackSize);
+  const { size: imageSize, status } = useImageSize(url, fallbackSize ?? FALLBACK_IMAGE_SIZE);
+  const { width, height } = imageSize;
 
   // Границы — реальные объекты Leaflet, а не литералы массивов: иначе
-  // ссылка менялась бы на каждом рендере и эффект подгонки зацикливался.
+  // ссылка менялась бы на каждом рендере и эффекты подгонки срабатывали зря.
   const bounds = useMemo(() => L.latLngBounds([0, 0], [height, width]), [width, height]);
-
-  const maxBounds = useMemo(
-    () =>
-      constrainToBounds
-        ? L.latLngBounds([-height * 0.2, -width * 0.2], [height * 1.2, width * 1.2])
-        : undefined,
-    [constrainToBounds, width, height]
-  );
-
-  const center = useMemo<[number, number]>(() => [height / 2, width / 2], [width, height]);
-  const padding = useMemo<[number, number]>(() => [fitPadding, fitPadding], [fitPadding]);
   const size = useMemo<ImageSize>(() => ({ width, height }), [width, height]);
-  const geometry = useMemo<PixelMapGeometry>(() => ({ size, bounds }), [size, bounds]);
+  const geometry = useMemo<PixelMapGeometry>(() => ({ size, bounds, status }), [size, bounds, status]);
+
+  // Размер известен, если картинка загрузилась, недоступна (слои всё равно
+  // рисуются — в резервных габаритах) или данные прислали подсказку `mapSize`.
+  const sizeKnown = status !== 'loading' || fallbackSize !== undefined;
 
   return (
     <MapContainer
-      // Пересоздаём карту при смене плана: CRS.Simple фиксирует viewport при
-      // инициализации, и без remount границы нового этажа применялись бы
-      // только после ручного зума.
-      key={url}
-      center={center}
+      // Начальный вид — до первой подгонки в `PlanViewport`.
+      center={[height / 2, width / 2]}
       zoom={0}
       minZoom={minZoom}
       maxZoom={maxZoom}
@@ -152,13 +189,21 @@ export function PixelMap({
       zoomControl={zoomControl}
       attributionControl={false}
       doubleClickZoom={doubleClickZoom}
-      maxBounds={maxBounds}
       maxBoundsViscosity={constrainToBounds ? 0.8 : 0}
       className={className}
+      style={style}
     >
       <PixelMapContext.Provider value={geometry}>
-        <ImageOverlay url={url} bounds={bounds} opacity={overlayOpacity} />
-        <FitToBounds bounds={bounds} padding={padding} />
+        {/* Пока план грузится, подложка скрыта: иначе прежняя картинка
+            растянулась бы на границы нового плана под его узлами. */}
+        <ImageOverlay url={url} bounds={bounds} opacity={status === 'ready' ? overlayOpacity : 0} />
+        <PlanViewport
+          bounds={bounds}
+          fitKey={fitKey}
+          sizeKnown={sizeKnown}
+          padding={fitPadding}
+          constrainToBounds={constrainToBounds}
+        />
         {children}
       </PixelMapContext.Provider>
     </MapContainer>

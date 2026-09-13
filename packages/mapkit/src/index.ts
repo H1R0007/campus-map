@@ -10,5 +10,4 @@
 export { PixelMap, usePixelMapGeometry } from './PixelMap.js';
 export type { PixelMapGeometry, PixelMapProps } from './PixelMap.js';
 
-export { FALLBACK_IMAGE_SIZE } from './useImageSize.js';
-export type { ImageSize } from './useImageSize.js';
+export type { ImageSize, ImageStatus } from './useImageSize.js';
