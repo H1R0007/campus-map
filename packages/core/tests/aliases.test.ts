@@ -115,6 +115,39 @@ describe('AliasManager', () => {
     expect(manager.getAliasesForId('b1_library')).toEqual(['Библиотека']);
   });
 
+  it('находит номер аудитории, набранный латиницей', () => {
+    // Табличка кириллическая, а английская раскладка у иностранного студента
+    // включена всегда.
+    const manager = new AliasManager();
+    manager.load([
+      { id: 'a3_room305', names: ['А-305'] },
+      { id: 's2_room201', names: ['С-201'] },
+    ]);
+
+    expect(manager.resolve('A-305')).toBe('a3_room305');
+    expect(manager.resolve('c-201')).toBe('s2_room201');
+    expect(manager.suggest('a-30', 3)[0]?.id).toBe('a3_room305');
+  });
+
+  it('латинская B не становится кириллической В: это транслитерация Б', () => {
+    // По виду B совпадает с «В», и свёртка по виду уверенно вела бы в чужой
+    // корпус. Английское имя «B-201» у корпуса Б задаётся переводом.
+    const manager = new AliasManager();
+    manager.load([
+      { id: 'v2_room201', names: ['В-201'] },
+      { id: 'b2_room201', names: ['Б-201'], translations: { en: { names: ['B-201'] } } },
+    ]);
+
+    expect(manager.resolve('B-201')).toBe('b2_room201');
+  });
+
+  it('не различает «ё» и «е»', () => {
+    const manager = new AliasManager();
+    manager.load([{ id: 'c1_athletics', names: ['Зал лёгкой атлетики'] }]);
+
+    expect(manager.resolve('зал легкой атлетики')).toBe('c1_athletics');
+  });
+
   it('пустой менеджер не падает на любом запросе', () => {
     const manager = new AliasManager();
 

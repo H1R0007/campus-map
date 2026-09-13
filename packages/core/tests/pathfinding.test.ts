@@ -43,13 +43,15 @@ describe('findPath', () => {
     expect(result.segments).toHaveLength(0);
   });
 
-  it('для недостижимой цели возвращает found=false и причину', async () => {
+  it('для неизвестной точки возвращает found=false и код причины', async () => {
     const graph = Graph.fromDataset(await sampleDataset());
     const result = findPath(graph, 'campus_gate', 'NO_SUCH_NODE');
 
     expect(result.found).toBe(false);
     expect(result.path).toEqual([]);
+    expect(result.reason).toBe('unknown-end');
     expect(result.error).toBeDefined();
+    expect(findPath(graph, 'NO_SUCH_NODE', 'campus_gate').reason).toBe('unknown-start');
   });
 
   it('сообщение об ошибке на русском', async () => {
@@ -96,7 +98,10 @@ describe('findPath', () => {
   it('allowStairs:false отрезает этаж, доступный только по лестнице', async () => {
     const graph = Graph.fromDataset(await sampleDataset());
 
-    expect(findPath(graph, 'a1_room101', 'a3_room301', { allowStairs: false }).found).toBe(false);
+    const result = findPath(graph, 'a1_room101', 'a3_room301', { allowStairs: false });
+
+    expect(result.found).toBe(false);
+    expect(result.reason).toBe('unreachable');
   });
 
   it('allowEntrance:false отрезает корпуса от территории кампуса', async () => {
@@ -136,6 +141,7 @@ describe('findPath', () => {
     const result = findPath(graph, 'n0', 'n49', { maxIterations: 5 });
 
     expect(result.found).toBe(false);
+    expect(result.reason).toBe('iteration-limit');
     expect(result.error).toBeDefined();
   });
 });
@@ -195,6 +201,12 @@ describe('findPath: время и длина пути', () => {
     expect(result.found).toBe(true);
     expect(result.distanceMeters).toBeNull();
     expect(result.durationSeconds).toBeNull();
+
+    // И у шагов тоже: у пикселей разных планов нет ни метров, ни секунд.
+    expect(result.segments?.length).toBeGreaterThan(0);
+    expect(
+      result.segments?.every((s) => s.distanceMeters === null && s.durationSeconds === null)
+    ).toBe(true);
   });
 
   it('ожидание лифта входит в поездку один раз, а не на каждом этаже', () => {
@@ -243,6 +255,28 @@ describe('findPath: время и длина пути', () => {
 
     expect(result.found).toBe(true);
     expect(Math.abs(segmentsSum(result.segments) - result.cost)).toBeLessThan(1e-9);
+  });
+
+  it('время и длина шагов складываются в итог пути', () => {
+    const result = findPath(tower(), 'f1_hall', 'f4_hall');
+    const segments = result.segments ?? [];
+
+    // Инструкции показывают время участков, и оно обязано сходиться с итогом
+    // в карточке маршрута.
+    const seconds = segments.reduce((total, s) => total + (s.durationSeconds ?? Number.NaN), 0);
+    const meters = segments.reduce((total, s) => total + (s.distanceMeters ?? Number.NaN), 0);
+
+    expect(seconds).toBeCloseTo(result.durationSeconds ?? Number.NaN, 9);
+    expect(meters).toBeCloseTo(result.distanceMeters ?? Number.NaN, 9);
+  });
+
+  it('ожидание лифта входит в шаг посадки, а не в каждый шаг поездки', () => {
+    const lift = (findPath(tower(), 'f1_hall', 'f4_hall').segments ?? []).filter(
+      (s) => s.transitionType === 'lift'
+    );
+
+    // Этаж — 4 м со скоростью 1 м/с; 30 с ожидания только у первого шага цепочки.
+    expect(lift.map((s) => s.durationSeconds)).toEqual([34, 4, 4]);
   });
 });
 
