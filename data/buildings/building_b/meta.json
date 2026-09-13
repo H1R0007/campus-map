@@ -1,12 +1,25 @@
 {
   "id": "building_b",
   "name": "Корпус Б",
+  "translations": {
+    "en": {
+      "name": "Building B"
+    }
+  },
   "floors": [
     {
-      "floor": 1
+      "floor": 1,
+      "mapSize": {
+        "width": 1356,
+        "height": 727
+      }
     },
     {
-      "floor": 2
+      "floor": 2,
+      "mapSize": {
+        "width": 889,
+        "height": 503
+      }
     }
   ]
 }

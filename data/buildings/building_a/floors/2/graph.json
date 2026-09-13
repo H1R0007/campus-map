@@ -1,41 +1,132 @@
 {
   "nodes": [
     {
-      "id": "a2_stairs",
-      "x": 270,
-      "y": 300,
-      "neighbors": [ "a2_corridor" ],
-      "isPortal": true
+      "id": "a2_corridor_w",
+      "x": 227,
+      "y": 358,
+      "neighbors": [
+        "a2_corridor",
+        "a2_stairs",
+        "a2_room201",
+        "a2_room202",
+        "a2_room205"
+      ],
+      "isPortal": false
     },
     {
       "id": "a2_corridor",
-      "x": 200,
-      "y": 250,
-      "neighbors": [ "a2_stairs", "a2_room201", "a2_room202", "a2_room203", "a2_room204" ]
+      "x": 568,
+      "y": 358,
+      "neighbors": [
+        "a2_corridor_w",
+        "a2_corridor_e",
+        "a2_lift",
+        "a2_dean",
+        "a2_room206"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a2_corridor_e",
+      "x": 909,
+      "y": 358,
+      "neighbors": [
+        "a2_corridor",
+        "a2_bridge",
+        "a2_room204",
+        "a2_toilet"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a2_stairs",
+      "x": 68,
+      "y": 358,
+      "neighbors": [
+        "a2_corridor_w"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "a2_lift",
+      "x": 568,
+      "y": 215,
+      "neighbors": [
+        "a2_corridor"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "a2_bridge",
+      "x": 1068,
+      "y": 358,
+      "neighbors": [
+        "a2_corridor_e"
+      ],
+      "isPortal": true
     },
     {
       "id": "a2_room201",
-      "x": 130,
-      "y": 250,
-      "neighbors": [ "a2_corridor" ]
+      "x": 227,
+      "y": 129,
+      "neighbors": [
+        "a2_corridor_w"
+      ],
+      "isPortal": false
     },
     {
       "id": "a2_room202",
-      "x": 130,
-      "y": 200,
-      "neighbors": [ "a2_corridor" ]
+      "x": 398,
+      "y": 129,
+      "neighbors": [
+        "a2_corridor_w"
+      ],
+      "isPortal": false
     },
     {
-      "id": "a2_room203",
-      "x": 270,
-      "y": 250,
-      "neighbors": [ "a2_corridor" ]
+      "id": "a2_dean",
+      "x": 738,
+      "y": 129,
+      "neighbors": [
+        "a2_corridor"
+      ],
+      "isPortal": false
     },
     {
       "id": "a2_room204",
-      "x": 270,
-      "y": 200,
-      "neighbors": [ "a2_corridor" ]
+      "x": 909,
+      "y": 129,
+      "neighbors": [
+        "a2_corridor_e"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a2_room205",
+      "x": 227,
+      "y": 587,
+      "neighbors": [
+        "a2_corridor_w"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a2_room206",
+      "x": 568,
+      "y": 587,
+      "neighbors": [
+        "a2_corridor"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a2_toilet",
+      "x": 909,
+      "y": 587,
+      "neighbors": [
+        "a2_corridor_e"
+      ],
+      "isPortal": false
     }
   ]
 }

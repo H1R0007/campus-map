@@ -2,93 +2,525 @@
   "aliases": [
     {
       "id": "campus_gate",
-      "names": [ "Главный вход", "Ворота", "Вход в кампус", "Проходная" ]
+      "names": [
+        "Главный вход",
+        "Проходная",
+        "Ворота",
+        "Вход в кампус"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Main gate",
+            "Campus entrance"
+          ]
+        }
+      }
+    },
+    {
+      "id": "campus_bus_stop",
+      "names": [
+        "Остановка",
+        "Автобусная остановка"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Bus stop"
+          ]
+        }
+      }
+    },
+    {
+      "id": "campus_parking",
+      "names": [
+        "Парковка"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Parking"
+          ]
+        }
+      }
     },
     {
       "id": "campus_square",
-      "names": [ "Площадь", "Центр кампуса", "Главная площадь" ]
+      "names": [
+        "Площадь",
+        "Центр кампуса"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Main square"
+          ]
+        }
+      }
     },
-
+    {
+      "id": "a1_entrance",
+      "names": [
+        "Главный вход корпуса А"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Building A main entrance"
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1_entrance_yard",
+      "names": [
+        "Вход со двора",
+        "Запасной вход корпуса А"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Yard entrance"
+          ]
+        }
+      }
+    },
     {
       "id": "a1_room101",
-      "names": [ "А-101", "Аудитория 101", "101", "Лекционная 101" ]
+      "names": [
+        "А-101",
+        "Аудитория 101",
+        "101",
+        "Лекционная 101"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Lecture hall 101"
+          ]
+        }
+      }
     },
     {
       "id": "a1_room102",
-      "names": [ "А-102", "Аудитория 102", "102" ]
+      "names": [
+        "А-102",
+        "102"
+      ]
     },
     {
       "id": "a1_room103",
-      "names": [ "А-103", "Аудитория 103", "103" ]
+      "names": [
+        "А-103",
+        "103"
+      ]
+    },
+    {
+      "id": "a1_room104",
+      "names": [
+        "А-104",
+        "104"
+      ]
+    },
+    {
+      "id": "a1_canteen",
+      "names": [
+        "Столовая",
+        "Столовая корпуса А"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Canteen",
+            "Building A canteen"
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1_cloakroom",
+      "names": [
+        "Гардероб"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Cloakroom"
+          ]
+        }
+      }
     },
     {
       "id": "a1_toilet",
-      "names": [ "Туалет корпус А", "WC А", "Туалет 1 этаж А" ]
+      "names": [
+        "Туалет, 1 этаж корпуса А"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Restroom, Building A, floor 1"
+          ]
+        }
+      }
     },
-
+    {
+      "id": "a2_bridge",
+      "names": [
+        "Переход в корпус Б"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Passage to Building B"
+          ]
+        }
+      }
+    },
     {
       "id": "a2_room201",
-      "names": [ "А-201", "Аудитория 201", "201" ]
+      "names": [
+        "А-201",
+        "201"
+      ]
     },
     {
       "id": "a2_room202",
-      "names": [ "А-202", "Аудитория 202", "202" ]
+      "names": [
+        "А-202",
+        "202"
+      ]
     },
     {
-      "id": "a2_room203",
-      "names": [ "А-203", "Аудитория 203", "203" ]
+      "id": "a2_dean",
+      "names": [
+        "Деканат",
+        "А-203"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Dean's office"
+          ]
+        }
+      }
     },
     {
       "id": "a2_room204",
-      "names": [ "А-204", "Аудитория 204", "204", "Кабинет декана" ]
+      "names": [
+        "А-204",
+        "204"
+      ]
     },
-
+    {
+      "id": "a2_room205",
+      "names": [
+        "А-205",
+        "205"
+      ]
+    },
+    {
+      "id": "a2_room206",
+      "names": [
+        "А-206",
+        "206"
+      ]
+    },
+    {
+      "id": "a2_toilet",
+      "names": [
+        "Туалет, 2 этаж корпуса А"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Restroom, Building A, floor 2"
+          ]
+        }
+      }
+    },
     {
       "id": "a3_room301",
-      "names": [ "А-301", "Аудитория 301", "301" ]
+      "names": [
+        "А-301",
+        "301"
+      ]
     },
     {
       "id": "a3_room302",
-      "names": [ "А-302", "Аудитория 302", "302" ]
+      "names": [
+        "А-302",
+        "302"
+      ]
     },
     {
       "id": "a3_conference",
-      "names": [ "Конференц-зал", "Конференц-зал А", "Зал заседаний" ]
+      "names": [
+        "Конференц-зал",
+        "Зал заседаний",
+        "А-303"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Conference hall"
+          ]
+        }
+      }
     },
-
+    {
+      "id": "a3_room304",
+      "names": [
+        "А-304",
+        "304"
+      ]
+    },
+    {
+      "id": "a3_room305",
+      "names": [
+        "А-305",
+        "305"
+      ]
+    },
+    {
+      "id": "a3_rector",
+      "names": [
+        "Ректорат",
+        "А-306"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Rector's office"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b1_entrance",
+      "names": [
+        "Вход в корпус Б"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Building B entrance"
+          ]
+        }
+      }
+    },
     {
       "id": "b1_library",
-      "names": [ "Библиотека", "Читальный зал", "Читалка" ]
+      "names": [
+        "Библиотека",
+        "Читальный зал"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Library",
+            "Reading room"
+          ]
+        }
+      }
     },
     {
-      "id": "b1_cafe",
-      "names": [ "Кафе", "Столовая", "Буфет", "Еда" ]
+      "id": "b1_room101",
+      "names": [
+        "Б-101",
+        "101"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "B-101"
+          ]
+        }
+      }
     },
-
     {
-      "id": "b2_room201",
-      "names": [ "Б-201", "Аудитория Б-201" ]
+      "id": "b1_room102",
+      "names": [
+        "Б-102",
+        "102"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "B-102"
+          ]
+        }
+      }
     },
     {
-      "id": "b2_room202",
-      "names": [ "Б-202", "Аудитория Б-202" ]
+      "id": "b1_canteen",
+      "names": [
+        "Столовая",
+        "Столовая корпуса Б",
+        "Буфет"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Canteen",
+            "Building B canteen"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b1_toilet",
+      "names": [
+        "Туалет, 1 этаж корпуса Б"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Restroom, Building B, floor 1"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2_bridge",
+      "names": [
+        "Переход в корпус А"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Passage to Building A"
+          ]
+        }
+      }
     },
     {
       "id": "b2_lab",
-      "names": [ "Лаборатория", "Компьютерный класс", "Компьютерная лаборатория" ]
+      "names": [
+        "Компьютерный класс",
+        "Компьютерная лаборатория",
+        "Б-201"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Computer lab",
+            "B-201"
+          ]
+        }
+      }
     },
-
+    {
+      "id": "b2_room202",
+      "names": [
+        "Б-202",
+        "202"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "B-202"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2_room203",
+      "names": [
+        "Б-203"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "B-203"
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2_room204",
+      "names": [
+        "Б-204"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "B-204"
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1_entrance",
+      "names": [
+        "Вход в корпус В"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Building V entrance"
+          ]
+        }
+      }
+    },
     {
       "id": "c1_gym",
-      "names": [ "Спортзал", "Тренажёрный зал", "Зал" ]
+      "names": [
+        "Спортзал",
+        "Спортивный зал",
+        "В-101"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Gym",
+            "V-101"
+          ]
+        }
+      }
     },
     {
       "id": "c1_pool",
-      "names": [ "Бассейн", "Плавательный бассейн" ]
+      "names": [
+        "Бассейн",
+        "В-102"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Swimming pool",
+            "V-102"
+          ]
+        }
+      }
     },
     {
       "id": "c1_lockers",
-      "names": [ "Раздевалка", "Раздевалки", "Шкафчики" ]
+      "names": [
+        "Раздевалка",
+        "Раздевалки"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Locker room"
+          ]
+        }
+      }
+    },
+    {
+      "id": "c1_athletics",
+      "names": [
+        "Зал лёгкой атлетики",
+        "В-103"
+      ],
+      "translations": {
+        "en": {
+          "names": [
+            "Athletics hall",
+            "V-103"
+          ]
+        }
+      }
     }
   ]
 }

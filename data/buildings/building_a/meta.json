@@ -1,15 +1,33 @@
 {
   "id": "building_a",
   "name": "Корпус А",
+  "translations": {
+    "en": {
+      "name": "Building A"
+    }
+  },
+  "entranceFloor": 1,
   "floors": [
     {
-      "floor": 1
+      "floor": 1,
+      "mapSize": {
+        "width": 967,
+        "height": 477
+      }
     },
     {
-      "floor": 2
+      "floor": 2,
+      "mapSize": {
+        "width": 1136,
+        "height": 716
+      }
     },
     {
-      "floor": 3
+      "floor": 3,
+      "mapSize": {
+        "width": 967,
+        "height": 477
+      }
     }
   ]
 }
