@@ -88,7 +88,7 @@ export const BottomSheet: React.FC = () => {
     if (!graph || !buildingMetas || !currentRoute?.found) return [];
     return buildRouteSteps({
       graph,
-      path: currentRoute.path,
+      route: currentRoute,
       buildingMetas,
       aliasManager,
       language,
@@ -482,18 +482,19 @@ export const BottomSheet: React.FC = () => {
                         {index + 1}
                       </div>
                       <div className="flex-1">
-                        <div className="text-sm text-gray-800">{step.text}</div>
-                        {step.scope && (
-                          <button
-                            type="button"
-                            onClick={() => openScope(step.scope)}
-                            className="mt-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors"
-                          >
-                            {step.scope.mode === 'campus'
-                              ? messages.route.openCampus
-                              : messages.route.openFloor(formatFloor(step.scope.floor))}
-                          </button>
-                        )}
+                        {/* Действие и место — отдельными строками: место — имя из
+                            данных, и склонять его нельзя. */}
+                        <div className="text-sm font-medium text-gray-800">{step.title}</div>
+                        <div className="text-xs text-gray-500">{step.place}</div>
+                        <button
+                          type="button"
+                          onClick={() => openScope(step.scope)}
+                          className="mt-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors"
+                        >
+                          {step.scope.mode === 'campus'
+                            ? messages.route.openCampus
+                            : messages.route.openFloor(formatFloor(step.scope.floor))}
+                        </button>
                       </div>
                     </div>
                   ))}

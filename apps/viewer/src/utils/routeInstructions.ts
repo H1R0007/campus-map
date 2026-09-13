@@ -1,6 +1,16 @@
-import type { AliasManager, BuildingMeta, Graph, ViewScope } from '@campus-map/core';
+import type {
+  AliasManager,
+  BuildingMeta,
+  Graph,
+  MapNode,
+  PathResult,
+  PathSegment,
+  TransitionType,
+  ViewScope,
+} from '@campus-map/core';
 import { CAMPUS_BUILDING_ID, scopeOfNode } from '@campus-map/core';
 import { formatFloor, messagesFor } from '../i18n';
+import type { Messages } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
 
@@ -8,101 +18,198 @@ import { nodePlaceLabel } from './placeLabels';
  * Пошаговые инструкции маршрута на языке интерфейса.
  */
 
-interface RouteStep {
-  /** Текст шага. */
-  text: string;
+/**
+ * Вид шага: начало, пеший участок, переход между этажами или корпусами и
+ * прибытие, если маршрут кончается сразу за переходом.
+ */
+export type RouteStepKind = 'start' | 'walk' | 'transition' | 'arrive';
+
+export interface RouteStep {
+  kind: RouteStepKind;
+
+  /** Действие — без имён из данных: «Поднимитесь на лифте». */
+  title: string;
 
   /**
-   * Область видимости, в которой шаг происходит.
-   *
-   * Позволяет интерфейсу одной кнопкой переключить карту на нужный этаж:
-   * тип общий с ядром, поэтому здесь не нужно своё описание «подсказки».
+   * Где это происходит — имена из данных в именительном падеже: «Этаж 3»,
+   * «Корпус Б, этаж 2». Отдельно от действия, потому что произвольное имя
+   * нельзя поставить в падеж ни в одном языке.
    */
-  scope?: ViewScope;
+  place: string;
+
+  /** Тип перехода — для значка шага; у пеших участков, начала и прибытия — `null`. */
+  transition: TransitionType | null;
+
+  /** Область карты, где шаг происходит: кнопка шага открывает её. */
+  scope: ViewScope;
+
+  /** Длина участка по плану, метры; `null` в пиксельном режиме и у начала. */
+  distanceMeters: number | null;
+
+  /** Время участка, секунды; `null` в пиксельном режиме и у начала. */
+  durationSeconds: number | null;
 }
 
 interface BuildRouteStepsParams {
   graph: Graph;
-  path: string[];
+  route: PathResult;
   buildingMetas: ReadonlyMap<string, BuildingMeta>;
   aliasManager: AliasManager | null;
   language: Language;
 }
 
-/**
- * Шаг из действия и места.
- *
- * Место — имя из данных — стоит отдельно от глагола и не склоняется: прежнее
- * «Перейдите из Корпус А в Корпус Б» ломалось ровно на подстановке имени в
- * падежную форму, а по-английски склонения нет вовсе.
- */
-function step(action: string, place: string): string {
-  return `${action} — ${place}`;
+/** Сумма физики шагов; `null`, если у шагов её нет (пиксельный режим). */
+function total(segments: readonly PathSegment[], pick: (segment: PathSegment) => number | null): number | null {
+  let sum = 0;
+  for (const segment of segments) {
+    const value = pick(segment);
+    if (value === null) return null;
+    sum += value;
+  }
+  return sum;
+}
+
+/** «Дойдите до лифта» — к какому переходу ведёт пеший участок. */
+function walkTitle(messages: Messages, type: TransitionType, from: MapNode): string {
+  if (type === 'entrance') {
+    return from.building === CAMPUS_BUILDING_ID
+      ? messages.instructions.walkTo.entrance
+      : messages.instructions.walkTo.exit;
+  }
+  return messages.instructions.walkTo[type];
 }
 
 /**
- * Строит список шагов маршрута.
+ * Строит шаги маршрута по его разбивке из ядра (`PathResult.segments`).
  *
- * Описываются только значимые события: старт, смена корпуса, смена этажа и
- * финиш. Перечислять каждый поворот коридора бессмысленно — на плане линия
- * маршрута и так всё показывает.
+ * Поиск уже разложил путь на шаги с типами переходов и физикой — раньше
+ * инструкции обходили путь заново и теряли это. Описываются значимые события:
+ * начало, пеший участок до перехода, сам переход и участок до цели. Цепочка
+ * лестницы или лифта через несколько этажей — один шаг: «Поднимитесь на лифте
+ * — Этаж 5», а не пять одинаковых. У маршрута по одному этажу есть
+ * содержательный шаг — участок до цели с его длиной, — а не только «старт» и
+ * «финиш».
  */
 export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
-  const { graph, path, buildingMetas, aliasManager, language } = params;
+  const { graph, route, buildingMetas, aliasManager, language } = params;
+  const segments = route.segments;
+  if (!route.found || segments === undefined || route.path.length < 2) return [];
+
+  const start = graph.getNode(route.path[0]);
+  const end = graph.getNode(route.path[route.path.length - 1]);
+  if (!start || !end) return [];
+
   const messages = messagesFor(language);
-  const steps: RouteStep[] = [];
+  const placeOf = (node: MapNode) => nodePlaceLabel(graph, buildingMetas, node.id, language);
+  const pointOf = (node: MapNode) => {
+    const name = aliasManager?.getPrimaryAliasForId(node.id, language) ?? null;
+    return name === null ? placeOf(node) : `${name}, ${placeOf(node)}`;
+  };
 
-  if (path.length < 2) return steps;
+  const steps: RouteStep[] = [
+    {
+      kind: 'start',
+      title: messages.instructions.start,
+      place: pointOf(start),
+      transition: null,
+      scope: scopeOfNode(start),
+      distanceMeters: null,
+      durationSeconds: null,
+    },
+  ];
 
-  const start = graph.getNode(path[0]);
-  const end = graph.getNode(path[path.length - 1]);
-  if (!start || !end) return steps;
+  let index = 0;
 
-  const placeOf = (nodeId: string) => nodePlaceLabel(graph, buildingMetas, nodeId, language);
-  const pointOf = (nodeId: string) =>
-    `${aliasManager?.getPrimaryAliasForId(nodeId, language) ?? nodeId}, ${placeOf(nodeId)}`;
+  // Цикл кончается только шагом до цели или прибытием: проход сразу после
+  // последнего перехода даёт пустой пеший участок — это и есть прибытие.
+  for (;;) {
+    // Пеший участок: подряд идущие шаги без перехода.
+    const legStart = index;
+    while (index < segments.length && segments[index].transitionType === null) index++;
+    const leg = segments.slice(legStart, index);
 
-  steps.push({ text: step(messages.instructions.start, pointOf(start.id)), scope: scopeOfNode(start) });
-
-  for (let i = 1; i < path.length; i++) {
-    const a = graph.getNode(path[i - 1]);
-    const b = graph.getNode(path[i]);
-    if (!a || !b) continue;
-
-    const type = graph.getTransitionType(a.id, b.id);
-    if (type === null) continue;
-
-    // Смена корпуса.
-    if (a.building !== b.building) {
-      if (b.building === CAMPUS_BUILDING_ID) {
-        steps.push({ text: messages.instructions.exitToCampus, scope: scopeOfNode(b) });
-      } else {
-        const action =
-          a.building === CAMPUS_BUILDING_ID
-            ? messages.instructions.enterBuilding
-            : messages.instructions.changeBuilding;
-        steps.push({ text: step(action, placeOf(b.id)), scope: scopeOfNode(b) });
-      }
-      continue;
+    if (index === segments.length) {
+      steps.push(
+        leg.length > 0
+          ? {
+              kind: 'walk',
+              title: messages.instructions.walkToDestination,
+              place: pointOf(end),
+              transition: null,
+              scope: scopeOfNode(end),
+              distanceMeters: total(leg, (s) => s.distanceMeters),
+              durationSeconds: total(leg, (s) => s.durationSeconds),
+            }
+          : {
+              kind: 'arrive',
+              title: messages.instructions.arrive,
+              place: pointOf(end),
+              transition: null,
+              scope: scopeOfNode(end),
+              distanceMeters: null,
+              durationSeconds: null,
+            }
+      );
+      break;
     }
 
-    // Смена этажа внутри корпуса.
-    if (a.floor !== b.floor) {
-      const direction = b.floor > a.floor ? 'up' : 'down';
+    // Переход. Лестница и лифт в данных — цепочки между соседними этажами, и
+    // поездка через несколько этажей описывается одним шагом.
+    const type = segments[index].transitionType as TransitionType;
+    const chainStart = index;
+    index++;
+    if (type === 'stairs' || type === 'lift') {
+      while (index < segments.length && segments[index].transitionType === type) index++;
+    }
+    const chain = segments.slice(chainStart, index);
+
+    const from = graph.getNode(chain[0].fromNode);
+    const to = graph.getNode(chain[chain.length - 1].toNode);
+    if (!from || !to) continue;
+
+    if (leg.length > 0) {
       steps.push({
-        text: step(messages.instructions.move[type][direction], messages.map.floor(formatFloor(b.floor))),
-        scope: scopeOfNode(b),
+        kind: 'walk',
+        title: walkTitle(messages, type, from),
+        place: aliasManager?.getPrimaryAliasForId(from.id, language) ?? placeOf(from),
+        transition: null,
+        scope: scopeOfNode(from),
+        distanceMeters: total(leg, (s) => s.distanceMeters),
+        durationSeconds: total(leg, (s) => s.durationSeconds),
       });
-      continue;
     }
 
-    // Переход того же типа в пределах этажа — редкий, но допустимый случай.
-    if (type === 'entrance') {
-      steps.push({ text: messages.instructions.passEntrance });
+    let title: string;
+    let place: string;
+
+    if (from.building !== to.building) {
+      title =
+        type === 'bridge'
+          ? messages.instructions.move.bridge.same
+          : to.building === CAMPUS_BUILDING_ID
+            ? messages.instructions.exitToCampus
+            : from.building === CAMPUS_BUILDING_ID
+              ? messages.instructions.enterBuilding
+              : messages.instructions.changeBuilding;
+      place = placeOf(to);
+    } else if (from.floor !== to.floor) {
+      title = messages.instructions.move[type][to.floor > from.floor ? 'up' : 'down'];
+      place = messages.map.floor(formatFloor(to.floor));
+    } else {
+      title = messages.instructions.move[type].same;
+      place = placeOf(to);
     }
+
+    steps.push({
+      kind: 'transition',
+      title,
+      place,
+      transition: type,
+      scope: scopeOfNode(to),
+      distanceMeters: total(chain, (s) => s.distanceMeters),
+      durationSeconds: total(chain, (s) => s.durationSeconds),
+    });
   }
-
-  steps.push({ text: step(messages.instructions.finish, pointOf(end.id)), scope: scopeOfNode(end) });
 
   return steps;
 }

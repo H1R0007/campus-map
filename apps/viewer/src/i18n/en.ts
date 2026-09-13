@@ -92,11 +92,18 @@ export const en: Messages = {
 
   instructions: {
     start: 'Start',
-    finish: 'Finish',
+    walkTo: {
+      stairs: 'Walk to the stairs',
+      lift: 'Walk to the lift',
+      bridge: 'Walk to the passage',
+      entrance: 'Walk to the entrance',
+      exit: 'Walk to the exit',
+    },
+    walkToDestination: 'Walk to your destination',
+    arrive: 'You have arrived',
     exitToCampus: 'Go outside to the campus grounds',
     enterBuilding: 'Enter the building',
     changeBuilding: 'Go to another building',
-    passEntrance: 'Go through the entrance',
     move: {
       stairs: { up: 'Take the stairs up', down: 'Take the stairs down', same: 'Take the stairs' },
       lift: { up: 'Take the lift up', down: 'Take the lift down', same: 'Take the lift' },
