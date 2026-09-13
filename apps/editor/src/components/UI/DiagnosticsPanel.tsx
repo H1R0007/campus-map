@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createCampusProjection } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { validateDataset } from '../../utils/validateData';
 
@@ -19,6 +20,22 @@ export const DiagnosticsPanel: React.FC = () => {
    * исчезают по мере правок и не лечатся автоисправлением.
    */
   const loadWarnings = useEditorStore((s) => s.loadWarnings);
+
+  /**
+   * Режим датасета: метрический или пиксельный.
+   *
+   * Не хранится, а выводится из метаданных тем же вызовом ядра, что у
+   * загрузчика и графа. Чего именно не хватает этажам, перечисляют замечания
+   * загрузчика ниже.
+   */
+  const campusMeta = useEditorStore((s) => s.campusMeta);
+  const metricMode = useMemo(
+    () =>
+      campusMeta === null
+        ? 'pixel'
+        : createCampusProjection(campusMeta, buildingMetas.values()).mode,
+    [campusMeta, buildingMetas]
+  );
 
   const [lastFixReport, setLastFixReport] = useState<string | null>(null);
 
@@ -136,6 +153,20 @@ export const DiagnosticsPanel: React.FC = () => {
               {report.warnings.length}
             </div>
           </div>
+        </div>
+
+        {/* Режим датасета: от него зависит, покажет ли навигатор время в пути */}
+        <div
+          className="rounded-xl p-3 text-xs"
+          style={{
+            backgroundColor: 'var(--editor-bg)',
+            border: '1px solid var(--editor-border)',
+            color: 'var(--editor-text-muted)',
+          }}
+        >
+          {metricMode === 'metric'
+            ? 'Метрика кампуса: планы привязаны к территории, навигатор показывает время в пути.'
+            : 'Пиксельный режим: планы не привязаны к метрике кампуса, навигатор не показывает время в пути.'}
         </div>
 
         {/* Auto-fix button */}
