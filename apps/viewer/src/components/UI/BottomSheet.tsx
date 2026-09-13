@@ -7,6 +7,7 @@ import { formatFloor, messagesFor, useLanguage } from '../../i18n';
 import type { Messages } from '../../i18n';
 import { buildRouteSteps, formatDuration } from '../../utils/routeInstructions';
 import { nodePlaceLabel, scopeLabel } from '../../utils/placeLabels';
+import { ambiguousMatches } from '../../utils/ambiguity';
 import { PlaceCard } from './PlaceCard';
 
 /**
@@ -97,6 +98,17 @@ export const BottomSheet: React.FC = () => {
   const currentScopeLabel = buildingMetas ? scopeLabel(scope, buildingMetas, language) : '';
 
   const canBuild = fromNodeId !== null && toNodeId !== null;
+
+  // Название набрано целиком, но мест с ним несколько: без выбора поле молча
+  // оставалось бы неразрешённым, а «Построить» — неактивной без объяснения.
+  const ambiguity = (['from', 'to'] as const)
+    .map((field) => {
+      const query = field === 'from' ? fromQuery : toQuery;
+      const nodeId = field === 'from' ? fromNodeId : toNodeId;
+      const nodeIds = nodeId === null ? ambiguousMatches(query, graph, aliasManager) : [];
+      return { field, name: query.trim(), nodeIds };
+    })
+    .filter((entry) => entry.nodeIds.length > 0);
 
   const close = () => {
     setIsExpanded(false);
@@ -370,6 +382,29 @@ export const BottomSheet: React.FC = () => {
                 ))}
               </div>
             )}
+
+            {ambiguity.map(({ field, name, nodeIds }) => (
+              <div
+                key={field}
+                role="group"
+                aria-label={messages.search.ambiguous(name)}
+                className="rounded-xl border border-amber-200 bg-amber-50 p-3"
+              >
+                <div className="text-sm text-amber-900 mb-2">{messages.search.ambiguous(name)}</div>
+                <div className="space-y-1">
+                  {nodeIds.map((nodeId) => (
+                    <button
+                      key={nodeId}
+                      type="button"
+                      onClick={() => handleSuggestionClick(field, nodeId, name)}
+                      className="w-full px-3 py-2 rounded-lg bg-white text-left text-sm text-gray-800 hover:bg-amber-100 transition-colors"
+                    >
+                      {graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, nodeId, language) : nodeId}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
 
             {/* Ограничения маршрута. Ядро поддерживало их всегда, но до этого
                 момента пользователь не мог управлять ни одним. */}

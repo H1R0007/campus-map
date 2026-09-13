@@ -50,6 +50,7 @@ export const en: Messages = {
     to: 'To',
     swap: 'Swap',
     fromPoint: (place) => `From: ${place}`,
+    ambiguous: (name) => `“${name}” is in several places — choose one:`,
   },
 
   link: {
