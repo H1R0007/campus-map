@@ -369,3 +369,83 @@ describe('loadDataset: привязка к метрике кампуса', () =>
     expect(warnings).toEqual([]);
   });
 });
+
+describe('loadDataset: переводы названий', () => {
+  /** Корпус и одно помещение; `translations` дописываются корпусу и алиасу. */
+  function translated(parts: { building?: unknown; alias?: unknown }): DatasetFiles {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: {
+        id: 'bA',
+        name: 'Корпус А',
+        floors: [{ floor: 1 }],
+        translations: parts.building,
+      },
+      [floorGraphPath('bA', 1)]: { nodes: [{ id: 'a1_library', x: 1, y: 1, neighbors: [] }] },
+      [TRANSITIONS_PATH]: { transitions: [] },
+      [ALIASES_PATH]: {
+        aliases: [{ id: 'a1_library', names: ['Библиотека'], translations: parts.alias }],
+      },
+    };
+  }
+
+  it('переводы корпуса и помещения читаются без предупреждений', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(
+        translated({
+          building: { en: { name: 'Building A' } },
+          alias: { en: { names: ['Library', 'library', 'Reading room'] } },
+        })
+      )
+    );
+
+    expect(warnings).toEqual([]);
+    expect(dataset.buildingMetas[0].translations).toEqual({ en: { name: 'Building A' } });
+    // Повтор формы имени отбрасывается так же, как в основных именах.
+    expect(dataset.aliases[0].translations).toEqual({ en: { names: ['Library', 'Reading room'] } });
+  });
+
+  it('без переводов поля нет и в результате', async () => {
+    // `undefined` в поле экспорт редактора не пишет, но пустой объект записал бы.
+    const { dataset } = await loadDataset(memorySource(translated({})));
+
+    expect('translations' in dataset.buildingMetas[0]).toBe(false);
+    expect('translations' in dataset.aliases[0]).toBe(false);
+  });
+
+  it('код языка не по правилу отбрасывается с предупреждением, остальные переводы остаются', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(
+        translated({
+          building: { EN: { name: 'Building A' }, 'en-US': { name: 'Building A' }, kk: { name: 'А корпусы' } },
+        })
+      )
+    );
+
+    expect(dataset.buildingMetas[0].translations).toEqual({ kk: { name: 'А корпусы' } });
+    expect(warnings.filter((w) => w.includes('код языка'))).toHaveLength(2);
+  });
+
+  it('перевод без имени отбрасывается с предупреждением', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(translated({ building: { en: { name: '' } }, alias: { en: { names: [] } } }))
+    );
+
+    expect(dataset.buildingMetas[0].translations).toBeUndefined();
+    expect(dataset.aliases[0].translations).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('translations.en'))).toHaveLength(2);
+  });
+
+  it('translations не объектом — поле пропущено с предупреждением', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(translated({ alias: ['Library'] }))
+    );
+
+    expect(dataset.aliases[0].translations).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('translations'))).toHaveLength(1);
+  });
+});

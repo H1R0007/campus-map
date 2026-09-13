@@ -128,8 +128,22 @@ export interface BuildingMeta {
   /** Привязка планов корпуса к территории кампуса. */
   placement?: BuildingPlacement;
 
+  /**
+   * Имя корпуса на других языках интерфейса: код языка (`en`) → перевод.
+   *
+   * `name` — на языке данных, русском; без перевода интерфейс показывает его.
+   */
+  translations?: Record<string, BuildingTranslation>;
+
   /** Список этажей */
   floors: FloorMeta[];
+}
+
+/**
+ * Перевод метаданных корпуса. Повторяет переводимые поля записи.
+ */
+export interface BuildingTranslation {
+  name: string;
 }
 
 /**

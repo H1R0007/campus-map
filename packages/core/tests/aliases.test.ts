@@ -98,6 +98,23 @@ describe('AliasManager', () => {
     }
   });
 
+  it('находит помещение по имени на другом языке', () => {
+    const manager = new AliasManager();
+    manager.load([
+      {
+        id: 'b1_library',
+        names: ['Библиотека'],
+        translations: { en: { names: ['Library', 'Reading room'] } },
+      },
+    ]);
+
+    expect(manager.resolve('library')).toBe('b1_library');
+    expect(manager.suggest('read', 3)[0]?.id).toBe('b1_library');
+    // Основное имя по-прежнему на языке данных: перевод его не подменяет.
+    expect(manager.getPrimaryAliasForId('b1_library')).toBe('Библиотека');
+    expect(manager.getAliasesForId('b1_library')).toEqual(['Библиотека']);
+  });
+
   it('пустой менеджер не падает на любом запросе', () => {
     const manager = new AliasManager();
 

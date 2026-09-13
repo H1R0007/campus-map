@@ -101,38 +101,54 @@ export class AliasManager {
       const displayNameOrder: string[] = [];
 
       for (const display of names) {
-        if (!display) continue;
-
-        const normalized = this.normalize(display);
-        if (!normalized) continue;
-
-        const key = `${entry.id}|${normalized}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        const owners = this.aliasToIds.get(normalized);
-        if (owners) {
-          if (!owners.includes(entry.id)) owners.push(entry.id);
-        } else {
-          this.aliasToIds.set(normalized, [entry.id]);
-        }
-
-        const tokens = this.tokenize(normalized);
-        this.index.push({
-          id: entry.id,
-          display,
-          normalized,
-          tokens,
-          acronym: this.makeAcronym(tokens),
-        });
-
-        displayNameOrder.push(display);
+        if (this.indexName(entry.id, display, seen)) displayNameOrder.push(display);
       }
 
       if (displayNameOrder.length > 0) {
         this.idToAliases.set(entry.id, displayNameOrder);
       }
+
+      // Имена на других языках ищутся наравне с основными: студент набирает
+      // название на своём языке, даже если не переключил язык интерфейса.
+      for (const translation of Object.values(entry.translations ?? {})) {
+        for (const display of translation.names) this.indexName(entry.id, display, seen);
+      }
     }
+  }
+
+  /**
+   * Добавляет одну форму имени узла в индекс.
+   *
+   * @param seen пары «узел + нормализованное имя», уже попавшие в индекс
+   * @returns `false`, если имя пустое или у узла уже есть такая форма
+   */
+  private indexName(id: string, display: string, seen: Set<string>): boolean {
+    if (!display) return false;
+
+    const normalized = this.normalize(display);
+    if (!normalized) return false;
+
+    const key = `${id}|${normalized}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+
+    const owners = this.aliasToIds.get(normalized);
+    if (owners) {
+      if (!owners.includes(id)) owners.push(id);
+    } else {
+      this.aliasToIds.set(normalized, [id]);
+    }
+
+    const tokens = this.tokenize(normalized);
+    this.index.push({
+      id,
+      display,
+      normalized,
+      tokens,
+      acronym: this.makeAcronym(tokens),
+    });
+
+    return true;
   }
 
   /** Число проиндексированных форм имён. */

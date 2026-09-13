@@ -236,6 +236,79 @@ function readPlacement(
 }
 
 /**
+ * Код языка перевода — основной подтег BCP 47 строчными: `en`, `kk`.
+ *
+ * Интерфейс сравнивает его со своим языком как строку, поэтому `EN` или
+ * `en-US` в данных не совпали бы ни с чем — перевод молча не показывался бы.
+ */
+const LANGUAGE_CODE = /^[a-z]{2,3}$/;
+
+/**
+ * Необязательные переводы записи: код языка → перевод.
+ *
+ * Каждый перевод проверяется отдельно: некорректный отбрасывается с
+ * предупреждением, остальные остаются.
+ *
+ * @param parse разбор одного перевода; `undefined` — перевод некорректен
+ * @returns переводы либо `undefined`, если поля нет или ни один не принят
+ */
+function readTranslations<T>(
+  value: unknown,
+  parse: (raw: Raw) => T | undefined,
+  where: string,
+  warnings: string[]
+): Record<string, T> | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (!isRecord(value)) {
+    warnings.push(`${where}: translations должен быть объектом — поле пропущено`);
+    return undefined;
+  }
+
+  const translations: Record<string, T> = {};
+
+  for (const [lang, raw] of Object.entries(value)) {
+    if (!LANGUAGE_CODE.test(lang)) {
+      warnings.push(
+        `${where}: код языка "${lang}" в translations должен быть основным подтегом ` +
+          `строчными буквами (например, "en") — перевод пропущен`
+      );
+      continue;
+    }
+
+    const parsed = isRecord(raw) ? parse(raw) : undefined;
+    if (parsed === undefined) {
+      warnings.push(
+        `${where}: некорректный перевод translations.${lang}: ${JSON.stringify(raw)} — перевод пропущен`
+      );
+      continue;
+    }
+
+    translations[lang] = parsed;
+  }
+
+  return Object.keys(translations).length > 0 ? translations : undefined;
+}
+
+/**
+ * Имена без повторов с сохранением порядка: первое считается основным и
+ * показывается в интерфейсе.
+ */
+function uniqueNames(names: string[]): string[] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+
+  for (const name of names) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(name);
+  }
+
+  return unique;
+}
+
+/**
  * Приводит сырой узел к `MapNode`.
  *
  * `building` и `floor` берутся из расположения файла, а не из JSON: экспорт
@@ -346,23 +419,25 @@ function normalizeAlias(raw: AliasEntry & Raw, path: string, warnings: string[])
     return null;
   }
 
-  const names = [
+  const names = uniqueNames([
     ...asStringArray(raw.names),
     ...(asOptionalString(raw.name) !== undefined ? [raw.name as string] : []),
-  ];
+  ]);
 
-  // Дедупликация с сохранением порядка: первое имя считается основным и
-  // используется в пошаговых инструкциях маршрута.
-  const unique: string[] = [];
-  const seen = new Set<string>();
-  for (const name of names) {
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(name);
-  }
+  const entry: AliasEntry = { id: raw.id, names };
 
-  return { id: raw.id, names: unique };
+  const translations = readTranslations(
+    raw.translations,
+    (translation) => {
+      const translatedNames = uniqueNames(asStringArray(translation.names).filter((name) => name.length > 0));
+      return translatedNames.length > 0 ? { names: translatedNames } : undefined;
+    },
+    `${path}: ${raw.id}`,
+    warnings
+  );
+  if (translations !== undefined) entry.translations = translations;
+
+  return entry;
 }
 
 function normalizeFloors(
@@ -537,6 +612,17 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
 
     const placement = readPlacement(rawMeta.placement, 'building', metaPath, metaWarnings);
     if (placement !== undefined) meta.placement = placement;
+
+    const translations = readTranslations(
+      rawMeta.translations,
+      (translation) => {
+        const name = asOptionalString(translation.name);
+        return name !== undefined ? { name } : undefined;
+      },
+      metaPath,
+      metaWarnings
+    );
+    if (translations !== undefined) meta.translations = translations;
 
     if (meta.id !== entry.id) {
       metaWarnings.push(
