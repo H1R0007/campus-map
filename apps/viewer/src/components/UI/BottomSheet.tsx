@@ -5,10 +5,12 @@ import { messagesFor, useLanguage } from '../../i18n';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { scopeLabel } from '../../utils/placeLabels';
 import { routeSummary } from '../../utils/routeSummary';
+import { browserShareEnvironment, shareLink } from '../../utils/shareLink';
 import { PlaceCard } from './PlaceCard';
 import { RouteFields } from './RouteFields';
 import { RouteOptions } from './RouteOptions';
 import { RouteSteps } from './RouteSteps';
+import { ShareFeedback } from './ShareFeedback';
 
 /**
  * Нижняя панель навигатора.
@@ -29,15 +31,23 @@ const COLLAPSED_POSITION =
 
 const SHEET_TITLE_ID = 'route-sheet-title';
 
+/** Сколько видно подтверждение «Ссылка скопирована», мс. */
+const LINK_COPIED_MS = 2500;
+
 export const BottomSheet: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeInput, setActiveInput] = useState<RouteField | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
+  // Время копирования, а не флаг: повторное копирование заново заводит таймер
+  // подтверждения.
+  const [linkCopiedAt, setLinkCopiedAt] = useState<number | null>(null);
+  // Ссылка, которую не удалось скопировать, — для окна ручного копирования.
+  const [manualLink, setManualLink] = useState<string | null>(null);
 
   const fromInputRef = useRef<HTMLInputElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const collapsedActionRef = useRef<HTMLButtonElement>(null);
+  const shareButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef(false);
 
   const fromQuery = useRouteStore((s) => s.fromQuery);
@@ -83,6 +93,14 @@ export const BottomSheet: React.FC = () => {
     collapsedActionRef.current?.focus();
   }, [isExpanded]);
 
+  // Подтверждение копирования гаснет само: действие уже выполнено, и закрывать
+  // сообщение незачем.
+  useEffect(() => {
+    if (linkCopiedAt === null) return;
+    const timer = setTimeout(() => setLinkCopiedAt(null), LINK_COPIED_MS);
+    return () => clearTimeout(timer);
+  }, [linkCopiedAt]);
+
   // Высота свёрнутой карточки — в CSS-переменную: колонка этажей и масштаба
   // заканчивается над карточкой, а карточка места выше поисковой.
   const sheetObserver = useRef<ResizeObserver | null>(null);
@@ -111,34 +129,35 @@ export const BottomSheet: React.FC = () => {
   };
 
   /**
-   * Делится маршрутом: системным окном, а где его нет — копированием адреса.
+   * Делится маршрутом: системным окном, где его нет — копированием адреса, а
+   * если недоступно и копирование — окном со ссылкой для ручного копирования.
    *
    * Адрес уже описывает маршрут: его концы в адресной строке держит
    * `useRouteLink`, и получатель ссылки увидит тот же маршрут.
    */
   const shareRoute = async () => {
     const url = window.location.href;
+    const outcome = await shareLink(url, messages.route.title, browserShareEnvironment());
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ url, title: messages.route.title });
-        return;
-      } catch (error) {
-        // Закрытое пользователем окно «Поделиться» — не ошибка. Любой другой
-        // отказ (запрет в контексте страницы) — повод скопировать ссылку.
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch {
-      // Буфер обмена недоступен (небезопасный контекст, запрет браузера).
-      // Ссылка при этом уже стоит в адресной строке — показывать нечего.
-    }
+    if (outcome === 'copied') setLinkCopiedAt(Date.now());
+    if (outcome === 'manual') setManualLink(url);
   };
+
+  const closeManualLink = () => {
+    setManualLink(null);
+    // Окно открыла кнопка «Поделиться» — фокус возвращается на неё.
+    shareButtonRef.current?.focus();
+  };
+
+  /** Итог «Поделиться» виден в любом состоянии шторки. */
+  const withShareFeedback = (content: React.ReactNode) => (
+    <>
+      {/* Первым в разметке: при смене вида шторки React сохраняет область
+          `aria-live`, и объявление не теряется. */}
+      <ShareFeedback copied={linkCopiedAt !== null} manualLink={manualLink} onCloseManual={closeManualLink} />
+      {content}
+    </>
+  );
 
   /** Точка выбрана подсказкой или среди одноимённых мест. */
   const handlePointChosen = (field: RouteField, nodeId: string) => {
@@ -163,7 +182,7 @@ export const BottomSheet: React.FC = () => {
     // Выбранное на карте место важнее показанного маршрута: человек только что
     // нажал на план и ждёт ответа именно на это.
     if (selectedNodeId !== null) {
-      return (
+      return withShareFeedback(
         <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
           <PlaceCard nodeId={selectedNodeId} onOpenSheet={openSheet} />
         </div>
@@ -171,7 +190,7 @@ export const BottomSheet: React.FC = () => {
     }
 
     if (graph && currentRoute?.found) {
-      return (
+      return withShareFeedback(
         <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-4 flex items-center gap-3">
@@ -184,9 +203,7 @@ export const BottomSheet: React.FC = () => {
                 <div className="text-sm font-semibold text-gray-800 truncate">
                   {messages.route.ready} · {routeSummary(graph, currentRoute, language)}
                 </div>
-                <div className="text-xs text-gray-600 truncate" aria-live="polite">
-                  {linkCopied ? messages.route.linkCopied : `${fromQuery} → ${toQuery}`}
-                </div>
+                <div className="text-xs text-gray-600 truncate">{`${fromQuery} → ${toQuery}`}</div>
               </div>
 
               <button
@@ -199,6 +216,7 @@ export const BottomSheet: React.FC = () => {
               </button>
 
               <button
+                ref={shareButtonRef}
                 type="button"
                 onClick={() => void shareRoute()}
                 className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
@@ -224,7 +242,7 @@ export const BottomSheet: React.FC = () => {
       );
     }
 
-    return (
+    return withShareFeedback(
       <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2">
           <button
@@ -249,7 +267,7 @@ export const BottomSheet: React.FC = () => {
     );
   }
 
-  return (
+  return withShareFeedback(
     <>
       {/* На телефоне шторка закрывает карту, и затемнение подсказывает, что
           нажатие мимо её закроет. На широком экране панель стоит сбоку и
