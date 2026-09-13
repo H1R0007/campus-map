@@ -9,7 +9,8 @@
  *
  * - `dataset/` — единственный пайплайн загрузки и нормализации датасета;
  * - `graph/`   — индексированный граф и проверка связности;
- * - `pathfinding/` — A* и альтернативные маршруты;
+ * - `projection.ts` — метрическое пространство кампуса: привязка планов;
+ * - `pathfinding/` — A*, модель стоимости и альтернативные маршруты;
  * - `aliases/` — нечёткий поиск по названиям;
  * - `types/`   — доменные типы и контракт формата данных.
  */
@@ -59,6 +60,15 @@ export {
   scopeOfNode,
   type ViewScope,
 } from './scope.js';
+
+// Метрическое пространство кампуса
+export {
+  createCampusProjection,
+  type CampusProjection,
+  type MetricMode,
+  type UnplacedFloor,
+  type WorldPoint,
+} from './projection.js';
 
 // Граф
 export { Graph } from './graph/Graph.js';

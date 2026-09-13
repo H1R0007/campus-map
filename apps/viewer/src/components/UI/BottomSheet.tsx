@@ -3,7 +3,7 @@ import type { PathfindingOptions, ViewScope } from '@campus-map/core';
 import { useRouteStore, type RouteField } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { useSuggestions } from '../../hooks/useSuggestions';
-import { buildRouteSteps, estimateMinutes, nodePlaceLabel } from '../../utils/routeInstructions';
+import { buildRouteSteps, formatDuration, nodePlaceLabel } from '../../utils/routeInstructions';
 
 /**
  * Нижняя панель: поиск маршрута и пошаговые инструкции.
@@ -111,7 +111,9 @@ export const BottomSheet: React.FC = () => {
 
   if (!isExpanded) {
     if (currentRoute?.found) {
-      const minutes = estimateMinutes(currentRoute.totalDistance);
+      // Время в пути есть только в метрическом режиме. Без привязки планов к
+      // территории его не показываем вовсе: выдуманное число хуже отсутствующего.
+      const duration = currentRoute.durationSeconds;
 
       return (
         <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
@@ -123,7 +125,7 @@ export const BottomSheet: React.FC = () => {
 
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-gray-800">
-                  Маршрут готов • ~{minutes} мин
+                  Маршрут готов{duration !== null && ` • ${formatDuration(duration)}`}
                 </div>
                 <div className="text-xs text-gray-500 truncate">
                   {fromQuery} → {toQuery}

@@ -195,3 +195,202 @@ describe('loadDataset: идентификаторы', () => {
     expect(warnings.filter((w) => w.includes('Дублирующийся id узла'))).toHaveLength(1);
   });
 });
+
+describe('loadDataset: метаданные этажа', () => {
+  /** Корпус с единственным этажом, описанным переданной записью. */
+  function withFloor(floor: Record<string, unknown>): Files {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: { id: 'bA', name: 'Корпус А', floors: [floor] },
+      [floorGraphPath('bA', 1)]: { nodes: [] },
+    };
+  }
+
+  it('размер плана этажа читается', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(withFloor({ floor: 1, mapSize: { width: 1476, height: 780 } }))
+    );
+
+    expect(dataset.buildingMetas[0].floors[0].mapSize).toEqual({ width: 1476, height: 780 });
+    expect(warnings.filter((w) => w.includes('mapSize'))).toEqual([]);
+  });
+
+  it('некорректный размер отбрасывается с предупреждением, этаж остаётся', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(withFloor({ floor: 1, mapSize: { width: '1476', height: 0 } }))
+    );
+
+    expect(dataset.buildingMetas[0].floors).toEqual([{ floor: 1 }]);
+    expect(warnings.filter((w) => w.includes('mapSize'))).toHaveLength(1);
+  });
+
+  it('mapPath и graphPath не читаются: раскладка файлов этажа фиксирована', async () => {
+    // Раньше эти поля грузились и выгружались, но адрес всё равно собирался
+    // константами — другое имя файла в них давало молчаливый 404.
+    const source = memorySource(withFloor({ floor: 1, mapPath: 'plan.jpg', graphPath: 'nodes.json' }));
+    const { dataset } = await loadDataset(source);
+
+    expect(dataset.buildingMetas[0].floors).toEqual([{ floor: 1 }]);
+    expect(source.requested).toContain(floorGraphPath('bA', 1));
+  });
+});
+
+describe('loadDataset: входной этаж корпуса', () => {
+  /** Корпус с этажами 0 и 1 и заданным значением `entranceFloor`. */
+  function withEntrance(entranceFloor: unknown): Files {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: {
+        id: 'bA',
+        name: 'Корпус А',
+        entranceFloor,
+        floors: [{ floor: 0 }, { floor: 1 }],
+      },
+      [floorGraphPath('bA', 0)]: { nodes: [] },
+      [floorGraphPath('bA', 1)]: { nodes: [] },
+    };
+  }
+
+  it('номер объявленного этажа читается', async () => {
+    const { dataset, warnings } = await loadDataset(memorySource(withEntrance(0)));
+
+    expect(dataset.buildingMetas[0].entranceFloor).toBe(0);
+    expect(warnings.filter((w) => w.includes('entranceFloor'))).toEqual([]);
+  });
+
+  it('этаж, которого нет в списке, отбрасывается с предупреждением', async () => {
+    // Навигатор открыл бы по нему несуществующий план — серый холст.
+    const { dataset, warnings } = await loadDataset(memorySource(withEntrance(5)));
+
+    expect(dataset.buildingMetas[0].entranceFloor).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('entranceFloor'))).toHaveLength(1);
+  });
+
+  it('строка вместо числа отбрасывается с предупреждением', async () => {
+    const { dataset, warnings } = await loadDataset(memorySource(withEntrance('1')));
+
+    expect(dataset.buildingMetas[0].entranceFloor).toBeUndefined();
+    expect(warnings.filter((w) => w.includes('entranceFloor'))).toHaveLength(1);
+  });
+});
+
+describe('loadDataset: привязка к метрике кампуса', () => {
+  const BUILDING_PLACEMENT = {
+    metersPerPixel: 0.05,
+    originMeters: { x: 120, y: 40 },
+    rotationDeg: 15,
+    baseElevationMeters: 0.6,
+    floorHeightMeters: 3.6,
+  };
+
+  /** Кампус и корпус с двумя этажами; поля привязки дописываются поверх. */
+  function placed(parts: {
+    campus?: Record<string, unknown>;
+    building?: Record<string, unknown>;
+    floors?: Record<string, unknown>[];
+  }): Files {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+        ...parts.campus,
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: {
+        id: 'bA',
+        name: 'Корпус А',
+        floors: parts.floors ?? [{ floor: 1 }, { floor: 2 }],
+        ...parts.building,
+      },
+      [floorGraphPath('bA', 1)]: { nodes: [] },
+      [floorGraphPath('bA', 2)]: { nodes: [] },
+      [TRANSITIONS_PATH]: { transitions: [] },
+      [ALIASES_PATH]: { aliases: [] },
+    };
+  }
+
+  it('полная привязка читается без предупреждений', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(placed({ campus: { metersPerPixel: 0.5 }, building: { placement: BUILDING_PLACEMENT } }))
+    );
+
+    expect(warnings).toEqual([]);
+    expect(dataset.campusMeta.metersPerPixel).toBe(0.5);
+    expect(dataset.buildingMetas[0].placement).toEqual(BUILDING_PLACEMENT);
+  });
+
+  it('привязка и отметка этажа читаются', async () => {
+    const { dataset } = await loadDataset(
+      memorySource(
+        placed({
+          floors: [{ floor: 1, placement: { rotationDeg: 90 }, elevationMeters: -3.2 }, { floor: 2 }],
+        })
+      )
+    );
+
+    expect(dataset.buildingMetas[0].floors[0]).toEqual({
+      floor: 1,
+      placement: { rotationDeg: 90 },
+      elevationMeters: -3.2,
+    });
+  });
+
+  it('у этажа поля отметки внутри placement не читаются — для этого есть elevationMeters', async () => {
+    const { dataset } = await loadDataset(
+      memorySource(placed({ floors: [{ floor: 1, placement: { rotationDeg: 0, floorHeightMeters: 5 } }] }))
+    );
+
+    expect(dataset.buildingMetas[0].floors[0].placement).toEqual({ rotationDeg: 0 });
+  });
+
+  it('некорректное значение отбрасывается с предупреждением, остальные поля остаются', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(
+        placed({
+          campus: { metersPerPixel: 0.5 },
+          building: { placement: { ...BUILDING_PLACEMENT, rotationDeg: '15', metersPerPixel: 0 } },
+        })
+      )
+    );
+
+    expect(dataset.buildingMetas[0].placement).toEqual({
+      originMeters: BUILDING_PLACEMENT.originMeters,
+      baseElevationMeters: BUILDING_PLACEMENT.baseElevationMeters,
+      floorHeightMeters: BUILDING_PLACEMENT.floorHeightMeters,
+    });
+    expect(warnings.some((w) => w.includes('placement.rotationDeg'))).toBe(true);
+    expect(warnings.some((w) => w.includes('placement.metersPerPixel'))).toBe(true);
+  });
+
+  it('неполная привязка: предупреждение по каждому непривязанному этажу и об отказе от метрики', async () => {
+    const { warnings } = await loadDataset(
+      memorySource(
+        placed({
+          campus: { metersPerPixel: 0.5 },
+          building: { placement: { metersPerPixel: 0.05, originMeters: { x: 0, y: 0 }, rotationDeg: 0 } },
+          floors: [{ floor: 1, elevationMeters: 0 }, { floor: 2 }],
+        })
+      )
+    );
+
+    const unplaced = warnings.filter((w) => w.includes('не привязан к метрике'));
+    expect(unplaced).toHaveLength(1);
+    expect(unplaced[0]).toContain('этаж 2');
+    expect(unplaced[0]).toContain('elevationMeters');
+    expect(warnings.some((w) => w.includes('пиксельном режиме'))).toBe(true);
+  });
+
+  it('без привязки вовсе о метрике не предупреждает: датасет честно пиксельный', async () => {
+    const { warnings } = await loadDataset(memorySource(placed({})));
+
+    expect(warnings).toEqual([]);
+  });
+});

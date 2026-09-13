@@ -10,7 +10,7 @@ function meta(floors: number[]): BuildingMeta {
   return {
     id: 'building_x',
     name: 'Корпус Х',
-    floors: floors.map((floor) => ({ floor, mapPath: 'map.png', graphPath: 'graph.json' })),
+    floors: floors.map((floor) => ({ floor })),
   };
 }
 
@@ -40,9 +40,14 @@ describe('entranceFloorOf', () => {
   });
 
   it('нумерация с нуля: нулевой этаж не считается надземным', () => {
-    // В европейской нумерации «0» — это первый этаж, но без явного признака
-    // в данных различить её нельзя. Берём ближайший к поверхности сверху.
+    // В европейской нумерации «0» — это первый этаж, но без `entranceFloor`
+    // различить её по номерам нельзя. Берём ближайший к поверхности сверху.
     expect(entranceFloorOf(meta([0, 1, 2]))).toBe(1);
+  });
+
+  it('явный entranceFloor из метаданных важнее правила', () => {
+    // Тот же корпус, но с заполненным полем: правило выбрало бы этаж 1.
+    expect(entranceFloorOf({ ...meta([0, 1, 2]), entranceFloor: 0 })).toBe(0);
   });
 
   it('целиком подземный объект — верхний из его этажей', () => {

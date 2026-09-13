@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { useEditorStore } from '../../stores/editorStore';
+import { selectedRoute, useEditorStore } from '../../stores/editorStore';
 
 type DragCandidate = {
   nodeId: string;
@@ -71,13 +71,14 @@ export const EditorNodes: React.FC = () => {
     [displayFilters.highlightErrors, getNodesWithErrors]
   );
 
-  // current route path for highlighting (selectedPathIndex-aware)
-  const routePath = useMemo(() => {
-    if (route.alternativePaths && route.alternativePaths.length > 0) {
-      return route.alternativePaths[route.selectedPathIndex] ?? route.alternativePaths[0] ?? [];
-    }
-    return route.path ?? [];
-  }, [route.alternativePaths, route.path, route.selectedPathIndex]);
+  // Узлы выбранного маршрута — для подсветки. Зависимости — сами маршруты и
+  // индекс, а не весь `route`: он меняется на каждом шаге анимации.
+  const simulatedRoutes = route.routes;
+  const selectedPathIndex = route.selectedPathIndex;
+  const routePath = useMemo(
+    () => selectedRoute({ routes: simulatedRoutes, selectedPathIndex })?.path ?? [],
+    [simulatedRoutes, selectedPathIndex]
+  );
 
   const finishDrag = useCallback(() => {
     dragCandidateRef.current = null;

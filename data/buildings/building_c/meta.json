@@ -3,9 +3,7 @@
   "name": "Корпус В",
   "floors": [
     {
-      "floor": 1,
-      "mapPath": "map.png",
-      "graphPath": "graph.json"
+      "floor": 1
     }
   ]
 }

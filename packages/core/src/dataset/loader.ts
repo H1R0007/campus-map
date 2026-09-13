@@ -1,9 +1,16 @@
 import type { AliasEntry } from '../types/alias.js';
-import type { BuildingMeta, CampusMeta, FloorMeta } from '../types/building.js';
+import type {
+  BuildingMeta,
+  BuildingPlacement,
+  CampusMeta,
+  FloorMeta,
+  MapSize,
+} from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
 import type { MapNode, MapNodeData } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
+import { createCampusProjection } from '../projection.js';
 import {
   CAMPUS_BUILDING_ID,
   CAMPUS_FLOOR,
@@ -71,6 +78,161 @@ function asStringArray(value: unknown): string[] {
 
 function asOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Число из JSON — только настоящее число, без приведения строк.
+ *
+ * `asFiniteNumber` приводит "10" к 10 ради совместимости со старыми
+ * координатами узлов. Новые поля формата так никто не записывал, и растягивать
+ * на них эту терпимость незачем: строка в числовом поле — ошибка разметки, о
+ * которой нужно сказать, а не молча её исправить.
+ */
+function asStrictNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** Положительное конечное число: масштаб, высота этажа. */
+function asPositiveNumber(value: unknown): number | undefined {
+  const n = asStrictNumber(value);
+  return n !== undefined && n > 0 ? n : undefined;
+}
+
+/** Точка в метрах: оба поля — конечные числа. */
+function asMetersPoint(value: unknown): { x: number; y: number } | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const x = asStrictNumber(value.x);
+  const y = asStrictNumber(value.y);
+  return x !== undefined && y !== undefined ? { x, y } : undefined;
+}
+
+/**
+ * Необязательное поле записи с разбором.
+ *
+ * Отсутствие поля — норма. Некорректное значение отбрасывается с
+ * предупреждением, где есть и имя поля, и само значение: разметчику нужно
+ * видеть, что именно не принято.
+ *
+ * @param label имя поля в сообщении, если оно вложенное (`placement.rotationDeg`)
+ */
+function readField<T>(
+  record: Raw,
+  field: string,
+  parse: (value: unknown) => T | undefined,
+  where: string,
+  warnings: string[],
+  label: string = field
+): T | undefined {
+  const value = record[field];
+  if (value === undefined || value === null) return undefined;
+
+  const parsed = parse(value);
+  if (parsed === undefined) {
+    warnings.push(
+      `${where}: некорректное значение ${label}: ${JSON.stringify(value)} — поле пропущено`
+    );
+  }
+  return parsed;
+}
+
+/**
+ * Необязательный размер плана.
+ *
+ * Некорректное значение отбрасывается с предупреждением, а не заменяется
+ * выдуманным: размер — лишь подсказка до загрузки изображения, и неверная
+ * подсказка хуже отсутствующей.
+ */
+function readMapSize(value: unknown, where: string, warnings: string[]): MapSize | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  const width = isRecord(value) ? asStrictNumber(value.width) : undefined;
+  const height = isRecord(value) ? asStrictNumber(value.height) : undefined;
+
+  if (width !== undefined && height !== undefined && width > 0 && height > 0) {
+    return { width, height };
+  }
+
+  warnings.push(`${where}: некорректный mapSize ${JSON.stringify(value)} — поле пропущено`);
+  return undefined;
+}
+
+/**
+ * Необязательный входной этаж корпуса.
+ *
+ * Обязан совпадать с одним из объявленных этажей: навигатор открывает его по
+ * выбору корпуса, и несуществующий номер дал бы серый холст вместо плана.
+ */
+function readEntranceFloor(
+  value: unknown,
+  floors: FloorMeta[],
+  path: string,
+  warnings: string[]
+): number | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  const floor = asStrictNumber(value);
+  if (floor !== undefined && floors.some((meta) => meta.floor === floor)) {
+    return floor;
+  }
+
+  warnings.push(
+    `${path}: entranceFloor ${JSON.stringify(value)} не совпадает ни с одним ` +
+      `объявленным этажом — поле пропущено`
+  );
+  return undefined;
+}
+
+/**
+ * Необязательная привязка плана к территории — у корпуса или у этажа.
+ *
+ * Каждое поле проверяется отдельно: частичная привязка на одном уровне
+ * законна — недостающее приходит с другого, а полноту итоговой привязки
+ * решает `createCampusProjection`. Некорректное значение отбрасывается, а не
+ * заменяется: подставленный масштаб или поворот молча дал бы неверные метры.
+ *
+ * У этажа поля отметки не читаются — её задаёт `FloorMeta.elevationMeters`.
+ *
+ * @returns привязку либо `undefined`, если поля нет или в нём нет ни одного
+ *          корректного значения.
+ */
+function readPlacement(
+  value: unknown,
+  level: 'building' | 'floor',
+  where: string,
+  warnings: string[]
+): BuildingPlacement | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (!isRecord(value)) {
+    warnings.push(`${where}: placement должен быть объектом — поле пропущено`);
+    return undefined;
+  }
+
+  const record: Raw = value;
+  const read = <T>(field: string, parse: (raw: unknown) => T | undefined): T | undefined =>
+    readField(record, field, parse, where, warnings, `placement.${field}`);
+
+  const placement: BuildingPlacement = {};
+
+  const metersPerPixel = read('metersPerPixel', asPositiveNumber);
+  if (metersPerPixel !== undefined) placement.metersPerPixel = metersPerPixel;
+
+  const originMeters = read('originMeters', asMetersPoint);
+  if (originMeters !== undefined) placement.originMeters = originMeters;
+
+  const rotationDeg = read('rotationDeg', asStrictNumber);
+  if (rotationDeg !== undefined) placement.rotationDeg = rotationDeg;
+
+  if (level === 'building') {
+    const baseElevationMeters = read('baseElevationMeters', asStrictNumber);
+    if (baseElevationMeters !== undefined) placement.baseElevationMeters = baseElevationMeters;
+
+    const floorHeightMeters = read('floorHeightMeters', asPositiveNumber);
+    if (floorHeightMeters !== undefined) placement.floorHeightMeters = floorHeightMeters;
+  }
+
+  return Object.keys(placement).length > 0 ? placement : undefined;
 }
 
 /**
@@ -217,14 +379,59 @@ function normalizeFloors(
       continue;
     }
 
-    floors.push({
-      floor,
-      mapPath: asOptionalString(item.mapPath) ?? 'map.png',
-      graphPath: asOptionalString(item.graphPath) ?? 'graph.json',
-    });
+    // `mapPath` и `graphPath` из старых файлов не читаются: раскладка этажа
+    // фиксирована, и эти поля никогда ни на что не влияли (см. `FloorMeta`).
+    const meta: FloorMeta = { floor };
+    const where = `${path}: этаж ${floor}`;
+
+    const mapSize = readMapSize(item.mapSize, where, warnings);
+    if (mapSize !== undefined) meta.mapSize = mapSize;
+
+    const placement = readPlacement(item.placement, 'floor', where, warnings);
+    if (placement !== undefined) meta.placement = placement;
+
+    const elevationMeters = readField(item, 'elevationMeters', asStrictNumber, where, warnings);
+    if (elevationMeters !== undefined) meta.elevationMeters = elevationMeters;
+
+    floors.push(meta);
   }
 
   return floors;
+}
+
+/**
+ * Предупреждения о неполной привязке к метрике кампуса.
+ *
+ * Молчать можно в двух случаях: привязки нет вовсе — датасет честно
+ * пиксельный — или она полная. Промежуточное состояние почти наверняка
+ * означает забытый этаж: датасет целиком уходит в пиксельный режим, и
+ * навигатор перестаёт показывать время в пути без видимой причины.
+ */
+function placementWarnings(campusMeta: CampusMeta, buildingMetas: BuildingMeta[]): string[] {
+  const hasAnyPlacement =
+    campusMeta.metersPerPixel !== undefined ||
+    buildingMetas.some(
+      (building) =>
+        building.placement !== undefined ||
+        building.floors.some(
+          (floor) => floor.placement !== undefined || floor.elevationMeters !== undefined
+        )
+    );
+  if (!hasAnyPlacement) return [];
+
+  const { unplacedFloors } = createCampusProjection(campusMeta, buildingMetas);
+  if (unplacedFloors.length === 0) return [];
+
+  return [
+    ...unplacedFloors.map(({ buildingId, floor, missing }) =>
+      buildingId === CAMPUS_BUILDING_ID
+        ? `${CAMPUS_META_PATH}: территория не привязана к метрике — нет ${missing.join(', ')}`
+        : `${buildingMetaPath(buildingId)}: этаж ${floor} не привязан к метрике — ` +
+          `нет ${missing.join(', ')}`
+    ),
+    'Привязка к метрике кампуса неполная: датасет работает в пиксельном режиме, ' +
+      'время в пути не показывается',
+  ];
 }
 
 /**
@@ -274,6 +481,15 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
     warnings.push(`${CAMPUS_META_PATH}: нет mapSize, использован размер по умолчанию 1200×800`);
   }
 
+  const campusMetersPerPixel = readField(
+    rawCampusMeta,
+    'metersPerPixel',
+    asPositiveNumber,
+    CAMPUS_META_PATH,
+    warnings
+  );
+  if (campusMetersPerPixel !== undefined) campusMeta.metersPerPixel = campusMetersPerPixel;
+
   // Все остальные чтения зависят только от списка корпусов, но не от
   // содержимого друг друга. Раньше они шли цепочкой `await` во вложенных
   // циклах: на целевом объёме (5+ корпусов, до 11 этажей) это ~64
@@ -310,6 +526,17 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
       name: asOptionalString(rawMeta.name) ?? entry.name ?? entry.id,
       floors: normalizeFloors(rawMeta, metaPath, metaWarnings),
     };
+
+    const entranceFloor = readEntranceFloor(
+      rawMeta.entranceFloor,
+      meta.floors,
+      metaPath,
+      metaWarnings
+    );
+    if (entranceFloor !== undefined) meta.entranceFloor = entranceFloor;
+
+    const placement = readPlacement(rawMeta.placement, 'building', metaPath, metaWarnings);
+    if (placement !== undefined) meta.placement = placement;
 
     if (meta.id !== entry.id) {
       metaWarnings.push(
@@ -392,6 +619,10 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
       addNodes(rawFloorGraph, meta.id, floor.floor, graphPath);
     });
   });
+
+  // Привязка к метрике проверяется по всем метаданным сразу: режим один на
+  // весь датасет, и привязанная половина этажей ничего не даёт.
+  warnings.push(...placementWarnings(campusMeta, buildingMetas));
 
   // 3. Переходы между этажами и корпусами
   const transitions: Transition[] = [];

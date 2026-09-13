@@ -161,14 +161,16 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
 }
 
 /**
- * Оценка времени в пути.
+ * Время в пути для карточки маршрута: «~4 мин».
  *
- * `totalDistance` — сумма длин рёбер в пикселях плана и весов переходов, то
- * есть условные метры. 50 м/мин — спокойный шаг в помещении с поправкой на
- * двери и лестницы.
+ * Принимает `PathResult.durationSeconds` — физику пути из ядра. Прежняя
+ * оценка делила условную стоимость (пиксели плана плюс веса переходов) на
+ * выдуманную скорость и менялась от галочки «предпочитать лифт».
+ *
+ * Округление вверх: студенту, который торопится на пару, заниженная оценка
+ * вреднее завышенной. Меньше минуты показывается минутой — «~0 мин» ничего
+ * не сообщает.
  */
-const WALKING_SPEED_UNITS_PER_MINUTE = 50;
-
-export function estimateMinutes(totalDistance: number): number {
-  return Math.max(1, Math.round(totalDistance / WALKING_SPEED_UNITS_PER_MINUTE));
+export function formatDuration(seconds: number): string {
+  return `~${Math.max(1, Math.ceil(seconds / 60))} мин`;
 }

@@ -17,6 +17,7 @@ import { ZoomControls } from '../UI/ZoomControls';
  */
 export const CampusMap: React.FC = () => {
   const campusMeta = useMapStore((s) => s.campusMeta);
+  const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
 
   const mapUrl = useMemo(
@@ -27,9 +28,15 @@ export const CampusMap: React.FC = () => {
     [activeFloor]
   );
 
-  // Резервный размер из метаданных имеет смысл только для карты кампуса:
-  // `mapSize` описывает именно её, а планы этажей имеют другие габариты.
-  const fallbackSize = activeFloor === null ? campusMeta?.mapSize : undefined;
+  // Размер плана из метаданных — границы до загрузки изображения. Без него
+  // этаж сначала открывается в резервных габаритах, а после загрузки карта
+  // перескакивает на настоящие.
+  const fallbackSize =
+    activeFloor === null
+      ? campusMeta?.mapSize
+      : buildingMetas
+          ?.get(activeFloor.buildingId)
+          ?.floors.find((meta) => meta.floor === activeFloor.floor)?.mapSize;
 
   return (
     <PixelMap url={mapUrl} fallbackSize={fallbackSize} maxZoom={4} constrainToBounds>

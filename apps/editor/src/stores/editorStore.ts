@@ -7,6 +7,7 @@ import {
   CAMPUS_BUILDING_ID,
   CAMPUS_FLOOR,
   Graph,
+  createCampusProjection,
   edgeKey,
   findAlternativePaths,
   findConnectedComponents,
@@ -20,6 +21,7 @@ import type {
   ConnectivityResult,
   Dataset,
   MapNode,
+  PathResult,
   PathfindingOptions,
   Transition,
   TransitionType,
@@ -83,12 +85,35 @@ interface RouteSimulation {
   active: boolean;
   fromNodeId: string | null;
   toNodeId: string | null;
-  path: string[];
-  alternativePaths: string[][];
+
+  /**
+   * Найденные маршруты: основной первым, затем альтернативы.
+   *
+   * Хранятся результаты поиска целиком, а не только списки узлов: длина и
+   * время пути нужны разметчику, чтобы проверить привязку планов, а
+   * пересчитывать их при показе значило бы строить граф заново на каждое
+   * изменение стора. Прежние `path` и `alternativePaths` дублировали друг
+   * друга: `path` всегда был первым элементом второго.
+   */
+  routes: PathResult[];
+
   animationIndex: number;
   selectedPathIndex: number;
   animationSpeed: number;
   pathfindingOptions: PathfindingOptions;
+}
+
+/**
+ * Маршрут, выбранный в симуляторе.
+ *
+ * Правило выбора было скопировано трижды — в подсветке узлов, в линии
+ * маршрута и в таймере анимации.
+ */
+export function selectedRoute(simulation: {
+  routes: readonly PathResult[];
+  selectedPathIndex: number;
+}): PathResult | undefined {
+  return simulation.routes[simulation.selectedPathIndex] ?? simulation.routes[0];
 }
 
 interface ContextMenuState {
@@ -183,9 +208,20 @@ interface EditorState {
  * Прежняя реализация добавляла узлы и переходы по одному через `addNode` и
  * `addTransition`; мутационного API в ядре больше нет именно потому, что оно
  * позволяло рассинхронизировать индексы с содержимым графа.
+ *
+ * Граф собирается вместе с привязкой планов к метрике кампуса: симулятор
+ * обязан строить тот же маршрут, что увидит студент, а в метрическом режиме
+ * модель стоимости другая — секунды вместо пикселей.
  */
-function buildGraphFromState(nodes: Map<string, MapNode>, transitions: Transition[]): Graph {
-  return new Graph(nodes.values(), transitions);
+function buildGraphFromState(
+  state: Pick<EditorState, 'nodes' | 'transitions' | 'campusMeta' | 'buildingMetas'>
+): Graph {
+  const projection =
+    state.campusMeta === null
+      ? undefined
+      : createCampusProjection(state.campusMeta, state.buildingMetas.values());
+
+  return new Graph(state.nodes.values(), state.transitions, projection);
 }
 
 interface EditorActions {
@@ -365,18 +401,13 @@ export const useEditorStore = create<EditorStore>()(
       active: false,
       fromNodeId: null,
       toNodeId: null,
-      path: [],
-      alternativePaths: [],
+      routes: [],
       animationIndex: 0,
       selectedPathIndex: 0,
       animationSpeed: 800,
-      pathfindingOptions: {
-        allowStairs: true,
-        allowLift: true,
-        allowBridge: true,
-        allowEntrance: true,
-        preferLift: false,
-      },
+      // Значения по умолчанию принадлежат ядру. Здесь лежала их копия, а при
+      // загрузке данных подставлялся уже набор ядра — два источника истины.
+      pathfindingOptions: { ...DEFAULT_PATHFINDING_OPTIONS },
     },
 
     selectionBox: null,
@@ -524,36 +555,31 @@ export const useEditorStore = create<EditorStore>()(
     },
 
     /**
-     * Расчёт маршрута через core pathfinding
+     * Строит маршрут и альтернативы тем же поиском и той же моделью
+     * стоимости, что и навигатор.
      */
     calculateRoute: (fromId, toId) => {
-      const { nodes, transitions, routeSimulation } = get();
+      const state = get();
 
-      // Строим временный Graph из текущего состояния
-      const graph = buildGraphFromState(nodes, transitions);
-
-      // Ищем основной путь и альтернативы через core
-      const multiResult = findAlternativePaths(
-        graph,
+      const { primary, alternatives } = findAlternativePaths(
+        buildGraphFromState(state),
         fromId,
         toId,
-        routeSimulation.pathfindingOptions,
+        state.routeSimulation.pathfindingOptions,
         3
       );
 
-      const primaryPath = multiResult.primary.found ? multiResult.primary.path : [];
-      const altPaths = multiResult.alternatives
-        .filter(r => r.found)
-        .map(r => r.path);
+      // Альтернатив без найденного основного пути не бывает, поэтому пустой
+      // список означает «маршрута нет».
+      const routes = [primary, ...alternatives].filter((route) => route.found);
 
       set((s) => {
         s.routeSimulation.fromNodeId = fromId;
         s.routeSimulation.toNodeId = toId;
-        s.routeSimulation.path = primaryPath;
-        s.routeSimulation.alternativePaths = [primaryPath, ...altPaths].filter(p => p.length > 0);
+        s.routeSimulation.routes = routes;
         s.routeSimulation.animationIndex = 0;
         s.routeSimulation.selectedPathIndex = 0;
-        s.routeSimulation.active = primaryPath.length > 0;
+        s.routeSimulation.active = routes.length > 0;
       });
     },
 
@@ -1314,10 +1340,7 @@ export const useEditorStore = create<EditorStore>()(
      * квадратично. Ядро строит список смежности один раз в конструкторе
      * `Graph` и обходит его за линейное время.
      */
-    isGraphConnected: () => {
-      const { nodes, transitions } = get();
-      return findConnectedComponents(buildGraphFromState(nodes, transitions));
-    },
+    isGraphConnected: () => findConnectedComponents(buildGraphFromState(get())),
 
     // === EXISTING METHODS ===
     setCurrentBuilding: (buildingId) => set((state) => {
@@ -2088,8 +2111,7 @@ export const useEditorStore = create<EditorStore>()(
         active: false,
         fromNodeId: null,
         toNodeId: null,
-        path: [],
-        alternativePaths: [],
+        routes: [],
         animationIndex: 0,
         selectedPathIndex: 0,
         animationSpeed: 800,

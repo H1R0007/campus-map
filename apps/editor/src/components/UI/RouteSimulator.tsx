@@ -1,7 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
-import { useEditorStore } from '../../stores/editorStore';
+import { selectedRoute, useEditorStore } from '../../stores/editorStore';
+
+/**
+ * Время маршрута для разметчика — точнее, чем «~4 мин» в навигаторе.
+ *
+ * По этой строке проверяют привязку планов к метрике: ошибка в масштабе или
+ * отметке этажа видна как неправдоподобное время, а округление до минут её
+ * спрятало бы.
+ */
+function formatRouteTime(seconds: number): string {
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  return minutes > 0 ? `${minutes} мин ${total % 60} с` : `${total} с`;
+}
 
 /**
  * Toggle:
@@ -70,17 +83,14 @@ export const RouteSimulatorPanel: React.FC = () => {
   const [fromResults, setFromResults] = useState<ReturnType<typeof searchNodes>>([]);
   const [toResults, setToResults] = useState<ReturnType<typeof searchNodes>>([]);
 
-  // Все доступные пути (чтобы логика выбора была как в навигаторах)
-  const allPaths = useMemo(() => {
-    if (route.alternativePaths && route.alternativePaths.length > 0) return route.alternativePaths;
-    if (route.path && route.path.length > 0) return [route.path];
-    return [];
-  }, [route.alternativePaths, route.path]);
-
-  const currentPath = useMemo(() => {
-    if (allPaths.length === 0) return [];
-    return allPaths[selectedPathIndex] ?? allPaths[0] ?? [];
-  }, [allPaths, selectedPathIndex]);
+  // Найденные маршруты и выбранный из них. Правило выбора одно на весь
+  // редактор — `selectedRoute`.
+  const routes = route.routes;
+  const currentRoute = useMemo(
+    () => selectedRoute({ routes, selectedPathIndex }),
+    [routes, selectedPathIndex]
+  );
+  const currentPath = useMemo(() => currentRoute?.path ?? [], [currentRoute]);
 
   // синхронизация инпутов с выбранными id
   useEffect(() => {
@@ -150,8 +160,7 @@ export const RouteSimulatorPanel: React.FC = () => {
     setRouteSimulation({
       fromNodeId: null,
       active: false,
-      path: [],
-      alternativePaths: [],
+      routes: [],
       selectedPathIndex: 0,
       animationIndex: 0,
     });
@@ -163,8 +172,7 @@ export const RouteSimulatorPanel: React.FC = () => {
     setRouteSimulation({
       toNodeId: null,
       active: false,
-      path: [],
-      alternativePaths: [],
+      routes: [],
       selectedPathIndex: 0,
       animationIndex: 0,
     });
@@ -183,8 +191,7 @@ export const RouteSimulatorPanel: React.FC = () => {
       active: false,
       fromNodeId: null,
       toNodeId: null,
-      path: [],
-      alternativePaths: [],
+      routes: [],
       animationIndex: 0,
       selectedPathIndex: 0,
     });
@@ -408,6 +415,13 @@ export const RouteSimulatorPanel: React.FC = () => {
                 </div>
               </div>
 
+              {/* Длина и время — главная проверка привязки планов к метрике */}
+              <div className="mt-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
+                {currentRoute && currentRoute.distanceMeters !== null && currentRoute.durationSeconds !== null
+                  ? `${Math.round(currentRoute.distanceMeters)} м · ${formatRouteTime(currentRoute.durationSeconds)}`
+                  : 'Длины и времени нет: планы не привязаны к метрике кампуса'}
+              </div>
+
               {pathInfo?.multiLevel && (
                 <div className="mt-2 text-xs" style={{ color: '#fbbf24' }}>
                   ⚠️ Путь проходит через разные корпуса/этажи (переключение вида будет автоматическим).
@@ -415,13 +429,14 @@ export const RouteSimulatorPanel: React.FC = () => {
               )}
 
               {/* alternatives */}
-              {allPaths.length > 1 && (
+              {routes.length > 1 && (
                 <div className="mt-3">
                   <div className="text-xs mb-1" style={{ color: 'var(--editor-text-muted)' }}>
                     Альтернативы (как в навигаторах):
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {allPaths.map((p, i) => {
+                    {routes.map((alternative, i) => {
+                      const p = alternative.path;
                       const active = i === selectedPathIndex;
                       return (
                         <button
@@ -543,12 +558,12 @@ export const RouteOverlay: React.FC = () => {
     [currentBuilding, currentFloor]
   );
 
-  const path = useMemo(() => {
-    if (route.alternativePaths && route.alternativePaths.length > 0) {
-      return route.alternativePaths[route.selectedPathIndex] ?? route.alternativePaths[0] ?? [];
-    }
-    return route.path ?? [];
-  }, [route.alternativePaths, route.path, route.selectedPathIndex]);
+  const simulatedRoutes = route.routes;
+  const selectedPathIndex = route.selectedPathIndex;
+  const path = useMemo(
+    () => selectedRoute({ routes: simulatedRoutes, selectedPathIndex })?.path ?? [],
+    [simulatedRoutes, selectedPathIndex]
+  );
 
   // step timer
   useEffect(() => {
@@ -556,10 +571,7 @@ export const RouteOverlay: React.FC = () => {
 
     const t = window.setInterval(() => {
       useEditorStore.setState((s) => {
-        const p =
-          s.routeSimulation.alternativePaths?.length > 0
-            ? s.routeSimulation.alternativePaths[s.routeSimulation.selectedPathIndex] ?? s.routeSimulation.alternativePaths[0] ?? []
-            : s.routeSimulation.path ?? [];
+        const p = selectedRoute(s.routeSimulation)?.path ?? [];
 
         if (!s.routeSimulation.active || p.length < 2) return;
 

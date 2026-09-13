@@ -33,10 +33,7 @@ function loadFixture(): void {
         {
           id: 'building_a',
           name: 'Корпус А',
-          floors: [
-            { floor: 1, mapPath: 'map.png', graphPath: 'graph.json' },
-            { floor: 2, mapPath: 'map.png', graphPath: 'graph.json' },
-          ],
+          floors: [{ floor: 1 }, { floor: 2 }],
         },
       ],
     ]),

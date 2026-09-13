@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Graph } from '../src/index.js';
-import type { MapNode, Transition } from '../src/index.js';
+import { Graph, createCampusProjection } from '../src/index.js';
+import type { BuildingMeta, CampusMeta, MapNode, Transition } from '../src/index.js';
 import { fixtureDataset } from './helpers/datasetFixture.js';
 
 function node(id: string, building: string, floor: number, neighbors: string[] = []): MapNode {
@@ -104,5 +104,70 @@ describe('Graph', () => {
     );
 
     expect(graph.transitionCount).toBe(1);
+  });
+});
+
+/**
+ * Мировые координаты узлов.
+ *
+ * Они живут в графе, а не в узле: пиксели узла редактор меняет
+ * перетаскиванием, и копия мировых координат на узле устарела бы.
+ */
+describe('Graph: пространство кампуса', () => {
+  const CAMPUS: CampusMeta = {
+    buildings: [{ id: 'b1' }],
+    mapSize: { width: 1, height: 1 },
+    metersPerPixel: 1,
+  };
+
+  const B1: BuildingMeta = {
+    id: 'b1',
+    name: 'Корпус 1',
+    placement: {
+      metersPerPixel: 1,
+      originMeters: { x: 0, y: 0 },
+      rotationDeg: 0,
+      baseElevationMeters: 0,
+      floorHeightMeters: 3,
+    },
+    floors: [{ floor: 1 }, { floor: 2 }],
+  };
+
+  it('без привязки граф пиксельный и мировых координат не даёт', () => {
+    const graph = new Graph([node('a', 'b1', 1)], []);
+
+    expect(graph.isMetric).toBe(false);
+    expect(graph.getWorld('a')).toBeUndefined();
+  });
+
+  it('реальный датасет без привязки — пиксельный', async () => {
+    expect(Graph.fromDataset(await fixtureDataset()).isMetric).toBe(false);
+  });
+
+  it('из датасета с полной привязкой хранит точку каждого узла', () => {
+    const graph = Graph.fromDataset({
+      campusMeta: CAMPUS,
+      buildingMetas: [B1],
+      nodes: [{ ...node('a', 'b1', 2), x: 3, y: 4 }],
+      transitions: [],
+      aliases: [],
+    });
+
+    expect(graph.isMetric).toBe(true);
+    expect(graph.getWorld('a')).toEqual({ x: 3, y: 4, z: 3 });
+    expect(graph.getWorld('nope')).toBeUndefined();
+  });
+
+  it('узел этажа без привязки переводит в пиксельный режим весь граф', () => {
+    // Этаж 9 не объявлен в метаданных корпуса. Оставить метрику остальным
+    // узлам значило бы смешать метры и пиксели в одном маршруте.
+    const graph = new Graph(
+      [node('a', 'b1', 1), node('b', 'b1', 9)],
+      [],
+      createCampusProjection(CAMPUS, [B1])
+    );
+
+    expect(graph.isMetric).toBe(false);
+    expect(graph.getWorld('a')).toBeUndefined();
   });
 });
