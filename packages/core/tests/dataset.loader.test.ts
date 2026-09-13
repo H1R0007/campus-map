@@ -195,3 +195,46 @@ describe('loadDataset: идентификаторы', () => {
     expect(warnings.filter((w) => w.includes('Дублирующийся id узла'))).toHaveLength(1);
   });
 });
+
+describe('loadDataset: метаданные этажа', () => {
+  /** Корпус с единственным этажом, описанным переданной записью. */
+  function withFloor(floor: Record<string, unknown>): Files {
+    return {
+      [CAMPUS_META_PATH]: {
+        buildings: [{ id: 'bA', name: 'Корпус А' }],
+        mapSize: { width: 1, height: 1 },
+      },
+      [CAMPUS_GRAPH_PATH]: { nodes: [] },
+      [buildingMetaPath('bA')]: { id: 'bA', name: 'Корпус А', floors: [floor] },
+      [floorGraphPath('bA', 1)]: { nodes: [] },
+    };
+  }
+
+  it('размер плана этажа читается', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(withFloor({ floor: 1, mapSize: { width: 1476, height: 780 } }))
+    );
+
+    expect(dataset.buildingMetas[0].floors[0].mapSize).toEqual({ width: 1476, height: 780 });
+    expect(warnings.filter((w) => w.includes('mapSize'))).toEqual([]);
+  });
+
+  it('некорректный размер отбрасывается с предупреждением, этаж остаётся', async () => {
+    const { dataset, warnings } = await loadDataset(
+      memorySource(withFloor({ floor: 1, mapSize: { width: '1476', height: 0 } }))
+    );
+
+    expect(dataset.buildingMetas[0].floors).toEqual([{ floor: 1 }]);
+    expect(warnings.filter((w) => w.includes('mapSize'))).toHaveLength(1);
+  });
+
+  it('mapPath и graphPath не читаются: раскладка файлов этажа фиксирована', async () => {
+    // Раньше эти поля грузились и выгружались, но адрес всё равно собирался
+    // константами — другое имя файла в них давало молчаливый 404.
+    const source = memorySource(withFloor({ floor: 1, mapPath: 'plan.jpg', graphPath: 'nodes.json' }));
+    const { dataset } = await loadDataset(source);
+
+    expect(dataset.buildingMetas[0].floors).toEqual([{ floor: 1 }]);
+    expect(source.requested).toContain(floorGraphPath('bA', 1));
+  });
+});

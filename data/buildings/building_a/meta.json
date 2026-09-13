@@ -3,19 +3,13 @@
   "name": "Корпус А",
   "floors": [
     {
-      "floor": 1,
-      "mapPath": "map.png",
-      "graphPath": "graph.json"
+      "floor": 1
     },
     {
-      "floor": 2,
-      "mapPath": "map.png",
-      "graphPath": "graph.json"
+      "floor": 2
     },
     {
-      "floor": 3,
-      "mapPath": "map.png",
-      "graphPath": "graph.json"
+      "floor": 3
     }
   ]
 }

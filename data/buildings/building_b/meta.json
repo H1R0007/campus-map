@@ -3,14 +3,10 @@
   "name": "Корпус Б",
   "floors": [
     {
-      "floor": 1,
-      "mapPath": "map.png",
-      "graphPath": "graph.json"
+      "floor": 1
     },
     {
-      "floor": 2,
-      "mapPath": "map.png",
-      "graphPath": "graph.json"
+      "floor": 2
     }
   ]
 }

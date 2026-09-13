@@ -10,7 +10,7 @@ function meta(floors: number[]): BuildingMeta {
   return {
     id: 'building_x',
     name: 'Корпус Х',
-    floors: floors.map((floor) => ({ floor, mapPath: 'map.png', graphPath: 'graph.json' })),
+    floors: floors.map((floor) => ({ floor })),
   };
 }
 

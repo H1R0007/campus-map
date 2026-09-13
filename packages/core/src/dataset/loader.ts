@@ -1,5 +1,5 @@
 import type { AliasEntry } from '../types/alias.js';
-import type { BuildingMeta, CampusMeta, FloorMeta } from '../types/building.js';
+import type { BuildingMeta, CampusMeta, FloorMeta, MapSize } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
 import type { MapNode, MapNodeData } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
@@ -71,6 +71,39 @@ function asStringArray(value: unknown): string[] {
 
 function asOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Число из JSON — только настоящее число, без приведения строк.
+ *
+ * `asFiniteNumber` приводит "10" к 10 ради совместимости со старыми
+ * координатами узлов. Новые поля формата так никто не записывал, и растягивать
+ * на них эту терпимость незачем: строка в числовом поле — ошибка разметки, о
+ * которой нужно сказать, а не молча её исправить.
+ */
+function asStrictNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Необязательный размер плана.
+ *
+ * Некорректное значение отбрасывается с предупреждением, а не заменяется
+ * выдуманным: размер — лишь подсказка до загрузки изображения, и неверная
+ * подсказка хуже отсутствующей.
+ */
+function readMapSize(value: unknown, where: string, warnings: string[]): MapSize | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  const width = isRecord(value) ? asStrictNumber(value.width) : undefined;
+  const height = isRecord(value) ? asStrictNumber(value.height) : undefined;
+
+  if (width !== undefined && height !== undefined && width > 0 && height > 0) {
+    return { width, height };
+  }
+
+  warnings.push(`${where}: некорректный mapSize ${JSON.stringify(value)} — поле пропущено`);
+  return undefined;
 }
 
 /**
@@ -217,11 +250,14 @@ function normalizeFloors(
       continue;
     }
 
-    floors.push({
-      floor,
-      mapPath: asOptionalString(item.mapPath) ?? 'map.png',
-      graphPath: asOptionalString(item.graphPath) ?? 'graph.json',
-    });
+    // `mapPath` и `graphPath` из старых файлов не читаются: раскладка этажа
+    // фиксирована, и эти поля никогда ни на что не влияли (см. `FloorMeta`).
+    const meta: FloorMeta = { floor };
+
+    const mapSize = readMapSize(item.mapSize, `${path}: этаж ${floor}`, warnings);
+    if (mapSize !== undefined) meta.mapSize = mapSize;
+
+    floors.push(meta);
   }
 
   return floors;

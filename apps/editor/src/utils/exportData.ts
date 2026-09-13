@@ -4,9 +4,21 @@ import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import type {
   BuildingMeta,
   CampusMeta,
+  FloorMeta,
   MapNode,
   Transition,
 } from '@campus-map/core';
+
+/**
+ * Все поля типа как обязательные ключи, значения — как в исходном типе.
+ *
+ * Экспорт перечисляет поля формата явно, а `satisfies BuildingMeta` не ловит
+ * забытое **необязательное** поле. Такое поле читалось бы загрузчиком и молча
+ * исчезало при первом сохранении из редактора. С этим типом новое поле
+ * формата не скомпилируется, пока экспорт его не запишет. Отсутствующее
+ * значение остаётся `undefined`, и `JSON.stringify` в файл его не пишет.
+ */
+type EveryField<T> = { [K in keyof Required<T>]: T[K] };
 
 /**
  * Узлы в том виде, в каком они записываются в `graph.json`.
@@ -173,7 +185,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
       {
         buildings: Array.from(buildingMetas.values()).map((b) => ({ id: b.id, name: b.name })),
         mapSize: resolveCampusMapSize(campusNodes, campusMeta),
-      } satisfies CampusMeta,
+      } satisfies EveryField<CampusMeta>,
       null,
       2
     )
@@ -200,12 +212,10 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
         {
           id: meta.id,
           name: meta.name,
-          floors: meta.floors.map((f) => ({
-            floor: f.floor,
-            mapPath: f.mapPath,
-            graphPath: f.graphPath,
-          })),
-        } satisfies BuildingMeta,
+          floors: meta.floors.map(
+            (f) => ({ floor: f.floor, mapSize: f.mapSize }) satisfies EveryField<FloorMeta>
+          ),
+        } satisfies EveryField<BuildingMeta>,
         null,
         2
       )
