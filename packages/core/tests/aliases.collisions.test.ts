@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AliasManager } from '../src/index.js';
+import type { AliasEntry } from '../src/index.js';
 
 /**
  * Совпадающие названия у разных узлов.
@@ -13,7 +14,7 @@ import { AliasManager } from '../src/index.js';
  * продуктового датасета.
  */
 
-function managerWith(entries: { id: string; names: string[] }[]): AliasManager {
+function managerWith(entries: AliasEntry[]): AliasManager {
   const manager = new AliasManager();
   manager.load(entries);
   return manager;
@@ -50,8 +51,19 @@ describe('AliasManager: совпадающие названия', () => {
 
     const ambiguous = manager.ambiguousAliases();
 
-    expect([...ambiguous.keys()]).toEqual(['столовая']);
-    expect(ambiguous.get('столовая')).toEqual(['a1_canteen', 'b1_canteen']);
+    expect([...ambiguous.keys()]).toEqual(['Столовая']);
+    expect(ambiguous.get('Столовая')).toEqual(['a1_canteen', 'b1_canteen']);
+  });
+
+  it('называет конфликт так, как имя записано в данных, а не нормализованной формой', () => {
+    // Нормализованная форма после свёртки латинских двойников нечитаема:
+    // «Canteen» превращается в смесь алфавитов «саnтееn».
+    const manager = managerWith([
+      { id: 'a1_canteen', names: ['Столовая'], translations: { en: { names: ['Canteen'] } } },
+      { id: 'b1_canteen', names: ['Столовая'], translations: { en: { names: ['Canteen'] } } },
+    ]);
+
+    expect([...manager.ambiguousAliases().keys()]).toEqual(['Столовая', 'Canteen']);
   });
 
   it('повтор имени у одного и того же узла неоднозначностью не считается', () => {

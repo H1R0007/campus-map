@@ -201,13 +201,21 @@ export class AliasManager {
    * нормализации имён принадлежит этому классу — вторая его копия в
    * загрузчике разошлась бы с первой.
    *
-   * @returns нормализованное имя → id узлов
+   * @returns имя в том виде, в каком оно впервые встретилось в данных, → id
+   *          узлов. Не нормализованная форма: после свёртки латинских
+   *          двойников она нечитаема («Canteen» → «саnтееn»), а список
+   *          показывается разметчику.
    */
   ambiguousAliases(): Map<string, readonly string[]> {
     const result = new Map<string, readonly string[]>();
+    const seen = new Set<string>();
 
-    for (const [normalized, ids] of this.aliasToIds) {
-      if (ids.length > 1) result.set(normalized, ids);
+    for (const record of this.index) {
+      if (seen.has(record.normalized)) continue;
+      seen.add(record.normalized);
+
+      const ids = this.aliasToIds.get(record.normalized) ?? EMPTY;
+      if (ids.length > 1) result.set(record.display, ids);
     }
 
     return result;
