@@ -54,7 +54,6 @@ export {
 
 // Область видимости карты
 export {
-  buildingDisplayName,
   isNodeInScope,
   scopeOfFloor,
   scopeOfNode,

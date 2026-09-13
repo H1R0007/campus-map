@@ -1,0 +1,81 @@
+import type { Messages } from './ru';
+
+/**
+ * Строки интерфейса на английском.
+ *
+ * Форму задаёт русский словарь (`Messages`): пропущенный ключ здесь не
+ * скомпилируется. Имена из данных приходят со своими переводами — см. `ru.ts`.
+ */
+export const en: Messages = {
+  app: {
+    loading: 'Loading the map…',
+    loadFailed: 'Could not load the map',
+    retry: 'Try again',
+  },
+
+  languageSwitch: 'Interface language',
+
+  map: {
+    campus: 'Campus',
+    floor: (floor) => `Floor ${floor}`,
+    place: (building, floor) => `${building}, floor ${floor}`,
+    backToCampus: 'Back to the campus map',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    fitPlan: 'Show the whole plan',
+    routeStart: 'Route start',
+    routeEnd: 'Route end',
+  },
+
+  search: {
+    prompt: 'Where do you want to go?',
+    from: 'From',
+    to: 'To',
+    swap: 'Swap',
+  },
+
+  route: {
+    title: 'Route',
+    view: (scope) => `View: ${scope}`,
+    close: 'Close',
+    options: 'Route settings',
+    build: 'Get route',
+    reset: 'Reset',
+    ready: 'Route ready',
+    showSteps: 'Steps',
+    resetRoute: 'Clear route',
+    stepsTitle: 'Route steps',
+    openCampus: 'Open campus',
+    openFloor: (floor) => `Open floor ${floor}`,
+    duration: (minutes) => `~${minutes} min`,
+    notFound: (reason) => `No route found: ${reason}`,
+    failure: {
+      'unknown-start': 'the starting point does not exist',
+      'unknown-end': 'the destination does not exist',
+      unreachable: 'the points are not connected with the chosen restrictions',
+      'iteration-limit': 'the search was interrupted, try other points',
+    },
+    option: {
+      allowStairs: 'Stairs',
+      allowLift: 'Lifts',
+      allowBridge: 'Passages',
+      allowEntrance: 'Entrances',
+      preferLift: 'Prefer lifts',
+    },
+  },
+
+  instructions: {
+    start: 'Start',
+    finish: 'Finish',
+    exitToCampus: 'Go outside to the campus grounds',
+    enterBuilding: 'Enter the building',
+    changeBuilding: 'Go to another building',
+    passEntrance: 'Go through the entrance',
+    move: {
+      stairs: { up: 'Take the stairs up', down: 'Take the stairs down', same: 'Take the stairs' },
+      lift: { up: 'Take the lift up', down: 'Take the lift down', same: 'Take the lift' },
+      bridge: { up: 'Walk through the passage', down: 'Walk through the passage', same: 'Walk through the passage' },
+      entrance: { up: 'Go through the entrance', down: 'Go through the entrance', same: 'Go through the entrance' },
+    },
+  },
+};

@@ -22,8 +22,15 @@ interface DataLoaderState {
   error: string | null;
 }
 
+/**
+ * Техническая причина отказа — для того, кому о ней сообщат.
+ *
+ * Не переводится: это текст исключения, а не строка интерфейса. Раньше для
+ * не-`Error` здесь стояла заглушка «Неизвестная ошибка» — по-русски и без
+ * единой детали; само значение полезнее.
+ */
 function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Неизвестная ошибка';
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function useDataLoader() {

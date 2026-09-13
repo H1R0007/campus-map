@@ -83,6 +83,9 @@ export class AliasManager {
   /** id узла → его имена в порядке объявления; первое считается основным. */
   private idToAliases = new Map<string, string[]>();
 
+  /** id узла → переводы его имён, как они пришли из данных. */
+  private idToTranslations = new Map<string, NonNullable<AliasEntry['translations']>>();
+
   private cache = new Map<string, CacheEntry>();
 
   /**
@@ -101,6 +104,7 @@ export class AliasManager {
     this.aliasToIds.clear();
     this.index = [];
     this.idToAliases.clear();
+    this.idToTranslations.clear();
     this.cache.clear();
 
     const seen = new Set<string>();
@@ -124,6 +128,7 @@ export class AliasManager {
 
       // Имена на других языках ищутся наравне с основными: студент набирает
       // название на своём языке, даже если не переключил язык интерфейса.
+      if (entry.translations) this.idToTranslations.set(entry.id, entry.translations);
       for (const translation of Object.values(entry.translations ?? {})) {
         for (const display of translation.names) this.indexName(entry.id, display, seen);
       }
@@ -228,9 +233,16 @@ export class AliasManager {
 
   /**
    * Основное имя узла — первое в списке алиасов.
-   * Используется в пошаговых инструкциях маршрута.
+   *
+   * С языком интерфейса — первое имя перевода на этот язык. Без перевода
+   * возвращается исходное имя: помещение без английского названия англоязычный
+   * интерфейс покажет по-русски, но покажет, а не потеряет.
    */
-  getPrimaryAliasForId(id: string): string | null {
+  getPrimaryAliasForId(id: string, language?: string): string | null {
+    const translated =
+      language !== undefined ? this.idToTranslations.get(id)?.[language]?.names[0] : undefined;
+    if (translated !== undefined) return translated;
+
     const list = this.idToAliases.get(id);
     return list && list.length > 0 ? list[0] : null;
   }

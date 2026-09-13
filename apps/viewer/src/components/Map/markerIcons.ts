@@ -1,5 +1,7 @@
 import L from 'leaflet';
 import { transitionTypeColor, transitionTypeIcon, type TransitionType } from '@campus-map/core';
+import { messagesFor } from '../../i18n';
+import type { Language } from '../../i18n/languages';
 
 /**
  * Иконки маркеров навигатора.
@@ -11,19 +13,39 @@ import { transitionTypeColor, transitionTypeIcon, type TransitionType } from '@c
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function endpointIcon(color: string, label: string): L.DivIcon {
-  return L.divIcon({
+type EndpointKind = 'start' | 'end';
+
+const ENDPOINT_COLORS: Readonly<Record<EndpointKind, string>> = { start: '#16a34a', end: '#2563eb' };
+
+const endpointIcons = new Map<string, L.DivIcon>();
+
+/**
+ * Маркер начала или конца маршрута.
+ *
+ * Подпись для экранного диктора — на языке интерфейса, поэтому экземпляр
+ * кэшируется по паре «вид точки + язык».
+ */
+export function endpointIcon(kind: EndpointKind, language: Language): L.DivIcon {
+  const key = `${kind}:${language}`;
+
+  const cached = endpointIcons.get(key);
+  if (cached) return cached;
+
+  const messages = messagesFor(language);
+  const label = kind === 'start' ? messages.map.routeStart : messages.map.routeEnd;
+
+  const icon = L.divIcon({
     className: 'campus-marker campus-marker--endpoint',
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     html: `<svg width="28" height="28" viewBox="0 0 28 28" xmlns="${SVG_NS}" role="img" aria-label="${label}">
-      <circle cx="14" cy="14" r="9" fill="${color}" stroke="#ffffff" stroke-width="3"/>
+      <circle cx="14" cy="14" r="9" fill="${ENDPOINT_COLORS[kind]}" stroke="#ffffff" stroke-width="3"/>
     </svg>`,
   });
-}
 
-export const START_ICON = endpointIcon('#16a34a', 'Начало маршрута');
-export const END_ICON = endpointIcon('#2563eb', 'Конец маршрута');
+  endpointIcons.set(key, icon);
+  return icon;
+}
 
 /**
  * Иконка точки перехода между этажами или корпусами.

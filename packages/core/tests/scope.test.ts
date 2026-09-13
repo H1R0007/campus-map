@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   CAMPUS_BUILDING_ID,
-  buildingDisplayName,
   isNodeInScope,
   scopeOfFloor,
   scopeOfNode,
@@ -91,21 +90,5 @@ describe('scopeOfNode', () => {
     const someNode = node('r', 'building_c', 1);
 
     expect(isNodeInScope(someNode, scopeOfNode(someNode))).toBe(true);
-  });
-});
-
-describe('buildingDisplayName', () => {
-  const names = new Map([['building_a', 'Корпус А']]);
-
-  it('для территории кампуса возвращает фиксированное имя', () => {
-    expect(buildingDisplayName(CAMPUS_BUILDING_ID, names)).toBe('Кампус');
-  });
-
-  it('берет имя из метаданных', () => {
-    expect(buildingDisplayName('building_a', names)).toBe('Корпус А');
-  });
-
-  it('при отсутствии имени показывает идентификатор', () => {
-    expect(buildingDisplayName('building_z', names)).toBe('building_z');
   });
 });

@@ -3,7 +3,11 @@ import type { PathfindingOptions, ViewScope } from '@campus-map/core';
 import { useRouteStore, type RouteField } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { useSuggestions } from '../../hooks/useSuggestions';
-import { buildRouteSteps, formatDuration, nodePlaceLabel } from '../../utils/routeInstructions';
+import { formatFloor, messagesFor, useLanguage } from '../../i18n';
+import type { Messages } from '../../i18n';
+import { buildRouteSteps, formatDuration } from '../../utils/routeInstructions';
+import { nodePlaceLabel, scopeLabel } from '../../utils/placeLabels';
+import { LanguageSwitch } from './LanguageSwitch';
 
 /**
  * Нижняя панель: поиск маршрута и пошаговые инструкции.
@@ -13,14 +17,14 @@ import { buildRouteSteps, formatDuration, nodePlaceLabel } from '../../utils/rou
  * подключён, поэтому удалён.
  */
 
-/** Ограничения маршрута, вынесенные в интерфейс. */
-const OPTION_TOGGLES = [
-  { key: 'allowStairs', label: 'Лестницы' },
-  { key: 'allowLift', label: 'Лифты' },
-  { key: 'allowBridge', label: 'Переходы' },
-  { key: 'allowEntrance', label: 'Входы' },
-  { key: 'preferLift', label: 'Предпочитать лифт' },
-] as const satisfies readonly { key: keyof PathfindingOptions; label: string }[];
+/** Ограничения маршрута, вынесенные в интерфейс; подписи — в словаре. */
+const OPTION_KEYS = [
+  'allowStairs',
+  'allowLift',
+  'allowBridge',
+  'allowEntrance',
+  'preferLift',
+] as const satisfies readonly (keyof PathfindingOptions & keyof Messages['route']['option'])[];
 
 export const BottomSheet: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -52,6 +56,9 @@ export const BottomSheet: React.FC = () => {
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
   const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
 
+  const language = useLanguage();
+  const messages = messagesFor(language);
+
   const scope = scopeOf(activeFloor);
 
   // Фокус на поле, которое пользователь только что выбрал.
@@ -74,12 +81,11 @@ export const BottomSheet: React.FC = () => {
       path: currentRoute.path,
       buildingMetas,
       aliasManager,
+      language,
     });
-  }, [graph, buildingMetas, currentRoute, aliasManager]);
+  }, [graph, buildingMetas, currentRoute, aliasManager, language]);
 
-  const scopeLabel = scope.mode === 'campus'
-    ? 'Кампус'
-    : `${buildingMetas?.get(scope.buildingId)?.name ?? scope.buildingId}, этаж ${scope.floor}`;
+  const currentScopeLabel = buildingMetas ? scopeLabel(scope, buildingMetas, language) : '';
 
   const canBuild = fromNodeId !== null && toNodeId !== null;
 
@@ -125,7 +131,8 @@ export const BottomSheet: React.FC = () => {
 
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-gray-800">
-                  Маршрут готов{duration !== null && ` • ${formatDuration(duration)}`}
+                  {messages.route.ready}
+                  {duration !== null && ` • ${formatDuration(duration, language)}`}
                 </div>
                 <div className="text-xs text-gray-500 truncate">
                   {fromQuery} → {toQuery}
@@ -140,14 +147,14 @@ export const BottomSheet: React.FC = () => {
                 }}
                 className="px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
               >
-                Шаги
+                {messages.route.showSteps}
               </button>
 
               <button
                 type="button"
                 onClick={clearRoute}
                 className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
-                aria-label="Сбросить маршрут"
+                aria-label={messages.route.resetRoute}
               >
                 ✕
               </button>
@@ -159,22 +166,28 @@ export const BottomSheet: React.FC = () => {
 
     return (
       <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-        <button
-          type="button"
-          onClick={() => {
-            setIsExpanded(true);
-            setActiveInput('to');
-          }}
-          className="w-full bg-white rounded-2xl shadow-xl border border-gray-100 p-4 flex items-center gap-4 hover:border-gray-200 transition-all"
-        >
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold" aria-hidden="true">🔎</span>
-          </div>
-          <div className="flex-1 text-left">
-            <div className="text-gray-800 font-medium">Куда вы хотите попасть?</div>
-            <div className="text-xs text-gray-500">{scopeLabel}</div>
-          </div>
-        </button>
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsExpanded(true);
+              setActiveInput('to');
+            }}
+            className="flex-1 min-w-0 p-2 rounded-xl flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold" aria-hidden="true">🔎</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-gray-800 font-medium truncate">{messages.search.prompt}</div>
+              <div className="text-xs text-gray-500 truncate">{currentScopeLabel}</div>
+            </div>
+          </button>
+
+          {/* Язык виден с первого экрана: иностранный студент не должен искать
+              переключатель в интерфейсе, который не может прочитать. */}
+          <LanguageSwitch />
+        </div>
       </div>
     );
   }
@@ -185,20 +198,23 @@ export const BottomSheet: React.FC = () => {
 
       <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
         <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden">
-          <div className="px-5 pt-4 pb-3 flex items-start justify-between border-b border-gray-100">
-            <div>
-              <div className="font-semibold text-gray-800">Маршрут</div>
-              <div className="text-xs text-gray-500">Вид: {scopeLabel}</div>
+          <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-gray-100">
+            <div className="min-w-0">
+              <div className="font-semibold text-gray-800">{messages.route.title}</div>
+              <div className="text-xs text-gray-500 truncate">{messages.route.view(currentScopeLabel)}</div>
             </div>
 
-            <button
-              type="button"
-              onClick={close}
-              className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
-              aria-label="Закрыть"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <LanguageSwitch />
+              <button
+                type="button"
+                onClick={close}
+                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
+                aria-label={messages.route.close}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -215,8 +231,8 @@ export const BottomSheet: React.FC = () => {
                   value={fromQuery}
                   onChange={(e) => setQuery('from', e.target.value)}
                   onFocus={() => setActiveInput('from')}
-                  placeholder="Откуда"
-                  aria-label="Откуда"
+                  placeholder={messages.search.from}
+                  aria-label={messages.search.from}
                   autoComplete="off"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-green-400 transition-colors"
                 />
@@ -226,8 +242,8 @@ export const BottomSheet: React.FC = () => {
                   value={toQuery}
                   onChange={(e) => setQuery('to', e.target.value)}
                   onFocus={() => setActiveInput('to')}
-                  placeholder="Куда"
-                  aria-label="Куда"
+                  placeholder={messages.search.to}
+                  aria-label={messages.search.to}
                   autoComplete="off"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 bg-gray-50 focus:bg-white focus:border-blue-400 transition-colors"
                 />
@@ -237,8 +253,8 @@ export const BottomSheet: React.FC = () => {
                 type="button"
                 onClick={swapPoints}
                 className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors mt-2"
-                title="Поменять местами"
-                aria-label="Поменять местами"
+                title={messages.search.swap}
+                aria-label={messages.search.swap}
               >
                 ⇅
               </button>
@@ -255,7 +271,7 @@ export const BottomSheet: React.FC = () => {
                   >
                     <div className="text-sm text-gray-800">{s.alias}</div>
                     <div className="text-xs text-gray-500">
-                      {graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, s.id) : ''}
+                      {graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, s.id, language) : ''}
                     </div>
                   </button>
                 ))}
@@ -271,12 +287,12 @@ export const BottomSheet: React.FC = () => {
                 className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
                 aria-expanded={showOptions}
               >
-                {showOptions ? '▾' : '▸'} Настройки маршрута
+                {showOptions ? '▾' : '▸'} {messages.route.options}
               </button>
 
               {showOptions && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {OPTION_TOGGLES.map(({ key, label }) => {
+                  {OPTION_KEYS.map((key) => {
                     const enabled = options[key] !== false;
 
                     return (
@@ -291,7 +307,7 @@ export const BottomSheet: React.FC = () => {
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
-                        {label}
+                        {messages.route.option[key]}
                       </button>
                     );
                   })}
@@ -313,7 +329,7 @@ export const BottomSheet: React.FC = () => {
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                Построить
+                {messages.route.build}
               </button>
 
               <button
@@ -321,14 +337,14 @@ export const BottomSheet: React.FC = () => {
                 onClick={clearRoute}
                 className="px-4 py-3 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               >
-                Сброс
+                {messages.route.reset}
               </button>
             </div>
 
             {currentRoute?.found && steps.length > 0 && (
               <div className="pt-2">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  Шаги маршрута
+                  {messages.route.stepsTitle}
                 </div>
 
                 <div className="space-y-2">
@@ -345,7 +361,9 @@ export const BottomSheet: React.FC = () => {
                             onClick={() => openScope(step.scope)}
                             className="mt-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors"
                           >
-                            Открыть {step.scope.mode === 'campus' ? 'кампус' : `этаж ${step.scope.floor}`}
+                            {step.scope.mode === 'campus'
+                              ? messages.route.openCampus
+                              : messages.route.openFloor(formatFloor(step.scope.floor))}
                           </button>
                         )}
                       </div>
@@ -357,7 +375,9 @@ export const BottomSheet: React.FC = () => {
 
             {currentRoute && !currentRoute.found && (
               <div className="text-sm text-red-600">
-                Маршрут не найден: {currentRoute.error ?? 'проверьте точки'}
+                {/* Причина — по коду ядра: его текстовое описание рассчитано на
+                    разработчика и существует только по-русски. */}
+                {messages.route.notFound(messages.route.failure[currentRoute.reason ?? 'unreachable'])}
               </div>
             )}
           </div>

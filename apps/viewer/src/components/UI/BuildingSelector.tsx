@@ -1,5 +1,7 @@
 import React from 'react';
+import { buildingName } from '@campus-map/core';
 import { entranceFloorOf, useMapStore } from '../../stores/mapStore';
+import { useLanguage } from '../../i18n';
 
 /**
  * Выбор корпуса на карте кампуса.
@@ -14,6 +16,7 @@ export const BuildingSelector: React.FC = () => {
   const campusMeta = useMapStore((s) => s.campusMeta);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
+  const language = useLanguage();
 
   if (activeFloor !== null || !campusMeta || !buildingMetas) return null;
 
@@ -44,7 +47,7 @@ export const BuildingSelector: React.FC = () => {
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              {meta?.name ?? building.name ?? building.id}
+              {meta ? buildingName(meta, language) : building.name ?? building.id}
             </button>
           );
         })}

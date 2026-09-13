@@ -591,6 +591,8 @@ node tooling/smoke-test.mjs --app viewer --mode prod --base /campus/
 | Интерфейс навигатора, панели, карточка маршрута | `apps/viewer/src/components/UI/` |
 | Слои навигатора (маркеры, порталы, линия маршрута) | `apps/viewer/src/components/Map/` |
 | Пошаговые инструкции маршрута | `apps/viewer/src/utils/routeInstructions.ts` |
+| Строки интерфейса, язык (`?lang=en` в адресе) | `apps/viewer/src/i18n/`, `stores/settingsStore.ts`; запись 12 в `DECISIONS.md` |
+| Имена корпусов и помещений на языке интерфейса | переводы в данных (раздел «Переводы названий»), `buildingName` и `AliasManager` ядра |
 | Инструменты разметки и панели редактора | `apps/editor/src/components/` |
 | Действия редактора и отмена | `apps/editor/src/stores/editorStore.ts`, `historyStore.ts` |
 | Импорт/экспорт датасета | `apps/editor/src/utils/importZip.ts`, `exportData.ts` |

@@ -1,11 +1,6 @@
 import React from 'react';
-import { Marker, Tooltip } from 'react-leaflet';
-import {
-  transitionTypeLabel,
-  type Graph,
-  type MapNode,
-  type TransitionType,
-} from '@campus-map/core';
+import { Marker } from 'react-leaflet';
+import type { Graph, MapNode, TransitionType } from '@campus-map/core';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { portalIcon } from './markerIcons';
 
@@ -19,6 +14,9 @@ import { portalIcon } from './markerIcons';
  *
  * Тип перехода определяется по соседям узла, поэтому иконка сразу показывает,
  * лестница это, лифт или вход.
+ *
+ * Подсказки с названием типа здесь больше нет: маркер неинтерактивный, и
+ * наведение на него никогда не срабатывало — подсказка была мёртвой.
  */
 export const PortalLayer: React.FC = () => {
   const graph = useMapStore((s) => s.graph);
@@ -40,23 +38,16 @@ export const PortalLayer: React.FC = () => {
 
   return (
     <>
-      {portals.map((node) => {
-        const type = portalTypeOf(graph, node);
-        return (
-          <Marker
-            key={node.id}
-            position={[node.y, node.x]}
-            icon={portalIcon(type)}
-            // Маркер справочный: нажатие не должно перехватывать клики по карте.
-            interactive={false}
-            keyboard={false}
-          >
-            <Tooltip direction="top" offset={[0, -10]} opacity={1} className="portal-tooltip">
-              {type ? transitionTypeLabel(type) : 'Переход'}
-            </Tooltip>
-          </Marker>
-        );
-      })}
+      {portals.map((node) => (
+        <Marker
+          key={node.id}
+          position={[node.y, node.x]}
+          icon={portalIcon(portalTypeOf(graph, node))}
+          // Маркер справочный: нажатие не должно перехватывать клики по карте.
+          interactive={false}
+          keyboard={false}
+        />
+      ))}
     </>
   );
 };

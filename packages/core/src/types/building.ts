@@ -169,3 +169,13 @@ export interface CampusMeta {
    */
   metersPerPixel?: number;
 }
+
+/**
+ * Имя корпуса на языке интерфейса; без перевода — исходное.
+ *
+ * Правило выбора живёт рядом с форматом перевода, а не в каждом приложении:
+ * иначе навигатор и редактор однажды разошлись бы в том, что показывать.
+ */
+export function buildingName(meta: BuildingMeta, language: string): string {
+  return meta.translations?.[language]?.name ?? meta.name;
+}
