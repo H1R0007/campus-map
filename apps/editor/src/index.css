@@ -119,7 +119,8 @@ input[type='checkbox'] {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
-.alias-label-tooltip {
+.alias-label-tooltip,
+.transition-target-tooltip {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
@@ -127,6 +128,7 @@ input[type='checkbox'] {
 }
 
 .quick-info-tooltip::before,
-.alias-label-tooltip::before {
+.alias-label-tooltip::before,
+.transition-target-tooltip::before {
     display: none !important;
 }
