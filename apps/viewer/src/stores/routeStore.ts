@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { AliasManager, Graph, PathResult, PathfindingOptions } from '@campus-map/core';
-import { DEFAULT_PATHFINDING_OPTIONS, findPath, scopeOfNode } from '@campus-map/core';
+import type { PathResult, PathfindingOptions } from '@campus-map/core';
+import { DEFAULT_PATHFINDING_OPTIONS, findPath } from '@campus-map/core';
+import { resolvePoint } from '../utils/deepLink';
 import { useMapStore } from './mapStore';
 import { useSettingsStore } from './settingsStore';
 
@@ -58,51 +59,6 @@ function routeMatches(
   return route.path[0] === fromNodeId && route.path[route.path.length - 1] === toNodeId;
 }
 
-/**
- * Переводит карту туда, где маршрут начинается.
- *
- * Без этого построение маршрута не показывало маршрут: навигатор стартует в
- * виде кампуса, а `PathLayer` рисует только узлы текущей области видимости,
- * поэтому линия целиком отфильтровывалась и пользователь видел неизменную
- * карту с подписью «Маршрут готов».
- *
- * Правило «какому виду принадлежит узел» берётся из ядра (`scopeOfNode`), а
- * не выводится здесь по полям узла.
- */
-function focusRouteStart(graph: Graph, route: PathResult): void {
-  const startNode = route.path.length > 0 ? graph.getNode(route.path[0]) : undefined;
-  if (!startNode) return;
-
-  const scope = scopeOfNode(startNode);
-  const { setActiveFloor, clearActiveFloor } = useMapStore.getState();
-
-  if (scope.mode === 'campus') {
-    clearActiveFloor();
-  } else {
-    setActiveFloor(scope.buildingId, scope.floor);
-  }
-}
-
-/**
- * Разрешает введённый текст в id узла.
- *
- * Сначала — точное совпадение с алиасом, затем прямой id узла: это позволяет
- * открывать ссылку вида `?from=a1_room101` и отлаживать данные без алиасов.
- */
-function resolveQuery(
-  query: string,
-  graph: Graph | null,
-  aliasManager: AliasManager | null
-): string | null {
-  const trimmed = query.trim();
-  if (!trimmed) return null;
-
-  const byAlias = aliasManager?.resolve(trimmed) ?? null;
-  if (byAlias) return byAlias;
-
-  return graph?.hasNode(trimmed) ? trimmed : null;
-}
-
 export const useRouteStore = create<RouteState>((set, get) => {
   /**
    * Сбрасывает показанный маршрут, если он больше не ведёт между выбранными
@@ -144,7 +100,10 @@ export const useRouteStore = create<RouteState>((set, get) => {
     const route = findPath(graph, fromNodeId, toNodeId, options);
     set({ currentRoute: route });
 
-    if (route.found) focusRouteStart(graph, route);
+    // Карта переходит туда, где маршрут начинается. Без этого построенный
+    // маршрут не было видно: навигатор стартует в виде кампуса, а слой
+    // маршрута рисует только узлы текущей области видимости.
+    if (route.found) useMapStore.getState().showNode(route.path[0]);
 
     return route;
   };
@@ -162,7 +121,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
     setQuery: (field, query) => {
       const { graph, aliasManager } = useMapStore.getState();
-      applyPoint(field, query, resolveQuery(query, graph, aliasManager));
+      applyPoint(field, query, resolvePoint(query, graph, aliasManager));
     },
 
     setPoint: (field, nodeId, label) => {

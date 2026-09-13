@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
 import { CampusMap } from './components/Map/CampusMap';
 import { BottomSheet } from './components/UI/BottomSheet';
+import { LinkNotice } from './components/UI/LinkNotice';
 import { MapHeader } from './components/UI/MapHeader';
 import { useMapStore } from './stores/mapStore';
 import { useDataLoader } from './hooks/useDataLoader';
+import { useRouteLink } from './hooks/useRouteLink';
 import { useLanguage, useMessages } from './i18n';
 
 /**
@@ -22,6 +24,7 @@ const App: React.FC = () => {
   const isDataLoaded = useMapStore((s) => s.graph !== null);
   const language = useLanguage();
   const messages = useMessages();
+  const link = useRouteLink();
 
   useEffect(() => {
     void loadAllData();
@@ -86,6 +89,7 @@ const App: React.FC = () => {
     <div className="h-full w-full relative overflow-hidden">
       <CampusMap />
       <MapHeader />
+      <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
       <BottomSheet />
     </div>
   );

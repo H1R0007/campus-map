@@ -103,6 +103,38 @@ export const BottomSheet: React.FC = () => {
     setActiveInput(null);
   };
 
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  /**
+   * Делится маршрутом: системным окном, а где его нет — копированием адреса.
+   *
+   * Адрес уже описывает маршрут: его концы в адресной строке держит
+   * `useRouteLink`, и получатель ссылки увидит тот же маршрут.
+   */
+  const shareRoute = async () => {
+    const url = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ url, title: messages.route.title });
+        return;
+      } catch (error) {
+        // Закрытое пользователем окно «Поделиться» — не ошибка. Любой другой
+        // отказ (запрет в контексте страницы) — повод скопировать ссылку.
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Буфер обмена недоступен (небезопасный контекст, запрет браузера).
+      // Ссылка при этом уже стоит в адресной строке — показывать нечего.
+    }
+  };
+
   /** Открывает шторку на поле, которое осталось заполнить. */
   const openSheet = (field: RouteField | null) => {
     setIsExpanded(true);
@@ -184,8 +216,8 @@ export const BottomSheet: React.FC = () => {
                   {messages.route.ready}
                   {duration !== null && ` • ${formatDuration(duration, language)}`}
                 </div>
-                <div className="text-xs text-gray-500 truncate">
-                  {fromQuery} → {toQuery}
+                <div className="text-xs text-gray-500 truncate" aria-live="polite">
+                  {linkCopied ? messages.route.linkCopied : `${fromQuery} → ${toQuery}`}
                 </div>
               </div>
 
@@ -198,6 +230,18 @@ export const BottomSheet: React.FC = () => {
                 className="px-3 py-2 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
               >
                 {messages.route.showSteps}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void shareRoute()}
+                className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+                aria-label={messages.route.share}
+                title={messages.route.share}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
               </button>
 
               <button
@@ -230,7 +274,10 @@ export const BottomSheet: React.FC = () => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-gray-800 font-medium truncate">{messages.search.prompt}</div>
-              <div className="text-xs text-gray-500 truncate">{currentScopeLabel}</div>
+              <div className="text-xs text-gray-500 truncate">
+                {/* Начало уже задано (ссылка «вы здесь», карта) — это важнее вида карты. */}
+                {fromNodeId !== null ? messages.search.fromPoint(fromQuery) : currentScopeLabel}
+              </div>
             </div>
           </button>
         </div>

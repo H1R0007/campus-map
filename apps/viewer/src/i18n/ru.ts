@@ -62,6 +62,13 @@ export const ru = {
     from: 'Откуда',
     to: 'Куда',
     swap: 'Поменять местами',
+    /** Начало маршрута уже задано — например, ссылкой «вы здесь». */
+    fromPoint: (place: string) => `Откуда: ${place}`,
+  },
+
+  link: {
+    notFound: (points: string) => `Точка из ссылки не найдена: ${points}`,
+    dismiss: 'Скрыть сообщение',
   },
 
   route: {
@@ -73,6 +80,8 @@ export const ru = {
     reset: 'Сброс',
     ready: 'Маршрут готов',
     showSteps: 'Шаги',
+    share: 'Поделиться маршрутом',
+    linkCopied: 'Ссылка скопирована',
     resetRoute: 'Сбросить маршрут',
     stepsTitle: 'Шаги маршрута',
     openCampus: 'Открыть кампус',

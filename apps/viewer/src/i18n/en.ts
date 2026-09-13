@@ -49,6 +49,12 @@ export const en: Messages = {
     from: 'From',
     to: 'To',
     swap: 'Swap',
+    fromPoint: (place) => `From: ${place}`,
+  },
+
+  link: {
+    notFound: (points) => `The point from the link was not found: ${points}`,
+    dismiss: 'Dismiss',
   },
 
   route: {
@@ -60,6 +66,8 @@ export const en: Messages = {
     reset: 'Reset',
     ready: 'Route ready',
     showSteps: 'Steps',
+    share: 'Share the route',
+    linkCopied: 'Link copied',
     resetRoute: 'Clear route',
     stepsTitle: 'Route steps',
     openCampus: 'Open campus',

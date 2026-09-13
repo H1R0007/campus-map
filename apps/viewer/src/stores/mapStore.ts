@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { scopeOfFloor } from '@campus-map/core';
+import { scopeOfFloor, scopeOfNode } from '@campus-map/core';
 import type {
   AliasManager,
   BuildingMeta,
@@ -60,6 +60,15 @@ interface MapState {
   setActiveFloor: (buildingId: string, floor: number) => void;
   clearActiveFloor: () => void;
   selectNode: (nodeId: string | null) => void;
+
+  /**
+   * Показывает область карты, где находится узел: его этаж или территорию.
+   *
+   * Одно правило для построенного маршрута (карта переходит к началу) и для
+   * ссылки «вы здесь»; какому виду принадлежит узел, решает ядро
+   * (`scopeOfNode`), а не разбор полей узла на месте.
+   */
+  showNode: (nodeId: string) => void;
 }
 
 /**
@@ -135,5 +144,14 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   selectNode: (nodeId) => {
     if (get().selectedNodeId !== nodeId) set({ selectedNodeId: nodeId });
+  },
+
+  showNode: (nodeId) => {
+    const node = get().graph?.getNode(nodeId);
+    if (!node) return;
+
+    const scope = scopeOfNode(node);
+    if (scope.mode === 'campus') get().clearActiveFloor();
+    else get().setActiveFloor(scope.buildingId, scope.floor);
   },
 }));

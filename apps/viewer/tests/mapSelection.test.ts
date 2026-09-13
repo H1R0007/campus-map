@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../src/stores/mapStore';
+import { fixtureGraph } from './helpers/graphFixture';
 
 /**
  * Место, выбранное нажатием на карту.
@@ -21,6 +22,21 @@ describe('выбранное место', () => {
     useMapStore.getState().clearActiveFloor();
 
     expect(useMapStore.getState().selectedNodeId).toBeNull();
+  });
+
+  it('показ узла открывает его этаж или территорию, неизвестный узел вид не меняет', () => {
+    // Путь ссылки «вы здесь» без второй точки: маршрута нет, карта должна
+    // сама перейти туда, где человек стоит.
+    useMapStore.setState({ graph: fixtureGraph() });
+
+    useMapStore.getState().showNode('a2_room201');
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 2 });
+
+    useMapStore.getState().showNode('no_such_node');
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 2 });
+
+    useMapStore.getState().showNode('campus_gate');
+    expect(useMapStore.getState().activeFloor).toBeNull();
   });
 
   it('повторный выбор того же этажа выбор не снимает', () => {
