@@ -1,4 +1,5 @@
 import type { PathFailureReason, TransitionType } from '@campus-map/core';
+import type { PluralForms } from './plural';
 
 /**
  * Строки интерфейса на русском — источник формы словаря.
@@ -16,6 +17,13 @@ import type { PathFailureReason, TransitionType } from '@campus-map/core';
 
 /** Направление перехода между этажами. */
 type Direction = 'up' | 'down' | 'same';
+
+/**
+ * Формы слов для чисел. Тип — `PluralForms`, а не выведенный из литерала: у
+ * английского форм меньше, и словарь другого языка обязан дать лишь `other`.
+ */
+const BUILDINGS_WORD: PluralForms = { one: 'корпус', few: 'корпуса', many: 'корпусов', other: 'корпуса' };
+const FLOORS_WORD: PluralForms = { one: 'этаж', few: 'этажа', many: 'этажей', other: 'этажа' };
 
 export const ru = {
   app: {
@@ -86,10 +94,12 @@ export const ru = {
     linkCopied: 'Ссылка скопирована',
     resetRoute: 'Сбросить маршрут',
     stepsTitle: 'Шаги маршрута',
-    openCampus: 'Открыть кампус',
-    openFloor: (floor: string) => `Открыть этаж ${floor}`,
     /** Время в пути; округление — забота вызывающей стороны. */
     duration: (minutes: number) => `~${minutes} мин`,
+    /** Длина пути; округление — забота вызывающей стороны. */
+    distance: (meters: number) => `${meters} м`,
+    buildingsWord: BUILDINGS_WORD,
+    floorsWord: FLOORS_WORD,
     notFound: (reason: string) => `Маршрут не найден: ${reason}`,
     failure: {
       'unknown-start': 'начальная точка не найдена',
@@ -97,11 +107,10 @@ export const ru = {
       unreachable: 'при выбранных ограничениях точки не связаны',
       'iteration-limit': 'поиск прерван, попробуйте другие точки',
     } satisfies Record<PathFailureReason, string>,
+    /** Кнопка в сообщении «маршрут не найден», когда мешает запрет лестниц. */
+    allowStairs: 'Разрешить лестницы',
     option: {
-      allowStairs: 'Лестницы',
-      allowLift: 'Лифты',
-      allowBridge: 'Переходы',
-      allowEntrance: 'Входы',
+      noStairs: 'Без лестниц',
       preferLift: 'Предпочитать лифт',
     },
   },

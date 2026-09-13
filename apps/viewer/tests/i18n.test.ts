@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatFloor, messagesFor } from '../src/i18n';
 import { LANGUAGES } from '../src/i18n/languages';
+import type { PluralForms } from '../src/i18n/plural';
 import { detectLanguage } from '../src/stores/settingsStore';
 import type { LanguageEnvironment } from '../src/stores/settingsStore';
 
@@ -36,6 +37,18 @@ describe('detectLanguage', () => {
   });
 });
 
+const PLURAL_CATEGORIES: ReadonlySet<string> = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
+
+/**
+ * Формы слова для чисел. Набор форм у языков законно разный — у русского
+ * «корпус, корпуса, корпусов», у английского «building, buildings», — поэтому
+ * такой объект сравнивается как одна строка: его обязательной формой `other`.
+ */
+function isPluralForms(value: object): value is PluralForms {
+  const keys = Object.keys(value);
+  return keys.includes('other') && keys.every((key) => PLURAL_CATEGORIES.has(key));
+}
+
 /** Все строки словаря с путями ключей; функции вызываются с тестовыми аргументами. */
 function collectStrings(value: unknown, path: string, into: Map<string, string>): void {
   if (typeof value === 'string') {
@@ -43,6 +56,10 @@ function collectStrings(value: unknown, path: string, into: Map<string, string>)
   } else if (typeof value === 'function') {
     into.set(path, String((value as (...args: unknown[]) => unknown)('1', '1')));
   } else if (typeof value === 'object' && value !== null) {
+    if (isPluralForms(value)) {
+      into.set(path, value.other);
+      return;
+    }
     for (const [key, nested] of Object.entries(value)) collectStrings(nested, `${path}.${key}`, into);
   }
 }
