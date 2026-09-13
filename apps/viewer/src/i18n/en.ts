@@ -18,6 +18,8 @@ export const en: Messages = {
   map: {
     campus: 'Campus',
     floor: (floor) => `Floor ${floor}`,
+    floors: 'Floors',
+    floorOnRoute: (floor) => `${floor}, on the route`,
     place: (building, floor) => `${building}, floor ${floor}`,
     backToCampus: 'Back to the campus map',
     zoomIn: 'Zoom in',

@@ -7,7 +7,7 @@
  * определение размеров плана существовали в одном экземпляре.
  */
 
-export { PixelMap, usePixelMapGeometry } from './PixelMap.js';
-export type { PixelMapGeometry, PixelMapProps } from './PixelMap.js';
+export { PixelMap, fitPaddingOf, usePixelMapGeometry } from './PixelMap.js';
+export type { MapInsets, PixelMapGeometry, PixelMapProps } from './PixelMap.js';
 
 export type { ImageSize, ImageStatus } from './useImageSize.js';

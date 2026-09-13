@@ -1,7 +1,8 @@
 import React from 'react';
 import { useMap } from 'react-leaflet';
-import { usePixelMapGeometry } from '@campus-map/mapkit';
+import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
 import { useMessages } from '../../i18n';
+import { MAP_CHROME_INSETS } from '../Map/mapChrome';
 
 /**
  * Кнопки масштаба.
@@ -9,10 +10,10 @@ import { useMessages } from '../../i18n';
  * Штатный зум Leaflet отключён на карте, потому что его оформление
  * выбивается из мобильного интерфейса; этот компонент заменяет его.
  *
- * Должен рендериться внутри `<PixelMap>`: использует и контекст карты, и
- * геометрию подложки. «Сбросить вид» подгоняет viewport под границы текущего
- * плана, поэтому работает одинаково для кампуса и для любого этажа —
- * прежняя версия была жёстко привязана к координатам одной конкретной карты.
+ * Должен рендериться внутри `<PixelMap>` (в колонке `MapRail`): использует и
+ * контекст карты, и геометрию подложки. «Показать план целиком» подгоняет вид
+ * под границы текущего плана с отступами под интерфейс — так же, как при
+ * открытии плана.
  */
 export const ZoomControls: React.FC = () => {
   const map = useMap();
@@ -20,11 +21,11 @@ export const ZoomControls: React.FC = () => {
   const messages = useMessages();
 
   const resetView = () => {
-    map.fitBounds(bounds, { padding: [20, 20] });
+    map.fitBounds(bounds, fitPaddingOf(MAP_CHROME_INSETS));
   };
 
   return (
-    <div className="campus-zoom-controls" style={{ zIndex: 1000 }}>
+    <div className="campus-zoom-controls">
       <button
         type="button"
         onClick={() => map.zoomIn()}

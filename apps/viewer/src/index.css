@@ -77,12 +77,72 @@ button {
     border: none !important;
 }
 
+/* ===== Шапка и колонка управления картой ===== */
+
+/* Отступы этих блоков учтены в `MAP_CHROME_INSETS` и меняются вместе с ним.
+   Пустое место в ряду и в колонке жесты не перехватывает: карту можно тянуть
+   между кнопками. */
+
+.campus-map-header {
+    position: absolute;
+    top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    left: 0.75rem;
+    right: 0.75rem;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.campus-map-header > * {
+    pointer-events: auto;
+}
+
+/* Лента корпусов прокручивается жестом; системная полоса под чипами
+   выглядела как отдельный элемент интерфейса. */
+.campus-no-scrollbar {
+    scrollbar-width: none;
+}
+
+.campus-no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Правая колонка между шапкой и нижней карточкой: этажи сверху занимают
+   остаток высоты и прокручиваются, масштаб прижат к низу. */
+.campus-map-rail {
+    position: absolute;
+    top: calc(4.5rem + env(safe-area-inset-top, 0px));
+    bottom: calc(6.75rem + var(--safe-area-bottom));
+    right: 0.75rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+    pointer-events: none;
+}
+
+.campus-map-rail > * {
+    pointer-events: auto;
+}
+
+.campus-floor-list {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #ffffff;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 /* ===== Кнопки масштаба ===== */
 
 .campus-zoom-controls {
-    position: absolute;
-    right: 1rem;
-    bottom: calc(6.5rem + var(--safe-area-bottom));
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;

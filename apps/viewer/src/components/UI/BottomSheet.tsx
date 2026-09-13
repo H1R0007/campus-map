@@ -7,7 +7,6 @@ import { formatFloor, messagesFor, useLanguage } from '../../i18n';
 import type { Messages } from '../../i18n';
 import { buildRouteSteps, formatDuration } from '../../utils/routeInstructions';
 import { nodePlaceLabel, scopeLabel } from '../../utils/placeLabels';
-import { LanguageSwitch } from './LanguageSwitch';
 
 /**
  * Нижняя панель: поиск маршрута и пошаговые инструкции.
@@ -16,6 +15,14 @@ import { LanguageSwitch } from './LanguageSwitch';
  * маршрута. Прежний `RouteInfo.tsx` дублировал сводную карточку и не был
  * подключён, поэтому удалён.
  */
+
+/**
+ * Место свёрнутой карточки: над системной полосой iPhone, на широком экране —
+ * у левого края, чтобы не закрывать середину карты с маршрутом. Высота
+ * карточки учтена в `MAP_CHROME_INSETS`.
+ */
+const COLLAPSED_POSITION =
+  'fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-3 right-3 md:left-4 md:right-auto md:w-96 z-[1000]';
 
 /** Ограничения маршрута, вынесенные в интерфейс; подписи — в словаре. */
 const OPTION_KEYS = [
@@ -122,7 +129,7 @@ export const BottomSheet: React.FC = () => {
       const duration = currentRoute.durationSeconds;
 
       return (
-        <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
+        <div className={COLLAPSED_POSITION}>
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-4 flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center flex-shrink-0">
@@ -165,15 +172,15 @@ export const BottomSheet: React.FC = () => {
     }
 
     return (
-      <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2 flex items-center gap-2">
+      <div className={COLLAPSED_POSITION}>
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2">
           <button
             type="button"
             onClick={() => {
               setIsExpanded(true);
               setActiveInput('to');
             }}
-            className="flex-1 min-w-0 p-2 rounded-xl flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
+            className="w-full p-2 rounded-xl flex items-center gap-4 text-left hover:bg-gray-50 transition-colors"
           >
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold" aria-hidden="true">🔎</span>
@@ -183,10 +190,6 @@ export const BottomSheet: React.FC = () => {
               <div className="text-xs text-gray-500 truncate">{currentScopeLabel}</div>
             </div>
           </button>
-
-          {/* Язык виден с первого экрана: иностранный студент не должен искать
-              переключатель в интерфейсе, который не может прочитать. */}
-          <LanguageSwitch />
         </div>
       </div>
     );
@@ -194,27 +197,27 @@ export const BottomSheet: React.FC = () => {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-[999]" onClick={close} aria-hidden="true" />
+      {/* На телефоне шторка закрывает карту, и затемнение подсказывает, что
+          нажатие мимо её закроет. На широком экране панель стоит сбоку и
+          карту с маршрутом не заслоняет — затемнять нечего. */}
+      <div className="fixed inset-0 bg-black/20 z-[999] md:hidden" onClick={close} aria-hidden="true" />
 
-      <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:max-w-md z-[1000]">
-        <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="fixed bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-96 z-[1000]">
+        <div className="bg-white md:rounded-2xl rounded-t-3xl shadow-2xl border border-gray-100 overflow-hidden pb-[env(safe-area-inset-bottom)] md:pb-0">
           <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-gray-100">
             <div className="min-w-0">
               <div className="font-semibold text-gray-800">{messages.route.title}</div>
               <div className="text-xs text-gray-500 truncate">{messages.route.view(currentScopeLabel)}</div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <LanguageSwitch />
-              <button
-                type="button"
-                onClick={close}
-                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
-                aria-label={messages.route.close}
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={close}
+              className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors"
+              aria-label={messages.route.close}
+            >
+              ✕
+            </button>
           </div>
 
           <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">

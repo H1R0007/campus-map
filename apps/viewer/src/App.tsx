@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import { CampusMap } from './components/Map/CampusMap';
 import { BottomSheet } from './components/UI/BottomSheet';
-import { FloorSelector } from './components/UI/FloorSelector';
-import { BuildingSelector } from './components/UI/BuildingSelector';
+import { MapHeader } from './components/UI/MapHeader';
 import { useMapStore } from './stores/mapStore';
 import { useDataLoader } from './hooks/useDataLoader';
 import { useLanguage, useMessages } from './i18n';
@@ -86,8 +85,7 @@ const App: React.FC = () => {
   return (
     <div className="h-full w-full relative overflow-hidden">
       <CampusMap />
-      <BuildingSelector />
-      <FloorSelector />
+      <MapHeader />
       <BottomSheet />
     </div>
   );

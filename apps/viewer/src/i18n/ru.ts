@@ -30,6 +30,9 @@ export const ru = {
   map: {
     campus: 'Кампус',
     floor: (floor: string) => `Этаж ${floor}`,
+    floors: 'Этажи',
+    /** Подпись кнопки этажа, через который идёт маршрут; `floor` — уже «Этаж 2». */
+    floorOnRoute: (floor: string) => `${floor}, по маршруту`,
     place: (building: string, floor: string) => `${building}, этаж ${floor}`,
     backToCampus: 'Вернуться к карте кампуса',
     zoomIn: 'Приблизить',
