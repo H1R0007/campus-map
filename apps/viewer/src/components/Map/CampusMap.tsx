@@ -6,6 +6,7 @@ import { DATA_BASE_URL } from '../../config/dataBase';
 import { MAP_CHROME_INSETS } from './mapChrome';
 import { MapRail } from './MapRail';
 import { PathLayer } from './PathLayer';
+import { PlaceLayer } from './PlaceLayer';
 import { PortalLayer } from './PortalLayer';
 import { MarkerLayer } from './MarkerLayer';
 import { PlanStatus } from './PlanStatus';
@@ -51,6 +52,7 @@ export const CampusMap: React.FC = () => {
       maxZoom={4}
       constrainToBounds
     >
+      <PlaceLayer />
       <PathLayer />
       <PortalLayer />
       <MarkerLayer />

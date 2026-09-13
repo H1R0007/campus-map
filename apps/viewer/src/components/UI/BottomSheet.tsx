@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PathfindingOptions, ViewScope } from '@campus-map/core';
 import { useRouteStore, type RouteField } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
@@ -7,6 +7,7 @@ import { formatFloor, messagesFor, useLanguage } from '../../i18n';
 import type { Messages } from '../../i18n';
 import { buildRouteSteps, formatDuration } from '../../utils/routeInstructions';
 import { nodePlaceLabel, scopeLabel } from '../../utils/placeLabels';
+import { PlaceCard } from './PlaceCard';
 
 /**
  * Нижняя панель: поиск маршрута и пошаговые инструкции.
@@ -49,7 +50,7 @@ export const BottomSheet: React.FC = () => {
     currentRoute,
     options,
     setQuery,
-    selectSuggestion,
+    setPoint,
     setOptions,
     buildRoute,
     clearRoute,
@@ -62,6 +63,7 @@ export const BottomSheet: React.FC = () => {
   const activeFloor = useMapStore((s) => s.activeFloor);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
   const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const selectedNodeId = useMapStore((s) => s.selectedNodeId);
 
   const language = useLanguage();
   const messages = messagesFor(language);
@@ -101,6 +103,30 @@ export const BottomSheet: React.FC = () => {
     setActiveInput(null);
   };
 
+  /** Открывает шторку на поле, которое осталось заполнить. */
+  const openSheet = (field: RouteField | null) => {
+    setIsExpanded(true);
+    setActiveInput(field);
+  };
+
+  // Высота свёрнутой карточки — в CSS-переменную: колонка этажей и масштаба
+  // заканчивается над карточкой, а карточка места выше поисковой.
+  const sheetObserver = useRef<ResizeObserver | null>(null);
+  const measureCollapsed = useCallback((element: HTMLDivElement | null) => {
+    sheetObserver.current?.disconnect();
+    sheetObserver.current = null;
+    if (element === null) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      document.documentElement.style.setProperty(
+        '--campus-sheet-height',
+        `${Math.round(entry.contentRect.height)}px`
+      );
+    });
+    observer.observe(element);
+    sheetObserver.current = observer;
+  }, []);
+
   /** Переключает карту на область видимости шага маршрута. */
   const openScope = (target?: ViewScope) => {
     if (!target) return;
@@ -112,24 +138,41 @@ export const BottomSheet: React.FC = () => {
   };
 
   const handleSuggestionClick = (field: RouteField, suggestionId: string, alias: string) => {
-    selectSuggestion(field, { alias, id: suggestionId, score: 0 });
+    const route = setPoint(field, suggestionId, alias);
 
-    // После выбора «откуда» переводим фокус на «куда» — это следующий шаг
-    // естественного сценария.
-    if (field === 'from') {
-      setActiveInput('to');
-      setTimeout(() => toInputRef.current?.focus(), 0);
+    // Вторая точка выбрана и маршрут построен — шторка уступает место карте с
+    // линией. Если построить не удалось, шторка остаётся открытой с причиной.
+    if (route?.found) {
+      close();
+      return;
+    }
+
+    // Второй точки ещё нет — фокус на её поле: это следующий шаг сценария.
+    if (route === null) {
+      const other: RouteField = field === 'from' ? 'to' : 'from';
+      setActiveInput(other);
+      setTimeout(() => (other === 'to' ? toInputRef : fromInputRef).current?.focus(), 0);
     }
   };
 
   if (!isExpanded) {
+    // Выбранное на карте место важнее показанного маршрута: человек только что
+    // нажал на план и ждёт ответа именно на это.
+    if (selectedNodeId !== null) {
+      return (
+        <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
+          <PlaceCard nodeId={selectedNodeId} onOpenSheet={openSheet} />
+        </div>
+      );
+    }
+
     if (currentRoute?.found) {
       // Время в пути есть только в метрическом режиме. Без привязки планов к
       // территории его не показываем вовсе: выдуманное число хуже отсутствующего.
       const duration = currentRoute.durationSeconds;
 
       return (
-        <div className={COLLAPSED_POSITION}>
+        <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-4 flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center flex-shrink-0">
@@ -172,7 +215,7 @@ export const BottomSheet: React.FC = () => {
     }
 
     return (
-      <div className={COLLAPSED_POSITION}>
+      <div ref={measureCollapsed} className={COLLAPSED_POSITION}>
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-2">
           <button
             type="button"

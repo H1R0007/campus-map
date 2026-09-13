@@ -44,6 +44,19 @@ export const ru = {
     routeEnd: 'Конец маршрута',
   },
 
+  transition: {
+    entrance: 'Вход',
+    stairs: 'Лестница',
+    lift: 'Лифт',
+    bridge: 'Переход',
+  } satisfies Record<TransitionType, string>,
+
+  place: {
+    from: 'Отсюда',
+    to: 'Сюда',
+    close: 'Закрыть карточку места',
+  },
+
   search: {
     prompt: 'Куда вы хотите попасть?',
     from: 'Откуда',

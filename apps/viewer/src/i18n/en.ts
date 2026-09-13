@@ -31,6 +31,19 @@ export const en: Messages = {
     routeEnd: 'Route end',
   },
 
+  transition: {
+    entrance: 'Entrance',
+    stairs: 'Stairs',
+    lift: 'Lift',
+    bridge: 'Passage',
+  },
+
+  place: {
+    from: 'From here',
+    to: 'To here',
+    close: 'Close place card',
+  },
+
   search: {
     prompt: 'Where do you want to go?',
     from: 'From',
