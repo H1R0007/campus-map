@@ -283,6 +283,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
                 name: undefined,
                 names: a.names,
                 translations: a.translations,
+                category: a.category,
               }) satisfies EveryField<AliasEntry>
           ),
       },

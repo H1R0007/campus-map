@@ -23,6 +23,34 @@ export interface AliasEntry {
    * переводить не нужно — он совпадает с табличкой на двери.
    */
   translations?: Record<string, AliasTranslation>;
+
+  /**
+   * Что это за место: туалет, еда, гардероб, выход. По категории навигатор
+   * ищет ближайшее место нужного вида. Необязательна: у аудитории её нет.
+   *
+   * Одна на место. Задаётся в данных, а не угадывается по названию: «Буфет» и
+   * «Кафе» — еда, а «Раздевалка» бассейна — не гардероб (запись 19).
+   */
+  category?: PlaceCategory;
+}
+
+/**
+ * Категории мест, к ближайшему из которых ведут быстрые кнопки навигатора:
+ *
+ * - `toilet` — туалет;
+ * - `food` — столовая, буфет, кафе;
+ * - `cloakroom` — гардероб для верхней одежды;
+ * - `exit` — выход из корпуса или с территории.
+ *
+ * Порядок — порядок кнопок в навигаторе.
+ */
+export const PLACE_CATEGORIES = ['toilet', 'food', 'cloakroom', 'exit'] as const;
+
+export type PlaceCategory = (typeof PLACE_CATEGORIES)[number];
+
+/** Является ли строка известной категорией места. */
+export function isPlaceCategory(value: string): value is PlaceCategory {
+  return (PLACE_CATEGORIES as readonly string[]).includes(value);
 }
 
 /**

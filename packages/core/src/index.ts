@@ -77,7 +77,7 @@ export {
 } from './graph/connectivity.js';
 
 // Поиск пути
-export { findAlternativePaths, findPath } from './pathfinding/astar.js';
+export { findAlternativePaths, findNearest, findPath } from './pathfinding/astar.js';
 
 // Поиск по названиям
 export { AliasManager } from './aliases/AliasManager.js';

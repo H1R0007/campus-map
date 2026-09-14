@@ -1,4 +1,4 @@
-import type { AliasEntry, SearchSuggestion } from '../types/alias.js';
+import type { AliasEntry, PlaceCategory, SearchSuggestion } from '../types/alias.js';
 
 /**
  * Индекс названий для поиска по карте.
@@ -98,6 +98,12 @@ export class AliasManager {
   /** id узла → переводы его имён, как они пришли из данных. */
   private idToTranslations = new Map<string, NonNullable<AliasEntry['translations']>>();
 
+  /** id узла → категория места; только у мест с названием. */
+  private idToCategory = new Map<string, PlaceCategory>();
+
+  /** Категория → id мест с названием в порядке объявления в данных. */
+  private categoryToIds = new Map<PlaceCategory, string[]>();
+
   private cache = new Map<string, CacheEntry>();
 
   /**
@@ -117,6 +123,8 @@ export class AliasManager {
     this.index = [];
     this.idToAliases.clear();
     this.idToTranslations.clear();
+    this.idToCategory.clear();
+    this.categoryToIds.clear();
     this.cache.clear();
 
     const seen = new Set<string>();
@@ -136,6 +144,15 @@ export class AliasManager {
 
       if (displayNameOrder.length > 0) {
         this.idToAliases.set(entry.id, displayNameOrder);
+      }
+
+      // Категория — только у места с названием: безымянное место быстрая
+      // кнопка не смогла бы ни назвать, ни показать в подсказках.
+      if (entry.category !== undefined && displayNameOrder.length > 0 && !this.idToCategory.has(entry.id)) {
+        this.idToCategory.set(entry.id, entry.category);
+        const ids = this.categoryToIds.get(entry.category);
+        if (ids) ids.push(entry.id);
+        else this.categoryToIds.set(entry.category, [entry.id]);
       }
 
       // Имена на других языках ищутся наравне с основными: студент набирает
@@ -241,6 +258,16 @@ export class AliasManager {
   /** Все имена узла в порядке объявления. */
   getAliasesForId(id: string): readonly string[] {
     return this.idToAliases.get(id) ?? EMPTY;
+  }
+
+  /** Категория места; `null`, если её нет или у места нет названия. */
+  getCategory(id: string): PlaceCategory | null {
+    return this.idToCategory.get(id) ?? null;
+  }
+
+  /** Места категории — только с названием, в порядке объявления в данных. */
+  getIdsByCategory(category: PlaceCategory): readonly string[] {
+    return this.categoryToIds.get(category) ?? EMPTY;
   }
 
   /**

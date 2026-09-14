@@ -17,6 +17,7 @@ import {
 import { DEFAULT_PATHFINDING_OPTIONS } from '@campus-map/core';
 import type {
   AliasEntry,
+  PlaceCategory,
   BuildingMeta,
   CampusMeta,
   ConnectivityResult,
@@ -148,6 +149,13 @@ interface EditorState {
    * переводы обратно, а переводы удалённого узла отбрасывает экспорт.
    */
   aliasTranslations: ReadonlyMap<string, NonNullable<AliasEntry['translations']>>;
+
+  /**
+   * Категории мест из датасета (запись 19). Правки категорий в редакторе пока
+   * нет; поле живёт по правилам `aliasTranslations`: сохраняется при экспорте и
+   * в отмене не участвует.
+   */
+  aliasCategories: ReadonlyMap<string, PlaceCategory>;
 
   /**
    * Метаданные кампуса, из которых был загружен датасет.
@@ -366,6 +374,7 @@ export const useEditorStore = create<EditorStore>()(
     buildingMetas: new Map(),
     aliases: new Map(),
     aliasTranslations: new Map(),
+    aliasCategories: new Map(),
     campusMeta: null,
     loadWarnings: [],
     selectedNodeIds: new Set(),
@@ -2115,6 +2124,9 @@ export const useEditorStore = create<EditorStore>()(
           alias.translations ? [[alias.id, alias.translations] as const] : []
         )
       );
+      state.aliasCategories = new Map(
+        dataset.aliases.flatMap((alias) => (alias.category ? [[alias.id, alias.category] as const] : []))
+      );
       state.campusMeta = dataset.campusMeta;
       state.loadWarnings = [...warnings];
       state.selectedNodeIds = new Set();
@@ -2140,11 +2152,16 @@ export const useEditorStore = create<EditorStore>()(
     }),
 
     exportToZip: async () => {
-      const { nodes, transitions, buildingMetas, aliases, aliasTranslations, campusMeta } = get();
+      const { nodes, transitions, buildingMetas, aliases, aliasTranslations, aliasCategories, campusMeta } = get();
       const { exportToZip } = await import('../utils/exportData');
       const aliasesArray = Array.from(aliases.entries())
         .filter(([id]) => nodes.has(id)) // Фильтруем алиасы удалённых узлов
-        .map(([id, names]) => ({ id, names, translations: aliasTranslations.get(id) }));
+        .map(([id, names]) => ({
+          id,
+          names,
+          translations: aliasTranslations.get(id),
+          category: aliasCategories.get(id),
+        }));
       await exportToZip({ nodes, transitions, buildingMetas, aliases: aliasesArray, campusMeta });
       set((s) => { s.hasUnsavedChanges = false; });
     },

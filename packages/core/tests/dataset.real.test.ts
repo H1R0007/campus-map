@@ -36,4 +36,12 @@ describe('data/', () => {
 
     expect(dataset.aliases.map((entry) => entry.id).filter((id) => !graph.hasNode(id))).toEqual([]);
   });
+
+  it('категория есть только у места с названием', async () => {
+    // Безымянное место быстрая кнопка навигатора не может ни назвать, ни
+    // выбрать: `AliasManager` такую категорию не учитывает, и она молча не работала бы.
+    const { dataset } = await loadRealDataset();
+
+    expect(dataset.aliases.filter((entry) => entry.category !== undefined && (entry.names?.length ?? 0) === 0)).toEqual([]);
+  });
 });
