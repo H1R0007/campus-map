@@ -26,13 +26,7 @@
  * неверно собранном приложении.
  */
 
-import { spawn } from 'node:child_process';
-import http from 'node:http';
-import net from 'node:net';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+import { request, startVite } from './lib/vite-server.mjs';
 
 /**
  * Матрица проверок.
@@ -122,115 +116,12 @@ function withBase(base, url) {
   return url === '/' ? base : `${base}${url.slice(1)}`;
 }
 
-/** Ищет свободный TCP-порт. */
-function findFreePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
-  });
-}
-
-/**
- * Отправляет запрос с дословным путём, без нормализации `..`.
- *
- * @returns {{status: number, contentType: string}}
- */
-function request(port, urlPath) {
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      { host: '127.0.0.1', port, path: urlPath, method: 'GET' },
-      (res) => {
-        res.resume();
-        res.once('end', () => {
-          resolve({
-            status: res.statusCode ?? 0,
-            contentType: String(res.headers['content-type'] ?? ''),
-          });
-        });
-      }
-    );
-
-    req.once('error', reject);
-    req.end();
-  });
-}
-
-/** Ждёт, пока сервер начнёт отвечать. */
-async function waitForServer(port, base = '/', timeoutMs = 60_000) {
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    try {
-      await request(port, base);
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 200));
-    }
-  }
-
-  throw new Error(`Сервер не поднялся на порту ${port} за ${timeoutMs / 1000} с`);
-}
-
 async function main() {
   const { app, mode, base } = parseArgs(process.argv.slice(2));
-  const appDir = path.join(repoRoot, 'apps', app);
-  const port = await findFreePort();
 
-  // Запускаем vite напрямую из node_modules, а не через `npx`: тот порождает
-  // цепочку npm → sh → node, и SIGKILL обёртке оставляет сервер-внук жить с
-  // открытыми пайпами — процесс теста из-за этого никогда не завершается.
-  const viteBin = path.join(appDir, 'node_modules', 'vite', 'bin', 'vite.js');
-  const args = [
-    viteBin,
-    ...(mode === 'dev' ? [] : ['preview']),
-    '--host', '127.0.0.1',
-    '--port', String(port),
-    '--strictPort',
-  ];
-
-  process.stdout.write(
-    `\n${app} / ${mode}${base === '/' ? '' : ` / base ${base}`}: поднимаю vite на порту ${port}\n`
-  );
-
-  // `detached` даёт собственную группу процессов — её можно снять целиком.
-  const child = spawn(process.execPath, args, {
-    cwd: appDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-    env: { ...process.env, BROWSER: 'none' },
-  });
-
-  let serverOutput = '';
-  const capture = (chunk) => {
-    serverOutput += chunk.toString();
-  };
-  child.stdout.on('data', capture);
-  child.stderr.on('data', capture);
-
-  const shutdown = () => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
-    }
-    try {
-      // Отрицательный pid — сигнал всей группе процессов.
-      process.kill(-child.pid, 'SIGKILL');
-    } catch {
-      child.kill('SIGKILL');
-    }
-  };
-  process.on('exit', shutdown);
-
-  try {
-    await waitForServer(port, base);
-  } catch (cause) {
-    shutdown();
-    process.stdout.write(`\n--- вывод сервера ---\n${serverOutput}\n`);
-    throw cause;
-  }
+  process.stdout.write(`\n${app} / ${mode}${base === '/' ? '' : ` / base ${base}`}: поднимаю vite\n`);
+  const server = await startVite({ app, mode, base });
+  const { port } = server;
 
   const scope = `${app}-${mode}`;
   const applicable = CHECKS.filter((check) => !check.only || check.only === scope);
@@ -263,14 +154,14 @@ async function main() {
     }
   }
 
-  shutdown();
+  server.stop();
 
   process.stdout.write(
     `\n${app} / ${mode}: проверок ${applicable.length}, провалов ${failures}\n`
   );
 
   if (failures > 0) {
-    process.stdout.write(`\n--- вывод сервера ---\n${serverOutput}\n`);
+    process.stdout.write(`\n--- вывод сервера ---\n${server.output()}\n`);
   }
 
   // Явный выход: не полагаемся на опустошение event loop, иначе незакрытый
