@@ -9,6 +9,25 @@ import { PlanStatusContext } from './planStatus.js';
 import { FALLBACK_IMAGE_SIZE } from './useImageSize.js';
 import type { ImageSize, ImageStatus } from './useImageSize.js';
 
+/** Pane планов холста: над фоном карты, под крышами, линиями маршрута и отметками. */
+export const PLAN_PANE = 'campusPlans';
+const PLAN_PANE_Z_INDEX = 350;
+
+/**
+ * Pane Leaflet по имени — создаётся при первом обращении.
+ *
+ * Слои холста лежат в своих pane: план, загруженный позже маршрута, иначе лёг
+ * бы поверх линии — порядок в общем pane задаёт время добавления.
+ */
+export function ensurePane(map: L.Map, name: string, zIndex: number): HTMLElement {
+  const existing = map.getPane(name);
+  if (existing) return existing;
+
+  const pane = map.createPane(name);
+  pane.style.zIndex = String(zIndex);
+  return pane;
+}
+
 /**
  * Слой Leaflet: план, поставленный на территорию по привязке.
  *
@@ -101,7 +120,7 @@ export interface PlacedPlanProps {
   visible?: boolean;
   /** Классы элемента плана: по ним приложение оформляет планы. */
   className?: string;
-  /** Pane Leaflet; по умолчанию — слой подложек. */
+  /** Pane Leaflet; по умолчанию — `PLAN_PANE`, под линиями и отметками. Свой pane создаёт вызывающий. */
   pane?: string;
   /** Атрибуты `data-*` элемента плана — для сценариев и отладки. */
   data?: Readonly<Record<string, string>>;
@@ -120,7 +139,7 @@ export function PlacedPlan({
   fallbackSize = FALLBACK_IMAGE_SIZE,
   visible = true,
   className = '',
-  pane = 'overlayPane',
+  pane = PLAN_PANE,
   data,
 }: PlacedPlanProps) {
   const map = useMap();
@@ -132,6 +151,7 @@ export function PlacedPlan({
   fallback.current = fallbackSize;
 
   useEffect(() => {
+    if (pane === PLAN_PANE) ensurePane(map, PLAN_PANE, PLAN_PANE_Z_INDEX);
     layer.options.pane = pane;
     layer.addTo(map);
     return () => {

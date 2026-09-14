@@ -3,10 +3,13 @@ import { Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { fitPaddingOf, useMapFrame } from '@campus-map/mapkit';
 import type { MapInsets } from '@campus-map/mapkit';
+import { useMapView } from '../../hooks/useMapView';
 import { useRouteSteps } from '../../hooks/useStepNavigation';
 import { useRouteStore } from '../../stores/routeStore';
-import { scopeOf, useMapStore } from '../../stores/mapStore';
-import { focusBounds, stepFocusPoints, visiblePolylines } from '../../utils/routeGeometry';
+import { useMapStore } from '../../stores/mapStore';
+import { focusBounds, routePoints, routeRuns, stepFocusPoints } from '../../utils/routeGeometry';
+import type { RouteRuns } from '../../utils/routeGeometry';
+import { fitSoon } from './mapCamera';
 import type { LatLngTuple } from '../../utils/routeGeometry';
 import { useMapInsets } from './mapChrome';
 
@@ -31,6 +34,15 @@ const ROUTE_CLASS = 'campus-route-line';
 const MUTED_CLASS = 'campus-route-line--muted';
 
 /**
+ * Участок маршрута на невидимом этаже холста — просвечивает пунктиром (запись
+ * 32). Класс свой, а не модификатор линии: приглушение и подсветка шага его не
+ * касаются.
+ */
+const GHOST_CLASS = 'campus-route-ghost';
+const EMPTY_RUNS: RouteRuns = { shown: [], roofed: [], otherFloors: [] };
+const GHOST_STYLE = { weight: 3, opacity: 0.8, dashArray: '1 7', lineCap: 'round' as const, lineJoin: 'round' as const };
+
+/**
  * Запас вокруг маршрута сверх места под интерфейс, пиксели экрана: начало и
  * конец линии не должны прилипать к шапке и карточке.
  */
@@ -44,6 +56,9 @@ const ROUTE_MARGIN = 32;
  */
 const MIN_FOCUS_SHARE = 0.4;
 
+/** То же на холсте, метры: кусок этажа с соседними помещениями. */
+const MIN_FOCUS_METERS = 28;
+
 /**
  * Линия маршрута на текущем плане.
  *
@@ -52,12 +67,15 @@ const MIN_FOCUS_SHARE = 0.4;
  * линия занимала несколько пикселей. На шаге пошаговой навигации — под участок
  * шага с соседними узлами (`stepFocusPoints`), а остальной маршрут приглушён:
  * видно, куда идти сейчас, а не весь путь сразу.
+ *
+ * На холсте кампуса маршрут — одна линия с территории в здание, а участки на
+ * невидимых этажах просвечивают пунктиром (`routeRuns`, запись 32).
  */
 export const PathLayer: React.FC = () => {
   const currentRoute = useRouteStore((s) => s.currentRoute);
   const stepIndex = useRouteStore((s) => s.stepIndex);
   const graph = useMapStore((s) => s.graph);
-  const activeFloor = useMapStore((s) => s.activeFloor);
+  const view = useMapView();
   const steps = useRouteSteps();
 
   const map = useMap();
@@ -71,30 +89,33 @@ export const PathLayer: React.FC = () => {
   const latestInsets = useRef(insets);
   latestInsets.current = insets;
 
-  const scope = useMemo(() => scopeOf(activeFloor), [activeFloor]);
   const route = currentRoute?.found ? currentRoute : null;
   const step = stepIndex !== null ? steps[stepIndex] : undefined;
+  const onCanvas = view.kind === 'canvas';
 
-  const segments = useMemo(
-    () => (route && graph ? visiblePolylines(route.path, graph, scope) : []),
-    [route, graph, scope]
+  const runs = useMemo(
+    () => (route && graph ? routeRuns(route.path, graph, view) : EMPTY_RUNS),
+    [route, graph, view]
   );
+  const segments = runs.shown;
 
   const stepSegments = useMemo(() => {
     if (!step || !route || !graph) return [];
     const [first, last] = step.pathRange;
-    return visiblePolylines(route.path.slice(first, last + 1), graph, scope);
-  }, [step, route, graph, scope]);
+    return routeRuns(route.path.slice(first, last + 1), graph, view).shown;
+  }, [step, route, graph, view]);
 
   // Что вписать: участок шага, а без навигации — или если участка на этом
-  // плане нет — видимую часть маршрута.
+  // плане нет — видимую часть маршрута. На холсте маршрут вписывается целиком:
+  // иначе вид менялся бы вместе с тем, какие этажи открыты.
   const focus = useMemo(() => {
     if (step && route && graph) {
-      const points = stepFocusPoints(route.path, step.pathRange, graph, scope);
+      const points = stepFocusPoints(route.path, step.pathRange, graph, view);
       if (points.length > 0) return points;
     }
+    if (view.kind === 'canvas') return route && graph ? routePoints(route.path, graph, view) : [];
     return segments.flat();
-  }, [step, route, graph, scope, segments]);
+  }, [step, route, graph, view, segments]);
 
   // Вид подгоняется, когда то, что нужно показать, действительно изменилось, а
   // не на каждый новый объект маршрута: смена ограничения, не изменившая путь,
@@ -109,13 +130,13 @@ export const PathLayer: React.FC = () => {
   const fitFocus = useCallback(
     (points: readonly LatLngTuple[], edges: MapInsets) => {
       const planSpan = Math.max(planBounds.getEast() - planBounds.getWest(), planBounds.getSouth() - planBounds.getNorth());
-      const bounds = L.latLngBounds(focusBounds(points, planSpan * MIN_FOCUS_SHARE));
-      map.once('moveend', () => {
+      const minSpan = onCanvas ? MIN_FOCUS_METERS : planSpan * MIN_FOCUS_SHARE;
+      const bounds = L.latLngBounds(focusBounds(points, minSpan));
+      fitSoon(map, bounds, { ...fitPaddingOf(edges, ROUTE_MARGIN), maxZoom: map.getMaxZoom() }, () => {
         autoView.current = { center: map.getCenter(), zoom: map.getZoom() };
       });
-      map.fitBounds(bounds, { ...fitPaddingOf(edges, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
     },
-    [map, planBounds]
+    [map, planBounds, onCanvas]
   );
 
   useEffect(() => {
@@ -156,12 +177,18 @@ export const PathLayer: React.FC = () => {
     if (!visible) fitFocus(points, insets);
   }, [insets, map, fitFocus]);
 
-  if (segments.length === 0) return null;
-
   const navigating = step !== undefined;
+  // На шаге навигации другие этажи открытого корпуса не просвечивают: они легли
+  // бы на коридоры показанного этажа и спутали бы участок шага.
+  const ghosts = navigating ? runs.roofed : [...runs.roofed, ...runs.otherFloors];
+
+  if (segments.length === 0 && ghosts.length === 0) return null;
 
   return (
     <>
+      {ghosts.map((positions, index) => (
+        <Polyline key={`ghost-${index}`} positions={positions} pathOptions={GHOST_STYLE} className={GHOST_CLASS} />
+      ))}
       {segments.map((positions, index) => (
         // Класс Leaflet ставит только при создании пути, поэтому режим входит в
         // ключ: переход в навигацию пересоздаёт линию с приглушённым классом.

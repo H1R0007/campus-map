@@ -1,7 +1,7 @@
 import React from 'react';
 import { messagesFor, useLanguage } from '../../i18n';
-import { scopeOf, useMapStore } from '../../stores/mapStore';
-import { sameScope } from '../../utils/routeFloors';
+import { useMapView } from '../../hooks/useMapView';
+import { isScopeShown } from '../../utils/mapView';
 import type { RouteStep } from '../../utils/routeInstructions';
 import { stepMeta } from '../../utils/routeSummary';
 import { RouteStepIcon } from './RouteStepIcon';
@@ -26,13 +26,12 @@ interface RouteStepsProps {
  * между значками, номер для экранного диктора даёт нумерованный список.
  */
 export const RouteSteps: React.FC<RouteStepsProps> = ({ steps, currentIndex, onSelect }) => {
-  const activeFloor = useMapStore((s) => s.activeFloor);
+  const view = useMapView();
   const language = useLanguage();
   const messages = messagesFor(language);
 
   if (steps.length === 0) return null;
 
-  const view = scopeOf(activeFloor);
 
   return (
     <section aria-label={messages.route.stepsTitle}>
@@ -41,7 +40,7 @@ export const RouteSteps: React.FC<RouteStepsProps> = ({ steps, currentIndex, onS
 
       <ol className="space-y-1">
         {steps.map((step, index) => {
-          const isCurrent = currentIndex !== null ? index === currentIndex : sameScope(step.scope, view);
+          const isCurrent = currentIndex !== null ? index === currentIndex : isScopeShown(view, step.scope);
           const isLast = index === steps.length - 1;
           const meta = stepMeta(step, language);
 

@@ -21,7 +21,7 @@ export type { PixelMapProps } from './PixelMap.js';
 
 export { WorldMap, meterLatLng } from './WorldMap.js';
 export type { WorldMapProps } from './WorldMap.js';
-export { PlacedPlan } from './PlacedPlan.js';
+export { PLAN_PANE, PlacedPlan, ensurePane } from './PlacedPlan.js';
 export type { PlacedPlanProps } from './PlacedPlan.js';
 export {
   containsPoint,

@@ -1,9 +1,9 @@
 import React from 'react';
 import { useStepNavigation } from '../../hooks/useStepNavigation';
 import { messagesFor, useLanguage } from '../../i18n';
-import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { useMapView } from '../../hooks/useMapView';
 import { useRouteStore } from '../../stores/routeStore';
-import { sameScope } from '../../utils/routeFloors';
+import { isScopeShown } from '../../utils/mapView';
 import { stepMeta } from '../../utils/routeSummary';
 import { Icon } from './Icon';
 import { RouteStepIcon } from './RouteStepIcon';
@@ -36,7 +36,7 @@ const PRIMARY_BUTTON =
 export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) => {
   const { steps, index, goTo, showCurrent } = useStepNavigation();
   const finish = useRouteStore((s) => s.finish);
-  const activeFloor = useMapStore((s) => s.activeFloor);
+  const view = useMapView();
   const language = useLanguage();
   const messages = messagesFor(language);
 
@@ -45,7 +45,7 @@ export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) =>
   const step = steps[index];
   const isLast = index === steps.length - 1;
   const meta = stepMeta(step, language);
-  const offView = !sameScope(step.scope, scopeOf(activeFloor));
+  const offView = !isScopeShown(view, step.scope);
 
   return (
     <div className="px-4 pb-4">

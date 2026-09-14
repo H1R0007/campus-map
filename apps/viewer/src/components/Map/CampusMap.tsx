@@ -12,15 +12,19 @@ import { PlaceLayer } from './PlaceLayer';
 import { PortalLayer } from './PortalLayer';
 import { MarkerLayer } from './MarkerLayer';
 import { PlanStatus } from './PlanStatus';
+import { WorldCanvas } from './WorldCanvas';
 
 /**
- * Карта навигатора: территория кампуса или план выбранного этажа.
+ * Карта навигатора. Данные с привязкой к метрике — холст кампуса (`WorldCanvas`,
+ * запись 32): территория и этажи корпусов на одной карте. Без привязки —
+ * территория кампуса или план выбранного этажа.
  *
  * Вся обвязка Leaflet (определение размера плана, границы, подгонка вида,
  * смена плана на живой карте) живёт в `PixelMap` из общего пакета — раньше
  * она была скопирована сюда из редактора.
  */
 export const CampusMap: React.FC = () => {
+  const graph = useMapStore((s) => s.graph);
   const campusMeta = useMapStore((s) => s.campusMeta);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
@@ -43,6 +47,22 @@ export const CampusMap: React.FC = () => {
           ?.get(activeFloor.buildingId)
           ?.floors.find((meta) => meta.floor === activeFloor.floor)?.mapSize;
 
+  // Слои одни на обе карты: что видно, они узнают из `useMapView`.
+  const layers = (
+    <>
+      <PlaceLayer />
+      <PathLayer />
+      <PortalLayer />
+      <MarkerLayer />
+      <PlanStatus />
+      <MapRail />
+    </>
+  );
+
+  // До загрузки данных неизвестно, какая карта нужна, и показывать на ней нечего.
+  if (graph === null) return null;
+  if (graph.isMetric) return <WorldCanvas>{layers}</WorldCanvas>;
+
   return (
     <PixelMap
       url={mapUrl}
@@ -55,12 +75,7 @@ export const CampusMap: React.FC = () => {
       maxZoom={4}
       constrainToBounds
     >
-      <PlaceLayer />
-      <PathLayer />
-      <PortalLayer />
-      <MarkerLayer />
-      <PlanStatus />
-      <MapRail />
+      {layers}
     </PixelMap>
   );
 };

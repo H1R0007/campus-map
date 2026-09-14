@@ -228,16 +228,30 @@ export default {
       await v.open('/?from=campus_gate&to=a3_room305');
       await page.sleep(900);
       await v.click('Развернуть панель');
-      await page.sleep(1200);
-      const visible = await page.eval(`(() => {
+      // Карта подгоняется после того, как шторка встанет на место; под нагрузкой
+      // это дольше — ждётся итог, а не фиксированная пауза.
+      const routeAboveSheet = `(() => {
         const top = document.querySelector('.campus-map-header').getBoundingClientRect().bottom;
         const bottom = ${PANEL}.getBoundingClientRect().top;
         return [...document.querySelectorAll('.campus-route-line')].some((line) => {
           const rect = line.getBoundingClientRect();
           return rect.bottom > top && rect.top < bottom;
         });
-      })()`);
-      assert.equal(visible, true, 'линия маршрута над раскрытой шторкой');
+      })()`;
+      let visible = false;
+      for (const deadline = Date.now() + 4000; !visible && Date.now() < deadline; await page.sleep(200)) {
+        visible = await page.eval(routeAboveSheet);
+      }
+      if (!visible) {
+        // Где линии, шапка и шторка: без этого непонятно, не подогналась ли карта или линия под шторкой.
+        const state = await page.eval(`({
+          header: document.querySelector('.campus-map-header').getBoundingClientRect().bottom,
+          panel: ${PANEL}.getBoundingClientRect().top,
+          lines: [...document.querySelectorAll('.campus-route-line, .campus-route-ghost')].map((line) => ({ cls: line.getAttribute('class'), rect: line.getBoundingClientRect().toJSON() })),
+          pane: document.querySelector('.leaflet-map-pane')?.style.transform ?? null,
+        })`);
+        assert.fail(`линия маршрута над раскрытой шторкой; состояние: ${JSON.stringify(state)}`);
+      }
       await shot('viewer-expanded-route');
     });
   },

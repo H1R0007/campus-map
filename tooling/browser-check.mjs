@@ -25,6 +25,7 @@ import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
 import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
+import viewerCanvas from './browser/scenarios/viewer-canvas.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
 import viewerOffline from './browser/scenarios/viewer-offline.mjs';
@@ -38,6 +39,7 @@ import { repoRoot, startVite } from './lib/vite-server.mjs';
 const SCENARIOS = [
   viewerLayout,
   viewerNavigation,
+  viewerCanvas,
   viewerRecent,
   viewerQuick,
   viewerTheme,

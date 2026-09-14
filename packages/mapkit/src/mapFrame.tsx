@@ -201,7 +201,14 @@ export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBou
   useEffect(() => {
     const update = () => {
       const lowest = lowestZoom(map, bounds, insets);
-      if (lowest !== null) map.setMinZoom(lowest);
+      if (lowest === null) return;
+
+      // Сам `setMinZoom` поднимает масштаб ниже предела анимацией, и в её конце
+      // Leaflet возвращал масштаб, с которого она началась, — поверх подгонки
+      // вида, сделанной тем временем. Холст в метрах на широком экране начинал с
+      // масштаба ниже предела и оставался отдалённым до упора (запись 32).
+      if (map.getZoom() < lowest) map.setZoom(lowest, { animate: false });
+      map.setMinZoom(lowest);
     };
 
     update();

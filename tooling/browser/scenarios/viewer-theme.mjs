@@ -36,11 +36,14 @@ export default {
     const look = () =>
       page.eval(`(() => {
         const line = document.querySelector('.campus-route-line');
-        const image = document.querySelector('.leaflet-image-layer');
+        // Векторный план холста красится токенами темы (запись 32): территория
+        // видна всегда, по её траве видно, какой лист на экране.
+        const ground = document.querySelector('svg.campus-plan .plan-ground');
         return {
           panel: getComputedStyle(${PANEL}).backgroundColor,
           line: line ? getComputedStyle(line).stroke : null,
-          filter: image ? getComputedStyle(image).filter : null,
+          ground: ground ? getComputedStyle(ground).fill : null,
+          filter: ground ? getComputedStyle(ground.closest('.campus-placed-plan')).filter : null,
         };
       })()`);
 
@@ -95,7 +98,8 @@ export default {
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
-      assert.equal(light.filter, 'none', 'план в светлой теме без фильтра');
+      assert.equal(light.ground, 'rgb(228, 238, 218)', 'план в светлой теме — цвета файла');
+      assert.equal(light.filter, 'none', 'план без фильтра');
     });
 
     await step('тёмная тема: текст на основных экранах контрастен', async () => {
@@ -107,7 +111,8 @@ export default {
       const dark = await look();
       assert.equal(dark.panel, 'rgb(27, 34, 46)');
       assert.equal(dark.line, 'rgb(110, 168, 255)');
-      assert.ok(dark.filter?.includes('invert'), `фильтр плана: ${dark.filter}`);
+      assert.equal(dark.ground, 'rgb(22, 30, 26)', 'план в тёмной теме — тёмный лист');
+      assert.equal(dark.filter, 'none', 'тёмный лист — токенами, а не инверсией');
       const meta = await page.eval(`document.querySelector('meta[name="theme-color"][media*="dark"]')?.content ?? null`);
       assert.equal(meta, '#0E1219');
     });
@@ -118,6 +123,7 @@ export default {
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
+      assert.equal(light.ground, 'rgb(228, 238, 218)', 'план снова светлый');
       assert.ok((await v.headerText()).includes('Шаг 3 из'), 'навигация не сбросилась');
     });
 

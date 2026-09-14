@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import type { WheelEvent } from 'react';
 import { buildingName } from '@campus-map/core';
 import { useScrollEdges } from '../../hooks/useScrollEdges';
-import { entranceFloorOf, useMapStore } from '../../stores/mapStore';
+import { shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import { formatFloor, messagesFor, useLanguage } from '../../i18n';
 import { buildingLabel } from '../../utils/placeLabels';
@@ -28,7 +28,8 @@ function scrollStripByWheel(event: WheelEvent<HTMLDivElement>): void {
  * Шапка карты: где я и куда можно перейти.
  *
  * На территории — корпуса лентой: при пяти и более корпусах она
- * прокручивается, а выбор корпуса ведёт на входной этаж (`entranceFloorOf`).
+ * прокручивается, а выбор корпуса ведёт на этаж, открытый в нём последним, а
+ * впервые — на входной (`shownFloorOf`).
  * Край ленты, за которым есть ещё корпуса, гаснет (`useScrollEdges`): раньше
  * обрезанный чип упирался в переключатель языка, выглядел концом списка, и что
  * ленту можно прокрутить, было не понять. Длинное название корпуса обрезается
@@ -50,6 +51,7 @@ export const MapHeader: React.FC = () => {
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
   const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const buildingFloors = useMapStore((s) => s.buildingFloors);
   const navigating = useRouteStore((s) => s.stepIndex !== null && s.currentRoute?.found === true);
   const language = useLanguage();
   const messages = messagesFor(language);
@@ -80,7 +82,7 @@ export const MapHeader: React.FC = () => {
                 <button
                   key={building.id}
                   type="button"
-                  onClick={() => setActiveFloor(building.id, entranceFloorOf(meta))}
+                  onClick={() => setActiveFloor(building.id, shownFloorOf(buildingFloors, meta, building.id))}
                   className="h-11 max-w-[14rem] px-4 rounded-xl bg-surface shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
                   <Icon name="building" size={16} className="flex-shrink-0 text-gray-500" />

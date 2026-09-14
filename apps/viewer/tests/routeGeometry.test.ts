@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { scopeOfFloor } from '@campus-map/core';
-import { focusBounds, stepFocusPoints, visiblePolylines } from '../src/utils/routeGeometry';
-import { fixtureGraph } from './helpers/graphFixture';
+import { Graph, createCampusProjection, scopeOfFloor } from '@campus-map/core';
+import type { ViewScope } from '@campus-map/core';
+import type { MapView } from '../src/utils/mapView';
+import { focusBounds, routeRuns, stepFocusPoints as stepFocusPointsIn } from '../src/utils/routeGeometry';
+import { FIXTURE_NODES, FIXTURE_TRANSITIONS, fixtureGraph } from './helpers/graphFixture';
+
+/** Карта одного плана — прежнее поведение слоя маршрута. */
+const onPlan = (scope: ViewScope): MapView => ({ kind: 'plan', scope });
+const visiblePolylines = (path: readonly string[], g: Graph, scope: ViewScope) => routeRuns(path, g, onPlan(scope)).shown;
+const stepFocusPoints = (path: readonly string[], range: readonly [number, number], g: Graph, scope: ViewScope) =>
+  stepFocusPointsIn(path, range, g, onPlan(scope));
 
 /**
  * Разбиение маршрута на видимые отрезки.
@@ -122,5 +130,58 @@ describe('focusBounds', () => {
       [0, 0],
       [100, 100],
     ]);
+  });
+});
+
+describe('routeRuns на холсте кампуса', () => {
+  // Тот же граф в метрах: полметра в пикселе и у территории, и у корпуса.
+  const metric = new Graph(
+    FIXTURE_NODES,
+    FIXTURE_TRANSITIONS,
+    createCampusProjection({ buildings: [{ id: 'building_a' }], mapSize: { width: 1000, height: 1000 }, metersPerPixel: 0.5 }, [
+      {
+        id: 'building_a',
+        name: 'Корпус А',
+        placement: { metersPerPixel: 0.5, originMeters: { x: 0, y: 0 }, rotationDeg: 0, baseElevationMeters: 0, floorHeightMeters: 3 },
+        floors: [{ floor: 1 }, { floor: 2 }],
+      },
+    ])
+  );
+  const canvas = (revealed: string[], floor: number): MapView => ({
+    kind: 'canvas',
+    floors: new Map([['building_a', floor]]),
+    revealed: new Set(revealed),
+  });
+
+  it('корпус не приближен: улица сплошной линией, путь в корпусе просвечивает и продолжает её', () => {
+    const runs = routeRuns(FULL_PATH, metric, canvas([], 1));
+
+    expect(runs.shown).toEqual([[[375, 300], [150, 100]]]);
+    expect(runs.roofed).toEqual([[[150, 100], [175, 100], [150, 100], [150, 135], [150, 135], [125, 65]]]);
+    expect(runs.otherFloors).toEqual([]);
+  });
+
+  it('открыт первый этаж: одна линия с улицы до лестницы, второй этаж — отдельно, от неё', () => {
+    const runs = routeRuns(FULL_PATH, metric, canvas(['building_a'], 1));
+
+    expect(runs.shown).toEqual([[[375, 300], [150, 100], [175, 100], [150, 100], [150, 135]]]);
+    expect(runs.otherFloors).toEqual([[[150, 135], [150, 135], [125, 65]]]);
+    expect(runs.roofed).toEqual([]);
+  });
+
+  it('точки шага на холсте — все, даже на закрытом этаже: вид не зависит от открытых этажей', () => {
+    expect(stepFocusPointsIn(FULL_PATH, [5, 6], metric, canvas([], 1))).toEqual([
+      [150, 135],
+      [150, 135],
+      [125, 65],
+    ]);
+  });
+
+  it('на карте одного плана невидимых участков нет', () => {
+    const runs = routeRuns(FULL_PATH, metric, onPlan(scopeOfFloor('building_a', 2)));
+
+    expect(runs.roofed).toEqual([]);
+    expect(runs.otherFloors).toEqual([]);
+    expect(runs.shown).toEqual([[[300, 270], [250, 130]]]);
   });
 });

@@ -1,59 +1,109 @@
-import type { Graph, ViewScope } from '@campus-map/core';
-import { isNodeInScope } from '@campus-map/core';
+import type { Graph, MapNode } from '@campus-map/core';
+import { isNodeShown, mapPointOf } from './mapView';
+import type { MapView } from './mapView';
 
 /**
- * Геометрия маршрута на текущем плане.
+ * Геометрия маршрута на карте: на плане одного этажа или на холсте кампуса.
  */
 
-/** Точка карты плана: `[y, x]` в пикселях изображения. */
+/** Точка карты: `[y, x]` в пикселях плана или в метрах холста. */
 export type LatLngTuple = [number, number];
 
+/** Участки маршрута на карте. */
+export interface RouteRuns {
+  /** Видимые участки — сплошной линией. */
+  shown: LatLngTuple[][];
+  /** Участки под крышей неприближенного корпуса — просвечивают пунктиром. */
+  roofed: LatLngTuple[][];
+  /**
+   * Участки на других этажах приближенного корпуса. Лежат прямо на коридорах
+   * показанного этажа, поэтому просвечивают только в обзоре маршрута.
+   */
+  otherFloors: LatLngTuple[][];
+}
+
+type RunKind = keyof RouteRuns;
+
+function runKindOf(view: MapView, node: MapNode): RunKind {
+  if (isNodeShown(view, node)) return 'shown';
+  return view.kind === 'canvas' && view.revealed.has(node.building) ? 'otherFloors' : 'roofed';
+}
+
 /**
- * Разбивает путь на непрерывные отрезки, видимые в заданной области.
+ * Разбивает путь на участки для отрисовки.
  *
- * Маршрут проходит через несколько этажей и корпусов, а показывается один
- * план, поэтому узлы чужого этажа разрывают линию, и каждый отрезок рисуется
- * отдельно. Отрезок короче двух точек не возвращается — одиночная точка
- * линией не является.
+ * На карте одного плана маршрут проходит через несколько этажей и корпусов, а
+ * показан один план, поэтому узлы чужого этажа разрывают линию, и каждый
+ * видимый отрезок рисуется отдельно. Невидимых участков здесь нет: у чужого
+ * плана своя система координат.
  *
- * Карта плана (`PixelMap`) принимает координаты как `[y, x]`: вертикальная ось
- * карты соответствует `y` узла в пикселях плана.
+ * На холсте все узлы в одних метрах. Участок на этаже, который сейчас не виден,
+ * возвращается отдельно — под крышей (`roofed`) или на другом этаже открытого
+ * корпуса (`otherFloors`): маршрут просвечивает сквозь план, и видно, куда он
+ * ведёт дальше (запись 32). Соседние участки делят граничную точку — линия не
+ * рвётся.
  *
- * Функция чистая и живёт отдельно от компонента: это единственная
+ * Отрезок короче двух точек не возвращается — одиночная точка линией не
+ * является. Функция чистая и живёт отдельно от компонента: это главная
  * нетривиальная логика слоя маршрута, и её нужно уметь проверить тестом.
  */
-export function visiblePolylines(
-  path: readonly string[],
-  graph: Graph,
-  scope: ViewScope
-): LatLngTuple[][] {
-  const segments: LatLngTuple[][] = [];
+export function routeRuns(path: readonly string[], graph: Graph, view: MapView): RouteRuns {
+  const runs: RouteRuns = { shown: [], roofed: [], otherFloors: [] };
   let current: LatLngTuple[] = [];
+  let currentKind: RunKind = 'shown';
+
+  const flush = () => {
+    if (current.length > 1) runs[currentKind].push(current);
+  };
 
   for (const nodeId of path) {
     const node = graph.getNode(nodeId);
     if (!node) continue;
 
-    if (isNodeInScope(node, scope)) {
-      current.push([node.y, node.x]);
+    const kind = runKindOf(view, node);
+    const point = mapPointOf(graph, view, node);
+
+    if (view.kind === 'plan') {
+      if (kind === 'shown') {
+        current.push(point);
+      } else {
+        flush();
+        current = [];
+      }
       continue;
     }
 
-    if (current.length > 1) segments.push(current);
-    current = [];
+    if (current.length > 0 && kind !== currentKind) {
+      const boundary = current[current.length - 1];
+      flush();
+      current = [boundary];
+    }
+    current.push(point);
+    currentKind = kind;
   }
 
-  if (current.length > 1) segments.push(current);
+  flush();
+  return runs;
+}
 
-  return segments;
+/** Все точки маршрута на карте — обзор маршрута на холсте вписывает его целиком. */
+export function routePoints(path: readonly string[], graph: Graph, view: MapView): LatLngTuple[] {
+  const points: LatLngTuple[] = [];
+  for (const nodeId of path) {
+    const node = graph.getNode(nodeId);
+    if (node) points.push(mapPointOf(graph, view, node));
+  }
+  return points;
 }
 
 /**
  * Точки, под которые карта подгоняется на шаге пошаговой навигации.
  *
- * Узлы участка шага и по одному соседнему узлу пути с каждой стороны — только
- * те, что лежат в показанной области. Соседи нужны переходу: у лифта на этаже
- * прибытия есть один узел, а человеку важно видеть, куда от него идти.
+ * Узлы участка шага и по одному соседнему узлу пути с каждой стороны. Соседи
+ * нужны переходу: у лифта на этаже прибытия есть один узел, а человеку важно
+ * видеть, куда от него идти. На карте одного плана — только узлы показанного
+ * плана; на холсте — все: этаж шага откроется, а вид от открытых этажей
+ * зависеть не должен.
  *
  * @param range индексы узлов пути, оба конца включительно (`RouteStep.pathRange`)
  */
@@ -61,7 +111,7 @@ export function stepFocusPoints(
   path: readonly string[],
   range: readonly [number, number],
   graph: Graph,
-  scope: ViewScope
+  view: MapView
 ): LatLngTuple[] {
   const points: LatLngTuple[] = [];
   const first = Math.max(0, range[0] - 1);
@@ -69,7 +119,7 @@ export function stepFocusPoints(
 
   for (let i = first; i <= last; i++) {
     const node = graph.getNode(path[i]);
-    if (node && isNodeInScope(node, scope)) points.push([node.y, node.x]);
+    if (node && (view.kind === 'canvas' || isNodeShown(view, node))) points.push(mapPointOf(graph, view, node));
   }
 
   return points;

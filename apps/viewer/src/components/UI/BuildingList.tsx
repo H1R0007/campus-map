@@ -1,7 +1,7 @@
 import React, { useId } from 'react';
 import { messagesFor, useLanguage } from '../../i18n';
 import { pluralize } from '../../i18n/plural';
-import { entranceFloorOf, floorsOfBuilding, useMapStore } from '../../stores/mapStore';
+import { floorsOfBuilding, shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { buildingLabel } from '../../utils/placeLabels';
 import { Icon } from './Icon';
 
@@ -11,7 +11,8 @@ interface BuildingListProps {
 }
 
 /**
- * Корпуса кампуса списком; выбор открывает входной этаж корпуса.
+ * Корпуса кампуса списком; выбор открывает этаж, открытый в корпусе последним,
+ * а впервые — входной.
  *
  * Лента корпусов в шапке есть только на карте территории. Из корпуса в соседний
  * этим списком попадают без возврата на территорию, а при пяти и более корпусах
@@ -22,6 +23,7 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
+  const buildingFloors = useMapStore((s) => s.buildingFloors);
   const language = useLanguage();
   const messages = messagesFor(language);
   // Список бывает на экране дважды — в панели и в поиске на её месте.
@@ -48,7 +50,7 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
                 aria-current={isCurrent ? 'true' : undefined}
                 onClick={() => {
                   onChoose?.();
-                  setActiveFloor(building.id, entranceFloorOf(meta));
+                  setActiveFloor(building.id, shownFloorOf(buildingFloors, meta, building.id));
                 }}
                 className={`w-full min-h-[3.5rem] px-3 py-2 rounded-xl flex items-center gap-3 text-left transition-colors ${
                   isCurrent ? 'bg-selected' : 'hover:bg-gray-50'
