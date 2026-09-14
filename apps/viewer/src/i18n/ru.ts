@@ -1,4 +1,4 @@
-import type { PathFailureReason, TransitionType } from '@campus-map/core';
+import type { PathFailureReason, PlaceCategory, TransitionType } from '@campus-map/core';
 import type { SearchTarget } from '../stores/uiStore';
 import type { PluralForms } from './plural';
 
@@ -96,7 +96,18 @@ export const ru = {
       from: 'Начало маршрута',
       to: 'Место назначения',
     } satisfies Record<SearchTarget, string>,
-    hint: 'Номер аудитории или название: «305», «библиотека»',
+    hint: 'Номер аудитории, название или что нужно: «305», «библиотека», «туалет»',
+    /**
+     * Слова, по которым поиск находит все места категории, — не имена мест, а
+     * то, как места называют: «столовка», «поесть». Имя конкретного места — в
+     * данных (`aliases.json`). Поиск получает слова всех языков сразу (запись 20).
+     */
+    categoryTerms: {
+      toilet: ['туалет', 'уборная', 'санузел', 'wc'],
+      food: ['столовая', 'столовка', 'буфет', 'кафе', 'еда', 'поесть', 'обед', 'кофе'],
+      cloakroom: ['гардероб', 'гардеробная', 'раздевалка', 'верхняя одежда'],
+      exit: ['выход', 'выйти', 'вход', 'на улицу'],
+    } satisfies Record<PlaceCategory, string[]>,
     nothingFound: (query: string) => `По запросу «${query}» ничего не нашлось`,
     close: 'Закрыть поиск',
     clear: 'Очистить поиск',

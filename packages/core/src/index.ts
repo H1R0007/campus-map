@@ -80,4 +80,4 @@ export {
 export { findAlternativePaths, findNearest, findPath } from './pathfinding/astar.js';
 
 // Поиск по названиям
-export { AliasManager } from './aliases/AliasManager.js';
+export { AliasManager, type AliasLoadOptions } from './aliases/AliasManager.js';

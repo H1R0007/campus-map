@@ -55,6 +55,12 @@ function collectStrings(value: unknown, path: string, into: Map<string, string>)
     into.set(path, value);
   } else if (typeof value === 'function') {
     into.set(path, String((value as (...args: unknown[]) => unknown)('1', '1')));
+  } else if (Array.isArray(value)) {
+    // Список слов — например, слова категорий для поиска. Длина у языков законно
+    // разная, поэтому это одна запись; пустой список или пустое слово дают
+    // пустую строку, и проверка ниже её поймает.
+    const words = value.filter((word): word is string => typeof word === 'string' && word.trim().length > 0);
+    into.set(path, words.length === value.length ? words.join(', ') : '');
   } else if (typeof value === 'object' && value !== null) {
     if (isPluralForms(value)) {
       into.set(path, value.other);

@@ -45,10 +45,12 @@ export function suggestionOptions(
     seen.add(suggestion.id);
 
     const name = aliasManager.getPrimaryAliasForId(suggestion.id, language) ?? suggestion.alias;
-    // «101» в «А-101» и так видно — вторая строка повторяла бы первую.
+    // «101» в «А-101» и так видно — вторая строка повторяла бы первую. Слово
+    // категории — не имя места: «поесть» под «Буфетом» ничего не объясняет.
     const visible = name.toLowerCase().includes(suggestion.alias.toLowerCase());
+    const matched = visible || suggestion.viaCategory !== undefined ? null : suggestion.alias;
 
-    options.push({ id: suggestion.id, name, matched: visible ? null : suggestion.alias });
+    options.push({ id: suggestion.id, name, matched });
   }
 
   return options;
