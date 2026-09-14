@@ -32,6 +32,7 @@ import viewerOnboarding from './browser/scenarios/viewer-onboarding.mjs';
 import viewerQuick from './browser/scenarios/viewer-quick.mjs';
 import viewerRecent from './browser/scenarios/viewer-recent.mjs';
 import viewerTheme from './browser/scenarios/viewer-theme.mjs';
+import viewerUpdate from './browser/scenarios/viewer-update.mjs';
 import { repoRoot, startVite } from './lib/vite-server.mjs';
 
 const SCENARIOS = [
@@ -41,6 +42,7 @@ const SCENARIOS = [
   viewerQuick,
   viewerTheme,
   viewerOnboarding,
+  viewerUpdate,
   // Последним у навигатора: останавливает сервер приложения.
   viewerOffline,
   editorTransitions,

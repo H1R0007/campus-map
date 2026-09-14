@@ -49,6 +49,8 @@ const ICON_PATHS = {
   // Нет связи: перечёркнутые волны сигнала.
   offline:
     'M3 3l18 18M8.5 16.5a5 5 0 017 0M5 12.5a10 10 0 015.5-2.9M19 12.5a10 10 0 00-2.6-1.9M2 8.8a15 15 0 014.4-2.7M22 8.8a15 15 0 00-11.4-3.7M12 20h.01',
+  refresh:
+    'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
 } satisfies Record<string, string>;
 
 export type IconName = keyof typeof ICON_PATHS;

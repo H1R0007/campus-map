@@ -201,6 +201,12 @@ export const en: Messages = {
     planUnavailable: 'This floor plan is not saved — connect to load it',
   },
 
+  update: {
+    ready: 'The map has been updated',
+    apply: 'Reload',
+    later: 'Later',
+  },
+
   instructions: {
     start: 'Start',
     walkTo: {

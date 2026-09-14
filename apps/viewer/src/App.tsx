@@ -6,6 +6,7 @@ import { NavigatorPanel } from './components/UI/NavigatorPanel';
 import { OfflineNotice } from './components/UI/OfflineNotice';
 import { Onboarding } from './components/UI/Onboarding';
 import { RouteAnnouncer } from './components/UI/RouteAnnouncer';
+import { UpdateNotice } from './components/UI/UpdateNotice';
 import { useMapStore } from './stores/mapStore';
 import { useDataLoader } from './hooks/useDataLoader';
 import { useRouteLink } from './hooks/useRouteLink';
@@ -103,10 +104,11 @@ const App: React.FC = () => {
     <div className="h-full w-full relative overflow-hidden">
       <CampusMap />
       <MapHeader />
-      {/* Сообщения над картой — одной колонкой под шапкой: ссылка и связь. */}
+      {/* Сообщения над картой — одной колонкой под шапкой: ссылка, связь, обновление. */}
       <div className="campus-notices">
         <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
         <OfflineNotice />
+        <UpdateNotice />
       </div>
       <NavigatorPanel />
       <RouteAnnouncer />
