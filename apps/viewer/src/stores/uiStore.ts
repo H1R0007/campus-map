@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PathResult } from '@campus-map/core';
+import type { PathResult, PlaceCategory } from '@campus-map/core';
 
 /**
  * Состояние оболочки навигатора: поиск, шторка и место, которое она занимает
@@ -31,7 +31,12 @@ export interface MapObstruction {
 
 interface UiState {
   searchTarget: SearchTarget | null;
-  openSearch: (target: SearchTarget) => void;
+  /**
+   * Быстрая кнопка, для которой ищется начало маршрута: где человек, неизвестно,
+   * и после выбора начала маршрут поведёт к ближайшему месту этой категории.
+   */
+  nearestCategory: PlaceCategory | null;
+  openSearch: (target: SearchTarget, nearestCategory?: PlaceCategory) => void;
   closeSearch: () => void;
 
   /** Шторка на телефоне раскрыта. На широком экране панель раскрыта всегда. */
@@ -46,8 +51,9 @@ const NO_OBSTRUCTION: MapObstruction = Object.freeze({ bottom: 0, left: 0 });
 
 export const useUiStore = create<UiState>((set, get) => ({
   searchTarget: null,
-  openSearch: (target) => set({ searchTarget: target }),
-  closeSearch: () => set({ searchTarget: null }),
+  nearestCategory: null,
+  openSearch: (target, nearestCategory) => set({ searchTarget: target, nearestCategory: nearestCategory ?? null }),
+  closeSearch: () => set({ searchTarget: null, nearestCategory: null }),
 
   sheetExpanded: false,
   setSheetExpanded: (expanded) => {

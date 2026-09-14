@@ -53,6 +53,24 @@ export const en: Messages = {
     close: 'Close place card',
   },
 
+  quick: {
+    label: 'Nearby',
+    category: {
+      toilet: 'Toilet',
+      food: 'Canteen',
+      cloakroom: 'Cloakroom',
+      exit: 'Exit',
+    },
+    nearest: {
+      toilet: 'Nearest toilet',
+      food: 'Nearest canteen',
+      cloakroom: 'Nearest cloakroom',
+      exit: 'Nearest exit',
+    },
+    sameFloor: 'this floor',
+    none: 'not found',
+  },
+
   search: {
     open: {
       place: 'Find a room or place',
@@ -68,6 +86,11 @@ export const en: Messages = {
       place: 'Find a place',
       from: 'Route start',
       to: 'Destination',
+    },
+    nearestStart: {
+      title: 'Where are you now?',
+      placeholder: 'A room or place near you',
+      hint: 'Choose a place near you and the route will lead to the nearest one.',
     },
     hint: 'A room number, a name or what you need: “305”, “library”, “toilet”',
     categoryTerms: {

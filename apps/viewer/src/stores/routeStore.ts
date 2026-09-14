@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { PathResult, PathfindingOptions } from '@campus-map/core';
+import type { PathResult, PathfindingOptions, PlaceCategory } from '@campus-map/core';
 import { DEFAULT_PATHFINDING_OPTIONS, findPath } from '@campus-map/core';
+import { nearestPlaceOf } from '../utils/nearestPlace';
 import { routePassesScope } from '../utils/routeFloors';
 import { scopeOf, useMapStore } from './mapStore';
 
@@ -44,6 +45,14 @@ interface RouteState {
 
   /** Снимает одну точку, например «вы здесь» из ссылки; маршрут снимается вместе с ней. */
   clearPoint: (field: RouteField) => void;
+
+  /**
+   * Маршрут от начала к ближайшему месту категории — быстрые кнопки «Туалет»,
+   * «Столовая», «Гардероб», «Выход» (`nearestPlaceOf`, запись 22).
+   *
+   * @returns маршрут либо `null`, если начала нет или места категории не нашлось
+   */
+  routeToNearest: (category: PlaceCategory) => PathResult | null;
 
   setOptions: (options: Partial<PathfindingOptions>) => void;
   /** Шаг навигации; у ненайденного маршрута шагов нет, и вызов ничего не меняет. */
@@ -117,6 +126,15 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
     clearPoint: (field) =>
       set({ [field === 'from' ? 'fromNodeId' : 'toNodeId']: null, currentRoute: null, stepIndex: null }),
+
+    routeToNearest: (category) => {
+      const { fromNodeId, options, setPoint } = get();
+      const { graph, aliasManager } = useMapStore.getState();
+      if (!graph || !aliasManager || fromNodeId === null) return null;
+
+      const nearest = nearestPlaceOf(graph, aliasManager, fromNodeId, category, options);
+      return nearest === null ? null : setPoint('to', nearest.nodeId);
+    },
 
     setOptions: (patch) => {
       set({ options: { ...get().options, ...patch } });

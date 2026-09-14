@@ -10,6 +10,7 @@ import { nodeName } from '../../utils/placeLabels';
 import { BuildingList } from './BuildingList';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
+import { QuickPlaces } from './QuickPlaces';
 import { RecentPlaces } from './RecentPlaces';
 
 interface IdleContentProps {
@@ -69,6 +70,9 @@ export const IdleContent: React.FC<IdleContentProps> = ({ expanded }) => {
 
       {point('from', fromNodeId)}
       {point('to', toNodeId)}
+
+      {/* Быстрые кнопки — пока цели нет: они её и задают. */}
+      {toNodeId === null && <QuickPlaces />}
 
       {expanded && (
         <div className="pt-2 space-y-5">
