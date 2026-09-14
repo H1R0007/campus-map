@@ -10,8 +10,6 @@ import { strict as assert } from 'node:assert';
 export default {
   app: 'editor',
   name: 'редактор: переходы на другой план',
-  // Своего favicon у редактора нет (`publicDir: false`) — ошибкой это не считается.
-  ignoreProblems: [/favicon\.ico/],
 
   async run({ page, base, step, shot }) {
     await page.viewport(1600, 900, 1);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
+import { Icon } from './Icon';
 
 export const StatusBar: React.FC = () => {
   const currentBuilding = useEditorStore((state) => state.currentBuilding);
@@ -35,13 +36,13 @@ export const StatusBar: React.FC = () => {
     edge: {
       name: 'Ребро',
       hint: edgeStartNodeId
-        ? '🟢 ЛКМ по второму узлу — создать связь | Esc — отмена'
+        ? 'ЛКМ по второму узлу — создать связь | Esc — отмена'
         : 'ЛКМ — выбрать первый узел'
     },
     transition: {
       name: 'Переход',
       hint: transitionStartNodeId
-        ? '🔵 ЛКМ по второму узлу — создать переход | Esc — отмена'
+        ? 'ЛКМ по второму узлу — создать переход | Esc — отмена'
         : 'ЛКМ — выбрать первый узел'
     },
     line: {
@@ -68,7 +69,8 @@ export const StatusBar: React.FC = () => {
       {/* Left */}
       <div className="flex items-center gap-4">
         <span style={{ color: 'var(--editor-text-muted)' }}>
-          📍 <span className="text-white">{locationText}</span>
+          <Icon name="pin" size={12} className="inline-block mr-1 align-middle" />
+          <span className="text-white">{locationText}</span>
         </span>
 
         <span style={{ color: 'var(--editor-text-muted)' }}>

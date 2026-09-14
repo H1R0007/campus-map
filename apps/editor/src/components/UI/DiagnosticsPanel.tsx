@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { createCampusProjection } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 import { validateDataset } from '../../utils/validateData';
 
 export const DiagnosticsPanel: React.FC = () => {
@@ -81,7 +82,7 @@ export const DiagnosticsPanel: React.FC = () => {
         }}
         title="Диагностика данных"
       >
-        🔍 Диагностика
+        <span className="inline-flex items-center gap-2 align-middle"><Icon name="search" />Диагностика</span>
         {hasIssues && (
           <span
             className="ml-2 px-1.5 py-0.5 rounded text-xs font-bold"
@@ -110,7 +111,7 @@ export const DiagnosticsPanel: React.FC = () => {
         className="px-4 py-3 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
-        <div className="text-white font-semibold">🔍 Диагностика</div>
+        <div className="text-white font-semibold flex items-center gap-2"><Icon name="search" />Диагностика</div>
         <button
           onClick={() => setOpen(false)}
           className="p-2 rounded-xl hover:bg-white/10 transition-colors"
@@ -179,7 +180,7 @@ export const DiagnosticsPanel: React.FC = () => {
             color: 'white',
           }}
         >
-          🔧 Auto-fix (можно отменить Ctrl+Z)
+          <span className="inline-flex items-center gap-2"><Icon name="zap" />Auto-fix (можно отменить Ctrl+Z)</span>
         </button>
 
         {/* Last fix report */}
@@ -203,7 +204,8 @@ export const DiagnosticsPanel: React.FC = () => {
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
           >
             <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fca5a5' }}>
-              ❌ Ошибки
+              <Icon name="errorCircle" size={14} />
+              Ошибки
             </div>
             <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
               {report.errors.slice(0, 50).map((e, i) => (
@@ -223,7 +225,8 @@ export const DiagnosticsPanel: React.FC = () => {
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
           >
             <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fbbf24' }}>
-              ⚠️ Предупреждения
+              <Icon name="warning" size={14} />
+              Предупреждения
             </div>
             <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
               {report.warnings.slice(0, 50).map((w, i) => (
@@ -243,7 +246,8 @@ export const DiagnosticsPanel: React.FC = () => {
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
           >
             <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fbbf24' }}>
-              📄 Замечания к загруженным файлам
+              <Icon name="note" size={14} />
+              Замечания к загруженным файлам
             </div>
             <p className="mt-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
               Найдены при чтении датасета. На текущую разметку не влияют и
@@ -268,7 +272,9 @@ export const DiagnosticsPanel: React.FC = () => {
             className="rounded-xl p-4 text-center"
             style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e' }}
           >
-            <div className="text-2xl mb-2">✅</div>
+            <div className="mb-2 flex justify-center" style={{ color: '#22c55e' }}>
+              <Icon name="checkCircle" size={28} />
+            </div>
             <div className="text-sm text-white">Данные в порядке!</div>
           </div>
         )}

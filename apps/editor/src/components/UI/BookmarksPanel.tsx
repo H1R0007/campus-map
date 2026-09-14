@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 
 export const BookmarksPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,7 +40,7 @@ export const BookmarksPanel: React.FC = () => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="absolute top-16 left-3 z-[1500] px-3 py-2 rounded-xl text-sm font-medium shadow-lg transition-colors hover:opacity-90"
+        className="px-3 py-2 rounded-xl text-sm font-medium shadow-lg transition-colors hover:opacity-90"
         style={{
           backgroundColor: 'var(--editor-panel)',
           border: '1px solid var(--editor-border)',
@@ -47,14 +48,14 @@ export const BookmarksPanel: React.FC = () => {
         }}
         title="Закладки"
       >
-        🔖 Закладки {bookmarkList.length > 0 && `(${bookmarkList.length})`}
+        <span className="inline-flex items-center gap-2"><Icon name="bookmark" />Закладки {bookmarkList.length > 0 && `(${bookmarkList.length})`}</span>
       </button>
     );
   }
 
   return (
     <div
-      className="absolute top-16 left-3 w-72 z-[1500] rounded-2xl shadow-2xl overflow-hidden"
+      className="w-72 rounded-2xl shadow-2xl overflow-hidden"
       style={{
         backgroundColor: 'var(--editor-panel)',
         border: '1px solid var(--editor-border)',
@@ -65,7 +66,7 @@ export const BookmarksPanel: React.FC = () => {
         className="px-4 py-3 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--editor-border)' }}
       >
-        <div className="text-white font-semibold">🔖 Закладки</div>
+        <div className="text-white font-semibold flex items-center gap-2"><Icon name="bookmark" />Закладки</div>
         <button
           onClick={() => setIsOpen(false)}
           className="p-1 rounded hover:bg-white/10"
@@ -152,7 +153,7 @@ export const BookmarksPanel: React.FC = () => {
                       style={{ color: 'var(--editor-text-muted)' }}
                       title="Переименовать"
                     >
-                      ✏️
+                      <Icon name="edit" size={14} />
                     </button>
 
                     <button

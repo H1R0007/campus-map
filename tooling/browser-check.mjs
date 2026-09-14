@@ -23,13 +23,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import os from 'node:os';
 import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
+import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
 import viewerRecent from './browser/scenarios/viewer-recent.mjs';
 import { repoRoot, startVite } from './lib/vite-server.mjs';
 
-const SCENARIOS = [viewerLayout, viewerNavigation, viewerRecent, editorTransitions];
+const SCENARIOS = [viewerLayout, viewerNavigation, viewerRecent, editorTransitions, editorPanels];
 
 /** Сколько ждать, пока браузер откроет порт отладки. */
 const BROWSER_START_TIMEOUT_MS = 20_000;

@@ -19,8 +19,8 @@ export const FilterPanel: React.FC = () => {
     return (
       <button
         onClick={() => setFiltersOpen(true)}
-        // Сдвинута правее чтобы не перекрывать zoom controls
-        className="absolute top-3 left-16 z-[1600] px-3 py-2 rounded-xl text-sm font-medium shadow-lg transition-colors hover:opacity-90"
+        // Место на карте задаёт колонка панелей в `App`.
+        className="px-3 py-2 rounded-xl text-sm font-medium shadow-lg transition-colors hover:opacity-90"
         style={{
           backgroundColor: 'var(--editor-panel)',
           border: '1px solid var(--editor-border)',
@@ -35,7 +35,7 @@ export const FilterPanel: React.FC = () => {
 
   return (
     <div
-      className="absolute top-3 left-16 w-72 z-[1600] rounded-2xl shadow-2xl overflow-hidden"
+      className="w-72 rounded-2xl shadow-2xl overflow-hidden"
       style={{
         backgroundColor: 'var(--editor-panel)',
         border: '1px solid var(--editor-border)',

@@ -165,8 +165,13 @@ const App: React.FC = () => {
           <div className="flex-1 relative overflow-hidden">
             <EditorMap />
 
-            <FilterPanel />
-            <BookmarksPanel />
+            {/* Фильтры и закладки — одной колонкой справа от кнопок масштаба:
+                раскрытая панель сдвигает следующую вниз. Раньше обе стояли
+                абсолютно, и раскрытые «Фильтры» закрывали кнопку «Закладки». */}
+            <div className="absolute top-3 left-16 bottom-3 z-[1600] flex flex-col items-start gap-2 pointer-events-none [&>*]:pointer-events-auto">
+              <FilterPanel />
+              <BookmarksPanel />
+            </div>
             <StatisticsPanel />
             <PropertiesPanel />
             <DiagnosticsPanel />
