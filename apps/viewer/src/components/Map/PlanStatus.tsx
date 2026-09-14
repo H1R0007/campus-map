@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePixelMapGeometry } from '@campus-map/mapkit';
+import { useOnline } from '../../hooks/useOnline';
 import { useMessages } from '../../i18n';
 
 /**
@@ -15,12 +16,19 @@ import { useMessages } from '../../i18n';
 export const PlanStatus: React.FC = () => {
   const { status } = usePixelMapGeometry();
   const messages = useMessages();
+  const online = useOnline();
 
   if (status === 'ready') return null;
 
   return (
     <div className="campus-plan-status" role="status">
-      {status === 'loading' ? messages.map.planLoading : messages.map.planUnavailable}
+      {/* Без связи недоступный план — не поломка, а этаж, который не сохранён
+          заранее (запись 26). */}
+      {status === 'loading'
+        ? messages.map.planLoading
+        : online
+          ? messages.map.planUnavailable
+          : messages.offline.planUnavailable}
     </div>
   );
 };

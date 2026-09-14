@@ -6,6 +6,7 @@ import {
   indexBuildingMetas,
   loadDataset,
 } from '@campus-map/core';
+import { categoryTermsOfAllLanguages } from '../i18n';
 import { useMapStore } from '../stores/mapStore';
 import { DATA_BASE_URL } from '../config/dataBase';
 
@@ -52,7 +53,7 @@ export function useDataLoader() {
       }
 
       const aliasManager = new AliasManager();
-      aliasManager.load(dataset.aliases);
+      aliasManager.load(dataset.aliases, { categoryTerms: categoryTermsOfAllLanguages() });
 
       setData({
         graph: Graph.fromDataset(dataset),

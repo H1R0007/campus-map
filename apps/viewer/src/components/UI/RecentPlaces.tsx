@@ -70,7 +70,7 @@ export const RecentPlaces: React.FC<RecentPlacesProps> = ({ onChoose, exclude = 
               onClick={() => onChoose(place.nodeId)}
               className="w-full min-h-[3.5rem] px-3 py-2 rounded-xl flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
             >
-              <PlaceIcon transition={place.transition} />
+              <PlaceIcon transition={place.transition} category={aliasManager?.getCategory(place.nodeId) ?? null} />
               <span className="flex-1 min-w-0">
                 <span className="block text-base text-gray-900 truncate">{place.name}</span>
                 <span className="block text-sm text-gray-500 truncate">

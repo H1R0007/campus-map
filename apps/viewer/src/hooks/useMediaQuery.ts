@@ -8,7 +8,11 @@ import { useCallback, useSyncExternalStore } from 'react';
  * портретной ориентации, где панель слева оставила бы карте полосу в треть
  * экрана.
  */
-export const WIDE_LAYOUT_QUERY = '(min-width: 1024px)';
+//
+// И на невысоком экране от 640 px — у телефона лёжа: шторка снизу закрывала
+// бы большую часть карты (запись 28). Тот же запрос — вариант `wide:` в
+// `tailwind.config.js` и медиазапросы `index.css`.
+export const WIDE_LAYOUT_QUERY = '(min-width: 1024px), (min-width: 640px) and (max-height: 520px)';
 
 /**
  * Совпадает ли медиазапрос — с подпиской на изменения: поворот телефона,

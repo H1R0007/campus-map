@@ -47,9 +47,11 @@ interface SearchViewProps {
 export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
   const graph = useMapStore((s) => s.graph);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
+  const aliasManager = useMapStore((s) => s.aliasManager);
   const fromNodeId = useRouteStore((s) => s.fromNodeId);
   const toNodeId = useRouteStore((s) => s.toNodeId);
   const closeSearch = useUiStore((s) => s.closeSearch);
+  const nearestCategory = useUiStore((s) => s.nearestCategory);
   const chooseFor = useChoosePlace();
   const language = useLanguage();
   const messages = messagesFor(language);
@@ -113,6 +115,11 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
     }
   };
 
+  // Быстрая кнопка без известного начала спрашивает, где человек.
+  const forNearest = nearestCategory !== null;
+  const title = forNearest ? messages.search.nearestStart.title : messages.search.title[target];
+  const placeholder = forNearest ? messages.search.nearestStart.placeholder : messages.search.placeholder[target];
+
   const trimmed = query.trim();
   const listOpen = options.length > 0;
 
@@ -123,16 +130,16 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
       role="dialog"
       aria-modal="true"
       aria-labelledby={TITLE_ID}
-      className="fixed inset-0 z-[1100] flex flex-col bg-white lg:inset-auto lg:top-4 lg:left-4 lg:w-[24rem] lg:max-h-[calc(100%-2rem)] lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-2xl"
+      className="fixed inset-0 z-[1100] flex flex-col bg-surface wide:inset-auto wide:top-4 wide:left-4 wide:w-[24rem] wide:max-h-[calc(100%-2rem)] wide:rounded-2xl wide:border wide:border-gray-100 wide:shadow-2xl"
     >
       <h2 id={TITLE_ID} className="sr-only">
-        {messages.search.title[target]}
+        {title}
       </h2>
 
-      <div className="flex items-center gap-1 pl-1 pr-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 border-b border-gray-100 lg:pt-2">
+      <div className="flex items-center gap-1 pl-1 pr-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 border-b border-gray-100 wide:pt-2">
         <IconButton icon="back" label={messages.search.close} onClick={closeSearch} />
 
-        <div className="flex-1 min-w-0 h-12 pl-3 rounded-xl bg-gray-100 flex items-center gap-2 focus-within:ring-2 focus-within:ring-primary">
+        <div className="flex-1 min-w-0 h-12 pl-3 rounded-xl bg-gray-100 flex items-center gap-2 focus-within:ring-2 focus-within:ring-accent">
           <Icon name="search" className="flex-shrink-0 text-gray-500" />
           <input
             ref={inputRef}
@@ -140,8 +147,8 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={messages.search.placeholder[target]}
-            aria-label={messages.search.placeholder[target]}
+            placeholder={placeholder}
+            aria-label={placeholder}
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={listOpen}
@@ -184,10 +191,10 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(option.id)}
                   className={`min-h-[3.5rem] px-3 py-2 rounded-xl flex items-center gap-3 cursor-pointer transition-colors ${
-                    index === activeOption ? 'bg-primary/10' : 'hover:bg-gray-50'
+                    index === activeOption ? 'bg-selected' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <PlaceIcon transition={transition} />
+                  <PlaceIcon transition={transition} category={aliasManager?.getCategory(option.id) ?? null} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-base text-gray-900 truncate">{option.name}</span>
                     {option.matched !== null && (
@@ -211,7 +218,9 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
           )
         ) : (
           <div className="px-2 py-2 space-y-5">
-            <p className="px-1 text-sm text-gray-600">{messages.search.hint}</p>
+            <p className="px-1 text-sm text-gray-600">
+              {forNearest ? messages.search.nearestStart.hint : messages.search.hint}
+            </p>
             {/* Уже заданная точка маршрута как вторая точка ничего не даст —
                 маршрут из места в него же. */}
             <RecentPlaces onChoose={choose} exclude={target === 'place' ? [] : [fromNodeId, toNodeId]} />

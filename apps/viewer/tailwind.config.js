@@ -1,4 +1,10 @@
 /** @type {import('tailwindcss').Config} */
+
+/** Цвет из CSS-переменной с каналами RGB: так работает прозрачность (`bg-inverse/90`). */
+const token = (name) => `rgb(var(${name}) / <alpha-value>)`;
+
+const GRAY_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
+
 export default {
   content: [
     "./index.html",
@@ -8,13 +14,40 @@ export default {
     extend: {
       // Значения цветов — CSS-переменные из `src/index.css`, каналами RGB, чтобы
       // работала прозрачность (`bg-primary/10`). Здесь только ссылки на них:
-      // фирменный цвет объявлен в одном месте, и оттуда же его берут слои карты.
+      // цвета объявлены в одном месте, и оттуда же их берут слои карты.
+      //
+      // Серая шкала тоже из переменных: в тёмной теме она перевёрнута, и
+      // `text-gray-900` в обеих темах — главный текст, а `bg-gray-100` —
+      // приглушённая подложка. Где смысл не «ступень серого», — отдельные
+      // токены: поверхность, фирменный цвет текста, выбранное, сообщения,
+      // ошибка (запись 21).
       colors: {
         primary: {
-          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
-          hover: 'rgb(var(--color-primary-hover) / <alpha-value>)',
+          DEFAULT: token('--color-primary'),
+          hover: token('--color-primary-hover'),
         },
-        start: 'rgb(var(--color-start) / <alpha-value>)',
+        start: token('--color-start'),
+        accent: token('--color-accent'),
+        surface: token('--color-surface'),
+        inverse: token('--color-inverse'),
+        'on-inverse': token('--color-on-inverse'),
+        danger: {
+          DEFAULT: token('--color-danger'),
+          soft: token('--color-danger-soft'),
+        },
+        // Прозрачность подсветки — внутри токена: в тёмной теме её нужно больше.
+        selected: 'rgb(var(--color-selected))',
+        gray: Object.fromEntries(GRAY_STEPS.map((step) => [step, token(`--gray-${step}`)])),
+      },
+      // Панель слева от карты: с 1024 px и на невысоком экране от 640 px —
+      // у телефона лёжа. Совпадает с `WIDE_LAYOUT_QUERY` (запись 28).
+      //
+      // Узкий экран — уже 300 px, например текст, увеличенный в 150–200 %. Тоже
+      // именованная граница: с нестандартной `wide` Tailwind не создаёт
+      // варианты `min-[…]` и `max-[…]`.
+      screens: {
+        wide: { raw: '(min-width: 1024px), (min-width: 640px) and (max-height: 520px)' },
+        compact: { raw: '(max-width: 299px)' },
       },
       // Шрифт не переопределяется: системный стек объявлен в `src/index.css`.
       spacing: {

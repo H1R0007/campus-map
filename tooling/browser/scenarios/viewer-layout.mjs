@@ -168,5 +168,77 @@ export default {
       await page.key('Enter');
       assert.equal(await page.eval(`!!${SEARCH}`), false, 'Enter выбрал место');
     });
+
+    await page.viewport(844, 390, 2);
+
+    await step('телефон лёжа: панель слева, этажи и маршрут на карте справа от неё', async () => {
+      await v.open('/?from=a1_entrance&to=a3_room305');
+      await page.sleep(900);
+      const layout = await page.eval(`(() => {
+        const panel = ${PANEL}.getBoundingClientRect();
+        const lines = [...document.querySelectorAll('.campus-route-line')].map((l) => l.getBoundingClientRect().left);
+        const floors = document.querySelector('.campus-floor-list')?.getBoundingClientRect();
+        return { panelTop: panel.top, panelRight: panel.right, lineLeft: Math.min(...lines), floors: floors ? floors.height : 0 };
+      })()`);
+      assert.ok(layout.panelTop < 40 && layout.panelRight <= 440, `панель слева: ${JSON.stringify(layout)}`);
+      assert.ok(layout.lineLeft >= layout.panelRight, `маршрут правее панели: ${JSON.stringify(layout)}`);
+      assert.ok(layout.floors >= 132, `видны три этажа: ${JSON.stringify(layout)}`);
+
+      await v.click('Начать');
+      const header = await page.eval(`(() => {
+        const language = document.querySelector('.campus-map-header [role="group"]').getBoundingClientRect();
+        return { right: language.right, width: innerWidth };
+      })()`);
+      assert.ok(header.right <= header.width, `язык в шапке в пути целиком: ${JSON.stringify(header)}`);
+      await shot('viewer-landscape');
+      await v.click('Завершить пошаговую навигацию');
+    });
+
+    await page.viewport(195, 422, 4);
+
+    await step('текст увеличен в 200 %: кнопки не обрезаются, язык — в панели', async () => {
+      await v.open('/');
+      const idle = await page.eval(`(() => {
+        const buttons = [...${PANEL}.querySelectorAll('ul[aria-label="Рядом"] button')];
+        return {
+          rows: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+          cut: buttons.flatMap((b) => [...b.querySelectorAll('span.truncate')]).filter((s) => s.scrollWidth > s.clientWidth).map((s) => s.textContent),
+          headerLanguage: document.querySelector('.campus-map-header [role="group"]')?.offsetParent != null,
+        };
+      })()`);
+      assert.equal(idle.rows, 2, 'кнопки «Рядом» — в два ряда');
+      assert.deepEqual(idle.cut, [], 'подписи кнопок целиком');
+      assert.equal(idle.headerLanguage, false, 'в шапке языка нет');
+
+      await v.click('Развернуть панель');
+      assert.ok(await page.eval(`${PANEL}.querySelector('[role="group"]')?.offsetParent != null`), 'язык — в раскрытой панели');
+
+      await v.open('/?from=a1_entrance&to=a3_room305');
+      const start = await page.eval(`(() => {
+        const button = [...${PANEL}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Начать');
+        return button ? { width: button.getBoundingClientRect().width, fits: button.scrollWidth <= button.clientWidth } : null;
+      })()`);
+      assert.ok(start !== null && start.width >= 150 && start.fits, `«Начать» целиком: ${JSON.stringify(start)}`);
+      await shot('viewer-zoom200');
+    });
+
+    await page.viewport(390, 844, 2);
+
+    await step('раскрытая шторка не прячет маршрут, который был виден', async () => {
+      await v.open('/?from=campus_gate&to=a3_room305');
+      await page.sleep(900);
+      await v.click('Развернуть панель');
+      await page.sleep(1200);
+      const visible = await page.eval(`(() => {
+        const top = document.querySelector('.campus-map-header').getBoundingClientRect().bottom;
+        const bottom = ${PANEL}.getBoundingClientRect().top;
+        return [...document.querySelectorAll('.campus-route-line')].some((line) => {
+          const rect = line.getBoundingClientRect();
+          return rect.bottom > top && rect.top < bottom;
+        });
+      })()`);
+      assert.equal(visible, true, 'линия маршрута над раскрытой шторкой');
+      await shot('viewer-expanded-route');
+    });
   },
 };

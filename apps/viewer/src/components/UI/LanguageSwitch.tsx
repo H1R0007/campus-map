@@ -29,7 +29,7 @@ export const LanguageSwitch: React.FC = () => {
             aria-pressed={isActive}
             onClick={() => setLanguage(code)}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase transition-colors ${
-              isActive ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              isActive ? 'bg-surface text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
             }`}
           >
             {code}

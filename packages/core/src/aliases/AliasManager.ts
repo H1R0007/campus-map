@@ -1,4 +1,5 @@
-import type { AliasEntry, SearchSuggestion } from '../types/alias.js';
+import type { AliasEntry, PlaceCategory, SearchSuggestion } from '../types/alias.js';
+import { PLACE_CATEGORIES } from '../types/alias.js';
 
 /**
  * Индекс названий для поиска по карте.
@@ -16,6 +17,8 @@ interface AliasRecord {
   normalized: string;
   tokens: string[];
   acronym: string;
+  /** Категория, если запись — слово категории (`categoryTerms`), а не имя места. */
+  category: PlaceCategory | null;
 }
 
 /**
@@ -47,11 +50,33 @@ interface CacheEntry {
   timestamp: number;
 }
 
-/** Максимальное расстояние Левенштейна, при котором совпадение ещё считается опечаткой. */
-const FUZZY_MAX_DISTANCE = 2;
+/**
+ * Сколько опечаток прощается запросу такой длины.
+ *
+ * Чем длиннее слово, тем больше в нём ошибаются и тем меньше шанс спутать его с
+ * другим словом за пару правок: «бибилотека» — это «библиотека». Раньше опечатки
+ * искались только у запросов до пяти букв и сразу по две: трёхбуквенный запрос
+ * совпадал почти с любым коротким словом, а длинные названия опечаток не
+ * прощали совсем. Короче четырёх букв опечаток нет — хватает префикса и
+ * подпоследовательности (запись 20).
+ */
+function allowedTypos(queryLength: number): number {
+  if (queryLength < 4) return 0;
+  if (queryLength <= 5) return 1;
+  if (queryLength <= 8) return 2;
+  return 3;
+}
 
-/** Опечатки ищутся только для коротких запросов: на длинных это дорого и бесполезно. */
-const FUZZY_MAX_QUERY_LENGTH = 5;
+/** С какой длины запрос сравнивается и с началом слова: опечатка в недонабранном слове. */
+const FUZZY_PREFIX_MIN_LENGTH = 5;
+
+/**
+ * Насколько совпадение по слову категории слабее такого же совпадения по имени.
+ *
+ * Меньше шага между уровнями шкалы оценки: слово категории не перепрыгивает
+ * уровень, но при равном совпадении имя места выше.
+ */
+const CATEGORY_TERM_PENALTY = 1_000;
 
 /** Соответствие клавиш QWERTY → ЙЦУКЕН. */
 const QWERTY_TO_CYRILLIC: Readonly<Record<string, string>> = Object.freeze({
@@ -77,6 +102,17 @@ const HOMOGLYPHS: Readonly<Record<string, string>> = Object.freeze({
 
 const HOMOGLYPH_PATTERN = new RegExp(`[${Object.keys(HOMOGLYPHS).join('')}]`, 'g');
 
+/** Что ещё учитывать при загрузке, кроме записей алиасов. */
+export interface AliasLoadOptions {
+  /**
+   * Слова, по которым находятся все места категории: «туалет», «поесть», «wc».
+   *
+   * Не данные вуза, а словарь языка, поэтому живёт в приложении рядом со
+   * строками интерфейса (запись 20).
+   */
+  categoryTerms?: Partial<Record<PlaceCategory, readonly string[]>>;
+}
+
 export class AliasManager {
   /**
    * Нормализованное имя → id узлов с таким именем.
@@ -92,11 +128,20 @@ export class AliasManager {
   /** Все формы имён для нечёткого поиска. */
   private index: AliasRecord[] = [];
 
+  /** Слова категорий — скрытые формы имени мест категории (`indexCategoryTerms`). */
+  private categoryIndex: AliasRecord[] = [];
+
   /** id узла → его имена в порядке объявления; первое считается основным. */
   private idToAliases = new Map<string, string[]>();
 
   /** id узла → переводы его имён, как они пришли из данных. */
   private idToTranslations = new Map<string, NonNullable<AliasEntry['translations']>>();
+
+  /** id узла → категория места; только у мест с названием. */
+  private idToCategory = new Map<string, PlaceCategory>();
+
+  /** Категория → id мест с названием в порядке объявления в данных. */
+  private categoryToIds = new Map<PlaceCategory, string[]>();
 
   private cache = new Map<string, CacheEntry>();
 
@@ -112,11 +157,14 @@ export class AliasManager {
    *
    * Повторный вызов полностью заменяет предыдущее содержимое.
    */
-  load(entries: AliasEntry[]): void {
+  load(entries: AliasEntry[], options: AliasLoadOptions = {}): void {
     this.aliasToIds.clear();
     this.index = [];
+    this.categoryIndex = [];
     this.idToAliases.clear();
     this.idToTranslations.clear();
+    this.idToCategory.clear();
+    this.categoryToIds.clear();
     this.cache.clear();
 
     const seen = new Set<string>();
@@ -138,11 +186,50 @@ export class AliasManager {
         this.idToAliases.set(entry.id, displayNameOrder);
       }
 
+      // Категория — только у места с названием: безымянное место быстрая
+      // кнопка не смогла бы ни назвать, ни показать в подсказках.
+      if (entry.category !== undefined && displayNameOrder.length > 0 && !this.idToCategory.has(entry.id)) {
+        this.idToCategory.set(entry.id, entry.category);
+        const ids = this.categoryToIds.get(entry.category);
+        if (ids) ids.push(entry.id);
+        else this.categoryToIds.set(entry.category, [entry.id]);
+      }
+
       // Имена на других языках ищутся наравне с основными: студент набирает
       // название на своём языке, даже если не переключил язык интерфейса.
       if (entry.translations) this.idToTranslations.set(entry.id, entry.translations);
       for (const translation of Object.values(entry.translations ?? {})) {
         for (const display of translation.names) this.indexName(entry.id, display, seen);
+      }
+    }
+
+    this.indexCategoryTerms(options.categoryTerms ?? {});
+  }
+
+  /**
+   * Слова категорий как скрытые формы имени всех мест категории.
+   *
+   * Скрытые: точным вводом не разрешаются (`resolve`), в неоднозначностях и
+   * числе форм имён не участвуют, а подсказка по ним помечена категорией
+   * (`SearchSuggestion.viaCategory`).
+   */
+  private indexCategoryTerms(terms: NonNullable<AliasLoadOptions['categoryTerms']>): void {
+    const seen = new Set<string>();
+
+    for (const category of PLACE_CATEGORIES) {
+      const ids = this.categoryToIds.get(category) ?? [];
+
+      for (const term of terms[category] ?? []) {
+        const normalized = this.normalize(term);
+        if (!normalized) continue;
+        const tokens = this.tokenize(normalized);
+
+        for (const id of ids) {
+          const key = `${id}|${normalized}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          this.categoryIndex.push({ id, display: term, normalized, tokens, acronym: this.makeAcronym(tokens), category });
+        }
       }
     }
   }
@@ -177,6 +264,7 @@ export class AliasManager {
       normalized,
       tokens,
       acronym: this.makeAcronym(tokens),
+      category: null,
     });
 
     return true;
@@ -243,6 +331,16 @@ export class AliasManager {
     return this.idToAliases.get(id) ?? EMPTY;
   }
 
+  /** Категория места; `null`, если её нет или у места нет названия. */
+  getCategory(id: string): PlaceCategory | null {
+    return this.idToCategory.get(id) ?? null;
+  }
+
+  /** Места категории — только с названием, в порядке объявления в данных. */
+  getIdsByCategory(category: PlaceCategory): readonly string[] {
+    return this.categoryToIds.get(category) ?? EMPTY;
+  }
+
   /**
    * Основное имя узла — первое в списке алиасов.
    *
@@ -297,6 +395,18 @@ export class AliasManager {
       }
     }
 
+    for (const record of this.categoryIndex) {
+      const score = this.scoreMatch(prepared, record);
+      if (score > 0 && record.category !== null) {
+        scored.push({
+          alias: record.display,
+          id: record.id,
+          score: score - CATEGORY_TERM_PENALTY,
+          viaCategory: record.category,
+        });
+      }
+    }
+
     scored.sort((a, b) => {
       if (a.score !== b.score) return b.score - a.score;
       return a.alias.length - b.alias.length;
@@ -340,6 +450,9 @@ export class AliasManager {
       .replace(HOMOGLYPH_PATTERN, (ch) => HOMOGLYPHS[ch] ?? ch)
       .replace(/[_\-/\\]/g, ' ')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      // Буква и цифра — разные слова: «А305» и «a305» — это «А-305».
+      .replace(/(\p{L})(\p{N})/gu, '$1 $2')
+      .replace(/(\p{N})(\p{L})/gu, '$1 $2')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -418,13 +531,19 @@ export class AliasManager {
       return 70_000 - record.display.length;
     }
 
-    if (q.length <= FUZZY_MAX_QUERY_LENGTH) {
+    const typos = allowedTypos(q.length);
+    if (typos > 0) {
+      let best = this.levenshtein(q, record.normalized, typos);
+
       for (const token of record.tokens) {
-        const dist = this.levenshtein(q, token, FUZZY_MAX_DISTANCE);
-        if (dist <= FUZZY_MAX_DISTANCE) {
-          return 65_000 - dist * 200 - record.display.length;
+        best = Math.min(best, this.levenshtein(q, token, typos));
+        // Недонабранное слово с опечаткой: «стлово» — начало «столовая».
+        if (q.length >= FUZZY_PREFIX_MIN_LENGTH && token.length > q.length) {
+          best = Math.min(best, this.levenshtein(q, token.slice(0, q.length), typos));
         }
       }
+
+      if (best <= typos) return 65_000 - best * 200 - record.display.length;
     }
 
     return -1;

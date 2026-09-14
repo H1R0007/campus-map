@@ -22,8 +22,11 @@ export function useChoosePlace(): (target: SearchTarget, nodeId: string) => void
   const openSearch = useUiStore((s) => s.openSearch);
   const closeSearch = useUiStore((s) => s.closeSearch);
   const remember = useRecentStore((s) => s.remember);
+  const routeToNearest = useRouteStore((s) => s.routeToNearest);
 
   return (target, nodeId) => {
+    // Читается до закрытия поиска: закрытие снимает и быструю кнопку.
+    const nearestCategory = useUiStore.getState().nearestCategory;
     remember(nodeId);
     closeSearch();
 
@@ -31,6 +34,14 @@ export function useChoosePlace(): (target: SearchTarget, nodeId: string) => void
       // Сначала этаж места, затем выбор: смена этажа снимает выбранное место.
       showNode(nodeId);
       selectNode(nodeId);
+      return;
+    }
+
+    // Начало для быстрой кнопки: маршрут — к ближайшему месту категории. Если
+    // его не нашлось, панель покажет кнопку недоступной.
+    if (target === 'from' && nearestCategory !== null) {
+      setPoint('from', nodeId);
+      routeToNearest(nearestCategory);
       return;
     }
 

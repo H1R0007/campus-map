@@ -1,4 +1,5 @@
 import type { AliasEntry } from '../types/alias.js';
+import { isPlaceCategory } from '../types/alias.js';
 import type {
   BuildingMeta,
   BuildingPlacement,
@@ -436,6 +437,15 @@ function normalizeAlias(raw: AliasEntry & Raw, path: string, warnings: string[])
     warnings
   );
   if (translations !== undefined) entry.translations = translations;
+
+  if (raw.category !== undefined) {
+    const category = asOptionalString(raw.category);
+    if (category !== undefined && isPlaceCategory(category)) {
+      entry.category = category;
+    } else {
+      warnings.push(`${path}: ${raw.id}: неизвестная категория места ${JSON.stringify(raw.category)} пропущена`);
+    }
+  }
 
   return entry;
 }

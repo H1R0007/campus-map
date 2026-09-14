@@ -56,7 +56,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
   return (
     <div className="px-4 pb-4">
       <div className="flex items-start gap-3">
-        <PlaceIcon transition={transition} size="lg" />
+        <PlaceIcon transition={transition} category={aliasManager?.getCategory(nodeId) ?? null} size="lg" />
         <div className="flex-1 min-w-0 pt-0.5">
           <h2
             data-panel-focus
@@ -71,7 +71,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
       </div>
 
       {name !== null && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2 compact:flex-col">
           <button
             type="button"
             onClick={() => choose('to')}

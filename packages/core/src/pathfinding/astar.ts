@@ -8,6 +8,7 @@ import type {
   PathResult,
   PathSegment,
 } from '../types/pathfinding.js';
+import type { MapNode } from '../types/node.js';
 import { heuristic, stepCost, stepPhysics } from './costModel.js';
 import type { NormalizedOptions, StepPhysics } from './costModel.js';
 
@@ -130,6 +131,17 @@ class StateMap<T> {
 }
 
 /**
+ * Цель поиска: один узел либо ближайший из нескольких.
+ */
+interface SearchGoal {
+  /** Достигнута ли цель в этом узле. */
+  reached(nodeId: string): boolean;
+
+  /** Оценка остатка пути от узла — допустимая и согласованная нижняя оценка. */
+  estimate(node: MapNode): number;
+}
+
+/**
  * Подставляет значения по умолчанию.
  *
  * Раскладывается именно `DEFAULT_PATHFINDING_OPTIONS`, а не список литералов:
@@ -240,26 +252,23 @@ function describePath(
 /**
  * Общий A*-обход.
  *
- * Единственная реализация поиска: `findPath` и `findAlternativePaths`
- * отличаются только необязательным исключением одного ребра, поэтому
- * вторая копия алгоритма не нужна.
+ * Единственная реализация поиска: `findPath`, `findAlternativePaths` и
+ * `findNearest` отличаются только целью и необязательным исключением одного
+ * ребра, поэтому вторая копия алгоритма не нужна. Существование концов
+ * проверяет вызывающая сторона.
  *
  * @param excludeEdgeKey канонический ключ ребра, которое нельзя использовать
  */
 function search(
   graph: Graph,
-  startId: string,
-  endId: string,
+  startNode: MapNode,
+  goal: SearchGoal,
   opts: NormalizedOptions,
   excludeEdgeKey?: string
 ): PathResult {
-  const startNode = graph.getNode(startId);
-  const endNode = graph.getNode(endId);
+  const startId = startNode.id;
 
-  if (!startNode) return notFound('unknown-start', `Начальная точка "${startId}" не найдена`);
-  if (!endNode) return notFound('unknown-end', `Конечная точка "${endId}" не найдена`);
-
-  if (startId === endId) {
+  if (goal.reached(startId)) {
     return { found: true, path: [startId], cost: 0, ...describePath(graph, [startId], opts) };
   }
 
@@ -269,7 +278,7 @@ function search(
   gScore.set(start, 0);
 
   const openSet = new PriorityQueue();
-  openSet.push({ ...start, gScore: 0, fScore: heuristic(graph, startNode, endNode) });
+  openSet.push({ ...start, gScore: 0, fScore: goal.estimate(startNode) });
 
   let iterations = 0;
 
@@ -290,7 +299,7 @@ function search(
     // долю секунды. Проверка по gScore такой ошибки не допускает.
     if (current.gScore > (gScore.get(current) ?? Number.POSITIVE_INFINITY)) continue;
 
-    if (current.nodeId === endId) {
+    if (goal.reached(current.nodeId)) {
       const path = reconstructPath(cameFrom, current);
       return { found: true, path, cost: current.gScore, ...describePath(graph, path, opts) };
     }
@@ -320,12 +329,31 @@ function search(
       openSet.push({
         ...next,
         gScore: tentativeG,
-        fScore: tentativeG + heuristic(graph, neighborNode, endNode),
+        fScore: tentativeG + goal.estimate(neighborNode),
       });
     }
   }
 
   return notFound('unreachable', 'Путь не найден — точки не связаны');
+}
+
+/** Узлы концов маршрута либо результат «пути нет», если какого-то нет в графе. */
+function resolveEnds(graph: Graph, startId: string, endId: string): [MapNode, MapNode] | PathResult {
+  const startNode = graph.getNode(startId);
+  const endNode = graph.getNode(endId);
+
+  if (!startNode) return notFound('unknown-start', `Начальная точка "${startId}" не найдена`);
+  if (!endNode) return notFound('unknown-end', `Конечная точка "${endId}" не найдена`);
+
+  return [startNode, endNode];
+}
+
+/** Цель — один узел; оценка остатка — эвристика модели стоимости. */
+function nodeGoal(graph: Graph, end: MapNode): SearchGoal {
+  return {
+    reached: (nodeId) => nodeId === end.id,
+    estimate: (node) => heuristic(graph, node, end),
+  };
 }
 
 /**
@@ -346,7 +374,38 @@ export function findPath(
   endId: string,
   options: PathfindingOptions = {}
 ): PathResult {
-  return search(graph, startId, endId, normalizeOptions(options));
+  const ends = resolveEnds(graph, startId, endId);
+  if (!Array.isArray(ends)) return ends;
+
+  return search(graph, ends[0], nodeGoal(graph, ends[1]), normalizeOptions(options));
+}
+
+/**
+ * Ищет путь до ближайшей из нескольких целей — например, до ближайшего туалета.
+ *
+ * Один поиск до множества целей, а не `findPath` до каждой: обход
+ * останавливается на первой извлечённой цели, и она по построению ближайшая в
+ * модели стоимости — так же, как `findPath` оптимален до одной цели. Оценки
+ * остатка нет, поиск — алгоритм Дейкстры: наименьшую из эвристик до всех целей
+ * пришлось бы считать на каждом узле, а ближайшая цель обычно рядом (запись 19).
+ *
+ * Цели, которых нет в графе, пропускаются. Причины неудачи — как у `findPath`:
+ * `unknown-end` означает, что ни одной из целей в графе нет.
+ */
+export function findNearest(
+  graph: Graph,
+  startId: string,
+  targetIds: Iterable<string>,
+  options: PathfindingOptions = {}
+): PathResult {
+  const startNode = graph.getNode(startId);
+  if (!startNode) return notFound('unknown-start', `Начальная точка "${startId}" не найдена`);
+
+  const targets = new Set([...targetIds].filter((id) => graph.hasNode(id)));
+  if (targets.size === 0) return notFound('unknown-end', 'Ни одной из целей нет в графе');
+
+  const goal: SearchGoal = { reached: (nodeId) => targets.has(nodeId), estimate: () => 0 };
+  return search(graph, startNode, goal, normalizeOptions(options));
 }
 
 /**
@@ -372,7 +431,11 @@ export function findAlternativePaths(
   maxPaths: number = 3
 ): MultiPathResult {
   const opts = normalizeOptions(options);
-  const primary = search(graph, startId, endId, opts);
+  const ends = resolveEnds(graph, startId, endId);
+  if (!Array.isArray(ends)) return { primary: ends, alternatives: [] };
+
+  const goal = nodeGoal(graph, ends[1]);
+  const primary = search(graph, ends[0], goal, opts);
 
   if (!primary.found || maxPaths < 2 || primary.path.length < 2) {
     return { primary, alternatives: [] };
@@ -384,7 +447,7 @@ export function findAlternativePaths(
 
   for (let i = 0; i < primary.path.length - 1 && alternatives.length < wanted; i++) {
     const exclude = edgeKey(primary.path[i], primary.path[i + 1]);
-    const candidate = search(graph, startId, endId, opts, exclude);
+    const candidate = search(graph, ends[0], goal, opts, exclude);
 
     if (!candidate.found) continue;
 

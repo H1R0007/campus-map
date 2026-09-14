@@ -5,6 +5,7 @@ import type { MapNode } from '@campus-map/core';
 import { fitPaddingOf } from '@campus-map/mapkit';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { pickNode } from '../../utils/mapPicking';
+import { useColorScheme } from '../../hooks/useColorScheme';
 import { themeColor } from '../../utils/themeColor';
 import { useMapInsets } from './mapChrome';
 
@@ -36,9 +37,14 @@ export const PlaceLayer: React.FC = () => {
   const map = useMap();
 
   // Сотни точек этажа — один canvas, а не сотни SVG-элементов. Классов
-  // canvas не получает, поэтому фирменный цвет берётся из токена темы.
+  // canvas не получает, поэтому цвета берутся из токенов темы — и заново, когда
+  // система переключает тему.
   const renderer = useMemo(() => L.canvas({ padding: 0.5 }), []);
-  const primary = useMemo(() => themeColor('--color-primary'), []);
+  const scheme = useColorScheme();
+  const colors = useMemo(
+    () => ({ scheme, ring: themeColor('--color-route'), fill: themeColor('--color-surface') }),
+    [scheme]
+  );
 
   const nodes = useMemo(() => {
     if (!graph) return [];
@@ -85,7 +91,7 @@ export const PlaceLayer: React.FC = () => {
             radius={4}
             renderer={renderer}
             interactive={false}
-            pathOptions={{ color: primary, weight: 2, fillColor: '#ffffff', fillOpacity: 1 }}
+            pathOptions={{ color: colors.ring, weight: 2, fillColor: colors.fill, fillOpacity: 1 }}
           />
         ))}
 
@@ -95,7 +101,7 @@ export const PlaceLayer: React.FC = () => {
           radius={14}
           renderer={renderer}
           interactive={false}
-          pathOptions={{ color: primary, weight: 3, fillColor: primary, fillOpacity: 0.2 }}
+          pathOptions={{ color: colors.ring, weight: 3, fillColor: colors.ring, fillOpacity: 0.2 }}
         />
       )}
     </>

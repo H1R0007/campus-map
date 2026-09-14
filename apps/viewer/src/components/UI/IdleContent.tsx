@@ -10,6 +10,8 @@ import { nodeName } from '../../utils/placeLabels';
 import { BuildingList } from './BuildingList';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
+import { LanguageSwitch } from './LanguageSwitch';
+import { QuickPlaces } from './QuickPlaces';
 import { RecentPlaces } from './RecentPlaces';
 
 interface IdleContentProps {
@@ -70,10 +72,21 @@ export const IdleContent: React.FC<IdleContentProps> = ({ expanded }) => {
       {point('from', fromNodeId)}
       {point('to', toNodeId)}
 
+      {/* Быстрые кнопки — пока цели нет: они её и задают. */}
+      {toNodeId === null && <QuickPlaces />}
+
       {expanded && (
         <div className="pt-2 space-y-5">
           <RecentPlaces onChoose={(nodeId) => choose(target, nodeId)} exclude={[fromNodeId, toNodeId]} />
           <BuildingList />
+          {/* На экране уже 300 px — например, при увеличении текста в 200 % —
+              переключателю языка нет места в шапке, и он здесь (запись 28). */}
+          <div className="hidden items-center justify-between gap-2 px-1 compact:flex">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {messages.languageSwitch}
+            </span>
+            <LanguageSwitch />
+          </div>
         </div>
       )}
     </div>

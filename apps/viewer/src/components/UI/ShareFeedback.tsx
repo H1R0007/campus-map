@@ -38,10 +38,10 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
       <div
         role="status"
         aria-live="polite"
-        className="fixed left-1/2 lg:left-[calc(50%+13rem)] -translate-x-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-[1002] pointer-events-none"
+        className="fixed left-1/2 wide:left-[calc(50%+13rem)] -translate-x-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-[1002] pointer-events-none"
       >
         {copied && (
-          <div className="flex items-center gap-2 whitespace-nowrap rounded-full bg-gray-900/90 px-4 py-2 text-sm text-white shadow-lg">
+          <div className="flex items-center gap-2 whitespace-nowrap rounded-full bg-inverse/90 px-4 py-2 text-sm text-on-inverse shadow-lg">
             <Icon name="check" size={16} />
             {messages.route.linkCopied}
           </div>
@@ -58,7 +58,7 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
             aria-modal="true"
             aria-labelledby={MANUAL_TITLE_ID}
             aria-describedby={MANUAL_HINT_ID}
-            className="fixed left-3 right-3 top-1/2 -translate-y-1/2 md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2 z-[1004] rounded-2xl bg-white p-4 shadow-2xl"
+            className="fixed left-3 right-3 top-1/2 -translate-y-1/2 md:left-1/2 md:right-auto md:w-96 md:-translate-x-1/2 z-[1004] rounded-2xl bg-surface p-4 shadow-2xl"
           >
             <h2 id={MANUAL_TITLE_ID} className="font-semibold text-gray-800">
               {messages.route.copyLinkTitle}

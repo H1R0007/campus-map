@@ -15,7 +15,8 @@
             "Campus entrance"
           ]
         }
-      }
+      },
+      "category": "exit"
     },
     {
       "id": "campus_bus_stop",
@@ -69,7 +70,8 @@
             "Building A main entrance"
           ]
         }
-      }
+      },
+      "category": "exit"
     },
     {
       "id": "a1_entrance_yard",
@@ -83,7 +85,8 @@
             "Yard entrance"
           ]
         }
-      }
+      },
+      "category": "exit"
     },
     {
       "id": "a1_room101",
@@ -135,7 +138,8 @@
             "Building A canteen"
           ]
         }
-      }
+      },
+      "category": "food"
     },
     {
       "id": "a1_cloakroom",
@@ -148,7 +152,8 @@
             "Cloakroom"
           ]
         }
-      }
+      },
+      "category": "cloakroom"
     },
     {
       "id": "a1_toilet",
@@ -161,7 +166,8 @@
             "Restroom, Building A, floor 1"
           ]
         }
-      }
+      },
+      "category": "toilet"
     },
     {
       "id": "a2_bridge",
@@ -236,7 +242,8 @@
             "Restroom, Building A, floor 2"
           ]
         }
-      }
+      },
+      "category": "toilet"
     },
     {
       "id": "a3_room301",
@@ -306,7 +313,8 @@
             "Building B entrance"
           ]
         }
-      }
+      },
+      "category": "exit"
     },
     {
       "id": "b1_library",
@@ -365,7 +373,8 @@
             "Building B canteen"
           ]
         }
-      }
+      },
+      "category": "food"
     },
     {
       "id": "b1_toilet",
@@ -378,7 +387,8 @@
             "Restroom, Building B, floor 1"
           ]
         }
-      }
+      },
+      "category": "toilet"
     },
     {
       "id": "b2_bridge",
@@ -460,7 +470,8 @@
             "Building V entrance"
           ]
         }
-      }
+      },
+      "category": "exit"
     },
     {
       "id": "c1_gym",

@@ -29,6 +29,9 @@ export const en: Messages = {
     floor: (floor) => `Floor ${floor}`,
     floors: 'Floors',
     floorOnRoute: (floor) => `${floor}, on the route`,
+    floorRouteStart: (floor) => `${floor}, route start`,
+    floorRouteEnd: (floor) => `${floor}, route end`,
+    floorCurrentStep: (floor) => `${floor}, current step`,
     place: (building, floor) => `${building}, floor ${floor}`,
     backToCampus: 'Back to the campus map',
     zoomIn: 'Zoom in',
@@ -53,6 +56,24 @@ export const en: Messages = {
     close: 'Close place card',
   },
 
+  quick: {
+    label: 'Nearby',
+    category: {
+      toilet: 'Toilet',
+      food: 'Canteen',
+      cloakroom: 'Cloakroom',
+      exit: 'Exit',
+    },
+    nearest: {
+      toilet: 'Nearest toilet',
+      food: 'Nearest canteen',
+      cloakroom: 'Nearest cloakroom',
+      exit: 'Nearest exit',
+    },
+    sameFloor: 'this floor',
+    none: 'not found',
+  },
+
   search: {
     open: {
       place: 'Find a room or place',
@@ -69,7 +90,18 @@ export const en: Messages = {
       from: 'Route start',
       to: 'Destination',
     },
-    hint: 'A room number or a name: “305”, “library”',
+    nearestStart: {
+      title: 'Where are you now?',
+      placeholder: 'A room or place near you',
+      hint: 'Choose a place near you and the route will lead to the nearest one.',
+    },
+    hint: 'A room number, a name or what you need: “305”, “library”, “toilet”',
+    categoryTerms: {
+      toilet: ['toilet', 'restroom', 'bathroom', 'lavatory', 'wc'],
+      food: ['canteen', 'cafeteria', 'cafe', 'food', 'eat', 'lunch', 'coffee'],
+      cloakroom: ['cloakroom', 'coat check', 'wardrobe'],
+      exit: ['exit', 'way out', 'entrance'],
+    },
     nothingFound: (query) => `Nothing found for “${query}”`,
     close: 'Close search',
     clear: 'Clear search',
@@ -132,6 +164,47 @@ export const en: Messages = {
     finish: 'Done',
     exit: 'End step-by-step navigation',
     showOnMap: 'Show the step on the map',
+    progress: 'Route progress',
+    remaining: (duration) => `${duration} left`,
+  },
+
+  arrival: {
+    title: 'You have arrived',
+    back: 'Back',
+    toExit: 'To the exit',
+  },
+
+  onboarding: {
+    label: 'Getting started',
+    skip: 'Skip',
+    next: 'Next',
+    done: 'Start using',
+    progress: (step, total) => `${step} of ${total}`,
+    slides: {
+      search: {
+        title: 'Find the place you need',
+        text: 'Type a room number or a name, like “305” or “library”. The Toilet and Canteen buttons lead to the nearest ones.',
+      },
+      qr: {
+        title: 'The QR code at the door means “you are here”',
+        text: 'Scan the code on the sign at an entrance or staircase and the route will start where you stand.',
+      },
+      steps: {
+        title: 'Follow the steps',
+        text: 'Tap Start: the navigator shows each step, opens the right floor by itself and keeps the screen on.',
+      },
+    },
+  },
+
+  offline: {
+    notice: 'No connection — the navigator works offline',
+    planUnavailable: 'This floor plan is not saved — connect to load it',
+  },
+
+  update: {
+    ready: 'The map has been updated',
+    apply: 'Reload',
+    later: 'Later',
   },
 
   instructions: {

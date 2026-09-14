@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
+import { registerServiceWorker } from './pwa/registerServiceWorker';
+import { warmCacheWhenControlled } from './pwa/warmCache';
 import './index.css';
 
 /**
@@ -12,10 +14,10 @@ import './index.css';
  * `index.html`: внешний ресурс не должен быть точкой отказа сервиса,
  * развёрнутого у вуза, и только так работает офлайн-режим PWA.
  *
- * Регистрация service worker здесь не нужна — её выполняет
- * `vite-plugin-pwa` (`registerType: 'autoUpdate'`). Ручная регистрация
- * `/sw.js` дублировала её и в dev-режиме всегда падала, потому что по этому
- * пути отдаётся `index.html`.
+ * Service worker регистрирует `registerServiceWorker`, а не `vite-plugin-pwa`
+ * (`injectRegister: false`): новая версия ждёт согласия человека, а не
+ * перезагружает страницу посреди маршрута (запись 27). В dev-режиме регистрации
+ * нет: файла service worker там нет, и по его пути отдаётся `index.html`.
  *
  * `ErrorBoundary` — снаружи приложения: ошибка отрисовки в любом его месте
  * показывает понятный экран, а не белую страницу.
@@ -33,3 +35,9 @@ ReactDOM.createRoot(container).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+registerServiceWorker();
+
+// Данные и планы, загруженные до того, как service worker взял страницу под
+// управление, — в его кэш (запись 26).
+warmCacheWhenControlled();

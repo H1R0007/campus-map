@@ -23,13 +23,13 @@ export const LinkNotice: React.FC<LinkNoticeProps> = ({ unresolved, onDismiss })
   return (
     <div
       role="alert"
-      className="absolute top-[calc(4.5rem+env(safe-area-inset-top))] left-3 right-16 lg:left-[26rem] z-[1001] flex items-center gap-1 rounded-xl bg-gray-900/90 pl-3 text-sm text-white shadow-lg"
+      className="flex items-center gap-1 rounded-xl bg-inverse/90 pl-3 text-sm text-on-inverse shadow-lg"
     >
       <span className="flex-1 break-words py-2">{messages.link.notFound(unresolved.join(', '))}</span>
       <button
         type="button"
         onClick={onDismiss}
-        className="w-11 h-11 flex-shrink-0 rounded-xl flex items-center justify-center text-gray-300 hover:text-white"
+        className="w-11 h-11 flex-shrink-0 rounded-xl flex items-center justify-center text-on-inverse/70 hover:text-on-inverse"
         aria-label={messages.link.dismiss}
       >
         <Icon name="close" size={18} />

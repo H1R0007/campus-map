@@ -3,10 +3,12 @@ import type { WheelEvent } from 'react';
 import { buildingName } from '@campus-map/core';
 import { useScrollEdges } from '../../hooks/useScrollEdges';
 import { entranceFloorOf, useMapStore } from '../../stores/mapStore';
+import { useRouteStore } from '../../stores/routeStore';
 import { formatFloor, messagesFor, useLanguage } from '../../i18n';
 import { buildingLabel } from '../../utils/placeLabels';
 import { Icon } from './Icon';
 import { LanguageSwitch } from './LanguageSwitch';
+import { TripBar } from './TripBar';
 
 /** Шаг колеса, заданный строками (так прокручивает Firefox), — в пикселях. */
 const WHEEL_LINE_PX = 16;
@@ -36,6 +38,9 @@ function scrollStripByWheel(event: WheelEvent<HTMLDivElement>): void {
  * подпись не растягивается на всю ширину: шапка стоит справа от панели
  * навигатора, и растянутая плашка читалась как отдельная панель.
  *
+ * На шаге пошаговой навигации вместо этого — ход маршрута и выход из навигации
+ * (`TripBar`, запись 23).
+ *
  * Переключатель языка — всегда в правом углу, на первом экране: иностранный
  * студент не должен искать его в интерфейсе, который не может прочитать.
  */
@@ -45,12 +50,13 @@ export const MapHeader: React.FC = () => {
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
   const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const navigating = useRouteStore((s) => s.stepIndex !== null && s.currentRoute?.found === true);
   const language = useLanguage();
   const messages = messagesFor(language);
 
   const stripRef = useRef<HTMLDivElement>(null);
   const hasData = campusMeta !== null && buildingMetas !== null;
-  const edges = useScrollEdges(stripRef, hasData && activeFloor === null);
+  const edges = useScrollEdges(stripRef, hasData && activeFloor === null && !navigating);
 
   if (!campusMeta || !buildingMetas) return null;
 
@@ -62,7 +68,9 @@ export const MapHeader: React.FC = () => {
 
   return (
     <header className="campus-map-header">
-      {activeFloor === null ? (
+      {navigating ? (
+        <TripBar />
+      ) : activeFloor === null ? (
         <div ref={stripRef} onWheel={scrollStripByWheel} className={stripClassName}>
           <div className="flex gap-2 w-max py-1">
             {campusMeta.buildings.map((building) => {
@@ -73,7 +81,7 @@ export const MapHeader: React.FC = () => {
                   key={building.id}
                   type="button"
                   onClick={() => setActiveFloor(building.id, entranceFloorOf(meta))}
-                  className="h-11 max-w-[14rem] px-4 rounded-xl bg-white shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  className="h-11 max-w-[14rem] px-4 rounded-xl bg-surface shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
                   <Icon name="building" size={16} className="flex-shrink-0 text-gray-500" />
                   <span className="min-w-0 truncate">{meta ? buildingName(meta, language) : building.name ?? building.id}</span>
@@ -87,14 +95,14 @@ export const MapHeader: React.FC = () => {
           <button
             type="button"
             onClick={clearActiveFloor}
-            className="w-11 h-11 flex-shrink-0 rounded-xl bg-white shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-11 h-11 flex-shrink-0 rounded-xl bg-surface shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors"
             title={messages.map.backToCampus}
             aria-label={messages.map.backToCampus}
           >
             <Icon name="back" />
           </button>
 
-          <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-white shadow-md flex flex-col justify-center lg:flex-none lg:max-w-sm">
+          <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center wide:flex-initial wide:max-w-sm">
             <div className="text-sm font-semibold text-gray-800 truncate">
               {buildingLabel(buildingMetas, activeFloor.buildingId, language)}
             </div>
@@ -105,7 +113,9 @@ export const MapHeader: React.FC = () => {
         </>
       )}
 
-      <div className="ml-auto flex-shrink-0 rounded-xl bg-white shadow-md p-1">
+      {/* Уже 300 px переключателю нет места рядом с именем корпуса и ходом
+          маршрута — он в раскрытой панели (`IdleContent`, запись 28). */}
+      <div className="ml-auto flex-shrink-0 rounded-xl bg-surface shadow-md p-1 compact:hidden">
         <LanguageSwitch />
       </div>
     </header>

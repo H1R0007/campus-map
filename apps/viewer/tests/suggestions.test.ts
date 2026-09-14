@@ -52,4 +52,15 @@ describe('подсказки поиска', () => {
     expect(options).toHaveLength(2);
     expect(new Set(options.map((option) => option.id)).size).toBe(2);
   });
+
+  it('место, найденное по слову категории, показывают без второй строки', () => {
+    const aliasManager = new AliasManager();
+    aliasManager.load([{ id: 'b1_canteen', names: ['Буфет'], category: 'food' }], {
+      categoryTerms: { food: ['поесть'] },
+    });
+
+    expect(
+      suggestionOptions(aliasManager.suggest('поесть', Number.POSITIVE_INFINITY), aliasManager, 'ru', 5)
+    ).toEqual([{ id: 'b1_canteen', name: 'Буфет', matched: null }]);
+  });
 });

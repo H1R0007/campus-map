@@ -53,7 +53,7 @@ export const RouteSteps: React.FC<RouteStepsProps> = ({ steps, currentIndex, onS
                 onClick={() => onSelect(index)}
                 aria-current={isCurrent ? 'step' : undefined}
                 className={`relative w-full flex items-start gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                  isCurrent ? 'bg-primary/10' : 'hover:bg-gray-50'
+                  isCurrent ? 'bg-selected' : 'hover:bg-gray-50'
                 }`}
               >
                 {/* Линия от значка к значку следующего шага: отступ кнопки,
