@@ -9,6 +9,7 @@
     "typecheck": "turbo typecheck",
     "lint": "turbo lint && eslint tooling eslint.config.js",
     "test": "turbo test",
+    "check:browser": "node tooling/browser-check.mjs",
     "clean": "turbo clean",
     "clean:all": "turbo clean && node tooling/clean.mjs node_modules apps/viewer/node_modules apps/editor/node_modules packages/core/node_modules packages/mapkit/node_modules"
   },

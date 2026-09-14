@@ -4,9 +4,6 @@ import { useMapStore } from '../stores/mapStore';
 import { suggestionOptions } from '../utils/suggestions';
 import type { SuggestionOption } from '../utils/suggestions';
 
-/** Сколько подсказок показывать. Больше не помещается на экране телефона. */
-const SUGGESTION_LIMIT = 5;
-
 /**
  * Задержка перед поиском, мс.
  *
@@ -18,6 +15,15 @@ const SUGGESTION_LIMIT = 5;
  */
 const DEBOUNCE_MS = 120;
 
+export interface Suggestions {
+  options: SuggestionOption[];
+  /**
+   * Подсказки посчитаны для текущего запроса, а не для предыдущего. Пока
+   * задержка не истекла, «ничего не найдено» показывать рано.
+   */
+  settled: boolean;
+}
+
 /**
  * Подсказки по введённому тексту — по одной на место, с именем на языке
  * интерфейса (`suggestionOptions`).
@@ -26,8 +32,10 @@ const DEBOUNCE_MS = 120;
  * нажатие клавиши. Это чистая функция от запроса, загруженных алиасов и языка —
  * хранить её результат значит завести второй источник истины, который обязан
  * кем-то поддерживаться в актуальном состоянии. Здесь он вычисляется.
+ *
+ * @param limit сколько мест вернуть
  */
-export function useSuggestions(query: string): SuggestionOption[] {
+export function useSuggestions(query: string, limit: number): Suggestions {
   const aliasManager = useMapStore((s) => s.aliasManager);
   const language = useLanguage();
   const [debouncedQuery, setDebouncedQuery] = useState(query);
@@ -43,13 +51,15 @@ export function useSuggestions(query: string): SuggestionOption[] {
     return () => clearTimeout(timer);
   }, [query]);
 
-  return useMemo(() => {
+  const options = useMemo(() => {
     if (!debouncedQuery.trim() || !aliasManager) return [];
 
-    // Весь ранжированный список, а не первые пять форм имени: формы одного
-    // места схлопываются, и пяти записей могло не хватить на пять мест.
+    // Весь ранжированный список, а не первые формы имени: формы одного места
+    // схлопываются, и короткого среза могло не хватить на `limit` мест.
     // Дороже это не стоит — `suggest` ранжирует и кэширует список целиком.
     const ranked = aliasManager.suggest(debouncedQuery, Number.POSITIVE_INFINITY);
-    return suggestionOptions(ranked, aliasManager, language, SUGGESTION_LIMIT);
-  }, [debouncedQuery, aliasManager, language]);
+    return suggestionOptions(ranked, aliasManager, language, limit);
+  }, [debouncedQuery, aliasManager, language, limit]);
+
+  return { options, settled: debouncedQuery === query };
 }

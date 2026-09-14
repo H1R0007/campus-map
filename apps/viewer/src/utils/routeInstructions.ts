@@ -48,6 +48,14 @@ export interface RouteStep {
 
   /** Время участка, секунды; `null` в пиксельном режиме и у начала. */
   durationSeconds: number | null;
+
+  /**
+   * Узлы пути, которые проходит шаг: индексы в `PathResult.path`, оба конца
+   * включительно; соседние шаги делят общий узел. Шаг `k` разбивки ядра — это
+   * переход от `path[k]` к `path[k + 1]`. По этим узлам слой маршрута
+   * подсвечивает участок текущего шага и подгоняет под него карту.
+   */
+  pathRange: readonly [number, number];
 }
 
 interface BuildRouteStepsParams {
@@ -115,6 +123,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
       scope: scopeOfNode(start),
       distanceMeters: null,
       durationSeconds: null,
+      pathRange: [0, 0],
     },
   ];
 
@@ -139,6 +148,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
               scope: scopeOfNode(end),
               distanceMeters: total(leg, (s) => s.distanceMeters),
               durationSeconds: total(leg, (s) => s.durationSeconds),
+              pathRange: [legStart, segments.length],
             }
           : {
               kind: 'arrive',
@@ -148,6 +158,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
               scope: scopeOfNode(end),
               distanceMeters: null,
               durationSeconds: null,
+              pathRange: [segments.length, segments.length],
             }
       );
       break;
@@ -176,6 +187,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
         scope: scopeOfNode(from),
         distanceMeters: total(leg, (s) => s.distanceMeters),
         durationSeconds: total(leg, (s) => s.durationSeconds),
+        pathRange: [legStart, chainStart],
       });
     }
 
@@ -208,6 +220,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
       scope: scopeOfNode(to),
       distanceMeters: total(chain, (s) => s.distanceMeters),
       durationSeconds: total(chain, (s) => s.durationSeconds),
+      pathRange: [chainStart, index],
     });
   }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 
 export const EdgeContextMenu: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -89,8 +90,8 @@ export const EdgeContextMenu: React.FC = () => {
           backgroundColor: 'var(--editor-bg)',
         }}
       >
-        <div className="truncate">🔗 {fromLabel}</div>
-        <div className="truncate">↔ {toLabel}</div>
+        <div className="truncate flex items-center gap-1.5"><Icon name="link" size={12} className="flex-shrink-0" />{fromLabel}</div>
+        <div className="truncate flex items-center gap-1.5"><Icon name="move" size={12} className="flex-shrink-0" />{toLabel}</div>
       </div>
 
       {/* Навигация к узлам */}
@@ -121,14 +122,14 @@ export const EdgeContextMenu: React.FC = () => {
             splitEdge(contextMenu.edgeFrom, contextMenu.edgeTo);
           }
         })}
-        icon="✂️"
+        icon={<Icon name="unlink" />}
         label="Разделить пополам"
         hint="Вставить 1 узел в середину"
       />
 
       <MenuItem
         onClick={() => setShowSubdivide(!showSubdivide)}
-        icon="📐"
+        icon={<Icon name="ruler" />}
         label="Subdivide..."
         hint="Разбить на несколько сегментов"
         active={showSubdivide}
@@ -180,7 +181,7 @@ export const EdgeContextMenu: React.FC = () => {
             removeEdge(contextMenu.edgeFrom, contextMenu.edgeTo);
           }
         })}
-        icon="🗑️"
+        icon={<Icon name="trash" />}
         label="Удалить ребро"
         danger
       />
@@ -190,7 +191,7 @@ export const EdgeContextMenu: React.FC = () => {
 
 const MenuItem: React.FC<{
   onClick: () => void;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   hint?: string;
   danger?: boolean;

@@ -66,8 +66,8 @@ describe('AliasManager', () => {
   it('находит аудиторию при неверной раскладке клавиатуры', async () => {
     const manager = await loadedManager();
 
-    // «,bibcjntrf» — это «библиотека», набранная в английской раскладке.
-    expect(manager.suggest(',bibcjntrf', 5).some((s) => s.id === 'b1_library')).toBe(true);
+    // «,b,kbjntrf» — это «библиотека», набранная в английской раскладке.
+    expect(manager.suggest(',b,kbjntrf', 5).some((s) => s.id === 'b1_library')).toBe(true);
   });
 
   it('на пустом запросе и нулевом лимите не предлагает ничего', async () => {

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
 import { selectedRoute, useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 
 /**
  * Время маршрута для разметчика — точнее, чем «~4 мин» в навигаторе.
@@ -31,7 +32,7 @@ const PickModeToggle: React.FC<{
       style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
     >
       <div className="text-xs" style={{ color: enabled ? 'white' : 'var(--editor-text-muted)' }}>
-        🖱️ ПКМ на карте
+        ПКМ на карте
       </div>
 
       <button
@@ -48,7 +49,7 @@ const PickModeToggle: React.FC<{
       </button>
 
       <div className="text-xs" style={{ color: !enabled ? 'white' : 'var(--editor-text-muted)' }}>
-        ⌨️ Только поиск
+        Только поиск
       </div>
     </div>
   );
@@ -239,7 +240,7 @@ export const RouteSimulatorPanel: React.FC = () => {
         className="absolute top-16 right-3 z-[1400] px-3 py-2 rounded-xl text-sm font-medium shadow-lg"
         style={{ backgroundColor: 'var(--editor-panel)', border: '1px solid var(--editor-border)', color: 'white' }}
       >
-        🧭 Маршрут
+        <span className="inline-flex items-center gap-2"><Icon name="map" />Маршрут</span>
       </button>
     );
   }
@@ -253,7 +254,7 @@ export const RouteSimulatorPanel: React.FC = () => {
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--editor-border)' }}>
-        <div className="text-white font-semibold">🧭 Симуляция маршрута</div>
+        <div className="text-white font-semibold flex items-center gap-2"><Icon name="map" />Симуляция маршрута</div>
         <button
           onClick={() => setOpen(false)}
           className="p-1 rounded hover:bg-white/10"
@@ -288,7 +289,7 @@ export const RouteSimulatorPanel: React.FC = () => {
         <div className="relative">
           <div className="flex items-center justify-between">
             <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              🟢 Откуда
+              <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="w-2.5 h-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: '#22c55e' }} />Откуда</span>
             </label>
             {route.fromNodeId && (
               <button type="button" onClick={clearFrom} className="text-xs hover:underline" style={{ color: '#fca5a5' }}>
@@ -337,7 +338,7 @@ export const RouteSimulatorPanel: React.FC = () => {
         <div className="relative">
           <div className="flex items-center justify-between">
             <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              🔴 Куда
+              <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="w-2.5 h-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: '#ef4444' }} />Куда</span>
             </label>
             {route.toNodeId && (
               <button type="button" onClick={clearTo} className="text-xs hover:underline" style={{ color: '#fca5a5' }}>
@@ -424,7 +425,7 @@ export const RouteSimulatorPanel: React.FC = () => {
 
               {pathInfo?.multiLevel && (
                 <div className="mt-2 text-xs" style={{ color: '#fbbf24' }}>
-                  ⚠️ Путь проходит через разные корпуса/этажи (переключение вида будет автоматическим).
+                  <Icon name="warning" size={12} className="inline-block mr-1 align-middle" />Путь проходит через разные корпуса/этажи (переключение вида будет автоматическим).
                 </div>
               )}
 
@@ -464,7 +465,7 @@ export const RouteSimulatorPanel: React.FC = () => {
             <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                  ⏱️ Скорость анимации
+                  <span className="inline-flex items-center gap-1.5"><Icon name="clock" size={12} />Скорость анимации</span>
                 </div>
                 <div className="text-xs font-mono" style={{ color: 'white' }}>
                   {animationSpeed} ms
@@ -507,7 +508,12 @@ export const RouteSimulatorPanel: React.FC = () => {
                       style={{ borderBottom: '1px solid var(--editor-border)' }}
                       title={title}
                     >
-                      <span className="text-base">{isStart ? '🟢' : isEnd ? '🔴' : '⚪'}</span>
+                      {/* Цвета старта и финиша — те же, что у точек маршрута на карте (`EditorNodes`). */}
+                      <span
+                        aria-hidden="true"
+                        className="w-2.5 h-2.5 flex-shrink-0 rounded-full"
+                        style={{ backgroundColor: isStart ? '#22c55e' : isEnd ? '#ef4444' : 'var(--editor-text-muted)' }}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm text-white truncate">{getNodeAliases(id)[0] || id}</div>
                         <div className="text-xs truncate" style={{ color: 'var(--editor-text-muted)' }}>

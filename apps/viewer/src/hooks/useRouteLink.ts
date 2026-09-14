@@ -8,7 +8,8 @@ import { readLinkParams, resolveLink, routeLink } from '../utils/deepLink';
  * Ссылка в адресной строке.
  *
  * После загрузки данных ссылка применяется один раз: `?from=&to=` строит
- * маршрут, `?at=` ставит начало маршрута и показывает этаж этой точки.
+ * маршрут, `?at=` ставит начало маршрута и показывает этаж этой точки, `?to=`
+ * без начала показывает карточку цели на её этаже.
  * Дальше адресная строка повторяет концы маршрута и язык — перезагрузка
  * вкладки (телефон выгружает её из памяти) маршрут не теряет, а «Поделиться»
  * отправляет ровно показанный маршрут. Запись — `replaceState`: смена точки
@@ -29,16 +30,21 @@ export function useRouteLink(): { unresolved: readonly string[]; dismiss: () => 
     if (graph === null || applied.current) return;
     applied.current = true;
 
-    const { aliasManager, showNode } = useMapStore.getState();
+    const { aliasManager, showNode, selectNode } = useMapStore.getState();
     const { setPoint } = useRouteStore.getState();
     const link = resolveLink(readLinkParams(window.location.search), graph, aliasManager);
 
     if (link.from !== null) setPoint('from', link.from);
-
-    // Обе точки — маршрут строится, и карта сама переходит к началу. Только
-    // «вы здесь» — карта показывает этаж, где человек стоит.
     if (link.to !== null) setPoint('to', link.to);
-    else if (link.from !== null) showNode(link.from);
+
+    // Обе точки — маршрут построен, и карта сама перешла к началу. Только
+    // «вы здесь» — карта показывает этаж, где человек стоит. Только цель —
+    // её карточка: оттуда один шаг до маршрута.
+    if (link.to === null && link.from !== null) showNode(link.from);
+    if (link.from === null && link.to !== null) {
+      showNode(link.to);
+      selectNode(link.to);
+    }
 
     setUnresolved(link.unresolved);
   }, [graph]);

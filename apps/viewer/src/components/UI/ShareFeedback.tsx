@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useMessages } from '../../i18n';
+import { Icon } from './Icon';
 
 interface ShareFeedbackProps {
   /** Ссылка только что скопирована. */
@@ -37,13 +38,11 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
       <div
         role="status"
         aria-live="polite"
-        className="fixed left-1/2 -translate-x-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-[1002] pointer-events-none"
+        className="fixed left-1/2 lg:left-[calc(50%+13rem)] -translate-x-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-[1002] pointer-events-none"
       >
         {copied && (
           <div className="flex items-center gap-2 whitespace-nowrap rounded-full bg-gray-900/90 px-4 py-2 text-sm text-white shadow-lg">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
+            <Icon name="check" size={16} />
             {messages.route.linkCopied}
           </div>
         )}

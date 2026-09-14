@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatFloor, messagesFor } from '../src/i18n';
+import { capitalize, formatFloor, messagesFor } from '../src/i18n';
 import { LANGUAGES } from '../src/i18n/languages';
 import type { PluralForms } from '../src/i18n/plural';
 import { detectLanguage } from '../src/stores/settingsStore';
@@ -85,5 +85,16 @@ describe('formatFloor', () => {
   it('подземный этаж — с типографским минусом, надземный — как есть', () => {
     expect(formatFloor(-1)).toBe('−1');
     expect(formatFloor(3)).toBe('3');
+  });
+});
+
+describe('capitalize', () => {
+  it('поднимает только первую букву', () => {
+    expect(capitalize('при выбранных ограничениях', 'ru')).toBe('При выбранных ограничениях');
+    expect(capitalize('the points are not connected', 'en')).toBe('The points are not connected');
+  });
+
+  it('пустая строка остаётся пустой', () => {
+    expect(capitalize('', 'ru')).toBe('');
   });
 });

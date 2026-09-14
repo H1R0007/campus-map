@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 
 export const SearchPanel: React.FC = () => {
   const searchOpen = useEditorStore((s) => s.searchOpen);
@@ -70,7 +71,7 @@ export const SearchPanel: React.FC = () => {
         {/* Search Input */}
         <div className="p-4" style={{ borderBottom: '1px solid var(--editor-border)' }}>
           <div className="flex items-center gap-3">
-            <span className="text-xl">🔍</span>
+            <Icon name="search" size={20} className="flex-shrink-0 opacity-70" />
             <input
               ref={inputRef}
               value={query}
@@ -101,7 +102,7 @@ export const SearchPanel: React.FC = () => {
               </div>
               {searchHistory.map((h, i) => (
                 <button key={i} onClick={() => setQuery(h)} className="w-full px-3 py-2 text-left text-sm rounded-lg hover:bg-white/10" style={{ color: 'white' }}>
-                  🕐 {h}
+                  <span className="inline-flex items-center gap-2"><Icon name="clock" size={14} className="opacity-70" />{h}</span>
                 </button>
               ))}
             </div>
@@ -125,7 +126,7 @@ export const SearchPanel: React.FC = () => {
                 style={{ backgroundColor: isSelected ? 'var(--editor-highlight)' : 'transparent' }}
                 onMouseEnter={() => setSelectedIndex(i)}
               >
-                <span className="text-lg">{node.isPortal ? '⭐' : '📍'}</span>
+                <Icon name={node.isPortal ? 'star' : 'pin'} size={18} filled={node.isPortal} className="flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-white font-medium truncate">
                     {aliases[0] || node.id}

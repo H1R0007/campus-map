@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scopeOfFloor } from '@campus-map/core';
-import { visiblePolylines } from '../src/utils/routeGeometry';
+import { focusBounds, stepFocusPoints, visiblePolylines } from '../src/utils/routeGeometry';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
@@ -77,5 +77,50 @@ describe('visiblePolylines', () => {
 
   it('на пустом пути возвращает пустой список', () => {
     expect(visiblePolylines([], graph, scopeOfFloor('building_a', 1))).toEqual([]);
+  });
+});
+
+describe('stepFocusPoints', () => {
+  it('у подъёма по лестнице на этаже прибытия — лестница и следующий узел пути', () => {
+    // Участок шага — a1_stairs → a2_stairs (индексы 4–5). На втором этаже из
+    // него виден один узел, и без соседа карта приблизилась бы к одной точке.
+    expect(stepFocusPoints(FULL_PATH, [4, 5], graph, scopeOfFloor('building_a', 2))).toEqual([
+      [300, 270],
+      [250, 130],
+    ]);
+  });
+
+  it('у начала на территории — начало и следующий узел, узлы корпуса не попадают', () => {
+    expect(stepFocusPoints(FULL_PATH, [0, 0], graph, scopeOfFloor(null, null))).toEqual([
+      [750, 600],
+      [300, 200],
+    ]);
+  });
+
+  it('участок на чужом этаже не даёт ни одной точки', () => {
+    expect(stepFocusPoints(FULL_PATH, [0, 1], graph, scopeOfFloor('building_a', 2))).toEqual([]);
+  });
+});
+
+describe('focusBounds', () => {
+  it('близкие точки — прямоугольник минимального размера с тем же центром', () => {
+    expect(focusBounds([[300, 200], [300, 270]], 400)).toEqual([
+      [100, 35],
+      [500, 435],
+    ]);
+  });
+
+  it('сторона шире минимума не меняется', () => {
+    expect(focusBounds([[0, 0], [100, 900]], 400)).toEqual([
+      [-150, 0],
+      [250, 900],
+    ]);
+  });
+
+  it('одна точка — квадрат минимального размера вокруг неё', () => {
+    expect(focusBounds([[50, 50]], 100)).toEqual([
+      [0, 0],
+      [100, 100],
+    ]);
   });
 });
