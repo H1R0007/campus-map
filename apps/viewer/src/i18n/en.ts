@@ -164,6 +164,8 @@ export const en: Messages = {
     finish: 'Done',
     exit: 'End step-by-step navigation',
     showOnMap: 'Show the step on the map',
+    progress: 'Route progress',
+    remaining: (duration) => `${duration} left`,
   },
 
   instructions: {

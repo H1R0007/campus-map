@@ -30,6 +30,22 @@ export function stepMeta(step: RouteStep, language: Language): string | null {
 }
 
 /**
+ * Сколько идти от начала шага до цели, секунды: время этого и следующих шагов.
+ *
+ * `null` без метрики — выдуманное число хуже отсутствующего (запись 9) — и
+ * когда идти уже некуда: «осталось ~1 мин» на прибытии было бы неправдой.
+ */
+export function remainingSeconds(steps: readonly RouteStep[], index: number): number | null {
+  let total = 0;
+  for (const step of steps.slice(index)) {
+    if (step.kind === 'start' || step.kind === 'arrive') continue;
+    if (step.durationSeconds === null) return null;
+    total += step.durationSeconds;
+  }
+  return total > 0 ? total : null;
+}
+
+/**
  * Сводка маршрута одной строкой — для свёрнутой карточки и заголовка шагов.
  *
  * В метрическом режиме это время и длина: «~6 мин · 430 м». В пиксельном

@@ -216,6 +216,10 @@ export const ru = {
     finish: 'Готово',
     exit: 'Завершить пошаговую навигацию',
     showOnMap: 'Показать шаг на карте',
+    /** Полоса пройденных шагов в шапке. */
+    progress: 'Ход маршрута',
+    /** Сколько осталось идти; `duration` — уже «~3 мин». */
+    remaining: (duration: string) => `осталось ${duration}`,
   },
 
   instructions: {

@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { WIDE_LAYOUT_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { useShareRoute } from '../../hooks/useShareRoute';
+import { useWakeLock } from '../../hooks/useWakeLock';
 import { useMessages } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
@@ -53,6 +54,11 @@ export const NavigatorPanel: React.FC = () => {
   const share = useShareRoute();
 
   const mode = sheetModeOf({ selectedNodeId, currentRoute, stepIndex });
+
+  // На шаге навигации экран не гаснет: человек идёт с телефоном в руке и не
+  // должен разблокировать его на каждом повороте. Карточка места, открытая на
+  // ходу, навигацию не прерывает — и блокировку тоже.
+  useWakeLock(currentRoute?.found === true && stepIndex !== null);
   // Карточке места раскрывать нечего: всё главное в ней и так видно.
   const expandable = mode !== 'place';
   const expanded = isWide || (expandable && sheetExpanded);

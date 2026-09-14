@@ -180,7 +180,7 @@ export default {
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
-      assert.ok((await v.panelText()).includes('Шаг 3 из'), 'навигация не сбросилась');
+      assert.ok((await v.headerText()).includes('Шаг 3 из'), 'навигация не сбросилась');
     });
 
     await step('широкий экран, тёмная тема: контраст панели и шапки', async () => {

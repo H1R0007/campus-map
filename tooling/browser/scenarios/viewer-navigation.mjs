@@ -18,7 +18,7 @@ export default {
     await step('«Начать» открывает первый шаг, маршрут приглушён, план не приближен до предела', async () => {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await v.click('Начать');
-      assert.ok((await v.panelText()).includes('Шаг 1 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 1 из 4'));
       assert.equal(await v.heading(), 'Старт');
       assert.ok((await v.routeLines()).muted > 0, 'маршрут приглушён');
       await page.sleep(600);
@@ -32,7 +32,7 @@ export default {
       assert.ok((await v.routeLines()).strong > 0, 'участок шага подсвечен');
       await v.click('Далее');
       assert.equal(await v.heading(), 'Поднимитесь по лестнице');
-      assert.ok((await v.headerText()).includes('Этаж 3'), 'этаж прибытия');
+      assert.ok((await v.headerText()).includes('Корпус А, этаж 3'), 'этаж прибытия');
       await page.sleep(600);
       const width = await v.planWidthInScreens();
       assert.ok(width !== null && width < 4, `ширина плана в экранах: ${width}`);
@@ -60,16 +60,16 @@ export default {
 
     await step('ручная смена этажа не сбрасывает шаг', async () => {
       await v.click('Этаж 1, начало маршрута');
-      assert.ok((await v.panelText()).includes('Шаг 3 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
       await v.click('Показать шаг на карте');
-      assert.ok((await v.headerText()).includes('Этаж 3'));
+      assert.ok((await v.headerText()).includes('Корпус А, этаж 3'));
     });
 
     await step('последний шаг, «Назад» и «Готово»', async () => {
       await v.click('Далее');
-      assert.ok((await v.panelText()).includes('Шаг 4 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 4 из 4'));
       await v.click('Предыдущий шаг');
-      assert.ok((await v.panelText()).includes('Шаг 3 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
       await v.click('Далее');
       await v.click('Готово');
       assert.ok((await v.panelText()).includes('Маршрут ·'), 'обзор');
@@ -79,7 +79,7 @@ export default {
     await step('нажатие на шаг в списке открывает навигацию с него', async () => {
       await v.click('Развернуть панель');
       await v.click('Поднимитесь по лестнице', `${PANEL}.querySelector('ol')`);
-      assert.ok((await v.panelText()).includes('Шаг 3 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
       await v.click('Развернуть панель');
       const current = await page.eval(`${PANEL}.querySelector('ol [aria-current="step"]')?.textContent ?? ''`);
       assert.ok(current.includes('Поднимитесь по лестнице'), `текущий шаг в списке: ${current}`);
@@ -88,7 +88,7 @@ export default {
 
     await step('язык меняется посреди навигации', async () => {
       await v.click('English');
-      assert.ok((await v.panelText()).includes('Step 3 of 4'));
+      assert.ok((await v.headerText()).includes('Step 3 of 4'));
       assert.equal(await v.heading(), 'Take the stairs up');
       await v.click('Русский');
     });
@@ -97,7 +97,43 @@ export default {
       await v.click('Завершить пошаговую навигацию');
       await v.click('Развернуть панель');
       await v.click('Предпочитать лифт');
-      assert.ok(!(await v.panelText()).includes('Шаг '), 'после пересчёта — обзор');
+      assert.ok(!(await v.headerText()).includes('Шаг '), 'после пересчёта — обзор');
+    });
+
+    await step('в пути: экран не гаснет, шаг крупно, ход маршрута в шапке', async () => {
+      const { identifier } = await page.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: `window.__wake = { requests: 0, releases: 0 };
+          Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: async () => {
+            window.__wake.requests += 1;
+            const sentinel = { released: false, addEventListener() {}, removeEventListener() {},
+              release: async () => { sentinel.released = true; window.__wake.releases += 1; } };
+            return sentinel;
+          } } });`,
+      });
+      try {
+        await v.open('/?from=a1_entrance&to=a3_room305');
+        assert.equal(await page.eval('window.__wake.requests'), 0, 'в обзоре экран может гаснуть');
+        await v.click('Начать');
+        assert.equal(await page.eval('window.__wake.requests'), 1, 'на шаге экран не гаснет');
+
+        const look = await page.eval(`({
+          title: parseFloat(getComputedStyle(${PANEL}.querySelector('h2')).fontSize),
+          next: ${PANEL}.querySelector('button.bg-primary')?.getBoundingClientRect().height ?? 0,
+          back: !!document.querySelector('[aria-label="Вернуться к карте кампуса"]'),
+          progress: document.querySelector('.campus-map-header [role="progressbar"]')?.getAttribute('aria-valuenow') ?? null,
+        })`);
+        assert.ok(look.title >= 24, `заголовок шага: ${look.title}px`);
+        assert.ok(look.next >= 56, `кнопка «Далее»: ${look.next}px`);
+        assert.equal(look.back, false, 'возврата на территорию в пути нет');
+        assert.equal(look.progress, '1');
+        assert.ok((await v.headerText()).includes('Шаг 1 из 4'));
+        await shot('viewer-trip');
+
+        await v.click('Завершить пошаговую навигацию');
+        assert.equal(await page.eval('window.__wake.releases'), 1, 'после выхода экран снова может гаснуть');
+      } finally {
+        await page.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+      }
     });
 
     await page.viewport(1440, 900, 1);

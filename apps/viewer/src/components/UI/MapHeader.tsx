@@ -3,10 +3,12 @@ import type { WheelEvent } from 'react';
 import { buildingName } from '@campus-map/core';
 import { useScrollEdges } from '../../hooks/useScrollEdges';
 import { entranceFloorOf, useMapStore } from '../../stores/mapStore';
+import { useRouteStore } from '../../stores/routeStore';
 import { formatFloor, messagesFor, useLanguage } from '../../i18n';
 import { buildingLabel } from '../../utils/placeLabels';
 import { Icon } from './Icon';
 import { LanguageSwitch } from './LanguageSwitch';
+import { TripBar } from './TripBar';
 
 /** Шаг колеса, заданный строками (так прокручивает Firefox), — в пикселях. */
 const WHEEL_LINE_PX = 16;
@@ -36,6 +38,9 @@ function scrollStripByWheel(event: WheelEvent<HTMLDivElement>): void {
  * подпись не растягивается на всю ширину: шапка стоит справа от панели
  * навигатора, и растянутая плашка читалась как отдельная панель.
  *
+ * На шаге пошаговой навигации вместо этого — ход маршрута и выход из навигации
+ * (`TripBar`, запись 23).
+ *
  * Переключатель языка — всегда в правом углу, на первом экране: иностранный
  * студент не должен искать его в интерфейсе, который не может прочитать.
  */
@@ -45,12 +50,13 @@ export const MapHeader: React.FC = () => {
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
   const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const navigating = useRouteStore((s) => s.stepIndex !== null && s.currentRoute?.found === true);
   const language = useLanguage();
   const messages = messagesFor(language);
 
   const stripRef = useRef<HTMLDivElement>(null);
   const hasData = campusMeta !== null && buildingMetas !== null;
-  const edges = useScrollEdges(stripRef, hasData && activeFloor === null);
+  const edges = useScrollEdges(stripRef, hasData && activeFloor === null && !navigating);
 
   if (!campusMeta || !buildingMetas) return null;
 
@@ -62,7 +68,9 @@ export const MapHeader: React.FC = () => {
 
   return (
     <header className="campus-map-header">
-      {activeFloor === null ? (
+      {navigating ? (
+        <TripBar />
+      ) : activeFloor === null ? (
         <div ref={stripRef} onWheel={scrollStripByWheel} className={stripClassName}>
           <div className="flex gap-2 w-max py-1">
             {campusMeta.buildings.map((building) => {
