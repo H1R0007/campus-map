@@ -1,0 +1,182 @@
+import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
+import type { PlanFormat } from '@campus-map/core';
+import { planTransform } from './placement.js';
+import type { PlanPlacement } from './placement.js';
+import { loadPlanContent } from './planContent.js';
+import { PlanStatusContext } from './planStatus.js';
+import { FALLBACK_IMAGE_SIZE } from './useImageSize.js';
+import type { ImageSize, ImageStatus } from './useImageSize.js';
+
+/**
+ * Слой Leaflet: план, поставленный на территорию по привязке.
+ *
+ * `ImageOverlay` умеет только прямоугольник вдоль осей, а корпуса стоят под
+ * углом. Слой держит элемент плана размером в пиксели изображения и ставит его
+ * CSS-преобразованием (`planTransform`) — на каждое изменение масштаба и в
+ * анимацию масштаба, как это делает сам `ImageOverlay`.
+ */
+class PlacedPlanLayer extends L.Layer {
+  private readonly container: HTMLDivElement;
+  private map: L.Map | null = null;
+
+  constructor(
+    private placement: PlanPlacement,
+    className: string
+  ) {
+    super();
+    this.container = L.DomUtil.create('div', `campus-placed-plan ${className}`);
+    Object.assign(this.container.style, { position: 'absolute', left: '0', top: '0', transformOrigin: '0 0', pointerEvents: 'none' });
+  }
+
+  override onAdd(map: L.Map): this {
+    this.map = map;
+    // Приватное поле Leaflet: анимация масштаба включена и браузер её умеет.
+    const animated = (map as unknown as { _zoomAnimated: boolean })._zoomAnimated;
+    this.container.classList.add(animated ? 'leaflet-zoom-animated' : 'leaflet-zoom-hide');
+    this.getPane()?.appendChild(this.container);
+
+    map.on('zoom viewreset', this.reset, this);
+    if (animated) map.on('zoomanim', this.animateZoom, this);
+    this.reset();
+    return this;
+  }
+
+  override onRemove(map: L.Map): this {
+    map.off('zoom viewreset', this.reset, this);
+    map.off('zoomanim', this.animateZoom, this);
+    this.container.remove();
+    this.map = null;
+    return this;
+  }
+
+  get element(): HTMLDivElement {
+    return this.container;
+  }
+
+  setContent(element: Element | null, size: ImageSize): void {
+    this.container.replaceChildren(...(element ? [element] : []));
+    this.container.style.width = `${size.width}px`;
+    this.container.style.height = `${size.height}px`;
+  }
+
+  setPlacement(placement: PlanPlacement): void {
+    this.placement = placement;
+    this.reset();
+  }
+
+  private origin(): L.LatLng {
+    return L.latLng(this.placement.originMeters.y, this.placement.originMeters.x);
+  }
+
+  private reset(): void {
+    if (!this.map) return;
+    const origin = this.map.latLngToLayerPoint(this.origin());
+    this.container.style.transform = planTransform(origin, this.map.getZoomScale(this.map.getZoom(), 0), this.placement);
+  }
+
+  private animateZoom(event: L.ZoomAnimEvent): void {
+    if (!this.map) return;
+    // Тот же приватный расчёт, что у `ImageOverlay`: положение точки на слое при
+    // целевом масштабе и центре анимации.
+    const toLayerPoint = (this.map as unknown as {
+      _latLngToNewLayerPoint(latlng: L.LatLng, zoom: number, center: L.LatLng): L.Point;
+    })._latLngToNewLayerPoint.bind(this.map);
+    const origin = toLayerPoint(this.origin(), event.zoom, event.center);
+    this.container.style.transform = planTransform(origin, this.map.getZoomScale(event.zoom, 0), this.placement);
+  }
+}
+
+export interface PlacedPlanProps {
+  url: string;
+  format: PlanFormat;
+  placement: PlanPlacement;
+  /** Размер из метаданных — пока план грузится и для SVG без размеров. */
+  fallbackSize?: ImageSize;
+  /**
+   * Показан ли план. Скрытый план остаётся на карте прозрачным: повторный показ
+   * не грузит его заново, а смена видимости плавная (переход — в CSS приложения).
+   */
+  visible?: boolean;
+  /** Классы элемента плана: по ним приложение оформляет планы. */
+  className?: string;
+  /** Pane Leaflet; по умолчанию — слой подложек. */
+  pane?: string;
+  /** Атрибуты `data-*` элемента плана — для сценариев и отладки. */
+  data?: Readonly<Record<string, string>>;
+}
+
+/**
+ * План на холсте кампуса (`WorldMap`): SVG встроен в страницу, картинка — `<img>`.
+ *
+ * Состояние загрузки видимого плана сообщается холсту: «План загружается» и
+ * «План недоступен» относятся к тому, что человек сейчас видит.
+ */
+export function PlacedPlan({
+  url,
+  format,
+  placement,
+  fallbackSize = FALLBACK_IMAGE_SIZE,
+  visible = true,
+  className = '',
+  pane = 'overlayPane',
+  data,
+}: PlacedPlanProps) {
+  const map = useMap();
+  const id = useId();
+  const report = useContext(PlanStatusContext);
+  const [layer] = useState(() => new PlacedPlanLayer(placement, className));
+  const [status, setStatus] = useState<ImageStatus>('loading');
+  const fallback = useRef(fallbackSize);
+  fallback.current = fallbackSize;
+
+  useEffect(() => {
+    layer.options.pane = pane;
+    layer.addTo(map);
+    return () => {
+      layer.remove();
+    };
+  }, [layer, map, pane]);
+
+  const { metersPerPixel, rotationDeg } = placement;
+  const { x, y } = placement.originMeters;
+  useEffect(() => {
+    layer.setPlacement({ metersPerPixel, rotationDeg, originMeters: { x, y } });
+  }, [layer, metersPerPixel, rotationDeg, x, y]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatus('loading');
+    layer.setContent(null, fallback.current);
+
+    loadPlanContent(url, format, fallback.current).then(
+      (content) => {
+        if (cancelled) return;
+        layer.setContent(content.element, content.size);
+        setStatus('ready');
+      },
+      () => {
+        if (!cancelled) setStatus('error');
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [layer, url, format]);
+
+  useEffect(() => {
+    const element = layer.element;
+    element.className = `campus-placed-plan ${className}`;
+    element.dataset.visible = String(visible);
+    element.style.opacity = visible && status === 'ready' ? '' : '0';
+    for (const [key, value] of Object.entries(data ?? {})) element.dataset[key] = value;
+  }, [layer, className, visible, status, data]);
+
+  useEffect(() => {
+    if (!visible || report === null) return;
+    return report(id, status);
+  }, [report, id, visible, status]);
+
+  return null;
+}

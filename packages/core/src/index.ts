@@ -64,8 +64,10 @@ export {
 // Метрическое пространство кампуса
 export {
   createCampusProjection,
+  resolvePlanPlacement,
   type CampusProjection,
   type MetricMode,
+  type ResolvedPlanPlacement,
   type UnplacedFloor,
   type WorldPoint,
 } from './projection.js';

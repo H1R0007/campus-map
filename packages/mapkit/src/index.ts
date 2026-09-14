@@ -1,17 +1,38 @@
 /**
  * @campus-map/mapkit — общая обвязка Leaflet-карты.
  *
- * Навигатор и редактор показывают одну и ту же растровую подложку в
- * пиксельной системе координат, но живут в разных приложениях. Пакет
- * выносит общий слой, чтобы особенности `CRS.Simple`, подгонка viewport и
- * определение размеров плана существовали в одном экземпляре.
+ * Навигатор и редактор живут в разных приложениях, а показывают планы одинаково.
+ * Пакет выносит общий слой, чтобы особенности `CRS.Simple`, подгонка вида под
+ * интерфейс и загрузка планов существовали в одном экземпляре:
+ *
+ * - `PixelMap` — один план в пикселях изображения;
+ * - `WorldMap` и `PlacedPlan` — холст кампуса в метрах, планы по привязке
+ *   (запись 31).
  *
  * Здесь же обозначения типов переходов — цвет и значок: оба приложения
  * рисуют лестницы, лифты и входы одинаково.
  */
 
-export { PixelMap, fitPaddingOf, usePixelMapGeometry } from './PixelMap.js';
-export type { MapInsets, PixelMapGeometry, PixelMapProps } from './PixelMap.js';
+export { DEFAULT_INSETS, fitPaddingOf, useMapFrame } from './mapFrame.js';
+export type { MapFrame, MapInsets } from './mapFrame.js';
+
+export { PixelMap } from './PixelMap.js';
+export type { PixelMapProps } from './PixelMap.js';
+
+export { WorldMap, meterLatLng } from './WorldMap.js';
+export type { WorldMapProps } from './WorldMap.js';
+export { PlacedPlan } from './PlacedPlan.js';
+export type { PlacedPlanProps } from './PlacedPlan.js';
+export {
+  containsPoint,
+  distanceToPolygon,
+  extentOf,
+  planCorners,
+  planPointToWorld,
+  planTransform,
+  unionExtent,
+} from './placement.js';
+export type { MeterExtent, MeterPoint, PlanPlacement } from './placement.js';
 
 export type { ImageSize, ImageStatus } from './useImageSize.js';
 

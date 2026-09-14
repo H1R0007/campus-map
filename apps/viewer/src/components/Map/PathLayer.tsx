@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
+import { fitPaddingOf, useMapFrame } from '@campus-map/mapkit';
 import type { MapInsets } from '@campus-map/mapkit';
 import { useRouteSteps } from '../../hooks/useStepNavigation';
 import { useRouteStore } from '../../stores/routeStore';
@@ -61,7 +61,7 @@ export const PathLayer: React.FC = () => {
   const steps = useRouteSteps();
 
   const map = useMap();
-  const geometry = usePixelMapGeometry();
+  const { bounds: planBounds } = useMapFrame();
 
   // Отступы меняются вместе с высотой шторки, но подгонять вид из-за этого
   // нельзя: раскрытие шторки уводило бы карту из приближения. Подгонка берёт
@@ -108,14 +108,14 @@ export const PathLayer: React.FC = () => {
 
   const fitFocus = useCallback(
     (points: readonly LatLngTuple[], edges: MapInsets) => {
-      const { width, height } = geometry.size;
-      const bounds = L.latLngBounds(focusBounds(points, Math.max(width, height) * MIN_FOCUS_SHARE));
+      const planSpan = Math.max(planBounds.getEast() - planBounds.getWest(), planBounds.getSouth() - planBounds.getNorth());
+      const bounds = L.latLngBounds(focusBounds(points, planSpan * MIN_FOCUS_SHARE));
       map.once('moveend', () => {
         autoView.current = { center: map.getCenter(), zoom: map.getZoom() };
       });
       map.fitBounds(bounds, { ...fitPaddingOf(edges, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
     },
-    [map, geometry.size]
+    [map, planBounds]
   );
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export const PathLayer: React.FC = () => {
     if (points.length === 0) return;
 
     fitFocus(points, latestInsets.current);
-    // `geometry.size` в зависимостях (через `fitFocus`) не случайно: реальный размер плана
+    // Границы плана в зависимостях (через `fitFocus`) не случайно: реальный размер плана
     // определяется асинхронно, и при его появлении `PixelMap` заново
     // центрируется на всём изображении. Без повторной подгонки маршрут
     // «уезжал» ровно в тот момент, когда картинка догружалась.

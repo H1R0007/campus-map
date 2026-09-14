@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMap } from 'react-leaflet';
-import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
+import { fitPaddingOf, useMapFrame } from '@campus-map/mapkit';
 import { useMessages } from '../../i18n';
 import { useMapInsets } from '../Map/mapChrome';
 import { Icon } from './Icon';
@@ -11,14 +11,14 @@ import { Icon } from './Icon';
  * Штатный зум Leaflet отключён на карте, потому что его оформление
  * выбивается из мобильного интерфейса; этот компонент заменяет его.
  *
- * Должен рендериться внутри `<PixelMap>` (в колонке `MapRail`): использует и
- * контекст карты, и геометрию подложки. «Показать план целиком» подгоняет вид
- * под границы текущего плана с отступами под интерфейс — так же, как при
- * открытии плана, с учётом текущей высоты шторки.
+ * Должен рендериться внутри карты mapkit (в колонке `MapRail`): использует и
+ * контекст карты, и её границы. «Показать план целиком» подгоняет вид под
+ * границы плана или всей территории с отступами под интерфейс — так же, как при
+ * открытии карты, с учётом текущей высоты шторки.
  */
 export const ZoomControls: React.FC = () => {
   const map = useMap();
-  const { bounds } = usePixelMapGeometry();
+  const { bounds } = useMapFrame();
   const insets = useMapInsets();
   const messages = useMessages();
 

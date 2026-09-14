@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePixelMapGeometry } from '@campus-map/mapkit';
+import { useMapFrame } from '@campus-map/mapkit';
 import { useOnline } from '../../hooks/useOnline';
 import { useMessages } from '../../i18n';
 
@@ -11,10 +11,10 @@ import { useMessages } from '../../i18n';
  * без сети — тоже называется прямо: точки и линия маршрута при этом остаются
  * на месте.
  *
- * Должен рендериться внутри `<PixelMap>`.
+ * Должен рендериться внутри `<PixelMap>` или `<WorldMap>`.
  */
 export const PlanStatus: React.FC = () => {
-  const { status } = usePixelMapGeometry();
+  const { status } = useMapFrame();
   const messages = useMessages();
   const online = useOnline();
 
