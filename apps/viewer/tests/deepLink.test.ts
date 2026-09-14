@@ -66,21 +66,40 @@ describe('resolveLink', () => {
 });
 
 describe('routeLink', () => {
+  const ORIGIN = 'https://campus.example';
+
   it('сохраняет путь страницы: навигатор может стоять в подкаталоге', () => {
-    expect(routeLink('/campus/', { from: 'campus_gate', to: 'a2_room201' }, 'ru')).toBe(
-      '/campus/?from=campus_gate&to=a2_room201'
+    expect(routeLink(`${ORIGIN}/campus/`, { from: 'campus_gate', to: 'a2_room201' }, 'ru')).toBe(
+      `${ORIGIN}/campus/?from=campus_gate&to=a2_room201`
     );
   });
 
   it('язык пишется, только если он не язык данных', () => {
-    expect(routeLink('/', { from: 'campus_gate', to: null }, 'en')).toBe('/?from=campus_gate&lang=en');
-    expect(routeLink('/', { from: null, to: null }, 'ru')).toBe('/');
+    expect(routeLink(`${ORIGIN}/`, { from: 'campus_gate', to: null }, 'en')).toBe(
+      `${ORIGIN}/?from=campus_gate&lang=en`
+    );
+    expect(routeLink(`${ORIGIN}/`, { from: null, to: null }, 'ru')).toBe(`${ORIGIN}/`);
+  });
+
+  it('заменяет прежние параметры и сохраняет фрагмент', () => {
+    expect(routeLink(`${ORIGIN}/?at=a1_entrance&lang=en#map`, { from: 'a1_entrance', to: null }, 'ru')).toBe(
+      `${ORIGIN}/?from=a1_entrance#map`
+    );
+  });
+
+  it('при пути «//» остаётся на том же хосте', () => {
+    // Путь с запросом давал «//?from=…» — ссылку без схемы на другой хост, и
+    // `history.replaceState` падал с SecurityError при первом выборе точки.
+    const link = routeLink('http://localhost:3000//', { from: 'campus_gate', to: null }, 'ru');
+
+    expect(new URL(link).origin).toBe('http://localhost:3000');
+    expect(link).toBe('http://localhost:3000//?from=campus_gate');
   });
 
   it('ссылка читается обратно в те же точки', () => {
-    const link = routeLink('/', { from: 'a1_hall', to: 'a2_room201' }, 'en');
+    const link = routeLink(`${ORIGIN}/`, { from: 'a1_hall', to: 'a2_room201' }, 'en');
 
-    expect(readLinkParams(link.slice(link.indexOf('?')))).toEqual({
+    expect(readLinkParams(new URL(link).search)).toEqual({
       from: 'a1_hall',
       to: 'a2_room201',
       at: null,
