@@ -83,7 +83,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
         <div className="flex items-start gap-3">
           <span
             aria-hidden="true"
-            className="w-11 h-11 flex-shrink-0 rounded-full bg-red-50 text-red-700 flex items-center justify-center"
+            className="w-11 h-11 flex-shrink-0 rounded-full bg-danger-soft text-danger flex items-center justify-center"
           >
             <Icon name="alert" />
           </span>

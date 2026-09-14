@@ -1,5 +1,10 @@
 /** Цветовые токены навигатора, объявленные в `index.css`. */
-export type ThemeToken = '--color-primary' | '--color-primary-hover' | '--color-start';
+export type ThemeToken =
+  | '--color-primary'
+  | '--color-primary-hover'
+  | '--color-start'
+  | '--color-route'
+  | '--color-surface';
 
 /**
  * Цвет токена темы строкой — для слоёв карты на canvas.

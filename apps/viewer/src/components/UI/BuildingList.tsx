@@ -51,7 +51,7 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
                   setActiveFloor(building.id, entranceFloorOf(meta));
                 }}
                 className={`w-full min-h-[3.5rem] px-3 py-2 rounded-xl flex items-center gap-3 text-left transition-colors ${
-                  isCurrent ? 'bg-primary/10' : 'hover:bg-gray-50'
+                  isCurrent ? 'bg-selected' : 'hover:bg-gray-50'
                 }`}
               >
                 <span

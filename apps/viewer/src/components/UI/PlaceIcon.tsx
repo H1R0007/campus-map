@@ -32,7 +32,7 @@ export const PlaceIcon: React.FC<PlaceIconProps> = ({ transition, size = 'md' })
   return (
     <span
       aria-hidden="true"
-      className={`${box} flex-shrink-0 rounded-full flex items-center justify-center bg-primary/10 text-primary`}
+      className={`${box} flex-shrink-0 rounded-full flex items-center justify-center bg-selected text-accent`}
     >
       <Icon name="pin" size={size === 'lg' ? 22 : 18} />
     </span>

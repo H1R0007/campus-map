@@ -68,7 +68,7 @@ export const FloorSelector: React.FC = () => {
               <span
                 aria-hidden="true"
                 className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                  isActive ? 'bg-white' : 'bg-primary'
+                  isActive ? 'bg-white' : 'bg-accent'
                 }`}
               />
             )}

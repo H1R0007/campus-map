@@ -63,7 +63,7 @@ export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) =>
         <button
           type="button"
           onClick={showCurrent}
-          className="mt-2 -ml-3 h-11 px-3 rounded-xl inline-flex items-center gap-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+          className="mt-2 -ml-3 h-11 px-3 rounded-xl inline-flex items-center gap-2 text-sm font-medium text-accent hover:bg-selected transition-colors"
         >
           <Icon name="layers" size={18} />
           {messages.navigation.showOnMap}

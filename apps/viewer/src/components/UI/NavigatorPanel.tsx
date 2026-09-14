@@ -167,7 +167,7 @@ export const NavigatorPanel: React.FC = () => {
         aria-label={messages.sheet.label}
         onKeyDown={onKeyDown}
         style={dragOffset ? { transform: `translateY(${dragOffset}px)` } : undefined}
-        className={`fixed z-[1000] inset-x-0 bottom-0 flex flex-col bg-white border border-gray-100 shadow-2xl rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-4 sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:w-[26rem] sm:rounded-3xl sm:pb-0 lg:top-4 lg:bottom-auto lg:w-[24rem] lg:max-h-[calc(100%-2rem)] lg:rounded-2xl ${
+        className={`fixed z-[1000] inset-x-0 bottom-0 flex flex-col bg-surface border border-gray-100 shadow-2xl rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-4 sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:w-[26rem] sm:rounded-3xl sm:pb-0 lg:top-4 lg:bottom-auto lg:w-[24rem] lg:max-h-[calc(100%-2rem)] lg:rounded-2xl ${
           dragOffset === null ? 'campus-panel--animated' : ''
         }`}
       >

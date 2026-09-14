@@ -15,7 +15,7 @@ const Chip: React.FC<ChipProps> = ({ pressed, label, onToggle }) => (
     onClick={onToggle}
     aria-pressed={pressed}
     className={`h-11 px-4 rounded-full border text-sm font-medium flex items-center gap-2 transition-colors ${
-      pressed ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+      pressed ? 'border-accent bg-selected text-accent' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
     }`}
   >
     {pressed && <Icon name="check" size={16} />}

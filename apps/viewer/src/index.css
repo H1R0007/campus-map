@@ -19,9 +19,71 @@
    правила ниже и canvas-слои карты (`utils/themeColor.ts`) берут цвета
    отсюда; других объявлений фирменного цвета нет. */
 :root {
-    --color-primary: 0 99 204;       /* #0063CC */
+    color-scheme: light;
+
+    --color-primary: 0 99 204;       /* #0063CC — заливка под белым текстом */
     --color-primary-hover: 0 82 163; /* #0052A3 */
     --color-start: 22 163 74;        /* #16A34A — начало маршрута */
+
+    /* Фирменный цвет текста, значков и рамок на поверхности. В тёмной теме
+       светлее: #0063CC на тёмном не читается. */
+    --color-accent: 0 99 204;
+    /* Подсветка выбранного — цвет вместе с прозрачностью. */
+    --color-selected: 0 99 204 / 0.1;
+    /* Линия и конец маршрута поверх плана. */
+    --color-route: 0 99 204;
+
+    --color-surface: 255 255 255;    /* панели и карточки */
+    --color-canvas: 245 245 245;     /* фон страницы */
+    --color-map: 229 231 235;        /* фон карты вокруг плана */
+    --color-inverse: 17 24 39;       /* всплывающие сообщения */
+    --color-on-inverse: 255 255 255;
+    --color-danger: 185 28 28;
+    --color-danger-soft: 254 242 242;
+
+    /* Серая шкала классов Tailwind (`tailwind.config.js`). */
+    --gray-50: 249 250 251;
+    --gray-100: 243 244 246;
+    --gray-200: 229 231 235;
+    --gray-300: 209 213 219;
+    --gray-400: 156 163 175;
+    --gray-500: 107 114 128;
+    --gray-600: 75 85 99;
+    --gray-700: 55 65 81;
+    --gray-800: 31 41 55;
+    --gray-900: 17 24 39;
+}
+
+/* Тёмная тема — по теме системы (запись 21). Серая шкала перевёрнута: её
+   ступени значат одно и то же в обеих темах. Контраст текста в обеих темах
+   проверяет сценарий `viewer-theme` (`pnpm check:browser`). */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+
+        --color-accent: 110 168 255;     /* #6EA8FF */
+        --color-selected: 110 168 255 / 0.16;
+        --color-route: 110 168 255;
+
+        --color-surface: 27 34 46;       /* #1B222E */
+        --color-canvas: 14 18 25;        /* #0E1219 — как theme-color в index.html */
+        --color-map: 17 22 30;
+        --color-inverse: 229 233 239;
+        --color-on-inverse: 17 24 39;
+        --color-danger: 252 165 165;
+        --color-danger-soft: 69 26 26;
+
+        --gray-50: 36 44 58;
+        --gray-100: 44 53 69;
+        --gray-200: 58 68 86;
+        --gray-300: 78 88 107;
+        --gray-400: 125 135 153;
+        --gray-500: 150 160 176;
+        --gray-600: 172 181 195;
+        --gray-700: 200 207 217;
+        --gray-800: 226 231 238;
+        --gray-900: 243 245 248;
+    }
 }
 
 *, *::before, *::after {
@@ -41,7 +103,8 @@ body {
        первым стоял 'Inter', которого в приложении не было ни в npm, ни по
        ссылке, — стек всё равно падал на системный. */
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: #f5f5f5;
+    background-color: rgb(var(--color-canvas));
+    color: rgb(var(--gray-900));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Отключает «резиновый» скролл и двойной тап-зум на мобильных. */
@@ -67,7 +130,7 @@ button {
 .leaflet-container {
     width: 100%;
     height: 100%;
-    background: #e5e7eb;
+    background: rgb(var(--color-map));
     font-family: inherit;
 }
 
@@ -81,6 +144,16 @@ button {
 .leaflet-marker-icon {
     background: none !important;
     border: none !important;
+}
+
+/* План в тёмной теме — светлые линии на тёмном: яркий лист посреди тёмного
+   экрана слепил бы. Фильтр только у подложки, маршрут и отметки поверх неё не
+   меняются. Подобран по тестовым планам-чертежам; с официальными планами его
+   нужно пересмотреть (запись 21). */
+@media (prefers-color-scheme: dark) {
+    .leaflet-image-layer {
+        filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
+    }
 }
 
 /* ===== Шапка и колонка управления картой ===== */
@@ -169,7 +242,7 @@ button {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: #ffffff;
+    background: rgb(var(--color-surface));
     border-radius: 0.75rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -189,15 +262,15 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #ffffff;
-    color: #374151;
+    background: rgb(var(--color-surface));
+    color: rgb(var(--gray-700));
     border-radius: 0.75rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
 .campus-zoom-controls__button:hover {
-    background: #f9fafb;
+    background: rgb(var(--gray-50));
 }
 
 .campus-zoom-controls__button:active {
@@ -220,8 +293,8 @@ button {
     pointer-events: none;
     padding: 0.375rem 0.75rem;
     border-radius: 9999px;
-    background: rgba(17, 24, 39, 0.85);
-    color: #ffffff;
+    background: rgb(var(--color-inverse) / 0.85);
+    color: rgb(var(--color-on-inverse));
     font-size: 0.8125rem;
     white-space: nowrap;
 }
@@ -239,7 +312,7 @@ button {
    `stroke` и `fill`, которые не понимают `var()`, а правило CSS их
    перекрывает. */
 .campus-route-line {
-    stroke: rgb(var(--color-primary));
+    stroke: rgb(var(--color-route));
 }
 
 /* На шаге пошаговой навигации маршрут приглушён, а участок шага — нет. Правило
@@ -253,7 +326,7 @@ button {
 }
 
 .campus-endpoint--end {
-    fill: rgb(var(--color-primary));
+    fill: rgb(var(--color-route));
 }
 
 /* Подложку точки перехода задаёт цвет её типа (`TRANSITION_COLORS`), значок —
@@ -301,6 +374,6 @@ button {
 
 button:focus-visible,
 input:focus-visible {
-    outline: 2px solid rgb(var(--color-primary));
+    outline: 2px solid rgb(var(--color-accent));
     outline-offset: 2px;
 }

@@ -73,7 +73,7 @@ export const MapHeader: React.FC = () => {
                   key={building.id}
                   type="button"
                   onClick={() => setActiveFloor(building.id, entranceFloorOf(meta))}
-                  className="h-11 max-w-[14rem] px-4 rounded-xl bg-white shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  className="h-11 max-w-[14rem] px-4 rounded-xl bg-surface shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                 >
                   <Icon name="building" size={16} className="flex-shrink-0 text-gray-500" />
                   <span className="min-w-0 truncate">{meta ? buildingName(meta, language) : building.name ?? building.id}</span>
@@ -87,14 +87,14 @@ export const MapHeader: React.FC = () => {
           <button
             type="button"
             onClick={clearActiveFloor}
-            className="w-11 h-11 flex-shrink-0 rounded-xl bg-white shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-11 h-11 flex-shrink-0 rounded-xl bg-surface shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 transition-colors"
             title={messages.map.backToCampus}
             aria-label={messages.map.backToCampus}
           >
             <Icon name="back" />
           </button>
 
-          <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-white shadow-md flex flex-col justify-center lg:flex-none lg:max-w-sm">
+          <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center lg:flex-none lg:max-w-sm">
             <div className="text-sm font-semibold text-gray-800 truncate">
               {buildingLabel(buildingMetas, activeFloor.buildingId, language)}
             </div>
@@ -105,7 +105,7 @@ export const MapHeader: React.FC = () => {
         </>
       )}
 
-      <div className="ml-auto flex-shrink-0 rounded-xl bg-white shadow-md p-1">
+      <div className="ml-auto flex-shrink-0 rounded-xl bg-surface shadow-md p-1">
         <LanguageSwitch />
       </div>
     </header>
