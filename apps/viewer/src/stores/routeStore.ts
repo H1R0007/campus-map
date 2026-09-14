@@ -29,6 +29,13 @@ interface RouteState {
    */
   stepIndex: number | null;
 
+  /**
+   * Человек прошёл последний шаг и нажал «Готово»: панель показывает прибытие —
+   * «Обратно» и «К выходу» (запись 24). Как и шаг, принадлежит маршруту:
+   * любой пересчёт или новый шаг прибытие снимает.
+   */
+  arrived: boolean;
+
   options: PathfindingOptions;
 
   /**
@@ -57,6 +64,17 @@ interface RouteState {
   setOptions: (options: Partial<PathfindingOptions>) => void;
   /** Шаг навигации; у ненайденного маршрута шагов нет, и вызов ничего не меняет. */
   setStep: (index: number | null) => void;
+
+  /** «Готово» на последнем шаге — прибытие; у ненайденного маршрута ничего не меняет. */
+  finish: () => void;
+
+  /**
+   * Дальше от цели — к ближайшему месту категории: «К выходу» на прибытии.
+   * Цель становится началом нового маршрута.
+   *
+   * @returns маршрут либо `null`, если цели нет или места категории не нашлось
+   */
+  continueToNearest: (category: PlaceCategory) => PathResult | null;
   clearRoute: () => void;
   swapPoints: () => void;
 }
@@ -76,12 +94,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
     // Маршрут и шаг навигации меняются вместе: см. `stepIndex`.
     if (!graph || !fromNodeId || !toNodeId) {
-      set({ currentRoute: null, stepIndex: null });
+      set({ currentRoute: null, stepIndex: null, arrived: false });
       return null;
     }
 
     const route = findPath(graph, fromNodeId, toNodeId, options);
-    set({ currentRoute: route, stepIndex: null });
+    set({ currentRoute: route, stepIndex: null, arrived: false });
 
     if (!route.found) return route;
 
@@ -101,6 +119,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
     toNodeId: null,
     currentRoute: null,
     stepIndex: null,
+    arrived: false,
 
     // Значения по умолчанию принадлежат ядру: здесь раньше лежала их копия,
     // и расхождение между двумя наборами никто бы не заметил.
@@ -117,7 +136,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
       const { fromNodeId, toNodeId } = get();
       if (fromNodeId === null || toNodeId === null) {
-        set({ currentRoute: null, stepIndex: null });
+        set({ currentRoute: null, stepIndex: null, arrived: false });
         return null;
       }
 
@@ -125,7 +144,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
     },
 
     clearPoint: (field) =>
-      set({ [field === 'from' ? 'fromNodeId' : 'toNodeId']: null, currentRoute: null, stepIndex: null }),
+      set({
+        [field === 'from' ? 'fromNodeId' : 'toNodeId']: null,
+        currentRoute: null,
+        stepIndex: null,
+        arrived: false,
+      }),
 
     routeToNearest: (category) => {
       const { fromNodeId, options, setPoint } = get();
@@ -147,10 +171,24 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
     setStep: (index) => {
       if (index !== null && !get().currentRoute?.found) return;
-      set({ stepIndex: index });
+      set({ stepIndex: index, arrived: false });
     },
 
-    clearRoute: () => set({ fromNodeId: null, toNodeId: null, currentRoute: null, stepIndex: null }),
+    finish: () => {
+      if (!get().currentRoute?.found) return;
+      set({ stepIndex: null, arrived: true });
+    },
+
+    continueToNearest: (category) => {
+      const { toNodeId } = get();
+      if (toNodeId === null) return null;
+
+      set({ fromNodeId: toNodeId, toNodeId: null, currentRoute: null, stepIndex: null, arrived: false });
+      return get().routeToNearest(category);
+    },
+
+    clearRoute: () =>
+      set({ fromNodeId: null, toNodeId: null, currentRoute: null, stepIndex: null, arrived: false }),
 
     swapPoints: () => {
       const { fromNodeId, toNodeId, currentRoute } = get();

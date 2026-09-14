@@ -72,11 +72,33 @@ export default {
       assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
       await v.click('Далее');
       await v.click('Готово');
-      assert.ok((await v.panelText()).includes('Маршрут ·'), 'обзор');
-      assert.equal((await v.routeLines()).muted, 0, 'в обзоре маршрут не приглушён');
+      const heading = await v.heading();
+      assert.ok(heading.includes('Вы на месте') && heading.includes('А-305'), `прибытие: ${heading}`);
+      assert.equal((await v.routeLines()).muted, 0, 'на прибытии маршрут не приглушён');
+      assert.ok(!(await v.headerText()).includes('Шаг '), 'ход маршрута из шапки ушёл');
+      await shot('viewer-arrival');
+
+      await v.click('Обратно');
+      await page.waitFor(`${PANEL}.textContent.includes('Маршрут ·')`);
+      const back = new URL(await v.href());
+      assert.equal(back.searchParams.get('from'), 'a3_room305');
+      assert.equal(back.searchParams.get('to'), 'a1_entrance');
+    });
+
+    await step('прибытие: «К выходу» ведёт к ближайшему выходу', async () => {
+      await v.open('/?from=a1_entrance&to=a3_room305');
+      await v.click('Начать');
+      for (let i = 0; i < 3; i += 1) await v.click('Далее');
+      await v.click('Готово');
+      await v.click('К выходу');
+      await page.waitFor(`${PANEL}.textContent.includes('Маршрут ·')`);
+      const exit = new URL(await v.href());
+      assert.equal(exit.searchParams.get('from'), 'a3_room305');
+      assert.equal(exit.searchParams.get('to'), 'a1_entrance_yard');
     });
 
     await step('нажатие на шаг в списке открывает навигацию с него', async () => {
+      await v.open('/?from=a1_entrance&to=a3_room305');
       await v.click('Развернуть панель');
       await v.click('Поднимитесь по лестнице', `${PANEL}.querySelector('ol')`);
       assert.ok((await v.headerText()).includes('Шаг 3 из 4'));

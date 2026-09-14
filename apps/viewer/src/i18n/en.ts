@@ -168,6 +168,12 @@ export const en: Messages = {
     remaining: (duration) => `${duration} left`,
   },
 
+  arrival: {
+    title: 'You have arrived',
+    back: 'Back',
+    toExit: 'To the exit',
+  },
+
   instructions: {
     start: 'Start',
     walkTo: {

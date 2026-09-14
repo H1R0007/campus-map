@@ -7,6 +7,7 @@ import { useMessages } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import { sheetModeOf, useUiStore } from '../../stores/uiStore';
+import { ArrivalCard } from './ArrivalCard';
 import { IdleContent } from './IdleContent';
 import { PlaceCard } from './PlaceCard';
 import { RouteNavigation } from './RouteNavigation';
@@ -47,20 +48,21 @@ export const NavigatorPanel: React.FC = () => {
   const selectNode = useMapStore((s) => s.selectNode);
   const currentRoute = useRouteStore((s) => s.currentRoute);
   const stepIndex = useRouteStore((s) => s.stepIndex);
+  const arrived = useRouteStore((s) => s.arrived);
   const searchTarget = useUiStore((s) => s.searchTarget);
   const sheetExpanded = useUiStore((s) => s.sheetExpanded);
   const setSheetExpanded = useUiStore((s) => s.setSheetExpanded);
   const setMapObstruction = useUiStore((s) => s.setMapObstruction);
   const share = useShareRoute();
 
-  const mode = sheetModeOf({ selectedNodeId, currentRoute, stepIndex });
+  const mode = sheetModeOf({ selectedNodeId, currentRoute, stepIndex, arrived });
 
   // На шаге навигации экран не гаснет: человек идёт с телефоном в руке и не
   // должен разблокировать его на каждом повороте. Карточка места, открытая на
   // ходу, навигацию не прерывает — и блокировку тоже.
   useWakeLock(currentRoute?.found === true && stepIndex !== null);
-  // Карточке места раскрывать нечего: всё главное в ней и так видно.
-  const expandable = mode !== 'place';
+  // Карточке места и прибытию раскрывать нечего: всё главное в них и так видно.
+  const expandable = mode !== 'place' && mode !== 'arrived';
   const expanded = isWide || (expandable && sheetExpanded);
   const hasHandle = !isWide && expandable;
 
@@ -156,6 +158,8 @@ export const NavigatorPanel: React.FC = () => {
   const content =
     mode === 'place' && selectedNodeId !== null ? (
       <PlaceCard nodeId={selectedNodeId} />
+    ) : mode === 'arrived' ? (
+      <ArrivalCard />
     ) : mode === 'navigate' ? (
       <RouteNavigation expanded={expanded} />
     ) : mode === 'route' ? (

@@ -2,6 +2,7 @@ import React from 'react';
 import { useStepNavigation } from '../../hooks/useStepNavigation';
 import { messagesFor, useLanguage } from '../../i18n';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { useRouteStore } from '../../stores/routeStore';
 import { sameScope } from '../../utils/routeFloors';
 import { stepMeta } from '../../utils/routeSummary';
 import { Icon } from './Icon';
@@ -33,7 +34,8 @@ const PRIMARY_BUTTON =
  * шага: фокус при этом остаётся на кнопке «Далее».
  */
 export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) => {
-  const { steps, index, goTo, showCurrent, exit } = useStepNavigation();
+  const { steps, index, goTo, showCurrent } = useStepNavigation();
+  const finish = useRouteStore((s) => s.finish);
   const activeFloor = useMapStore((s) => s.activeFloor);
   const language = useLanguage();
   const messages = messagesFor(language);
@@ -82,7 +84,7 @@ export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) =>
         </button>
 
         {isLast ? (
-          <button type="button" onClick={exit} className={PRIMARY_BUTTON}>
+          <button type="button" onClick={finish} className={PRIMARY_BUTTON}>
             <Icon name="check" size={24} />
             {messages.navigation.finish}
           </button>
