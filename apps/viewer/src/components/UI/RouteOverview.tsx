@@ -101,7 +101,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
       )}
 
       {(currentRoute.found || stairsBlock || !expanded) && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex gap-2 compact:flex-col">
           {currentRoute.found && (
             <button
               type="button"

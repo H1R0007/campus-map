@@ -39,6 +39,16 @@ export default {
         selected: 'rgb(var(--color-selected))',
         gray: Object.fromEntries(GRAY_STEPS.map((step) => [step, token(`--gray-${step}`)])),
       },
+      // Панель слева от карты: с 1024 px и на невысоком экране от 640 px —
+      // у телефона лёжа. Совпадает с `WIDE_LAYOUT_QUERY` (запись 28).
+      //
+      // Узкий экран — уже 300 px, например текст, увеличенный в 150–200 %. Тоже
+      // именованная граница: с нестандартной `wide` Tailwind не создаёт
+      // варианты `min-[…]` и `max-[…]`.
+      screens: {
+        wide: { raw: '(min-width: 1024px), (min-width: 640px) and (max-height: 520px)' },
+        compact: { raw: '(max-width: 299px)' },
+      },
       // Шрифт не переопределяется: системный стек объявлен в `src/index.css`.
       spacing: {
         'safe-bottom': 'env(safe-area-inset-bottom)',

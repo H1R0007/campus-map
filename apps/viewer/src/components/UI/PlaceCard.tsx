@@ -71,7 +71,7 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
       </div>
 
       {name !== null && (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2 compact:flex-col">
           <button
             type="button"
             onClick={() => choose('to')}

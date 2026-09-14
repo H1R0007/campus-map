@@ -44,7 +44,7 @@ export const TripBar: React.FC = () => {
         <Icon name="close" />
       </button>
 
-      <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center lg:flex-none lg:w-80">
+      <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center wide:max-w-sm">
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="flex-shrink-0 text-sm font-semibold text-gray-900">{stepOf}</span>
           <span className="min-w-0 truncate text-xs text-gray-600">{details}</span>

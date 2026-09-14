@@ -119,6 +119,12 @@ function wholePlanZoom(map: L.Map, bounds: L.LatLngBounds, insets: MapInsets): n
   return Math.log2(Math.min(freeWidth / planWidth, freeHeight / planHeight));
 }
 
+/** Самый мелкий разрешённый масштаб: план целиком и запас на отдаление. */
+function lowestZoom(map: L.Map, bounds: L.LatLngBounds, insets: MapInsets): number | null {
+  const zoom = wholePlanZoom(map, bounds, insets);
+  return zoom === null ? null : Math.floor(zoom / ZOOM_SNAP) * ZOOM_SNAP - ZOOM_OUT_MARGIN;
+}
+
 interface PlanViewportProps {
   bounds: L.LatLngBounds;
   fitKey: string;
@@ -141,9 +147,44 @@ function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBounds }: 
   const map = useMap();
   const fittedKey = useRef<string | null>(null);
 
+  // Пределы прокрутки — план с запасом и ещё место под интерфейс поверх карты.
+  // Раньше запас был только долей плана, и когда слева стоит панель на полэкрана
+  // (телефон лёжа), маршрут у левого края плана нельзя было вывести из-под неё:
+  // карту не пускало дальше. Запас под интерфейс — его отступы в пикселях плана
+  // при самом мелком разрешённом масштабе (`lowestZoom`): при любом другом тех же
+  // пикселей экрана хватает с избытком. При масштабе «план целиком» запаса не
+  // хватало — подгонка под узкую полосу над раскрытой шторкой отдаляет сильнее, и
+  // пределы тут же возвращали маршрут под шторку.
   useEffect(() => {
-    if (constrainToBounds) map.setMaxBounds(bounds.pad(PAN_MARGIN));
-  }, [map, bounds, constrainToBounds]);
+    if (!constrainToBounds) return;
+
+    const update = () => {
+      const lowest = lowestZoom(map, bounds, insets);
+      const planPerScreenPixel = lowest === null ? 0 : 2 ** -lowest;
+      const width = bounds.getEast() - bounds.getWest();
+      const height = bounds.getNorth() - bounds.getSouth();
+
+      // Ось y плана направлена вниз (`PLAN_CRS`): южная граница — верх экрана.
+      map.setMaxBounds(
+        L.latLngBounds(
+          [
+            bounds.getSouth() - height * PAN_MARGIN - insets.top * planPerScreenPixel,
+            bounds.getWest() - width * PAN_MARGIN - insets.left * planPerScreenPixel,
+          ],
+          [
+            bounds.getNorth() + height * PAN_MARGIN + insets.bottom * planPerScreenPixel,
+            bounds.getEast() + width * PAN_MARGIN + insets.right * planPerScreenPixel,
+          ]
+        )
+      );
+    };
+
+    update();
+    map.on('resize', update);
+    return () => {
+      map.off('resize', update);
+    };
+  }, [map, bounds, constrainToBounds, insets]);
 
   // Нижний предел масштаба — от плана и экрана, а не одно число на все планы.
   // Прежний `minZoom = -2` не давал вписать план территории шире 1500 px в
@@ -152,8 +193,8 @@ function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBounds }: 
   // `fitBounds` ограничивает масштаб текущим пределом.
   useEffect(() => {
     const update = () => {
-      const zoom = wholePlanZoom(map, bounds, insets);
-      if (zoom !== null) map.setMinZoom(Math.floor(zoom / ZOOM_SNAP) * ZOOM_SNAP - ZOOM_OUT_MARGIN);
+      const lowest = lowestZoom(map, bounds, insets);
+      if (lowest !== null) map.setMinZoom(lowest);
     };
 
     update();

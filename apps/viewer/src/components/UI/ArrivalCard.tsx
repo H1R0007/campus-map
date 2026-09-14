@@ -61,7 +61,7 @@ export const ArrivalCard: React.FC = () => {
         <IconButton icon="close" label={messages.route.resetRoute} onClick={clearRoute} className="-mt-1 -mr-2" />
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex gap-2 compact:flex-col">
         <button
           type="button"
           onClick={swapPoints}

@@ -48,7 +48,9 @@ export const QuickPlaces: React.FC = () => {
   if (categories.length === 0) return null;
 
   return (
-    <ul aria-label={messages.quick.label} className="grid grid-cols-4 gap-2">
+    // Уже 300 px — например, при увеличении текста в 200 % — в два ряда: в
+    // четверть такого экрана подпись не помещается (запись 28).
+    <ul aria-label={messages.quick.label} className="grid grid-cols-4 gap-2 compact:grid-cols-2">
       {categories.map((category) => {
         const place = nearest?.get(category) ?? null;
         const missing = nearest !== null && place === null;

@@ -38,7 +38,7 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
       <div
         role="status"
         aria-live="polite"
-        className="fixed left-1/2 lg:left-[calc(50%+13rem)] -translate-x-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-[1002] pointer-events-none"
+        className="fixed left-1/2 wide:left-[calc(50%+13rem)] -translate-x-1/2 top-[calc(4.5rem+env(safe-area-inset-top))] z-[1002] pointer-events-none"
       >
         {copied && (
           <div className="flex items-center gap-2 whitespace-nowrap rounded-full bg-inverse/90 px-4 py-2 text-sm text-on-inverse shadow-lg">

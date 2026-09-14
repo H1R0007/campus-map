@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
+import type { MapInsets } from '@campus-map/mapkit';
 import { useRouteSteps } from '../../hooks/useStepNavigation';
 import { useRouteStore } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { focusBounds, stepFocusPoints, visiblePolylines } from '../../utils/routeGeometry';
+import type { LatLngTuple } from '../../utils/routeGeometry';
 import { useMapInsets } from './mapChrome';
 
 /**
@@ -63,7 +65,8 @@ export const PathLayer: React.FC = () => {
 
   // Отступы меняются вместе с высотой шторки, но подгонять вид из-за этого
   // нельзя: раскрытие шторки уводило бы карту из приближения. Подгонка берёт
-  // текущие отступы в момент, когда меняется то, что нужно показать.
+  // текущие отступы в момент, когда меняется то, что нужно показать. Исключение
+  // — шторка закрыла весь маршрут, который был виден (эффект ниже).
   const insets = useMapInsets();
   const latestInsets = useRef(insets);
   latestInsets.current = insets;
@@ -100,18 +103,58 @@ export const PathLayer: React.FC = () => {
   const latestFocus = useRef(focus);
   latestFocus.current = focus;
 
+  // Вид после автоматической подгонки: по нему видно, двигал ли человек карту сам.
+  const autoView = useRef<{ center: L.LatLng; zoom: number } | null>(null);
+
+  const fitFocus = useCallback(
+    (points: readonly LatLngTuple[], edges: MapInsets) => {
+      const { width, height } = geometry.size;
+      const bounds = L.latLngBounds(focusBounds(points, Math.max(width, height) * MIN_FOCUS_SHARE));
+      map.once('moveend', () => {
+        autoView.current = { center: map.getCenter(), zoom: map.getZoom() };
+      });
+      map.fitBounds(bounds, { ...fitPaddingOf(edges, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
+    },
+    [map, geometry.size]
+  );
+
   useEffect(() => {
     const points = latestFocus.current;
     if (points.length === 0) return;
 
-    const { width, height } = geometry.size;
-    const bounds = L.latLngBounds(focusBounds(points, Math.max(width, height) * MIN_FOCUS_SHARE));
-    map.fitBounds(bounds, { ...fitPaddingOf(latestInsets.current, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
-    // `geometry.size` в зависимостях не случайно: реальный размер плана
+    fitFocus(points, latestInsets.current);
+    // `geometry.size` в зависимостях (через `fitFocus`) не случайно: реальный размер плана
     // определяется асинхронно, и при его появлении `PixelMap` заново
     // центрируется на всём изображении. Без повторной подгонки маршрут
     // «уезжал» ровно в тот момент, когда картинка догружалась.
-  }, [focusKey, map, geometry.size]);
+  }, [focusKey, fitFocus]);
+
+  // Раскрытая шторка на телефоне поднимается на две трети экрана и может закрыть
+  // весь маршрут: над ней оставалась пустая карта. Если после смены отступов
+  // маршрута не видно, вид подгоняется под карту над шторкой — пока человек не
+  // двигал карту сам после автоматической подгонки (запись 28). Сравнение — с
+  // видом, который поставил навигатор, а не с прежними отступами: шторка растёт
+  // по шагам, и промежуточный шаг уже прятал маршрут.
+  useEffect(() => {
+    const points = latestFocus.current;
+    const view = autoView.current;
+    if (points.length === 0 || view === null) return;
+
+    const size = map.getSize();
+    const drift = map.latLngToContainerPoint(view.center).distanceTo(size.divideBy(2));
+    if (Math.abs(map.getZoom() - view.zoom) > 0.05 || drift > 24) return;
+
+    const visible = points.some(([y, x]) => {
+      const point = map.latLngToContainerPoint([y, x]);
+      return (
+        point.x >= insets.left &&
+        point.x <= size.x - insets.right &&
+        point.y >= insets.top &&
+        point.y <= size.y - insets.bottom
+      );
+    });
+    if (!visible) fitFocus(points, insets);
+  }, [insets, map, fitFocus]);
 
   if (segments.length === 0) return null;
 

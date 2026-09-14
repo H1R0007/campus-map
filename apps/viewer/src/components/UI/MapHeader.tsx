@@ -102,7 +102,7 @@ export const MapHeader: React.FC = () => {
             <Icon name="back" />
           </button>
 
-          <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center lg:flex-none lg:max-w-sm">
+          <div className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center wide:flex-initial wide:max-w-sm">
             <div className="text-sm font-semibold text-gray-800 truncate">
               {buildingLabel(buildingMetas, activeFloor.buildingId, language)}
             </div>
@@ -113,7 +113,9 @@ export const MapHeader: React.FC = () => {
         </>
       )}
 
-      <div className="ml-auto flex-shrink-0 rounded-xl bg-surface shadow-md p-1">
+      {/* Уже 300 px переключателю нет места рядом с именем корпуса и ходом
+          маршрута — он в раскрытой панели (`IdleContent`, запись 28). */}
+      <div className="ml-auto flex-shrink-0 rounded-xl bg-surface shadow-md p-1 compact:hidden">
         <LanguageSwitch />
       </div>
     </header>

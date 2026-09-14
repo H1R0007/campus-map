@@ -180,7 +180,7 @@ button {
 
 /* На широком экране слева стоит панель навигатора — 24rem и поля по 1rem:
    шапка начинается справа от неё. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px), (min-width: 640px) and (max-height: 520px) {
     .campus-map-header {
         left: 26rem;
     }
@@ -301,7 +301,7 @@ button {
     pointer-events: auto;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1024px), (min-width: 640px) and (max-height: 520px) {
     .campus-notices {
         left: 26rem;
     }
@@ -328,7 +328,7 @@ button {
 }
 
 /* По центру видимой карты, а не всего окна: слева панель навигатора. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px), (min-width: 640px) and (max-height: 520px) {
     .campus-plan-status {
         left: calc(50% + 13rem);
     }
