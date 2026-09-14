@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { useChoosePlace } from '../../hooks/useChoosePlace';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useSuggestions } from '../../hooks/useSuggestions';
 import { messagesFor, useLanguage } from '../../i18n';
@@ -14,6 +15,7 @@ import { BuildingList } from './BuildingList';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 import { PlaceIcon } from './PlaceIcon';
+import { RecentPlaces } from './RecentPlaces';
 
 /** Сколько мест показывать: поиск занимает весь экран телефона, и восемь помещаются без прокрутки. */
 const RESULT_LIMIT = 8;
@@ -39,17 +41,16 @@ interface SearchViewProps {
  * Escape закрывает поиск.
  *
  * Что делает выбор, зависит от цели: место показывается на карте с карточкой,
- * начало или конец маршрута задаются сразу. Если второй точки ещё нет, поиск
- * открывается для неё — это следующий шаг.
+ * начало или конец маршрута задаются сразу (`useChoosePlace`). Пустой поиск
+ * показывает недавние места и корпуса.
  */
 export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
   const graph = useMapStore((s) => s.graph);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
-  const showNode = useMapStore((s) => s.showNode);
-  const selectNode = useMapStore((s) => s.selectNode);
-  const setPoint = useRouteStore((s) => s.setPoint);
-  const openSearch = useUiStore((s) => s.openSearch);
+  const fromNodeId = useRouteStore((s) => s.fromNodeId);
+  const toNodeId = useRouteStore((s) => s.toNodeId);
   const closeSearch = useUiStore((s) => s.closeSearch);
+  const chooseFor = useChoosePlace();
   const language = useLanguage();
   const messages = messagesFor(language);
 
@@ -91,18 +92,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
     [opener]
   );
 
-  const choose = (nodeId: string) => {
-    closeSearch();
-
-    if (target === 'place') {
-      // Сначала этаж места, затем выбор: смена этажа снимает выбранное место.
-      showNode(nodeId);
-      selectNode(nodeId);
-      return;
-    }
-
-    if (setPoint(target, nodeId) === null) openSearch(target === 'from' ? 'to' : 'from');
-  };
+  const choose = (nodeId: string) => chooseFor(target, nodeId);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -222,6 +212,9 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
         ) : (
           <div className="px-2 py-2 space-y-5">
             <p className="px-1 text-sm text-gray-600">{messages.search.hint}</p>
+            {/* Уже заданная точка маршрута как вторая точка ничего не даст —
+                маршрут из места в него же. */}
+            <RecentPlaces onChoose={choose} exclude={target === 'place' ? [] : [fromNodeId, toNodeId]} />
             {target === 'place' && <BuildingList onChoose={closeSearch} />}
           </div>
         )}

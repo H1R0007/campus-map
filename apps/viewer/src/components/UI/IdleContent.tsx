@@ -1,4 +1,5 @@
 import React from 'react';
+import { useChoosePlace } from '../../hooks/useChoosePlace';
 import { messagesFor, useLanguage } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
@@ -9,9 +10,10 @@ import { nodeName } from '../../utils/placeLabels';
 import { BuildingList } from './BuildingList';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
+import { RecentPlaces } from './RecentPlaces';
 
 interface IdleContentProps {
-  /** Раскрытая панель показывает ещё и корпуса. */
+  /** Раскрытая панель показывает ещё недавние места и корпуса. */
   expanded: boolean;
 }
 
@@ -28,6 +30,7 @@ export const IdleContent: React.FC<IdleContentProps> = ({ expanded }) => {
   const clearPoint = useRouteStore((s) => s.clearPoint);
   const aliasManager = useMapStore((s) => s.aliasManager);
   const openSearch = useUiStore((s) => s.openSearch);
+  const choose = useChoosePlace();
   const language = useLanguage();
   const messages = messagesFor(language);
 
@@ -68,7 +71,8 @@ export const IdleContent: React.FC<IdleContentProps> = ({ expanded }) => {
       {point('to', toNodeId)}
 
       {expanded && (
-        <div className="pt-2">
+        <div className="pt-2 space-y-5">
+          <RecentPlaces onChoose={(nodeId) => choose(target, nodeId)} exclude={[fromNodeId, toNodeId]} />
           <BuildingList />
         </div>
       )}
