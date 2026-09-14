@@ -46,6 +46,9 @@ const ICON_PATHS = {
   exit: 'M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4M15 16l4-4-4-4M19 12H9',
   // QR-код для знакомства: три угловые метки и точки данных.
   qr: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2M19 14h1v2M14 17v3h3M20 19v1h-1',
+  // Нет связи: перечёркнутые волны сигнала.
+  offline:
+    'M3 3l18 18M8.5 16.5a5 5 0 017 0M5 12.5a10 10 0 015.5-2.9M19 12.5a10 10 0 00-2.6-1.9M2 8.8a15 15 0 014.4-2.7M22 8.8a15 15 0 00-11.4-3.7M12 20h.01',
 } satisfies Record<string, string>;
 
 export type IconName = keyof typeof ICON_PATHS;

@@ -23,7 +23,7 @@ export const LinkNotice: React.FC<LinkNoticeProps> = ({ unresolved, onDismiss })
   return (
     <div
       role="alert"
-      className="absolute top-[calc(4.5rem+env(safe-area-inset-top))] left-3 right-16 lg:left-[26rem] z-[1001] flex items-center gap-1 rounded-xl bg-inverse/90 pl-3 text-sm text-on-inverse shadow-lg"
+      className="flex items-center gap-1 rounded-xl bg-inverse/90 pl-3 text-sm text-on-inverse shadow-lg"
     >
       <span className="flex-1 break-words py-2">{messages.link.notFound(unresolved.join(', '))}</span>
       <button

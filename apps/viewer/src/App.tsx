@@ -3,6 +3,7 @@ import { CampusMap } from './components/Map/CampusMap';
 import { LinkNotice } from './components/UI/LinkNotice';
 import { MapHeader } from './components/UI/MapHeader';
 import { NavigatorPanel } from './components/UI/NavigatorPanel';
+import { OfflineNotice } from './components/UI/OfflineNotice';
 import { Onboarding } from './components/UI/Onboarding';
 import { RouteAnnouncer } from './components/UI/RouteAnnouncer';
 import { useMapStore } from './stores/mapStore';
@@ -102,7 +103,11 @@ const App: React.FC = () => {
     <div className="h-full w-full relative overflow-hidden">
       <CampusMap />
       <MapHeader />
-      <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
+      {/* Сообщения над картой — одной колонкой под шапкой: ссылка и связь. */}
+      <div className="campus-notices">
+        <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
+        <OfflineNotice />
+      </div>
       <NavigatorPanel />
       <RouteAnnouncer />
       {onboarding && <Onboarding onClose={closeOnboarding} />}

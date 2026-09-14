@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { CAMPUS_BUILDING_ID, campusMapUrl, floorMapUrl } from '@campus-map/core';
 import { PixelMap } from '@campus-map/mapkit';
+import { usePrefetchRoutePlans } from '../../hooks/usePrefetchRoutePlans';
 import { useMapStore } from '../../stores/mapStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { useMapInsets } from './mapChrome';
@@ -23,6 +24,9 @@ export const CampusMap: React.FC = () => {
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
   const insets = useMapInsets();
+
+  // Планы построенного маршрута — заранее, пока есть связь (запись 26).
+  usePrefetchRoutePlans();
 
   const mapUrl = useMemo(
     () =>

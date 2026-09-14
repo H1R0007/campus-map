@@ -196,6 +196,11 @@ export const en: Messages = {
     },
   },
 
+  offline: {
+    notice: 'No connection — the navigator works offline',
+    planUnavailable: 'This floor plan is not saved — connect to load it',
+  },
+
   instructions: {
     start: 'Start',
     walkTo: {

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
+import { warmCacheWhenControlled } from './pwa/warmCache';
 import './index.css';
 
 /**
@@ -33,3 +34,7 @@ ReactDOM.createRoot(container).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Данные и планы, загруженные до того, как service worker взял страницу под
+// управление, — в его кэш (запись 26).
+warmCacheWhenControlled();

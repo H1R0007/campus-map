@@ -27,6 +27,7 @@ import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
+import viewerOffline from './browser/scenarios/viewer-offline.mjs';
 import viewerOnboarding from './browser/scenarios/viewer-onboarding.mjs';
 import viewerQuick from './browser/scenarios/viewer-quick.mjs';
 import viewerRecent from './browser/scenarios/viewer-recent.mjs';
@@ -40,6 +41,8 @@ const SCENARIOS = [
   viewerQuick,
   viewerTheme,
   viewerOnboarding,
+  // Последним у навигатора: останавливает сервер приложения.
+  viewerOffline,
   editorTransitions,
   editorPanels,
 ];
@@ -158,9 +161,13 @@ async function launchBrowser(executable) {
 /**
  * Проходит один сценарий в новой вкладке.
  *
+ * Сценарию доступны режим сборки (`mode`) и остановка сервера приложения
+ * (`stopServer`): так сценарий без связи отключает сеть по-настоящему. Сервер
+ * после этого не поднимается, поэтому такой сценарий — последний у приложения.
+ *
  * @returns {Promise<string | null>} текст провала или `null`
  */
-async function runScenario(scenario, { debugUrl, base, shots }) {
+async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
 
@@ -182,7 +189,7 @@ async function runScenario(scenario, { debugUrl, base, shots }) {
   };
 
   try {
-    await scenario.run({ page, base, step, shot });
+    await scenario.run({ page, base, step, shot, mode, stopServer });
     return null;
   } catch (error) {
     return error.stack ?? String(error);
@@ -229,7 +236,13 @@ async function main() {
       for (const scenario of scenarios) {
         total += 1;
         process.stdout.write(`  ${scenario.name}\n`);
-        const failure = await runScenario(scenario, { debugUrl: browser.debugUrl, base, shots });
+        const failure = await runScenario(scenario, {
+          debugUrl: browser.debugUrl,
+          base,
+          shots,
+          mode,
+          stopServer: server.stop,
+        });
         if (failure) {
           failures.push(`${scenario.name}\n${failure}`);
           process.stdout.write(`  ПРОВАЛ\n${failure}\n`);
