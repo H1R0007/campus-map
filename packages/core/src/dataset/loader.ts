@@ -11,6 +11,8 @@ import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
 import type { MapNode, MapNodeData } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
+import { isPlanFormat } from '../types/building.js';
+import type { PlanFormat } from '../types/building.js';
 import { createCampusProjection } from '../projection.js';
 import {
   CAMPUS_BUILDING_ID,
@@ -135,6 +137,11 @@ function readField<T>(
     );
   }
   return parsed;
+}
+
+/** Формат плана из данных; неизвестный — `undefined`, и `readField` предупредит. */
+function asPlanFormat(value: unknown): PlanFormat | undefined {
+  return typeof value === 'string' && isPlanFormat(value) ? value : undefined;
 }
 
 /**
@@ -478,6 +485,9 @@ function normalizeFloors(
     const elevationMeters = readField(item, 'elevationMeters', asStrictNumber, where, warnings);
     if (elevationMeters !== undefined) meta.elevationMeters = elevationMeters;
 
+    const planFormat = readField(item, 'planFormat', asPlanFormat, where, warnings);
+    if (planFormat !== undefined) meta.planFormat = planFormat;
+
     floors.push(meta);
   }
 
@@ -574,6 +584,9 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
     warnings
   );
   if (campusMetersPerPixel !== undefined) campusMeta.metersPerPixel = campusMetersPerPixel;
+
+  const campusPlanFormat = readField(rawCampusMeta, 'planFormat', asPlanFormat, CAMPUS_META_PATH, warnings);
+  if (campusPlanFormat !== undefined) campusMeta.planFormat = campusPlanFormat;
 
   // Все остальные чтения зависят только от списка корпусов, но не от
   // содержимого друг друга. Раньше они шли цепочкой `await` во вложенных

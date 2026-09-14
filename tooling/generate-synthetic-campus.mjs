@@ -48,12 +48,13 @@ import { fileURLToPath } from 'node:url';
 import {
   ALIASES_PATH,
   CAMPUS_GRAPH_PATH,
-  CAMPUS_MAP_PATH,
+
   CAMPUS_META_PATH,
   DATA_ROOT,
   Graph,
   TRANSITIONS_PATH,
   buildingMetaPath,
+  campusMapPath,
   findConnectedComponents,
   floorGraphPath,
   floorMapPath,
@@ -362,7 +363,7 @@ function buildingPlacement(campusEntrance, floorOneEntrance) {
 
 function generate(options, outDir) {
   const plans = placeholderPlans();
-  const campusMapSource = path.join(canonicalDataDir, CAMPUS_MAP_PATH);
+  const campusMapSource = path.join(canonicalDataDir, campusMapPath());
   const campusSize = pngSize(campusMapSource);
   const letters = LETTERS.slice(0, options.buildings);
   const floors = floorNumbers(options.floors, options.basements);
@@ -441,7 +442,7 @@ function generate(options, outDir) {
     ...(options.metric ? { metersPerPixel: CAMPUS_METERS_PER_PIXEL } : {}),
   });
   writeJson(outDir, CAMPUS_GRAPH_PATH, { nodes: campus.nodes });
-  copyFile(outDir, CAMPUS_MAP_PATH, campusMapSource);
+  copyFile(outDir, campusMapPath(), campusMapSource);
   writeJson(outDir, TRANSITIONS_PATH, { transitions });
   writeJson(outDir, ALIASES_PATH, { aliases });
 }

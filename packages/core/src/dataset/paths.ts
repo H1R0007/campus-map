@@ -1,3 +1,6 @@
+import { DEFAULT_PLAN_FORMAT } from '../types/building.js';
+import type { PlanFormat } from '../types/building.js';
+
 /**
  * Каноническая раскладка файлов датасета.
  *
@@ -11,7 +14,7 @@ export const DATA_ROOT = 'data';
 
 export const CAMPUS_META_PATH = 'campus/meta.json';
 export const CAMPUS_GRAPH_PATH = 'campus/graph.json';
-export const CAMPUS_MAP_PATH = 'campus/map.png';
+
 export const TRANSITIONS_PATH = 'transitions.json';
 export const ALIASES_PATH = 'aliases.json';
 
@@ -40,9 +43,18 @@ export function floorGraphPath(buildingId: string, floor: number): string {
   return floorAssetPath(buildingId, floor, 'graph.json');
 }
 
-/** Путь к карте этажа. */
-export function floorMapPath(buildingId: string, floor: number): string {
-  return floorAssetPath(buildingId, floor, 'map.png');
+/** Путь к плану этажа в формате из данных (`planFormatOf`). */
+export function floorMapPath(
+  buildingId: string,
+  floor: number,
+  format: PlanFormat = DEFAULT_PLAN_FORMAT
+): string {
+  return floorAssetPath(buildingId, floor, `map.${format}`);
+}
+
+/** Путь к плану территории в формате из данных (`planFormatOf`). */
+export function campusMapPath(format: PlanFormat = DEFAULT_PLAN_FORMAT): string {
+  return `campus/map.${format}`;
 }
 
 /**
@@ -62,12 +74,16 @@ export function datasetUrl(path: string, baseUrl: string = `/${DATA_ROOT}`): str
 export function floorMapUrl(
   buildingId: string,
   floor: number,
-  baseUrl: string = `/${DATA_ROOT}`
+  baseUrl: string = `/${DATA_ROOT}`,
+  format: PlanFormat = DEFAULT_PLAN_FORMAT
 ): string {
-  return datasetUrl(floorMapPath(buildingId, floor), baseUrl);
+  return datasetUrl(floorMapPath(buildingId, floor, format), baseUrl);
 }
 
-/** URL карты кампуса. */
-export function campusMapUrl(baseUrl: string = `/${DATA_ROOT}`): string {
-  return datasetUrl(CAMPUS_MAP_PATH, baseUrl);
+/** URL плана территории. */
+export function campusMapUrl(
+  baseUrl: string = `/${DATA_ROOT}`,
+  format: PlanFormat = DEFAULT_PLAN_FORMAT
+): string {
+  return datasetUrl(campusMapPath(format), baseUrl);
 }

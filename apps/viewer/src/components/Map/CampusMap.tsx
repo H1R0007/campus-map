@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { CAMPUS_BUILDING_ID, campusMapUrl, floorMapUrl } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import { PixelMap } from '@campus-map/mapkit';
 import { usePrefetchRoutePlans } from '../../hooks/usePrefetchRoutePlans';
-import { useMapStore } from '../../stores/mapStore';
+import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { scopePlanUrl } from '../../utils/planUrls';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { useMapInsets } from './mapChrome';
 import { MapRail } from './MapRail';
@@ -29,11 +30,8 @@ export const CampusMap: React.FC = () => {
   usePrefetchRoutePlans();
 
   const mapUrl = useMemo(
-    () =>
-      activeFloor === null
-        ? campusMapUrl(DATA_BASE_URL)
-        : floorMapUrl(activeFloor.buildingId, activeFloor.floor, DATA_BASE_URL),
-    [activeFloor]
+    () => scopePlanUrl(scopeOf(activeFloor), campusMeta, buildingMetas, DATA_BASE_URL),
+    [activeFloor, campusMeta, buildingMetas]
   );
 
   // Размер плана из метаданных — границы до загрузки изображения. Без него

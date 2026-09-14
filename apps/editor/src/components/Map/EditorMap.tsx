@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import { PixelMap } from '@campus-map/mapkit';
-import { campusMapUrl, floorMapUrl } from '@campus-map/core';
+import { campusMapUrl, floorMapUrl, planFormatOf } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import type { EditorTool } from '../../stores/editorStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
@@ -323,11 +323,17 @@ const MapEventHandler: React.FC = () => {
 export const EditorMap: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
+  const campusMeta = useEditorStore((s) => s.campusMeta);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
 
+  // Формат плана — из метаданных: PNG или SVG (запись 29).
   const mapUrl = useMemo(() => {
-    if (currentBuilding === null || currentFloor === null) return campusMapUrl(DATA_BASE_URL);
-    return floorMapUrl(currentBuilding, currentFloor, DATA_BASE_URL);
-  }, [currentBuilding, currentFloor]);
+    if (currentBuilding === null || currentFloor === null) {
+      return campusMapUrl(DATA_BASE_URL, planFormatOf(campusMeta ?? undefined));
+    }
+    const floorMeta = buildingMetas.get(currentBuilding)?.floors.find((meta) => meta.floor === currentFloor);
+    return floorMapUrl(currentBuilding, currentFloor, DATA_BASE_URL, planFormatOf(floorMeta));
+  }, [currentBuilding, currentFloor, campusMeta, buildingMetas]);
 
   return (
     <PixelMap

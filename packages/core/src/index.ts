@@ -27,11 +27,12 @@ export {
   CAMPUS_BUILDING_ID,
   CAMPUS_FLOOR,
   CAMPUS_GRAPH_PATH,
-  CAMPUS_MAP_PATH,
+
   CAMPUS_META_PATH,
   DATA_ROOT,
   TRANSITIONS_PATH,
   buildingMetaPath,
+  campusMapPath,
   campusMapUrl,
   datasetUrl,
   floorAssetPath,
