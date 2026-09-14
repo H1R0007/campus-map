@@ -7,7 +7,8 @@ import { PANEL, SEARCH, viewerHelpers } from '../viewer.mjs';
  *
  * Написан под тестовый `data/`: туалеты на 1 и 2 этажах корпуса А и на 1 этаже
  * корпуса Б, столовые в корпусах А и Б, гардероб в корпусе А, выходы — входы
- * корпусов и проходная.
+ * корпусов и проходная. Данные метрические, поэтому подсказка на кнопке — время
+ * в пути («~1 мин»); подсказку «где» без метрики проверяют модульные тесты.
  */
 export default {
   app: 'viewer',
@@ -36,9 +37,8 @@ export default {
       assert.equal(await page.eval('document.activeElement?.placeholder'), 'Аудитория или место рядом с вами');
       assert.ok((await page.eval(`${SEARCH}.textContent`)).includes('Где вы сейчас?'));
 
-      // Из деканата на втором этаже ближайший туалет — на том же этаже. С
-      // третьего этажа тестовых данных «ближе» первый: без метрики этажи
-      // сравниваются в пикселях разных планов (запись 22).
+      // Из деканата ближайший туалет — на том же, втором этаже, а не лифтом
+      // на первом.
       await v.typeSearch('деканат');
       await v.chooseOption('Деканат');
       await routeShown();
@@ -48,13 +48,13 @@ export default {
       assert.equal(url.searchParams.get('to'), 'a2_toilet');
     });
 
-    await step('QR у входа: подсказка «где» и маршрут без поиска', async () => {
+    await step('QR у входа: время до места и маршрут без поиска', async () => {
       await v.open('/?at=a1_entrance');
-      const labels = await quickLabels();
-      assert.equal(labels[0], 'Ближайший туалет, этот этаж');
+      const [toilet] = await quickLabels();
+      assert.match(toilet, /^Ближайший туалет, ~\d+ мин$/);
       await shot('viewer-quick-qr');
 
-      await v.click('Ближайший туалет, этот этаж');
+      await v.click(toilet);
       await routeShown();
       assert.equal(new URL(await v.href()).searchParams.get('to'), 'a1_toilet');
       assert.equal(await v.searchOpen(), false);
@@ -63,7 +63,7 @@ export default {
     await step('выход с третьего этажа — к входу корпуса на первом', async () => {
       await v.open('/?at=a3_room305');
       const exit = (await quickLabels()).find((label) => label.startsWith('Ближайший выход'));
-      assert.equal(exit, 'Ближайший выход, Этаж 1');
+      assert.match(exit, /^Ближайший выход, ~\d+ мин$/);
 
       await v.click(exit);
       await routeShown();

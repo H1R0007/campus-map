@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Graph } from '../src/graph/Graph.js';
 import { findPath } from '../src/pathfinding/astar.js';
 import { WALKING_PROFILE, heuristic, stepCost } from '../src/pathfinding/costModel.js';
-import { createCampusProjection } from '../src/projection.js';
 import { DEFAULT_PATHFINDING_OPTIONS } from '../src/types/pathfinding.js';
-import type { BuildingMeta, PathfindingOptions } from '../src/index.js';
+import type { PathfindingOptions } from '../src/index.js';
 import { loadRealDataset } from './helpers/realDataset.js';
 import { generateCampus, makeRandom } from './helpers/generatedCampus.js';
 
@@ -92,26 +91,9 @@ describe('согласованность эвристики метрическо
     }
   });
 
-  it('ни один шаг реального датасета с условной привязкой не дешевле прямого пути', async () => {
+  it('ни один шаг реального датасета не дешевле прямого пути', async () => {
     const { dataset } = await loadRealDataset();
-
-    // Планы в data/ — заглушки, и привязки у них нет. Привязка ниже условная,
-    // но топология, типы переходов и координаты узлов — настоящие.
-    const buildingMetas: BuildingMeta[] = dataset.buildingMetas.map((meta, index) => ({
-      ...meta,
-      placement: {
-        metersPerPixel: 0.05,
-        originMeters: { x: 40 + 120 * index, y: 25 },
-        rotationDeg: 30 * index,
-        baseElevationMeters: 0.6,
-        floorHeightMeters: 3.6,
-      },
-    }));
-    const graph = new Graph(
-      dataset.nodes,
-      dataset.transitions,
-      createCampusProjection({ ...dataset.campusMeta, metersPerPixel: 0.25 }, buildingMetas)
-    );
+    const graph = Graph.fromDataset(dataset);
 
     expect(graph.isMetric).toBe(true);
     expect(stepsCheaperThanStraightLine(graph)).toEqual([]);

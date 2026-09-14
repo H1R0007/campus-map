@@ -16,9 +16,9 @@
  * Что есть в наборе: подвалы и явный входной этаж; две лестницы и лифт через
  * все этажи; переходы между соседними корпусами на втором этаже; «Столовая» и
  * «Деканат» в каждом корпусе (одноимённые помещения); номера «А-305» и
- * английские переводы. Планы — копии заглушек из `data/`, координаты узлов
- * считаются долями размера каждой картинки, поэтому всегда лежат на плане.
- * С `--metric` планы привязаны к метрике кампуса.
+ * английские переводы. Планы — SVG, нарисованные по тому же описанию этажа,
+ * что и граф (`lib/floor-layout.mjs`, запись 30): узлы всегда в своих
+ * помещениях. С `--metric` планы привязаны к метрике кампуса.
  *
  * Готовый набор загружается ядром и проверяется так же, как `data/` в тестах:
  * без предупреждений и связным. Иначе генератор завершается с ошибкой.
@@ -33,22 +33,12 @@
  *   --force            перезаписать непустой каталог
  */
 
-import {
-  copyFileSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ALIASES_PATH,
   CAMPUS_GRAPH_PATH,
-
   CAMPUS_META_PATH,
   DATA_ROOT,
   Graph,
@@ -60,6 +50,9 @@ import {
   floorMapPath,
   loadDataset,
 } from '@campus-map/core';
+import { PLAN_METERS_PER_PIXEL, layoutFloor, toWorld } from './lib/floor-layout.mjs';
+import { floorPlanSvg } from './lib/plan-svg.mjs';
+import { campusPlanSvg, graphWalkways } from './lib/campus-svg.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const canonicalDataDir = path.join(repoRoot, DATA_ROOT);
@@ -84,11 +77,27 @@ const LETTERS = [
   { id: 'n', cyrillic: 'Н', latin: 'N' },
 ];
 
-/** Масштабы привязки `--metric`: территория и планы корпусов, метров на пиксель. */
-const CAMPUS_METERS_PER_PIXEL = 0.25;
-const PLAN_METERS_PER_PIXEL = 0.05;
+/** Масштаб плана территории, метров на пиксель; планы этажей — `PLAN_METERS_PER_PIXEL`. */
+const CAMPUS_METERS_PER_PIXEL = 0.5;
 const BASE_ELEVATION_METERS = 0.5;
 const FLOOR_HEIGHT_METERS = 3.6;
+
+/** Этаж, метры: аудитория, лестница, лифт, холл; глубина корпуса и коридор. */
+const ROOM_WIDTH = 8;
+const STAIRS_WIDTH = 6;
+const LIFT_WIDTH = 4;
+const HALL_WIDTH = 10;
+const BUILDING_DEPTH = 26;
+const CORRIDOR = { y: 11.5, height: 3 };
+
+/** Территория, метры: поля, длина перехода между корпусами, ряд корпусов и аллея. */
+const CAMPUS_MARGIN = 30;
+const CAMPUS_DEPTH = 170;
+const BUILDING_GAP = 18;
+const BUILDINGS_Y = 40;
+const ALLEY_Y = BUILDINGS_Y + BUILDING_DEPTH + 12;
+/** Точка входа территории — снаружи двери корпуса. */
+const ENTRANCE_OUTSIDE = 1.5;
 
 function parseArgs(argv) {
   const options = { out: null, buildings: 5, floors: 11, basements: 1, rooms: 24, metric: false, force: false };
@@ -118,34 +127,6 @@ function parseArgs(argv) {
   return options;
 }
 
-/** Размер PNG из заголовка IHDR: сигнатура (8 байт), длина и тип чанка, ширина, высота. */
-function pngSize(file) {
-  const bytes = readFileSync(file);
-  if (bytes.length < 24 || bytes.toString('ascii', 12, 16) !== 'IHDR') {
-    throw new Error(`Не PNG: ${file}`);
-  }
-  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
-}
-
-/** Планы этажей из `data/` — заглушки, которые набор использует по кругу. */
-function placeholderPlans() {
-  const plans = [];
-  const buildingsDir = path.join(canonicalDataDir, 'buildings');
-
-  for (const building of readdirSync(buildingsDir).sort()) {
-    const floorsDir = path.join(buildingsDir, building, 'floors');
-    if (!existsSync(floorsDir)) continue;
-
-    for (const floor of readdirSync(floorsDir).sort()) {
-      const file = path.join(floorsDir, floor, 'map.png');
-      if (existsSync(file)) plans.push({ file, size: pngSize(file) });
-    }
-  }
-
-  if (plans.length === 0) throw new Error(`В ${buildingsDir} нет ни одного плана этажа`);
-  return plans;
-}
-
 /**
  * Готовит каталог вывода.
  *
@@ -173,45 +154,13 @@ function prepareOutput(outDir, force) {
   mkdirSync(outDir, { recursive: true });
 }
 
-function writeJson(outDir, relativePath, value) {
+function writeText(outDir, relativePath, text) {
   const file = path.join(outDir, relativePath);
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+  writeFileSync(file, text);
 }
 
-function copyFile(outDir, relativePath, source) {
-  const file = path.join(outDir, relativePath);
-  mkdirSync(path.dirname(file), { recursive: true });
-  copyFileSync(source, file);
-}
-
-/**
- * Узлы одного плана с рёбрами в обе стороны.
- *
- * Координаты задаются долями размера плана: заглушки разного размера, и
- * абсолютные пиксели увели бы узлы за край картинки.
- */
-function createPlan(size) {
-  const nodes = new Map();
-
-  return {
-    nodes,
-    add(id, fx, fy, isPortal = false) {
-      nodes.set(id, {
-        id,
-        x: Math.round(fx * size.width),
-        y: Math.round(fy * size.height),
-        neighbors: [],
-        isPortal,
-      });
-      return id;
-    },
-    link(a, b) {
-      nodes.get(a).neighbors.push(b);
-      nodes.get(b).neighbors.push(a);
-    },
-  };
-}
+const writeJson = (outDir, relativePath, value) => writeText(outDir, relativePath, `${JSON.stringify(value, null, 2)}\n`);
 
 /** Номера этажей по возрастанию, без нулевого: подвалы отрицательные. */
 function floorNumbers(floors, basements) {
@@ -231,54 +180,82 @@ function roomCode(letter, floor, index) {
 }
 
 /**
- * Этаж: коридор вдоль плана, аудитории по обе стороны, лестницы по концам,
- * лифт посередине. На первом этаже — вход, на втором — переходы в соседние
- * корпуса.
+ * Ширина корпуса, метры: одна на все этажи — лестницы, лифт и переходы стоят
+ * друг над другом.
  */
-function buildFloor({ letter, floor, size, rooms, hasWestBridge, hasEastBridge }) {
-  const plan = createPlan(size);
+function buildingWidth(rooms) {
+  const north = Math.ceil(rooms / 2) * ROOM_WIDTH + LIFT_WIDTH;
+  const south = Math.floor(rooms / 2) * ROOM_WIDTH + HALL_WIDTH;
+  return 2 * STAIRS_WIDTH + Math.max(north, south);
+}
+
+/**
+ * Описание этажа для `layoutFloor`: коридор вдоль корпуса, аудитории по обе
+ * стороны, лестницы в торцах северной стороны, лифт посередине. На первом
+ * этаже — холл со входом, на втором — переходы в соседние корпуса через торцы
+ * коридора.
+ */
+function buildFloor({ letter, floor, rooms, width, hasWestBridge, hasEastBridge }) {
   const prefix = `${letter.id}_f${floor}`;
   const aliases = [];
+  const labels = new Map();
+  const layout = [];
+  const cursor = { n: 0, s: 0 };
+  const place = (side, size, room = { kind: 'service' }) => {
+    layout.push({ ...room, side, from: cursor[side], to: cursor[side] + size });
+    cursor[side] += size;
+  };
+  const middle = Math.floor(Math.ceil(rooms / 2) / 2);
 
-  const corridorCount = Math.ceil(rooms / 2);
-  const corridor = [];
-  for (let i = 0; i < corridorCount; i += 1) {
-    const fx = 0.15 + (0.7 * i) / Math.max(1, corridorCount - 1);
-    corridor.push(plan.add(`${prefix}_corridor${i + 1}`, fx, 0.5));
-    if (i > 0) plan.link(corridor[i - 1], corridor[i]);
-  }
-  const first = corridor[0];
-  const last = corridor[corridor.length - 1];
-  const middle = corridor[Math.floor(corridor.length / 2)];
-
-  plan.link(plan.add(`${prefix}_stairs_west`, 0.06, 0.5, true), first);
-  plan.link(plan.add(`${prefix}_stairs_east`, 0.94, 0.5, true), last);
-  plan.link(plan.add(`${prefix}_lift`, plan.nodes.get(middle).x / size.width, 0.4, true), middle);
-
+  place('n', STAIRS_WIDTH, { id: `${prefix}_stairs_west`, kind: 'stairs' });
+  place('s', STAIRS_WIDTH);
   for (let i = 0; i < rooms; i += 1) {
-    const anchor = plan.nodes.get(corridor[Math.floor(i / 2)]);
-    const id = plan.add(`${prefix}_room${i + 1}`, anchor.x / size.width, i % 2 === 0 ? 0.25 : 0.75);
-    plan.link(id, anchor.id);
+    const side = i % 2 === 0 ? 'n' : 's';
+    const column = Math.floor(i / 2);
+    if (column === middle && side === 'n') place('n', LIFT_WIDTH, { id: `${prefix}_lift`, kind: 'lift' });
+    if (column === middle && side === 's') {
+      place('s', HALL_WIDTH, floor === 1 ? { id: `${prefix}_hall`, kind: 'hall' } : undefined);
+    }
+
+    const id = `${prefix}_room${i + 1}`;
+    const kind = i === 0 && floor === 1 ? 'canteen' : i === 0 && floor === 2 ? 'dean' : 'room';
+    place(side, ROOM_WIDTH, { id, kind });
 
     const code = roomCode(letter.cyrillic, floor, i);
-    const latinCode = roomCode(letter.latin, floor, i);
-    aliases.push(roomAlias(id, letter, floor, i, code, latinCode));
+    labels.set(id, { code });
+    aliases.push(roomAlias(id, letter, floor, i, code, roomCode(letter.latin, floor, i)));
   }
+  for (const side of ['n', 's']) {
+    if (cursor[side] < width - STAIRS_WIDTH) place(side, width - STAIRS_WIDTH - cursor[side]);
+  }
+  place('n', STAIRS_WIDTH, { id: `${prefix}_stairs_east`, kind: 'stairs' });
+  place('s', STAIRS_WIDTH);
 
+  const entrances = [];
   if (floor === 1) {
-    const entrance = plan.add(`${prefix}_entrance`, 0.3, 0.92, true);
-    plan.link(entrance, corridor[Math.floor(corridor.length / 4)]);
+    entrances.push({ id: `${prefix}_entrance`, hall: `${prefix}_hall` });
     aliases.push({
-      id: entrance,
+      id: `${prefix}_entrance`,
       names: [`Вход в корпус ${letter.cyrillic}`],
       translations: { en: { names: [`Building ${letter.latin} entrance`] } },
     });
   }
 
-  if (hasWestBridge) plan.link(plan.add(`${prefix}_bridge_west`, 0.06, 0.65, true), first);
-  if (hasEastBridge) plan.link(plan.add(`${prefix}_bridge_east`, 0.94, 0.65, true), last);
+  const ends = [];
+  if (hasWestBridge) ends.push({ id: `${prefix}_bridge_west`, end: 'west', kind: 'bridge' });
+  if (hasEastBridge) ends.push({ id: `${prefix}_bridge_east`, end: 'east', kind: 'bridge' });
 
-  return { nodes: [...plan.nodes.values()], aliases };
+  const { size, nodes, geometry } = layoutFloor({
+    prefix,
+    width,
+    depth: BUILDING_DEPTH,
+    corridor: CORRIDOR,
+    rooms: layout,
+    entrances,
+    ends,
+  });
+
+  return { size, nodes, geometry, labels, aliases };
 }
 
 /**
@@ -308,25 +285,55 @@ function roomAlias(id, letter, floor, index, code, latinCode) {
     : { id, names: [code] };
 }
 
-/** Территория: ворота и площадь внизу, входы в корпуса рядом по верху плана. */
-function buildCampus(letters, size) {
-  const plan = createPlan(size);
+/**
+ * Территория: корпуса в ряд вдоль аллеи, площадь и ворота к югу. Между
+ * корпусами — длина перехода, поэтому мост второго этажа прямой.
+ */
+function campusLayout(letters, width) {
+  const campusWidth = 2 * CAMPUS_MARGIN + letters.length * width + (letters.length - 1) * BUILDING_GAP;
+  return {
+    width: campusWidth,
+    depth: CAMPUS_DEPTH,
+    origins: letters.map((_, index) => ({ x: CAMPUS_MARGIN + index * (width + BUILDING_GAP), y: BUILDINGS_Y })),
+  };
+}
 
-  const gate = plan.add('campus_gate', 0.5, 0.93);
-  const square = plan.add('campus_square', 0.5, 0.65);
-  const stop = plan.add('campus_bus_stop', 0.88, 0.95);
-  plan.link(gate, square);
-  plan.link(gate, stop);
+/** Узлы территории по точкам входов корпусов (метры кампуса). */
+function buildCampus(letters, layout, entrances) {
+  const nodes = new Map();
+  const add = (id, point, isPortal = false) => {
+    nodes.set(id, {
+      id,
+      x: Math.round(point.x / CAMPUS_METERS_PER_PIXEL),
+      y: Math.round(point.y / CAMPUS_METERS_PER_PIXEL),
+      neighbors: [],
+      isPortal,
+    });
+    return id;
+  };
+  const link = (a, b) => {
+    nodes.get(a).neighbors.push(b);
+    nodes.get(b).neighbors.push(a);
+  };
 
-  const entrances = new Map();
-  letters.forEach((letter, index) => {
-    const fx = 0.1 + (0.8 * index) / Math.max(1, letters.length - 1);
-    const pathNode = plan.add(`campus_path_${letter.id}`, fx, 0.45);
-    const entrance = plan.add(`campus_entrance_${letter.id}`, fx, 0.3, true);
-    plan.link(square, pathNode);
-    plan.link(pathNode, entrance);
-    entrances.set(letter.id, plan.nodes.get(entrance));
+  const center = layout.width / 2;
+  const gate = add('campus_gate', { x: center, y: layout.depth - 10 });
+  const square = add('campus_square', { x: center, y: layout.depth - 50 });
+  const stop = add('campus_bus_stop', { x: layout.width - 20, y: layout.depth - 10 });
+  link(gate, square);
+  link(gate, stop);
+
+  const paths = letters.map((letter) => {
+    const door = entrances.get(letter.id);
+    const pathNode = add(`campus_path_${letter.id}`, { x: door.x, y: ALLEY_Y });
+    link(pathNode, add(`campus_entrance_${letter.id}`, door, true));
+    return pathNode;
   });
+  for (let i = 1; i < paths.length; i += 1) link(paths[i - 1], paths[i]);
+  const nearest = paths.reduce((best, id) =>
+    Math.abs(nodes.get(id).x * CAMPUS_METERS_PER_PIXEL - center) < Math.abs(nodes.get(best).x * CAMPUS_METERS_PER_PIXEL - center) ? id : best
+  );
+  link(square, nearest);
 
   const aliases = [
     {
@@ -338,73 +345,60 @@ function buildCampus(letters, size) {
     { id: stop, names: ['Остановка'], translations: { en: { names: ['Bus stop'] } } },
   ];
 
-  return { nodes: [...plan.nodes.values()], aliases, entrances };
-}
-
-/**
- * Привязка корпуса к метрике так, чтобы вход первого этажа стоял на входе
- * территории: тогда время перехода через вход правдоподобно.
- */
-function buildingPlacement(campusEntrance, floorOneEntrance) {
-  const worldX = campusEntrance.x * CAMPUS_METERS_PER_PIXEL;
-  const worldY = campusEntrance.y * CAMPUS_METERS_PER_PIXEL;
-
-  return {
-    metersPerPixel: PLAN_METERS_PER_PIXEL,
-    originMeters: {
-      x: worldX - floorOneEntrance.x * PLAN_METERS_PER_PIXEL,
-      y: worldY - floorOneEntrance.y * PLAN_METERS_PER_PIXEL,
-    },
-    rotationDeg: 0,
-    baseElevationMeters: BASE_ELEVATION_METERS,
-    floorHeightMeters: FLOOR_HEIGHT_METERS,
-  };
+  return { nodes: [...nodes.values()], aliases };
 }
 
 function generate(options, outDir) {
-  const plans = placeholderPlans();
-  const campusMapSource = path.join(canonicalDataDir, campusMapPath());
-  const campusSize = pngSize(campusMapSource);
   const letters = LETTERS.slice(0, options.buildings);
   const floors = floorNumbers(options.floors, options.basements);
+  const width = buildingWidth(options.rooms);
+  const layout = campusLayout(letters, width);
 
-  const campus = buildCampus(letters, campusSize);
-  const aliases = [...campus.aliases];
+  const aliases = [];
   const transitions = [];
   const transition = (from, to, type) =>
     transitions.push({ from: { node: from }, to: { node: to }, transition_type: type });
-
-  let planIndex = 0;
+  const entrances = new Map();
+  const roofs = [];
+  const bridges = [];
 
   letters.forEach((letter, buildingIndex) => {
     const buildingId = `building_${letter.id}`;
+    // Без `--metric` привязка в данные не попадает: по ней только ставятся
+    // входы территории и крыши на плане кампуса.
+    const placement = {
+      metersPerPixel: PLAN_METERS_PER_PIXEL,
+      originMeters: layout.origins[buildingIndex],
+      rotationDeg: 0,
+      baseElevationMeters: BASE_ELEVATION_METERS,
+      floorHeightMeters: FLOOR_HEIGHT_METERS,
+    };
     const floorMetas = [];
-    let floorOneEntrance = null;
 
     for (const floor of floors) {
-      const plan = plans[planIndex % plans.length];
-      planIndex += 1;
-
       const built = buildFloor({
         letter,
         floor,
-        size: plan.size,
         rooms: options.rooms,
+        width,
         hasWestBridge: floor === 2 && buildingIndex > 0,
         hasEastBridge: floor === 2 && buildingIndex < letters.length - 1,
       });
 
       writeJson(outDir, floorGraphPath(buildingId, floor), { nodes: built.nodes });
-      copyFile(outDir, floorMapPath(buildingId, floor), plan.file);
+      writeText(outDir, floorMapPath(buildingId, floor, 'svg'), floorPlanSvg(built.geometry, built.labels));
       aliases.push(...built.aliases);
 
-      if (floor === 1) floorOneEntrance = built.nodes.find((n) => n.id.endsWith('_entrance'));
+      for (const entrance of built.geometry.entrances) {
+        entrances.set(letter.id, toWorld(placement, entrance.door.x, entrance.door.y + ENTRANCE_OUTSIDE));
+      }
 
       // Нумерация без нулевого этажа: формула корпуса дала бы подвалу отметку
       // на два этажа ниже первого, поэтому отметка подвала задаётся явно.
       floorMetas.push({
         floor,
-        mapSize: plan.size,
+        mapSize: built.size,
+        planFormat: 'svg',
         ...(options.metric && floor < 0
           ? { elevationMeters: BASE_ELEVATION_METERS + floor * FLOOR_HEIGHT_METERS }
           : {}),
@@ -424,27 +418,69 @@ function generate(options, outDir) {
       transition(`${letter.id}_f2_bridge_east`, `${letters[buildingIndex + 1].id}_f2_bridge_west`, 'bridge');
     }
 
+    roofs.push({
+      corners: [
+        [0, 0],
+        [width, 0],
+        [width, BUILDING_DEPTH],
+        [0, BUILDING_DEPTH],
+      ].map(([x, y]) => toWorld(placement, x, y)),
+      label: letter.cyrillic,
+    });
+    if (buildingIndex < letters.length - 1 && options.floors >= 2) {
+      const y = placement.originMeters.y + CORRIDOR.y + CORRIDOR.height / 2;
+      const from = placement.originMeters.x + width;
+      const to = from + BUILDING_GAP;
+      bridges.push({
+        corners: [
+          { x: from, y: y - CORRIDOR.height / 2 },
+          { x: to, y: y - CORRIDOR.height / 2 },
+          { x: to, y: y + CORRIDOR.height / 2 },
+          { x: from, y: y + CORRIDOR.height / 2 },
+        ],
+      });
+    }
+
     writeJson(outDir, buildingMetaPath(buildingId), {
       id: buildingId,
       name: `Корпус ${letter.cyrillic}`,
       translations: { en: { name: `Building ${letter.latin}` } },
       entranceFloor: 1,
-      ...(options.metric
-        ? { placement: buildingPlacement(campus.entrances.get(letter.id), floorOneEntrance) }
-        : {}),
+      ...(options.metric ? { placement } : {}),
       floors: floorMetas,
     });
   });
 
+  const campus = buildCampus(letters, layout, entrances);
+
   writeJson(outDir, CAMPUS_META_PATH, {
     buildings: letters.map((letter) => ({ id: `building_${letter.id}`, name: `Корпус ${letter.cyrillic}` })),
-    mapSize: campusSize,
+    mapSize: {
+      width: Math.round(layout.width / CAMPUS_METERS_PER_PIXEL),
+      height: Math.round(layout.depth / CAMPUS_METERS_PER_PIXEL),
+    },
+    planFormat: 'svg',
     ...(options.metric ? { metersPerPixel: CAMPUS_METERS_PER_PIXEL } : {}),
   });
   writeJson(outDir, CAMPUS_GRAPH_PATH, { nodes: campus.nodes });
-  copyFile(outDir, campusMapPath(), campusMapSource);
+  writeText(
+    outDir,
+    campusMapPath('svg'),
+    campusPlanSvg({
+      width: layout.width,
+      depth: layout.depth,
+      metersPerPixel: CAMPUS_METERS_PER_PIXEL,
+      street: { y: layout.depth - 6, height: 6 },
+      walkways: graphWalkways(campus.nodes, CAMPUS_METERS_PER_PIXEL),
+      square: { x: layout.width / 2, y: layout.depth - 50, radius: 11 },
+      parking: { x: 4, y: layout.depth - 40, width: 30, height: 22 },
+      busStop: { x: layout.width - 20, y: layout.depth - 10 },
+      buildings: roofs,
+      bridges,
+    })
+  );
   writeJson(outDir, TRANSITIONS_PATH, { transitions });
-  writeJson(outDir, ALIASES_PATH, { aliases });
+  writeJson(outDir, ALIASES_PATH, { aliases: [...campus.aliases, ...aliases] });
 }
 
 /** Загружает набор тем же ядром, что и приложения, и проверяет инварианты `data/`. */

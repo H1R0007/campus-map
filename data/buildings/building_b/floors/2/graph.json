@@ -1,93 +1,113 @@
 {
   "nodes": [
     {
-      "id": "b2_corridor_w",
-      "x": 178,
-      "y": 252,
+      "id": "b2_corridor_1",
+      "x": 16,
+      "y": 120,
       "neighbors": [
-        "b2_corridor",
-        "b2_bridge",
+        "b2_corridor_2",
+        "b2_bridge"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "b2_corridor_2",
+      "x": 90,
+      "y": 120,
+      "neighbors": [
+        "b2_corridor_1",
+        "b2_corridor_3",
         "b2_lab",
         "b2_room203"
       ],
       "isPortal": false
     },
     {
-      "id": "b2_corridor",
-      "x": 445,
-      "y": 252,
+      "id": "b2_corridor_3",
+      "x": 260,
+      "y": 120,
       "neighbors": [
-        "b2_corridor_w",
-        "b2_corridor_e",
+        "b2_corridor_2",
+        "b2_corridor_4",
         "b2_room202"
       ],
       "isPortal": false
     },
     {
-      "id": "b2_corridor_e",
-      "x": 711,
-      "y": 252,
+      "id": "b2_corridor_4",
+      "x": 420,
+      "y": 120,
       "neighbors": [
-        "b2_corridor",
-        "b2_stairs",
+        "b2_corridor_3",
+        "b2_corridor_5",
         "b2_room204"
       ],
       "isPortal": false
     },
     {
-      "id": "b2_stairs",
-      "x": 836,
-      "y": 252,
+      "id": "b2_corridor_5",
+      "x": 530,
+      "y": 120,
       "neighbors": [
-        "b2_corridor_e"
+        "b2_corridor_4",
+        "b2_stairs"
       ],
-      "isPortal": true
-    },
-    {
-      "id": "b2_bridge",
-      "x": 53,
-      "y": 252,
-      "neighbors": [
-        "b2_corridor_w"
-      ],
-      "isPortal": true
+      "isPortal": false
     },
     {
       "id": "b2_lab",
-      "x": 178,
-      "y": 91,
+      "x": 90,
+      "y": 53,
       "neighbors": [
-        "b2_corridor_w"
+        "b2_corridor_2"
       ],
       "isPortal": false
     },
     {
       "id": "b2_room202",
-      "x": 445,
-      "y": 91,
+      "x": 260,
+      "y": 53,
       "neighbors": [
-        "b2_corridor"
+        "b2_corridor_3"
       ],
       "isPortal": false
     },
     {
-      "id": "b2_room203",
-      "x": 178,
-      "y": 412,
+      "id": "b2_stairs",
+      "x": 530,
+      "y": 53,
       "neighbors": [
-        "b2_corridor_w"
+        "b2_corridor_5"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "b2_room203",
+      "x": 90,
+      "y": 188,
+      "neighbors": [
+        "b2_corridor_2"
       ],
       "isPortal": false
     },
     {
       "id": "b2_room204",
-      "x": 711,
-      "y": 412,
+      "x": 420,
+      "y": 188,
       "neighbors": [
-        "b2_corridor_e"
+        "b2_corridor_4"
       ],
       "isPortal": false,
       "comment": "Геометрия приблизительная — сверить с официальным планом"
+    },
+    {
+      "id": "b2_bridge",
+      "x": 8,
+      "y": 120,
+      "neighbors": [
+        "b2_corridor_1"
+      ],
+      "isPortal": true
     }
   ]
 }

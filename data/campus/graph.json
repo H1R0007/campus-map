@@ -2,8 +2,8 @@
   "nodes": [
     {
       "id": "campus_gate",
-      "x": 738,
-      "y": 733,
+      "x": 296,
+      "y": 360,
       "neighbors": [
         "campus_square",
         "campus_bus_stop",
@@ -13,8 +13,8 @@
     },
     {
       "id": "campus_bus_stop",
-      "x": 1255,
-      "y": 741,
+      "x": 584,
+      "y": 360,
       "neighbors": [
         "campus_gate"
       ],
@@ -22,21 +22,20 @@
     },
     {
       "id": "campus_parking",
-      "x": 148,
-      "y": 686,
+      "x": 36,
+      "y": 292,
       "neighbors": [
         "campus_gate",
-        "campus_path_a"
+        "campus_path_a_west"
       ],
       "isPortal": false
     },
     {
       "id": "campus_square",
-      "x": 738,
-      "y": 484,
+      "x": 296,
+      "y": 280,
       "neighbors": [
         "campus_gate",
-        "campus_path_a",
         "campus_path_b",
         "campus_path_c"
       ],
@@ -44,20 +43,30 @@
     },
     {
       "id": "campus_path_a",
-      "x": 325,
-      "y": 351,
+      "x": 132,
+      "y": 156,
+      "neighbors": [
+        "campus_path_a_west",
+        "campus_entrance_a",
+        "campus_path_b"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "campus_path_a_west",
+      "x": 41,
+      "y": 156,
       "neighbors": [
         "campus_parking",
-        "campus_square",
-        "campus_entrance_a",
+        "campus_path_a",
         "campus_entrance_a_yard"
       ],
       "isPortal": false
     },
     {
       "id": "campus_entrance_a",
-      "x": 325,
-      "y": 234,
+      "x": 132,
+      "y": 135,
       "neighbors": [
         "campus_path_a"
       ],
@@ -65,18 +74,19 @@
     },
     {
       "id": "campus_entrance_a_yard",
-      "x": 118,
-      "y": 156,
+      "x": 57,
+      "y": 106,
       "neighbors": [
-        "campus_path_a"
+        "campus_path_a_west"
       ],
       "isPortal": true
     },
     {
       "id": "campus_path_b",
-      "x": 738,
-      "y": 351,
+      "x": 296,
+      "y": 156,
       "neighbors": [
+        "campus_path_a",
         "campus_square",
         "campus_entrance_b"
       ],
@@ -84,8 +94,8 @@
     },
     {
       "id": "campus_entrance_b",
-      "x": 738,
-      "y": 234,
+      "x": 296,
+      "y": 133,
       "neighbors": [
         "campus_path_b"
       ],
@@ -93,8 +103,8 @@
     },
     {
       "id": "campus_path_c",
-      "x": 1151,
-      "y": 351,
+      "x": 448,
+      "y": 203,
       "neighbors": [
         "campus_square",
         "campus_entrance_c"
@@ -103,8 +113,8 @@
     },
     {
       "id": "campus_entrance_c",
-      "x": 1151,
-      "y": 234,
+      "x": 455,
+      "y": 184,
       "neighbors": [
         "campus_path_c"
       ],

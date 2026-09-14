@@ -7,27 +7,40 @@
     }
   },
   "entranceFloor": 1,
+  "placement": {
+    "metersPerPixel": 0.1,
+    "originMeters": {
+      "x": 30,
+      "y": 40
+    },
+    "rotationDeg": 0,
+    "baseElevationMeters": 0,
+    "floorHeightMeters": 3.6
+  },
   "floors": [
     {
       "floor": 1,
       "mapSize": {
-        "width": 967,
-        "height": 477
-      }
+        "width": 720,
+        "height": 260
+      },
+      "planFormat": "svg"
     },
     {
       "floor": 2,
       "mapSize": {
-        "width": 1136,
-        "height": 716
-      }
+        "width": 720,
+        "height": 260
+      },
+      "planFormat": "svg"
     },
     {
       "floor": 3,
       "mapSize": {
-        "width": 967,
-        "height": 477
-      }
+        "width": 720,
+        "height": 260
+      },
+      "planFormat": "svg"
     }
   ]
 }

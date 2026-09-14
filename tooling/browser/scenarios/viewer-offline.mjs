@@ -39,9 +39,9 @@ export default {
 
       const expected = [
         'campus/meta.json',
-        'building_a/floors/1/map.png',
-        'building_a/floors/2/map.png',
-        'building_b/floors/2/map.png',
+        'building_a/floors/1/map.svg',
+        'building_a/floors/2/map.svg',
+        'building_b/floors/2/map.svg',
       ];
       const cached = () =>
         page.eval(`(async () => {

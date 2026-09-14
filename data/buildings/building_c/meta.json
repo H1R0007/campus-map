@@ -6,13 +6,25 @@
       "name": "Building V"
     }
   },
+  "entranceFloor": 1,
+  "placement": {
+    "metersPerPixel": 0.1,
+    "originMeters": {
+      "x": 210,
+      "y": 52
+    },
+    "rotationDeg": 20,
+    "baseElevationMeters": 0,
+    "floorHeightMeters": 3.6
+  },
   "floors": [
     {
       "floor": 1,
       "mapSize": {
-        "width": 792,
-        "height": 389
-      }
+        "width": 600,
+        "height": 300
+      },
+      "planFormat": "svg"
     }
   ]
 }
