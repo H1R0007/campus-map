@@ -53,6 +53,11 @@ export const ru = {
     floors: 'Этажи',
     /** Подпись кнопки этажа, через который идёт маршрут; `floor` — уже «Этаж 2». */
     floorOnRoute: (floor: string) => `${floor}, по маршруту`,
+    /** Этаж, где маршрут начинается или кончается; `floor` — уже «Этаж 2». */
+    floorRouteStart: (floor: string) => `${floor}, начало маршрута`,
+    floorRouteEnd: (floor: string) => `${floor}, конец маршрута`,
+    /** Этаж текущего шага навигации; `floor` — подпись этажа с ролью. */
+    floorCurrentStep: (floor: string) => `${floor}, текущий шаг`,
     place: (building: string, floor: string) => `${building}, этаж ${floor}`,
     backToCampus: 'Вернуться к карте кампуса',
     zoomIn: 'Приблизить',

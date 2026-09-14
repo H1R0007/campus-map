@@ -39,8 +39,27 @@ export default {
       await shot('viewer-navigation-step');
     });
 
+    await step('схема этажей: начало, цель, лестница между этажами и текущий шаг', async () => {
+      const scheme = await page.eval(`(() => {
+        const buttons = [...document.querySelectorAll('.campus-floor-list button')];
+        return {
+          labels: buttons.map((b) => b.getAttribute('aria-label')),
+          links: [...document.querySelectorAll('.campus-floor-list [data-transition]')].map((s) => s.dataset.transition),
+          current: buttons.findIndex((b) => b.querySelector('[data-current-step]')),
+        };
+      })()`);
+      assert.deepEqual(scheme.labels, [
+        'Этаж 3, конец маршрута, текущий шаг',
+        'Этаж 2, по маршруту',
+        'Этаж 1, начало маршрута',
+      ]);
+      assert.deepEqual(scheme.links, ['stairs', 'stairs']);
+      assert.equal(scheme.current, 0, 'кольцо текущего шага — на третьем этаже');
+      await shot('viewer-floor-scheme');
+    });
+
     await step('ручная смена этажа не сбрасывает шаг', async () => {
-      await v.click('Этаж 1, по маршруту');
+      await v.click('Этаж 1, начало маршрута');
       assert.ok((await v.panelText()).includes('Шаг 3 из 4'));
       await v.click('Показать шаг на карте');
       assert.ok((await v.headerText()).includes('Этаж 3'));
