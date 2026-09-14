@@ -1,13 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import type { MapNode } from '@campus-map/core';
+import { fitPaddingOf } from '@campus-map/mapkit';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { pickNode } from '../../utils/mapPicking';
 import { themeColor } from '../../utils/themeColor';
+import { useMapInsets } from './mapChrome';
 
 /** Радиус касания, CSS-пиксели: примерно подушечка пальца. */
 const TAP_RADIUS = 28;
+
+/** Запас от края интерфейса до выбранного места, когда карта к нему сдвигается, px. */
+const SELECTION_MARGIN = 24;
 
 /**
  * Помещения на плане и выбор места нажатием.
@@ -59,6 +64,15 @@ export const PlaceLayer: React.FC = () => {
   });
 
   const selected = nodes.find((node) => node.id === selectedNodeId);
+  const insets = useMapInsets();
+
+  // Выбранное место не должно оказаться под шторкой или за краем экрана: место
+  // из поиска бывает в другой части плана, а карточка места поднимает край
+  // шторки. Карта сдвигается, только если точки не видно.
+  useEffect(() => {
+    if (!selected) return;
+    map.panInside([selected.y, selected.x], fitPaddingOf(insets, SELECTION_MARGIN));
+  }, [map, selected, insets]);
 
   return (
     <>

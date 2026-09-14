@@ -1,42 +1,44 @@
 import React from 'react';
+import { messagesFor, useLanguage } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import type { RouteField } from '../../stores/routeStore';
-import { messagesFor, useLanguage } from '../../i18n';
-import { nodePlaceLabel } from '../../utils/placeLabels';
+import { useUiStore } from '../../stores/uiStore';
+import { nodeName, nodePlaceLabel } from '../../utils/placeLabels';
 import { portalTypeOf } from '../../utils/portals';
+import { Icon } from './Icon';
+import { IconButton } from './IconButton';
+import { PlaceIcon } from './PlaceIcon';
 
 interface PlaceCardProps {
   nodeId: string;
-
-  /**
-   * Открыть шторку маршрута.
-   *
-   * @param field поле, которое осталось заполнить; `null` — маршрут построить
-   *        не удалось, и шторка нужна, чтобы показать причину
-   */
-  onOpenSheet: (field: RouteField | null) => void;
 }
 
 /**
- * Карточка места, выбранного на карте: что это, где, и «Отсюда» / «Сюда».
+ * Карточка места, выбранного на карте или в поиске: что это, где, «Маршрут
+ * сюда» и «Отсюда».
  *
- * Для точки перехода без названия — только тип и положение: сделать её концом
- * маршрута нельзя, у неё нет имени для поля.
+ * Если вторая точка маршрута уже известна — например, «вы здесь» из QR-кода, —
+ * маршрут строится сразу. Если нет, открывается поиск второй точки: это
+ * следующий шаг, и искать, где его сделать, не приходится.
+ *
+ * Точку перехода без названия сделать концом маршрута нельзя — у неё нет имени
+ * для подписи; карточка показывает только тип и положение.
  */
-export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId, onOpenSheet }) => {
+export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
   const graph = useMapStore((s) => s.graph);
   const aliasManager = useMapStore((s) => s.aliasManager);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const selectNode = useMapStore((s) => s.selectNode);
   const setPoint = useRouteStore((s) => s.setPoint);
+  const openSearch = useUiStore((s) => s.openSearch);
   const language = useLanguage();
   const messages = messagesFor(language);
 
   const node = graph?.getNode(nodeId);
   if (!graph || !buildingMetas || !node) return null;
 
-  const name = aliasManager?.getPrimaryAliasForId(nodeId, language) ?? null;
+  const name = nodeName(aliasManager, nodeId, language);
   const transition = node.isPortal ? portalTypeOf(graph, node) : null;
   const typeLabel = transition ? messages.transition[transition] : null;
 
@@ -47,46 +49,43 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId, onOpenSheet }) => 
     .join(' · ');
 
   const choose = (field: RouteField) => {
-    const route = setPoint(field, nodeId);
     selectNode(null);
-
-    if (route === null) onOpenSheet(field === 'from' ? 'to' : 'from');
-    else if (!route.found) onOpenSheet(null);
+    if (setPoint(field, nodeId) === null) openSearch(field === 'from' ? 'to' : 'from');
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-3">
-      <div className="flex items-start gap-3 px-1">
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-gray-800 truncate">{title}</div>
-          <div className="text-xs text-gray-500 truncate">{details}</div>
+    <div className="px-4 pb-4">
+      <div className="flex items-start gap-3">
+        <PlaceIcon transition={transition} size="lg" />
+        <div className="flex-1 min-w-0 pt-0.5">
+          <h2
+            data-panel-focus
+            tabIndex={-1}
+            className="text-lg font-semibold leading-snug text-gray-900 line-clamp-2 outline-none"
+          >
+            {title}
+          </h2>
+          <p className="mt-0.5 text-sm text-gray-600">{details}</p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => selectNode(null)}
-          className="p-2 -m-1 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
-          aria-label={messages.place.close}
-        >
-          ✕
-        </button>
+        <IconButton icon="close" label={messages.place.close} onClick={() => selectNode(null)} className="-mt-1 -mr-2" />
       </div>
 
       {name !== null && (
-        <div className="flex gap-2 mt-3">
-          <button
-            type="button"
-            onClick={() => choose('from')}
-            className="flex-1 h-11 rounded-xl bg-gray-100 text-gray-800 text-sm font-medium hover:bg-gray-200 transition-colors"
-          >
-            {messages.place.from}
-          </button>
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={() => choose('to')}
-            className="flex-1 h-11 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
+            className="flex-1 min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
           >
-            {messages.place.to}
+            <Icon name="route" className="flex-shrink-0" />
+            <span className="truncate">{messages.place.route}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => choose('from')}
+            className="h-12 px-5 rounded-xl bg-gray-100 text-gray-800 font-medium hover:bg-gray-200 transition-colors"
+          >
+            {messages.place.from}
           </button>
         </div>
       )}

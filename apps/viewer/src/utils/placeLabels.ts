@@ -1,4 +1,4 @@
-import type { BuildingMeta, Graph, ViewScope } from '@campus-map/core';
+import type { AliasManager, BuildingMeta, Graph, ViewScope } from '@campus-map/core';
 import { buildingName, scopeOfNode } from '@campus-map/core';
 import { formatFloor, messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
@@ -52,4 +52,16 @@ export function nodePlaceLabel(
 ): string {
   const node = graph.getNode(nodeId);
   return node ? scopeLabel(scopeOfNode(node), buildingMetas, language) : '';
+}
+
+/**
+ * Имя места на языке интерфейса — для точек маршрута и карточек.
+ *
+ * Выводится из узла при отрисовке, а не хранится: прежний текст полей маршрута
+ * лежал в сторе и при смене языка оставался на прежнем.
+ *
+ * @returns `null`, если у узла нет названия
+ */
+export function nodeName(aliasManager: AliasManager | null, nodeId: string, language: Language): string | null {
+  return aliasManager?.getPrimaryAliasForId(nodeId, language) ?? null;
 }

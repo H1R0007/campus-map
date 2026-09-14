@@ -22,7 +22,6 @@
     --color-primary: 0 99 204;       /* #0063CC */
     --color-primary-hover: 0 82 163; /* #0052A3 */
     --color-start: 22 163 74;        /* #16A34A — начало маршрута */
-    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 *, *::before, *::after {
@@ -86,7 +85,7 @@ button {
 
 /* ===== Шапка и колонка управления картой ===== */
 
-/* Отступы этих блоков учтены в `MAP_CHROME_INSETS` и меняются вместе с ним.
+/* Отступы этих блоков учтены в `mapInsetsOf` (`mapChrome.ts`) и меняются вместе с ним.
    Пустое место в ряду и в колонке жесты не перехватывает: карту можно тянуть
    между кнопками. */
 
@@ -104,6 +103,14 @@ button {
 
 .campus-map-header > * {
     pointer-events: auto;
+}
+
+/* На широком экране слева стоит панель навигатора — 24rem и поля по 1rem:
+   шапка начинается справа от неё. */
+@media (min-width: 1024px) {
+    .campus-map-header {
+        left: 26rem;
+    }
 }
 
 /* Лента корпусов прокручивается жестом; системная полоса под чипами
@@ -140,8 +147,9 @@ button {
 .campus-map-rail {
     position: absolute;
     top: calc(4.5rem + env(safe-area-inset-top, 0px));
-    /* Над свёрнутой карточкой любой высоты: высоту пишет `BottomSheet`. */
-    bottom: calc(var(--campus-sheet-height, 4.875rem) + 1.875rem + var(--safe-area-bottom));
+    /* Над шторкой любой высоты: сколько карты она закрывает снизу, измеряет
+       `NavigatorPanel`. На широком экране панель слева, и значение — ноль. */
+    bottom: calc(var(--campus-sheet-height, 7rem) + 0.75rem);
     right: 0.75rem;
     z-index: 1000;
     display: flex;
@@ -218,6 +226,13 @@ button {
     white-space: nowrap;
 }
 
+/* По центру видимой карты, а не всего окна: слева панель навигатора. */
+@media (min-width: 1024px) {
+    .campus-plan-status {
+        left: calc(50% + 13rem);
+    }
+}
+
 /* ===== Маршрут и маркеры ===== */
 
 /* Линия и концы маршрута красятся классами: Leaflet ставит атрибуты SVG
@@ -247,6 +262,33 @@ button {
     border: 2px solid #ffffff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
     color: #ffffff;
+}
+
+/* ===== Панель навигатора ===== */
+
+/* Шторка возвращается на место плавно после жеста; кто попросил систему не
+   анимировать интерфейс, получает её без движения. */
+.campus-panel--animated {
+    transition: transform 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .campus-panel--animated {
+        transition: none;
+    }
+}
+
+/* Раскрытая шторка на телефоне: карта над ней остаётся видна. `dvh` учитывает
+   адресную строку мобильного браузера, `vh` — для браузеров без его поддержки. */
+.campus-panel__body--expanded {
+    max-height: 70vh;
+    max-height: 70dvh;
+}
+
+/* Поле поиска: рамку фокуса рисует его подложка (`focus-within`), вторая рамка
+   вокруг одного текста лишняя. */
+.campus-search-input:focus-visible {
+    outline: none;
 }
 
 /* ===== Фокус ===== */

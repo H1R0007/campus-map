@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import { WIDE_LAYOUT_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
+import { useUiStore } from '../../stores/uiStore';
 import { FloorSelector } from '../UI/FloorSelector';
 import { ZoomControls } from '../UI/ZoomControls';
 
@@ -17,9 +19,16 @@ import { ZoomControls } from '../UI/ZoomControls';
  * списка этажей масштабировала бы карту, а перетаскивание по кнопкам двигало
  * план. Событие `click` Leaflet при этом не останавливает, и обработчики
  * React работают.
+ *
+ * Пока шторка на телефоне раскрыта, кнопок масштаба нет: между шапкой и шторкой
+ * остаётся полоса в пару кнопок, и масштаб забирал её у этажей целиком. Этажи
+ * нужнее — по шагам маршрута переключаются именно они, а масштабировать можно
+ * жестом.
  */
 export const MapRail: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
+  const isWide = useMediaQuery(WIDE_LAYOUT_QUERY);
+  const sheetExpanded = useUiStore((s) => s.sheetExpanded);
 
   useEffect(() => {
     const element = ref.current;
@@ -32,7 +41,7 @@ export const MapRail: React.FC = () => {
   return (
     <div ref={ref} className="campus-map-rail">
       <FloorSelector />
-      <ZoomControls />
+      {(isWide || !sheetExpanded) && <ZoomControls />}
     </div>
   );
 };

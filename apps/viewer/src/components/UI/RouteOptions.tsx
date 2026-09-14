@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
+import React, { useId } from 'react';
 import { useMessages } from '../../i18n';
 import { useRouteStore } from '../../stores/routeStore';
+import { Icon } from './Icon';
 
-interface ToggleProps {
+interface ChipProps {
   pressed: boolean;
   label: string;
   onToggle: () => void;
 }
 
-const Toggle: React.FC<ToggleProps> = ({ pressed, label, onToggle }) => (
+const Chip: React.FC<ChipProps> = ({ pressed, label, onToggle }) => (
   <button
     type="button"
     onClick={onToggle}
     aria-pressed={pressed}
-    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      pressed ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+    className={`h-11 px-4 rounded-full border text-sm font-medium flex items-center gap-2 transition-colors ${
+      pressed ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-700 hover:bg-gray-50'
     }`}
   >
+    {pressed && <Icon name="check" size={16} />}
     {label}
   </button>
 );
@@ -25,49 +27,39 @@ const Toggle: React.FC<ToggleProps> = ({ pressed, label, onToggle }) => (
  * Ограничения маршрута, понятные студенту.
  *
  * Из пяти флагов ядра здесь два: «Без лестниц» — для коляски, тележки,
- * травмы — и «Предпочитать лифт». Раньше интерфейс показывал все пять, и
- * выключенные по умолчанию «Лестницы», «Лифты», «Переходы», «Входы» читались
- * наоборот: нажатая кнопка значила «разрешено». Запрет входов делает корпуса
- * недостижимыми — это инструмент разметчика, и он есть в симуляторе
- * редактора.
+ * травмы — и «Предпочитать лифт». Запрет входов делает корпуса недостижимыми —
+ * это инструмент разметчика, и он есть в симуляторе редактора.
  *
- * Блок раскрыт сам, если ограничение уже включено: скрытое ограничение
- * объясняло бы «маршрут не найден» только тому, кто знает, где его искать.
+ * Ограничения видны сразу в раскрытом обзоре маршрута, а не за раскрывающимся
+ * заголовком: скрытое ограничение объясняло «маршрут не найден» только тому, кто
+ * знает, где его искать.
  */
 export const RouteOptions: React.FC = () => {
   const options = useRouteStore((s) => s.options);
   const setOptions = useRouteStore((s) => s.setOptions);
   const messages = useMessages();
+  const titleId = useId();
 
   const noStairs = options.allowStairs === false;
   const preferLift = options.preferLift === true;
-  const [open, setOpen] = useState(noStairs || preferLift);
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
-        aria-expanded={open}
-      >
-        {open ? '▾' : '▸'} {messages.route.options}
-      </button>
-
-      {open && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          <Toggle
-            pressed={noStairs}
-            label={messages.route.option.noStairs}
-            onToggle={() => setOptions({ allowStairs: noStairs })}
-          />
-          <Toggle
-            pressed={preferLift}
-            label={messages.route.option.preferLift}
-            onToggle={() => setOptions({ preferLift: !preferLift })}
-          />
-        </div>
-      )}
-    </div>
+    <section aria-labelledby={titleId}>
+      <h3 id={titleId} className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {messages.route.options}
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        <Chip
+          pressed={noStairs}
+          label={messages.route.option.noStairs}
+          onToggle={() => setOptions({ allowStairs: noStairs })}
+        />
+        <Chip
+          pressed={preferLift}
+          label={messages.route.option.preferLift}
+          onToggle={() => setOptions({ preferLift: !preferLift })}
+        />
+      </div>
+    </section>
   );
 };

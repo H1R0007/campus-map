@@ -3,7 +3,7 @@ import { CAMPUS_BUILDING_ID, campusMapUrl, floorMapUrl } from '@campus-map/core'
 import { PixelMap } from '@campus-map/mapkit';
 import { useMapStore } from '../../stores/mapStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
-import { MAP_CHROME_INSETS } from './mapChrome';
+import { useMapInsets } from './mapChrome';
 import { MapRail } from './MapRail';
 import { PathLayer } from './PathLayer';
 import { PlaceLayer } from './PlaceLayer';
@@ -22,6 +22,7 @@ export const CampusMap: React.FC = () => {
   const campusMeta = useMapStore((s) => s.campusMeta);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
+  const insets = useMapInsets();
 
   const mapUrl = useMemo(
     () =>
@@ -48,7 +49,7 @@ export const CampusMap: React.FC = () => {
       // одного корпуса листаются на месте: на соседнем этаже человек ищет то
       // же место здания, а не весь план заново.
       fitKey={activeFloor?.buildingId ?? CAMPUS_BUILDING_ID}
-      fitInsets={MAP_CHROME_INSETS}
+      fitInsets={insets}
       maxZoom={4}
       constrainToBounds
     >

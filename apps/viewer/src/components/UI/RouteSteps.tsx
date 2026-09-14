@@ -7,7 +7,7 @@ import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import { buildRouteSteps, formatDuration } from '../../utils/routeInstructions';
 import type { RouteStep } from '../../utils/routeInstructions';
-import { formatDistance, routeSummary } from '../../utils/routeSummary';
+import { formatDistance } from '../../utils/routeSummary';
 
 /** Совпадает ли вид карты с областью шага — чтобы подсветить текущий шаг. */
 function sameScope(a: ViewScope, b: ViewScope): boolean {
@@ -106,10 +106,8 @@ export const RouteSteps: React.FC = () => {
 
   return (
     <section aria-label={messages.route.stepsTitle}>
-      <div className="flex items-baseline justify-between gap-3 mb-2">
-        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{messages.route.stepsTitle}</h3>
-        <span className="text-xs text-gray-600">{routeSummary(graph, currentRoute, language)}</span>
-      </div>
+      {/* Сводка маршрута — в заголовке обзора над шагами, здесь её не повторяем. */}
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{messages.route.stepsTitle}</h3>
 
       <ol className="space-y-1">
         {steps.map((step, index) => {

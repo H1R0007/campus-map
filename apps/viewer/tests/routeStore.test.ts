@@ -2,50 +2,35 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AliasManager, DEFAULT_PATHFINDING_OPTIONS } from '@campus-map/core';
 import { useMapStore } from '../src/stores/mapStore';
 import { useRouteStore } from '../src/stores/routeStore';
-import { useSettingsStore } from '../src/stores/settingsStore';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
  * Поведение стора маршрута.
  *
- * Главное, что здесь проверяется, — построенный маршрут действительно
- * показывается. Навигатор стартует в виде кампуса, где слой маршрута рисует
- * только узлы территории, поэтому маршрут между аудиториями отфильтровывался
- * целиком: пользователь видел неизменную карту и подпись «Маршрут готов».
+ * Фикстура (`graphFixture`): территория → корпус А, этажи 1 и 2, подняться
+ * можно только по лестнице. Главное, что проверяется, — построенный маршрут
+ * действительно показывается: навигатор стартует в виде кампуса, где слой
+ * маршрута рисует только узлы территории.
  */
-
-const ALIASES = [
-  { id: 'a2_room201', names: ['А-201', '201'] },
-  { id: 'campus_gate', names: ['Главный вход'], translations: { en: { names: ['Main gate'] } } },
-  { id: 'a1_hall', names: ['Холл А'] },
-];
 
 function loadFixture(): void {
   const aliasManager = new AliasManager();
-  aliasManager.load(ALIASES);
-
-  useSettingsStore.setState({ language: 'ru' });
+  aliasManager.load([
+    { id: 'a2_room201', names: ['А-201'] },
+    { id: 'campus_gate', names: ['Главный вход'] },
+    { id: 'a1_hall', names: ['Холл А'] },
+  ]);
 
   useMapStore.setState({
     graph: fixtureGraph(),
     aliasManager,
     campusMeta: { buildings: [{ id: 'building_a', name: 'Корпус А' }], mapSize: { width: 1200, height: 800 } },
-    buildingMetas: new Map([
-      [
-        'building_a',
-        {
-          id: 'building_a',
-          name: 'Корпус А',
-          floors: [{ floor: 1 }, { floor: 2 }],
-        },
-      ],
-    ]),
+    buildingMetas: new Map([['building_a', { id: 'building_a', name: 'Корпус А', floors: [{ floor: 1 }, { floor: 2 }] }]]),
     activeFloor: null,
     selectedNodeId: null,
   });
 
   useRouteStore.getState().clearRoute();
-
   // Ограничения тоже сбрасываются: `clearRoute` их не трогает, и запрет
   // лестниц из одного теста делал недостижимым второй этаж во всех следующих.
   useRouteStore.setState({ options: { ...DEFAULT_PATHFINDING_OPTIONS } });
@@ -53,167 +38,131 @@ function loadFixture(): void {
 
 beforeEach(loadFixture);
 
-describe('построение маршрута', () => {
-  it('переводит карту на этаж, где маршрут начинается', () => {
-    const route = useRouteStore.getState();
+const route = () => useRouteStore.getState();
+const activeFloor = () => useMapStore.getState().activeFloor;
 
-    route.setQuery('from', 'Холл А');
-    route.setQuery('to', 'А-201');
-    route.buildRoute();
+describe('точка маршрута узлом', () => {
+  it('первая точка маршрут не строит, вторая — строит и открывает этаж начала', () => {
+    expect(route().setPoint('to', 'a2_room201')).toBeNull();
+    expect(route().currentRoute).toBeNull();
 
-    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
+    const built = route().setPoint('from', 'a1_hall');
 
-    // Стартовый узел — на первом этаже корпуса А, значит карта обязана
-    // показывать именно его, а не территорию кампуса.
-    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 1 });
+    expect(built?.found).toBe(true);
+    expect(route().currentRoute).toBe(built);
+    expect(activeFloor()).toEqual({ buildingId: 'building_a', floor: 1 });
   });
 
-  it('возвращает карту на территорию, если маршрут начинается на улице', () => {
+  it('маршрут от ворот возвращает карту на территорию', () => {
     useMapStore.getState().setActiveFloor('building_a', 2);
 
-    const route = useRouteStore.getState();
-    route.setQuery('from', 'Главный вход');
-    route.setQuery('to', 'А-201');
-    route.buildRoute();
+    route().setPoint('from', 'campus_gate');
+    route().setPoint('to', 'a2_room201');
 
-    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
-    expect(useMapStore.getState().activeFloor).toBeNull();
+    expect(route().currentRoute?.found).toBe(true);
+    expect(activeFloor()).toBeNull();
   });
 
-  it('не трогает вид, если маршрут не найден', () => {
+  it('новая точка перестраивает маршрут', () => {
+    route().setPoint('from', 'a1_hall');
+    const first = route().setPoint('to', 'a2_room201');
+    const second = route().setPoint('to', 'campus_gate');
+
+    expect(second).not.toBe(first);
+    expect(second?.path[second.path.length - 1]).toBe('campus_gate');
+  });
+
+  it('повторный выбор той же точки не перестраивает показанный маршрут', () => {
+    route().setPoint('from', 'a1_hall');
+    const first = route().setPoint('to', 'a2_room201');
+
+    expect(route().setPoint('to', 'a2_room201')).toBe(first);
+  });
+
+  it('снятие точки снимает маршрут, вторая точка остаётся', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setPoint('to', 'a2_room201');
+
+    route().clearPoint('from');
+
+    expect(route().currentRoute).toBeNull();
+    expect(route().fromNodeId).toBeNull();
+    expect(route().toNodeId).toBe('a2_room201');
+  });
+
+  it('не найденный маршрут вид не меняет', () => {
     useMapStore.getState().setActiveFloor('building_a', 2);
+    route().setOptions({ allowStairs: false });
 
-    const route = useRouteStore.getState();
-    route.setQuery('from', 'Холл А');
-    route.setQuery('to', 'нет такого места');
-    route.buildRoute();
+    route().setPoint('from', 'a1_hall');
+    const result = route().setPoint('to', 'a2_room201');
 
-    expect(useRouteStore.getState().currentRoute).toBeNull();
-    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 2 });
-  });
-});
-
-describe('устаревание маршрута', () => {
-  it('снимает маршрут, когда точка назначения изменилась', () => {
-    const route = useRouteStore.getState();
-
-    route.setQuery('from', 'Холл А');
-    route.setQuery('to', 'А-201');
-    route.buildRoute();
-    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
-
-    // Пользователь начал править поле «Куда»: показывать старую линию рядом с
-    // новым текстом нельзя — карточка врала бы о том, что нарисовано.
-    useRouteStore.getState().setQuery('to', 'А-2');
-    expect(useRouteStore.getState().currentRoute).toBeNull();
-  });
-
-  it('сохраняет маршрут, пока точки те же', () => {
-    const route = useRouteStore.getState();
-
-    route.setQuery('from', 'Холл А');
-    route.setQuery('to', 'А-201');
-    route.buildRoute();
-
-    // Другой алиас того же узла — маршрут остаётся верным.
-    useRouteStore.getState().setQuery('to', '201');
-    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
+    expect(result?.found).toBe(false);
+    expect(activeFloor()).toEqual({ buildingId: 'building_a', floor: 2 });
   });
 });
 
 describe('ограничения маршрута', () => {
-  it('не строит маршрут по своей инициативе при смене ограничений', () => {
-    const route = useRouteStore.getState();
+  it('не строят маршрут по своей инициативе', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setOptions({ preferLift: true });
 
-    route.setQuery('from', 'Холл А');
-    route.setQuery('to', 'А-201');
-    // «Построить» не нажимали.
-
-    route.setOptions({ preferLift: true });
-
-    expect(useRouteStore.getState().currentRoute).toBeNull();
+    expect(route().currentRoute).toBeNull();
   });
 
-  it('пересчитывает уже показанный маршрут', () => {
-    const route = useRouteStore.getState();
-
-    route.setQuery('from', 'Холл А');
-    route.setQuery('to', 'А-201');
-    route.buildRoute();
+  it('пересчитывают уже показанный маршрут', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setPoint('to', 'a2_room201');
 
     // Единственный путь наверх — лестница. Запрет делает цель недостижимой,
     // и об этом нужно сообщить сразу, а не оставлять прежний результат.
-    useRouteStore.getState().setOptions({ allowStairs: false });
+    route().setOptions({ allowStairs: false });
 
-    expect(useRouteStore.getState().currentRoute?.found).toBe(false);
+    expect(route().currentRoute?.found).toBe(false);
   });
 
-  it('не уводит карту с открытого этажа, через который идёт пересчитанный маршрут', () => {
-    useRouteStore.getState().setPoint('from', 'a1_hall');
-    useRouteStore.getState().setPoint('to', 'a2_room201');
+  it('не уводят карту с открытого этажа, через который идёт пересчитанный маршрут', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setPoint('to', 'a2_room201');
     // Человек рассматривает второй этаж маршрута, а карта открылась на первом.
     useMapStore.getState().setActiveFloor('building_a', 2);
 
-    useRouteStore.getState().setOptions({ preferLift: true });
+    route().setOptions({ preferLift: true });
 
-    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
-    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 2 });
+    expect(route().currentRoute?.found).toBe(true);
+    expect(activeFloor()).toEqual({ buildingId: 'building_a', floor: 2 });
   });
 
-  it('ведёт к началу, если пересчитанный маршрут через открытый вид не проходит', () => {
-    useRouteStore.getState().setPoint('from', 'a1_hall');
-    useRouteStore.getState().setPoint('to', 'campus_gate');
+  it('ведут к началу, если пересчитанный маршрут через открытый вид не проходит', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setPoint('to', 'campus_gate');
     useMapStore.getState().setActiveFloor('building_a', 2);
 
-    useRouteStore.getState().setOptions({ preferLift: true });
+    route().setOptions({ preferLift: true });
 
-    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
-    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 1 });
+    expect(route().currentRoute?.found).toBe(true);
+    expect(activeFloor()).toEqual({ buildingId: 'building_a', floor: 1 });
   });
 });
 
-describe('точка маршрута узлом', () => {
-  it('первая точка маршрут не строит, вторая — строит и показывает', () => {
-    expect(useRouteStore.getState().setPoint('to', 'a2_room201')).toBeNull();
-    expect(useRouteStore.getState().currentRoute).toBeNull();
+describe('обмен точек', () => {
+  it('пересчитывает показанный маршрут в обратную сторону', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setPoint('to', 'a2_room201');
 
-    const route = useRouteStore.getState().setPoint('from', 'a1_hall');
+    route().swapPoints();
 
-    expect(route?.found).toBe(true);
-    expect(useRouteStore.getState().currentRoute).toBe(route);
-    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 1 });
+    expect(route().currentRoute?.path[0]).toBe('a2_room201');
+    expect(activeFloor()).toEqual({ buildingId: 'building_a', floor: 2 });
   });
 
-  it('набор текста в поле маршрут по-прежнему не строит', () => {
-    // Выбор точки — явное намерение, а промежуточный текст при наборе — нет.
-    useRouteStore.getState().setQuery('from', 'Холл А');
-    useRouteStore.getState().setQuery('to', 'А-201');
+  it('без маршрута только меняет точки местами', () => {
+    route().setPoint('from', 'a1_hall');
 
-    expect(useRouteStore.getState().currentRoute).toBeNull();
-  });
+    route().swapPoints();
 
-  it('подпись поля — имя узла на языке интерфейса', () => {
-    useSettingsStore.setState({ language: 'en' });
-    useRouteStore.getState().setPoint('from', 'campus_gate');
-    expect(useRouteStore.getState().fromQuery).toBe('Main gate');
-
-    // Узел без перевода подписывается исходным именем.
-    useRouteStore.getState().setPoint('to', 'a1_hall');
-    expect(useRouteStore.getState().toQuery).toBe('Холл А');
-  });
-
-  it('подпись поля не зависит от того, по какому имени место нашлось', () => {
-    // Поиск находит «Main gate» и в русском интерфейсе, но поле получает имя
-    // на языке интерфейса.
-    useRouteStore.getState().setPoint('from', 'campus_gate');
-
-    expect(useRouteStore.getState().fromQuery).toBe('Главный вход');
-  });
-
-  it('повторный выбор тех же точек не перестраивает показанный маршрут', () => {
-    useRouteStore.getState().setPoint('from', 'a1_hall');
-    const first = useRouteStore.getState().setPoint('to', 'a2_room201');
-
-    expect(useRouteStore.getState().setPoint('to', 'a2_room201')).toBe(first);
+    expect(route().fromNodeId).toBeNull();
+    expect(route().toNodeId).toBe('a1_hall');
+    expect(route().currentRoute).toBeNull();
   });
 });

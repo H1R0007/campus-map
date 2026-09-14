@@ -37,3 +37,15 @@ export function useMessages(): Messages {
 export function formatFloor(floor: number): string {
   return floor < 0 ? `−${-floor}` : String(floor);
 }
+
+/**
+ * Фраза с заглавной буквы.
+ *
+ * Причины неудачи маршрута в словаре — продолжение предложения («Маршрут не
+ * найден: при выбранных ограничениях…»), а в карточке маршрута они стоят
+ * отдельной строкой. Второй набор строк ради регистра одной буквы разошёлся бы
+ * с первым.
+ */
+export function capitalize(text: string, language: Language): string {
+  return text.charAt(0).toLocaleUpperCase(language) + text.slice(1);
+}

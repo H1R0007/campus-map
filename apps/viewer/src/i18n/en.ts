@@ -18,6 +18,12 @@ export const en: Messages = {
 
   languageSwitch: 'Interface language',
 
+  sheet: {
+    label: 'Navigator panel',
+    expand: 'Expand the panel',
+    collapse: 'Collapse the panel',
+  },
+
   map: {
     campus: 'Campus',
     floor: (floor) => `Floor ${floor}`,
@@ -42,19 +48,37 @@ export const en: Messages = {
   },
 
   place: {
+    route: 'Directions',
     from: 'From here',
-    to: 'To here',
     close: 'Close place card',
   },
 
   search: {
-    prompt: 'Where do you want to go?',
+    open: {
+      place: 'Find a room or place',
+      from: 'Where does the route start?',
+      to: 'Where do you want to go?',
+    },
+    placeholder: {
+      place: 'Room, office or place',
+      from: 'Where does the route start',
+      to: 'Where are you going',
+    },
+    title: {
+      place: 'Find a place',
+      from: 'Route start',
+      to: 'Destination',
+    },
+    hint: 'A room number or a name: “305”, “library”',
+    nothingFound: (query) => `Nothing found for “${query}”`,
+    close: 'Close search',
+    clear: 'Clear search',
+    buildings: 'Buildings',
     from: 'From',
     to: 'To',
     swap: 'Swap',
     suggestions: 'Suggestions',
-    fromPoint: (place) => `From: ${place}`,
-    ambiguous: (name) => `“${name}” is in several places — choose one:`,
+    clearPoint: (place) => `Remove point: ${place}`,
   },
 
   link: {
@@ -64,12 +88,11 @@ export const en: Messages = {
 
   route: {
     title: 'Route',
-    view: (scope) => `View: ${scope}`,
-    close: 'Close',
-    options: 'Route settings',
-    build: 'Get route',
-    reset: 'Reset',
-    ready: 'Route ready',
+    summaryLine: (summary) => `Route · ${summary}`,
+    fromPlace: (place) => `From: ${place}`,
+    notFoundTitle: 'No route found',
+    edit: 'Edit',
+    options: 'Restrictions',
     announceReady: (summary) => `Route ready: ${summary}`,
     showSteps: 'Steps',
     share: 'Share the route',

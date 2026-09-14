@@ -5,7 +5,7 @@ import { fitPaddingOf, usePixelMapGeometry } from '@campus-map/mapkit';
 import { useRouteStore } from '../../stores/routeStore';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { visiblePolylines } from '../../utils/routeGeometry';
-import { MAP_CHROME_INSETS } from './mapChrome';
+import { useMapInsets } from './mapChrome';
 
 /**
  * Оформление линии маршрута. Цвет задаёт класс `ROUTE_CLASS` из токенов темы
@@ -43,6 +43,13 @@ export const PathLayer: React.FC = () => {
   const map = useMap();
   const geometry = usePixelMapGeometry();
 
+  // Отступы меняются вместе с высотой шторки, но подгонять вид из-за этого
+  // нельзя: раскрытие шторки уводило бы карту из приближения. Подгонка берёт
+  // текущие отступы в момент, когда меняется сама линия.
+  const insets = useMapInsets();
+  const latestInsets = useRef(insets);
+  latestInsets.current = insets;
+
   const segments = useMemo(() => {
     if (!currentRoute?.found || !graph) return [];
     return visiblePolylines(currentRoute.path, graph, scopeOf(activeFloor));
@@ -63,7 +70,7 @@ export const PathLayer: React.FC = () => {
     const bounds = L.latLngBounds(visible.flat());
     if (!bounds.isValid()) return;
 
-    map.fitBounds(bounds, { ...fitPaddingOf(MAP_CHROME_INSETS, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
+    map.fitBounds(bounds, { ...fitPaddingOf(latestInsets.current, ROUTE_MARGIN), maxZoom: map.getMaxZoom() });
     // `geometry.bounds` в зависимостях не случайно: реальный размер плана
     // определяется асинхронно, и при его появлении `PixelMap` заново
     // центрируется на всём изображении. Без повторной подгонки маршрут

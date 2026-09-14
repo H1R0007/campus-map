@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { CampusMap } from './components/Map/CampusMap';
-import { BottomSheet } from './components/UI/BottomSheet';
 import { LinkNotice } from './components/UI/LinkNotice';
 import { MapHeader } from './components/UI/MapHeader';
+import { NavigatorPanel } from './components/UI/NavigatorPanel';
 import { RouteAnnouncer } from './components/UI/RouteAnnouncer';
 import { useMapStore } from './stores/mapStore';
 import { useDataLoader } from './hooks/useDataLoader';
@@ -91,7 +91,7 @@ const App: React.FC = () => {
       <CampusMap />
       <MapHeader />
       <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
-      <BottomSheet />
+      <NavigatorPanel />
       <RouteAnnouncer />
     </div>
   );

@@ -1,4 +1,5 @@
 import type { PathFailureReason, TransitionType } from '@campus-map/core';
+import type { SearchTarget } from '../stores/uiStore';
 import type { PluralForms } from './plural';
 
 /**
@@ -39,6 +40,13 @@ export const ru = {
   /** Подпись группы кнопок выбора языка. */
   languageSwitch: 'Язык интерфейса',
 
+  /** Панель навигатора: шторка на телефоне, панель слева на широком экране. */
+  sheet: {
+    label: 'Панель навигатора',
+    expand: 'Развернуть панель',
+    collapse: 'Свернуть панель',
+  },
+
   map: {
     campus: 'Кампус',
     floor: (floor: string) => `Этаж ${floor}`,
@@ -64,22 +72,42 @@ export const ru = {
   } satisfies Record<TransitionType, string>,
 
   place: {
+    route: 'Маршрут сюда',
     from: 'Отсюда',
-    to: 'Сюда',
     close: 'Закрыть карточку места',
   },
 
   search: {
-    prompt: 'Куда вы хотите попасть?',
+    /** Кнопка поиска в панели — по тому, что поиск задаст. */
+    open: {
+      place: 'Найти аудиторию или место',
+      from: 'Откуда начать маршрут?',
+      to: 'Куда вы хотите попасть?',
+    } satisfies Record<SearchTarget, string>,
+    /** Подсказка в поле поиска. */
+    placeholder: {
+      place: 'Аудитория, кабинет или место',
+      from: 'Откуда начать маршрут',
+      to: 'Куда проложить маршрут',
+    } satisfies Record<SearchTarget, string>,
+    /** Заголовок окна поиска для экранного диктора. */
+    title: {
+      place: 'Поиск места',
+      from: 'Начало маршрута',
+      to: 'Место назначения',
+    } satisfies Record<SearchTarget, string>,
+    hint: 'Номер аудитории или название: «305», «библиотека»',
+    nothingFound: (query: string) => `По запросу «${query}» ничего не нашлось`,
+    close: 'Закрыть поиск',
+    clear: 'Очистить поиск',
+    buildings: 'Корпуса',
     from: 'Откуда',
     to: 'Куда',
     swap: 'Поменять местами',
     /** Подпись списка подсказок для экранного диктора. */
     suggestions: 'Подсказки',
-    /** Начало маршрута уже задано — например, ссылкой «вы здесь». */
-    fromPoint: (place: string) => `Откуда: ${place}`,
-    /** Точно набранное название указывает на несколько мест. */
-    ambiguous: (name: string) => `«${name}» есть в нескольких местах — выберите:`,
+    /** Кнопка, снимающая точку маршрута; `place` — имя из данных. */
+    clearPoint: (place: string) => `Убрать точку: ${place}`,
   },
 
   link: {
@@ -89,12 +117,14 @@ export const ru = {
 
   route: {
     title: 'Маршрут',
-    view: (scope: string) => `Вид: ${scope}`,
-    close: 'Закрыть',
-    options: 'Настройки маршрута',
-    build: 'Построить',
-    reset: 'Сброс',
-    ready: 'Маршрут готов',
+    /** Строка над целью маршрута; `summary` — время и длина или корпуса и этажи. */
+    summaryLine: (summary: string) => `Маршрут · ${summary}`,
+    /** Откуда ведёт маршрут; `place` — имя из данных, оно не склоняется. */
+    fromPlace: (place: string) => `Откуда: ${place}`,
+    notFoundTitle: 'Маршрут не найден',
+    /** Раскрыть обзор ненайденного маршрута, чтобы сменить точки или ограничения. */
+    edit: 'Изменить',
+    options: 'Ограничения',
     /** Объявление для экранного диктора; `summary` — сводка маршрута. */
     announceReady: (summary: string) => `Маршрут построен: ${summary}`,
     showSteps: 'Шаги',
