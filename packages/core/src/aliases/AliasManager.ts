@@ -26,8 +26,20 @@ interface AliasRecord {
  */
 interface PreparedQuery {
   text: string;
-  acronym: string;
+  /**
+   * Запрос как аббревиатура — `null`, если так его читать нельзя.
+   *
+   * Однословный запрос сам по себе и есть аббревиатура («кз» → «конференц-зал»),
+   * у многословного это первые буквы слов («конф зал» → «кз»). Короче двух букв
+   * аббревиатура не считается: одна буква совпадала с первой буквой любого
+   * названия, и «canteen» предлагал «Спортзал», «Гардероб» и «Компьютерный
+   * класс» — всё, что начинается на «с» после свёртки латинских двойников.
+   */
+  acronym: string | null;
 }
+
+/** Самая короткая аббревиатура, по которой ещё ищется совпадение. */
+const MIN_ACRONYM_LENGTH = 2;
 
 /** Содержимое кэша — полный список совпадений до обрезки по limit. */
 interface CacheEntry {
@@ -274,7 +286,7 @@ export class AliasManager {
     // клавиши — на тысячах помещений это тысячи лишних аллокаций на символ.
     const prepared: PreparedQuery[] = [qNorm, qAlt]
       .filter((q) => q.length > 0)
-      .map((q) => ({ text: q, acronym: this.makeAcronym(this.tokenize(q)) }));
+      .map((q) => ({ text: q, acronym: this.queryAcronym(q) }));
 
     const scored: SearchSuggestion[] = [];
 
@@ -340,6 +352,13 @@ export class AliasManager {
     return tokens.map((t) => t[0] ?? '').join('');
   }
 
+  /** Аббревиатура нормализованного запроса — см. {@link PreparedQuery.acronym}. */
+  private queryAcronym(query: string): string | null {
+    const tokens = this.tokenize(query);
+    const acronym = tokens.length > 1 ? this.makeAcronym(tokens) : query;
+    return acronym.length >= MIN_ACRONYM_LENGTH ? acronym : null;
+  }
+
   /** Переключает латиницу на кириллицу по таблице соответствия клавиш. */
   private swapKeyboardLayout(s: string): string {
     let result = '';
@@ -391,7 +410,7 @@ export class AliasManager {
       return 80_000 - pos * 2 - record.display.length;
     }
 
-    if (query.acronym && record.acronym.startsWith(query.acronym)) {
+    if (query.acronym !== null && record.acronym.startsWith(query.acronym)) {
       return 78_000 - record.acronym.length;
     }
 
