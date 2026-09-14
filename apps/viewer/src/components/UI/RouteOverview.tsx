@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ShareRoute } from '../../hooks/useShareRoute';
+import { useStepNavigation } from '../../hooks/useStepNavigation';
 import { capitalize, messagesFor, useLanguage } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
@@ -29,6 +30,8 @@ const SECONDARY_BUTTON =
  * открывались модальной шторкой поверх карты. Раскрытым — точки маршрута
  * (кнопки, открывающие поиск), ограничения и шаги; карта над шторкой видна.
  *
+ * «Начать» и нажатие на шаг открывают пошаговую навигацию (`RouteNavigation`).
+ *
  * Если маршрут не найден, свёрнутый обзор называет причину, а когда мешает
  * запрет лестниц, снимает его одной кнопкой.
  */
@@ -43,6 +46,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
   const clearRoute = useRouteStore((s) => s.clearRoute);
   const swapPoints = useRouteStore((s) => s.swapPoints);
   const openSearch = useUiStore((s) => s.openSearch);
+  const navigation = useStepNavigation();
   const language = useLanguage();
   const messages = messagesFor(language);
 
@@ -96,8 +100,18 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
         </div>
       )}
 
-      {(stairsBlock || !expanded) && (
+      {(currentRoute.found || stairsBlock || !expanded) && (
         <div className="mt-3 flex gap-2">
+          {currentRoute.found && (
+            <button
+              type="button"
+              onClick={() => navigation.goTo(0)}
+              className="flex-1 min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
+            >
+              <Icon name="start" size={16} filled />
+              {messages.route.start}
+            </button>
+          )}
           {stairsBlock && (
             <button
               type="button"
@@ -108,7 +122,11 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             </button>
           )}
           {!expanded && (
-            <button type="button" onClick={onExpand} className={`${SECONDARY_BUTTON} ${stairsBlock ? '' : 'flex-1'}`}>
+            <button
+              type="button"
+              onClick={onExpand}
+              className={`${SECONDARY_BUTTON} ${currentRoute.found || stairsBlock ? '' : 'flex-1'}`}
+            >
               {currentRoute.found && <Icon name="expand" />}
               {currentRoute.found ? messages.route.showSteps : messages.route.edit}
             </button>
@@ -144,7 +162,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
           </div>
 
           <RouteOptions />
-          <RouteSteps />
+          <RouteSteps steps={navigation.steps} currentIndex={null} onSelect={navigation.goTo} />
         </div>
       )}
     </div>

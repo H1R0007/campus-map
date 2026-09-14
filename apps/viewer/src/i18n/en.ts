@@ -92,6 +92,7 @@ export const en: Messages = {
     fromPlace: (place) => `From: ${place}`,
     notFoundTitle: 'No route found',
     edit: 'Edit',
+    start: 'Start',
     options: 'Restrictions',
     announceReady: (summary) => `Route ready: ${summary}`,
     showSteps: 'Steps',
@@ -119,6 +120,15 @@ export const en: Messages = {
       noStairs: 'No stairs',
       preferLift: 'Prefer lifts',
     },
+  },
+
+  navigation: {
+    stepOf: (step, total) => `Step ${step} of ${total}`,
+    previous: 'Previous step',
+    next: 'Next',
+    finish: 'Done',
+    exit: 'End step-by-step navigation',
+    showOnMap: 'Show the step on the map',
   },
 
   instructions: {

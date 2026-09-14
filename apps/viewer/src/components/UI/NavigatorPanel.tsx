@@ -8,6 +8,7 @@ import { useRouteStore } from '../../stores/routeStore';
 import { sheetModeOf, useUiStore } from '../../stores/uiStore';
 import { IdleContent } from './IdleContent';
 import { PlaceCard } from './PlaceCard';
+import { RouteNavigation } from './RouteNavigation';
 import { RouteOverview } from './RouteOverview';
 import { SearchView } from './SearchView';
 import { ShareFeedback } from './ShareFeedback';
@@ -28,11 +29,11 @@ const TAP_SLOP_PX = 6;
  * Раньше шаги маршрута открывались модальной шторкой, которая затемняла и
  * закрывала карту, — шаг переключал этаж, которого не было видно.
  *
- * Содержимое выводится из состояния (`sheetModeOf`): выбранное место, обзор
- * маршрута или поиск. На телефоне у шторки два состояния — свёрнутое (главное)
- * и раскрытое (подробности); ручка раскрывает её нажатием, жестом и с
- * клавиатуры. Новое содержимое открывается свёрнутым. Escape сворачивает
- * раскрытую шторку, а свёрнутую карточку места закрывает.
+ * Содержимое выводится из состояния (`sheetModeOf`): выбранное место, шаг
+ * пошаговой навигации, обзор маршрута или поиск. На телефоне у шторки два
+ * состояния — свёрнутое (главное) и раскрытое (подробности); ручка раскрывает
+ * её нажатием, жестом и с клавиатуры. Новое содержимое открывается свёрнутым.
+ * Escape сворачивает раскрытую шторку, а свёрнутую карточку места закрывает.
  *
  * Сколько карты закрывает панель, измеряется и уходит в отступы подгонки карты
  * (`mapInsetsOf`) и в `--campus-sheet-height` для колонки этажей.
@@ -44,13 +45,14 @@ export const NavigatorPanel: React.FC = () => {
   const selectedNodeId = useMapStore((s) => s.selectedNodeId);
   const selectNode = useMapStore((s) => s.selectNode);
   const currentRoute = useRouteStore((s) => s.currentRoute);
+  const stepIndex = useRouteStore((s) => s.stepIndex);
   const searchTarget = useUiStore((s) => s.searchTarget);
   const sheetExpanded = useUiStore((s) => s.sheetExpanded);
   const setSheetExpanded = useUiStore((s) => s.setSheetExpanded);
   const setMapObstruction = useUiStore((s) => s.setMapObstruction);
   const share = useShareRoute();
 
-  const mode = sheetModeOf({ selectedNodeId, currentRoute });
+  const mode = sheetModeOf({ selectedNodeId, currentRoute, stepIndex });
   // Карточке места раскрывать нечего: всё главное в ней и так видно.
   const expandable = mode !== 'place';
   const expanded = isWide || (expandable && sheetExpanded);
@@ -148,6 +150,8 @@ export const NavigatorPanel: React.FC = () => {
   const content =
     mode === 'place' && selectedNodeId !== null ? (
       <PlaceCard nodeId={selectedNodeId} />
+    ) : mode === 'navigate' ? (
+      <RouteNavigation expanded={expanded} />
     ) : mode === 'route' ? (
       <RouteOverview expanded={expanded} onExpand={() => setSheetExpanded(true)} share={share} />
     ) : (

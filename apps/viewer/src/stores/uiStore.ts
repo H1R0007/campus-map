@@ -66,16 +66,22 @@ export const useUiStore = create<UiState>((set, get) => ({
 /**
  * Что показывает панель — по важности:
  * - `place` — место, выбранное на карте или в поиске: человек только что его выбрал;
+ * - `navigate` — шаг пошаговой навигации по маршруту;
  * - `route` — обзор маршрута или причина, почему он не найден;
  * - `idle` — поиск.
  *
  * Выводится из состояния, а не хранится: отдельное поле режима разошлось бы с
  * выбранным местом и маршрутом.
  */
-export type SheetMode = 'place' | 'route' | 'idle';
+export type SheetMode = 'place' | 'navigate' | 'route' | 'idle';
 
-export function sheetModeOf(state: { selectedNodeId: string | null; currentRoute: PathResult | null }): SheetMode {
+export function sheetModeOf(state: {
+  selectedNodeId: string | null;
+  currentRoute: PathResult | null;
+  stepIndex: number | null;
+}): SheetMode {
   if (state.selectedNodeId !== null) return 'place';
+  if (state.currentRoute?.found && state.stepIndex !== null) return 'navigate';
   if (state.currentRoute !== null) return 'route';
   return 'idle';
 }

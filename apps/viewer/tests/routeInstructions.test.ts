@@ -176,4 +176,28 @@ describe('buildRouteSteps', () => {
     expect(lines).toContain('Enter the building — Tower, floor 1');
     expect(lines).toContain('Walk through the passage — Annex, floor 2');
   });
+
+  it('участок шага — узлы пути: подход к лифту, поездка, путь до цели', () => {
+    const { route, steps: list } = steps('t1_room', 't3_room', { allowStairs: false });
+
+    expect(list.map((s) => s.pathRange)).toEqual([
+      [0, 0],
+      [0, 2],
+      [2, 4],
+      [4, 6],
+    ]);
+    expect(route.path.slice(2, 5)).toEqual(['t1_lift', 't2_lift', 't3_lift']);
+  });
+
+  it('участки идут встык и кончаются целью — и с входом, и с переходом, и с прибытием', () => {
+    for (const [from, to, options] of [
+      ['gate', 'x2_lab', {}],
+      ['t1_hall', 't2_lift', { allowStairs: false }],
+    ] as const) {
+      const { route, steps: list } = steps(from, to, options);
+
+      for (let i = 1; i < list.length; i++) expect(list[i].pathRange[0]).toBe(list[i - 1].pathRange[1]);
+      expect(list[list.length - 1].pathRange[1]).toBe(route.path.length - 1);
+    }
+  });
 });

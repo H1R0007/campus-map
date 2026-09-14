@@ -4,6 +4,7 @@ import { messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { pluralize } from '../i18n/plural';
 import { formatDuration } from './routeInstructions';
+import type { RouteStep } from './routeInstructions';
 
 /**
  * Длина для показа: «430 м».
@@ -16,6 +17,16 @@ import { formatDuration } from './routeInstructions';
 export function formatDistance(meters: number, language: Language): string {
   const rounded = meters < 10 ? Math.max(1, Math.round(meters)) : Math.round(meters / 10) * 10;
   return messagesFor(language).route.distance(rounded);
+}
+
+/**
+ * Подпись шага: длина пешего участка или время перехода — что полезнее знать
+ * о шаге. У начала, прибытия и в пиксельном режиме подписи нет.
+ */
+export function stepMeta(step: RouteStep, language: Language): string | null {
+  if (step.kind === 'walk' && step.distanceMeters !== null) return formatDistance(step.distanceMeters, language);
+  if (step.kind === 'transition' && step.durationSeconds !== null) return formatDuration(step.durationSeconds, language);
+  return null;
 }
 
 /**

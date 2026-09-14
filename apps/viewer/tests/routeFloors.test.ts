@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findPath } from '@campus-map/core';
-import { routeFloorsIn, routePassesScope } from '../src/utils/routeFloors';
+import { routeFloorsIn, routePassesScope, sameScope } from '../src/utils/routeFloors';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
@@ -38,5 +38,14 @@ describe('routePassesScope', () => {
   it('чужой этаж и пустой путь — не проходит', () => {
     expect(routePassesScope(graph, path, { mode: 'floor', buildingId: 'building_a', floor: 3 })).toBe(false);
     expect(routePassesScope(graph, [], { mode: 'campus' })).toBe(false);
+  });
+});
+
+describe('sameScope', () => {
+  it('сравнивает территорию с территорией и этаж с этажом', () => {
+    expect(sameScope({ mode: 'campus' }, { mode: 'campus' })).toBe(true);
+    expect(sameScope({ mode: 'floor', buildingId: 'a', floor: 1 }, { mode: 'floor', buildingId: 'a', floor: 1 })).toBe(true);
+    expect(sameScope({ mode: 'floor', buildingId: 'a', floor: 1 }, { mode: 'floor', buildingId: 'a', floor: 2 })).toBe(false);
+    expect(sameScope({ mode: 'campus' }, { mode: 'floor', buildingId: 'a', floor: 1 })).toBe(false);
   });
 });

@@ -19,6 +19,15 @@ interface RouteState {
 
   currentRoute: PathResult | null;
 
+  /**
+   * Шаг пошаговой навигации по показанному маршруту; `null` — обзор маршрута.
+   *
+   * Состояние интерфейса, вычислить его не из чего. Принадлежит маршруту:
+   * новый или пересчитанный маршрут начинается с обзора — шаги прежнего к нему
+   * не относятся, и шаг номер 3 мог бы указать на другое место.
+   */
+  stepIndex: number | null;
+
   options: PathfindingOptions;
 
   /**
@@ -37,6 +46,8 @@ interface RouteState {
   clearPoint: (field: RouteField) => void;
 
   setOptions: (options: Partial<PathfindingOptions>) => void;
+  /** Шаг навигации; у ненайденного маршрута шагов нет, и вызов ничего не меняет. */
+  setStep: (index: number | null) => void;
   clearRoute: () => void;
   swapPoints: () => void;
 }
@@ -54,13 +65,14 @@ export const useRouteStore = create<RouteState>((set, get) => {
     const { fromNodeId, toNodeId, options } = get();
     const graph = useMapStore.getState().graph;
 
+    // Маршрут и шаг навигации меняются вместе: см. `stepIndex`.
     if (!graph || !fromNodeId || !toNodeId) {
-      set({ currentRoute: null });
+      set({ currentRoute: null, stepIndex: null });
       return null;
     }
 
     const route = findPath(graph, fromNodeId, toNodeId, options);
-    set({ currentRoute: route });
+    set({ currentRoute: route, stepIndex: null });
 
     if (!route.found) return route;
 
@@ -79,6 +91,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
     fromNodeId: null,
     toNodeId: null,
     currentRoute: null,
+    stepIndex: null,
 
     // Значения по умолчанию принадлежат ядру: здесь раньше лежала их копия,
     // и расхождение между двумя наборами никто бы не заметил.
@@ -95,7 +108,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
 
       const { fromNodeId, toNodeId } = get();
       if (fromNodeId === null || toNodeId === null) {
-        set({ currentRoute: null });
+        set({ currentRoute: null, stepIndex: null });
         return null;
       }
 
@@ -103,7 +116,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
     },
 
     clearPoint: (field) =>
-      set(field === 'from' ? { fromNodeId: null, currentRoute: null } : { toNodeId: null, currentRoute: null }),
+      set({ [field === 'from' ? 'fromNodeId' : 'toNodeId']: null, currentRoute: null, stepIndex: null }),
 
     setOptions: (patch) => {
       set({ options: { ...get().options, ...patch } });
@@ -114,7 +127,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
       if (get().currentRoute) computeRoute('keep');
     },
 
-    clearRoute: () => set({ fromNodeId: null, toNodeId: null, currentRoute: null }),
+    setStep: (index) => {
+      if (index !== null && !get().currentRoute?.found) return;
+      set({ stepIndex: index });
+    },
+
+    clearRoute: () => set({ fromNodeId: null, toNodeId: null, currentRoute: null, stepIndex: null }),
 
     swapPoints: () => {
       const { fromNodeId, toNodeId, currentRoute } = get();

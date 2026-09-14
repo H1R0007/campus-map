@@ -11,17 +11,21 @@ describe('sheetModeOf', () => {
   const found = findPath(graph, 'a1_hall', 'a2_room201');
   const notFound = findPath(graph, 'a1_hall', 'a2_room201', { allowStairs: false });
 
-  it('выбранное место важнее маршрута: человек только что его выбрал', () => {
-    expect(sheetModeOf({ selectedNodeId: 'a1_hall', currentRoute: found })).toBe('place');
+  it('выбранное место важнее маршрута и навигации: человек только что его выбрал', () => {
+    expect(sheetModeOf({ selectedNodeId: 'a1_hall', currentRoute: found, stepIndex: 1 })).toBe('place');
+  });
+
+  it('шаг найденного маршрута — навигация', () => {
+    expect(sheetModeOf({ selectedNodeId: null, currentRoute: found, stepIndex: 0 })).toBe('navigate');
   });
 
   it('маршрут — и найденный, и не найденный: причину тоже нужно показать', () => {
-    expect(sheetModeOf({ selectedNodeId: null, currentRoute: found })).toBe('route');
-    expect(sheetModeOf({ selectedNodeId: null, currentRoute: notFound })).toBe('route');
+    expect(sheetModeOf({ selectedNodeId: null, currentRoute: found, stepIndex: null })).toBe('route');
+    expect(sheetModeOf({ selectedNodeId: null, currentRoute: notFound, stepIndex: 0 })).toBe('route');
   });
 
   it('без места и маршрута — поиск', () => {
-    expect(sheetModeOf({ selectedNodeId: null, currentRoute: null })).toBe('idle');
+    expect(sheetModeOf({ selectedNodeId: null, currentRoute: null, stepIndex: null })).toBe('idle');
   });
 });
 

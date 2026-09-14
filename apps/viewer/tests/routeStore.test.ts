@@ -166,3 +166,35 @@ describe('обмен точек', () => {
     expect(route().currentRoute).toBeNull();
   });
 });
+
+describe('шаг навигации', () => {
+  it('принадлежит маршруту: пересчёт, обмен и снятие точки возвращают к обзору', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setPoint('to', 'a2_room201');
+
+    route().setStep(2);
+    expect(route().stepIndex).toBe(2);
+
+    route().setOptions({ preferLift: true });
+    expect(route().stepIndex).toBeNull();
+
+    route().setStep(1);
+    route().swapPoints();
+    expect(route().stepIndex).toBeNull();
+
+    route().setStep(1);
+    route().clearPoint('to');
+    expect(route().stepIndex).toBeNull();
+  });
+
+  it('без найденного маршрута шага нет', () => {
+    route().setPoint('from', 'a1_hall');
+    route().setStep(0);
+    expect(route().stepIndex).toBeNull();
+
+    route().setOptions({ allowStairs: false });
+    route().setPoint('to', 'a2_room201');
+    route().setStep(0);
+    expect(route().stepIndex).toBeNull();
+  });
+});

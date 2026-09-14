@@ -242,6 +242,12 @@ button {
     stroke: rgb(var(--color-primary));
 }
 
+/* На шаге пошаговой навигации маршрут приглушён, а участок шага — нет. Правило
+   CSS перекрывает атрибут `stroke-opacity`, который ставит Leaflet. */
+.campus-route-line--muted {
+    stroke-opacity: 0.35;
+}
+
 .campus-endpoint--start {
     fill: rgb(var(--color-start));
 }

@@ -23,6 +23,12 @@ export function routeFloorsIn(
   return floors;
 }
 
+/** Одна и та же ли это область карты — территория или этаж корпуса. */
+export function sameScope(a: ViewScope, b: ViewScope): boolean {
+  if (a.mode === 'campus' || b.mode === 'campus') return a.mode === b.mode;
+  return a.buildingId === b.buildingId && a.floor === b.floor;
+}
+
 /**
  * Проходит ли маршрут через показанную область карты — этаж или территорию.
  *
