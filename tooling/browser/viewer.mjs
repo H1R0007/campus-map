@@ -19,9 +19,23 @@ export const SEARCH = `document.querySelector('[data-search-view]')`;
  * @param {string} base адрес приложения без завершающего слэша
  */
 export function viewerHelpers(page, base) {
+  let onboardingSkipped = false;
+
   const helpers = {
-    /** Открывает путь приложения и ждёт загрузки данных — шапки и панели. */
-    async open(pathAndQuery = '/') {
+    /**
+     * Открывает путь приложения и ждёт загрузки данных — шапки и панели.
+     *
+     * По умолчанию — с отметкой «знакомство пройдено»: диалог первого запуска
+     * закрывал бы то, что проверяют остальные сценарии. Сценарий знакомства
+     * передаёт `{ onboarding: true }`.
+     */
+    async open(pathAndQuery = '/', { onboarding = false } = {}) {
+      if (!onboarding && !onboardingSkipped) {
+        await page.send('Page.addScriptToEvaluateOnNewDocument', {
+          source: "try { localStorage.setItem('campus-map:onboarding-done', '1'); } catch {}",
+        });
+        onboardingSkipped = true;
+      }
       await page.goto(`${base}${pathAndQuery}`);
       await page.waitFor(`!!document.querySelector('.campus-map-header') && !!${PANEL}`, 20_000);
       await page.sleep(600);

@@ -174,6 +174,28 @@ export const en: Messages = {
     toExit: 'To the exit',
   },
 
+  onboarding: {
+    label: 'Getting started',
+    skip: 'Skip',
+    next: 'Next',
+    done: 'Start using',
+    progress: (step, total) => `${step} of ${total}`,
+    slides: {
+      search: {
+        title: 'Find the place you need',
+        text: 'Type a room number or a name, like “305” or “library”. The Toilet and Canteen buttons lead to the nearest ones.',
+      },
+      qr: {
+        title: 'The QR code at the door means “you are here”',
+        text: 'Scan the code on the sign at an entrance or staircase and the route will start where you stand.',
+      },
+      steps: {
+        title: 'Follow the steps',
+        text: 'Tap Start: the navigator shows each step, opens the right floor by itself and keeps the screen on.',
+      },
+    },
+  },
+
   instructions: {
     start: 'Start',
     walkTo: {

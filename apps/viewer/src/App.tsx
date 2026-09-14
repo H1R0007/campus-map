@@ -1,13 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CampusMap } from './components/Map/CampusMap';
 import { LinkNotice } from './components/UI/LinkNotice';
 import { MapHeader } from './components/UI/MapHeader';
 import { NavigatorPanel } from './components/UI/NavigatorPanel';
+import { Onboarding } from './components/UI/Onboarding';
 import { RouteAnnouncer } from './components/UI/RouteAnnouncer';
 import { useMapStore } from './stores/mapStore';
 import { useDataLoader } from './hooks/useDataLoader';
 import { useRouteLink } from './hooks/useRouteLink';
 import { useLanguage, useMessages } from './i18n';
+import { markOnboardingDone, readOnboardingEnvironment, shouldShowOnboarding } from './utils/onboarding';
 
 /**
  * Корневой компонент навигатора.
@@ -26,6 +28,16 @@ const App: React.FC = () => {
   const language = useLanguage();
   const messages = useMessages();
   const link = useRouteLink();
+
+  // Показывать ли знакомство, решается один раз при открытии: по ссылке и после
+  // первого прохождения его нет (запись 25).
+  const [onboarding, setOnboarding] = useState(() => shouldShowOnboarding(readOnboardingEnvironment()));
+  const closeOnboarding = () => {
+    markOnboardingDone();
+    setOnboarding(false);
+    // Фокус — на главное в панели: закрытый диалог иначе оставил бы его в `body`.
+    setTimeout(() => document.querySelector<HTMLElement>('[data-panel-focus]')?.focus(), 0);
+  };
 
   useEffect(() => {
     void loadAllData();
@@ -93,6 +105,7 @@ const App: React.FC = () => {
       <LinkNotice unresolved={link.unresolved} onDismiss={link.dismiss} />
       <NavigatorPanel />
       <RouteAnnouncer />
+      {onboarding && <Onboarding onClose={closeOnboarding} />}
     </div>
   );
 };

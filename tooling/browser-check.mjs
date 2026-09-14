@@ -27,12 +27,22 @@ import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
+import viewerOnboarding from './browser/scenarios/viewer-onboarding.mjs';
 import viewerQuick from './browser/scenarios/viewer-quick.mjs';
 import viewerRecent from './browser/scenarios/viewer-recent.mjs';
 import viewerTheme from './browser/scenarios/viewer-theme.mjs';
 import { repoRoot, startVite } from './lib/vite-server.mjs';
 
-const SCENARIOS = [viewerLayout, viewerNavigation, viewerRecent, viewerQuick, viewerTheme, editorTransitions, editorPanels];
+const SCENARIOS = [
+  viewerLayout,
+  viewerNavigation,
+  viewerRecent,
+  viewerQuick,
+  viewerTheme,
+  viewerOnboarding,
+  editorTransitions,
+  editorPanels,
+];
 
 /** Сколько ждать, пока браузер откроет порт отладки. */
 const BROWSER_START_TIMEOUT_MS = 20_000;

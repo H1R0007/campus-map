@@ -44,6 +44,8 @@ const ICON_PATHS = {
   food: 'M6 3v5a3 3 0 003 3 3 3 0 003-3V3M9 3v18M18 21V3c-2.2 1.2-3.5 3.8-3.5 7v4H18',
   cloakroom: 'M10 5.5a2 2 0 114 0c0 1.1-.9 1.7-2 2.2V9m0 0l-8.4 6.3A1.5 1.5 0 004.5 18h15a1.5 1.5 0 00.9-2.7L12 9z',
   exit: 'M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4M15 16l4-4-4-4M19 12H9',
+  // QR-код для знакомства: три угловые метки и точки данных.
+  qr: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2M19 14h1v2M14 17v3h3M20 19v1h-1',
 } satisfies Record<string, string>;
 
 export type IconName = keyof typeof ICON_PATHS;
