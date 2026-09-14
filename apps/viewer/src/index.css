@@ -116,6 +116,25 @@ button {
     display: none;
 }
 
+/* Край ленты гаснет, если за ним есть ещё корпуса (`useScrollEdges`): без
+   полосы прокрутки обрезанный чип выглядел концом списка. Маска работает по
+   прозрачности, цвет в ней роли не играет. Ширина угасания — переменная, чтобы
+   оба края задавались одним градиентом. */
+.campus-scroll-fade {
+    --campus-fade-start: 0px;
+    --campus-fade-end: 0px;
+    -webkit-mask-image: linear-gradient(to right, transparent, black var(--campus-fade-start), black calc(100% - var(--campus-fade-end)), transparent);
+    mask-image: linear-gradient(to right, transparent, black var(--campus-fade-start), black calc(100% - var(--campus-fade-end)), transparent);
+}
+
+.campus-scroll-fade--start {
+    --campus-fade-start: 2rem;
+}
+
+.campus-scroll-fade--end {
+    --campus-fade-end: 2rem;
+}
+
 /* Правая колонка между шапкой и нижней карточкой: этажи сверху занимают
    остаток высоты и прокручиваются, масштаб прижат к низу. */
 .campus-map-rail {

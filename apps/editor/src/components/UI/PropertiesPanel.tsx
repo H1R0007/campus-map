@@ -3,6 +3,7 @@ import { transitionTypeLabel, TRANSITION_TYPES } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
 
 export const PropertiesPanel: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
@@ -231,7 +232,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 color: 'white',
               }}
             >
-              {node.isPortal ? '⭐ Портал' : '☆ Портал'}
+              <Icon name="star" filled={node.isPortal} />
+              Портал
             </button>
 
             <button
@@ -239,7 +241,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors hover:opacity-90"
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             >
-              🔖 В закладки
+              <Icon name="bookmark" />
+              В закладки
             </button>
           </div>
 
@@ -251,7 +254,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
               title="Начать создание ребра от этого узла"
             >
-              🔗 Ребро отсюда
+              <Icon name="link" />
+              Ребро отсюда
             </button>
 
             <button
@@ -262,7 +266,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 color: 'white',
               }}
             >
-              🚪 Переход отсюда
+              <Icon name="transition" />
+              Переход отсюда
             </button>
           </div>
 
@@ -297,7 +302,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               color: 'white',
             }}
           >
-            ⚡ Быстро соединить с...
+            <Icon name="zap" />
+            Быстро соединить с...
           </button>
 
           {showConnectPicker && unconnectedNodes.length > 0 && (
@@ -395,7 +401,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
-            🏷️ Алиасы ({aliases.length})
+            <span className="inline-flex items-center gap-1.5"><Icon name="tag" size={12} />Алиасы ({aliases.length})</span>
           </div>
 
           <div className="mt-2 space-y-1">
@@ -477,7 +483,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
-            📝 Заметка разметчика
+            <span className="inline-flex items-center gap-1.5"><Icon name="note" size={12} />Заметка разметчика</span>
           </div>
 
           <textarea
@@ -535,7 +541,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
-            🔗 Соседи ({node.neighbors.length})
+            <span className="inline-flex items-center gap-1.5"><Icon name="link" size={12} />Соседи ({node.neighbors.length})</span>
           </div>
 
           <div
@@ -584,7 +590,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             className="text-xs uppercase tracking-wide"
             style={{ color: 'var(--editor-text-muted)' }}
           >
-            🚪 Переходы ({transitions.length})
+            <span className="inline-flex items-center gap-1.5"><Icon name="transition" size={12} />Переходы ({transitions.length})</span>
           </div>
 
           <div
@@ -651,7 +657,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-red-500/30"
           style={{ backgroundColor: 'rgba(239,68,68,0.18)', color: '#fca5a5' }}
         >
-          🗑️ Удалить
+          <span className="inline-flex items-center gap-2"><Icon name="trash" />Удалить</span>
         </button>
 
         <button

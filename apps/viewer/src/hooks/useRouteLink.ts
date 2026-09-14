@@ -48,10 +48,10 @@ export function useRouteLink(): { unresolved: readonly string[]; dismiss: () => 
     // точками стёр бы её раньше, чем она прочитана.
     if (!applied.current) return;
 
-    const { pathname, search, hash } = window.location;
-    const next = routeLink(pathname, { from: fromNodeId, to: toNodeId }, language) + hash;
+    const current = window.location.href;
+    const next = routeLink(current, { from: fromNodeId, to: toNodeId }, language);
 
-    if (next !== `${pathname}${search}${hash}`) {
+    if (next !== current) {
       window.history.replaceState(window.history.state, '', next);
     }
   }, [fromNodeId, toNodeId, language]);

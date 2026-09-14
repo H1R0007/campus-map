@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { TRANSITION_COLORS } from '@campus-map/mapkit';
 import { selectedRoute, useEditorStore } from '../../stores/editorStore';
+import { themeColor } from '../../utils/themeColor';
+import { Icon } from '../UI/Icon';
 
 type DragCandidate = {
   nodeId: string;
@@ -18,6 +21,9 @@ export const EditorNodes: React.FC = () => {
   const map = useMap();
   const dragCandidateRef = useRef<DragCandidate | null>(null);
   const [quickInfoNodeId, setQuickInfoNodeId] = useState<string | null>(null);
+
+  // Акцент темы значением: атрибуты SVG, которые ставит Leaflet, `var()` не понимают.
+  const highlightColor = useMemo(() => themeColor('--editor-highlight'), []);
 
   const nodes = useEditorStore((s) => s.getNodesForCurrentFloor());
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
@@ -342,8 +348,10 @@ export const EditorNodes: React.FC = () => {
           strokeColor = '#16a34a';
         }
         if (isTransitionStart) {
-          fillColor = '#3b82f6';
-          strokeColor = '#2563eb';
+          // Узел, от которого строится переход: цвет выбранного типа, как у его
+          // кнопки в панели инструментов, и обводка акцентом темы.
+          fillColor = TRANSITION_COLORS[transitionType];
+          strokeColor = highlightColor;
         }
 
         // route
@@ -361,7 +369,7 @@ export const EditorNodes: React.FC = () => {
         }
 
         if (isSelected) {
-          fillColor = '#e94560';
+          fillColor = highlightColor;
           strokeColor = '#dc2626';
         }
 
@@ -434,7 +442,7 @@ export const EditorNodes: React.FC = () => {
                     }}
                   >
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                      {node.isPortal ? '⭐ ' : ''}
+                      {node.isPortal && <Icon name="star" size={11} filled className="inline-block mr-1 align-middle" />}
                       {aliases[0] || node.id}
                     </div>
                     <div style={{ color: '#a0a0b0', fontSize: 10 }}>
@@ -444,11 +452,11 @@ export const EditorNodes: React.FC = () => {
                       ({node.x}, {node.y}) • {node.neighbors.length} связей
                     </div>
 
-                    {hasNoAlias && <div style={{ color: '#eab308', fontSize: 10, marginTop: 4 }}>⚠️ Нет алиаса</div>}
-                    {isOrphan && <div style={{ color: '#f97316', fontSize: 10, marginTop: 2 }}>⚠️ Нет связей</div>}
-                    {hasError && <div style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}>⚠️ Ошибка neighbors</div>}
+                    {hasNoAlias && <div style={{ color: '#eab308', fontSize: 10, marginTop: 4 }}><Icon name="warning" size={10} className="inline-block mr-1 align-middle" />Нет алиаса</div>}
+                    {isOrphan && <div style={{ color: '#f97316', fontSize: 10, marginTop: 2 }}><Icon name="warning" size={10} className="inline-block mr-1 align-middle" />Нет связей</div>}
+                    {hasError && <div style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}><Icon name="warning" size={10} className="inline-block mr-1 align-middle" />Ошибка neighbors</div>}
 
-                    {routePickHint && <div style={{ color: '#60a5fa', fontSize: 10, marginTop: 4 }}>🧭 {routePickHint}</div>}
+                    {routePickHint && <div style={{ color: '#60a5fa', fontSize: 10, marginTop: 4 }}><Icon name="map" size={10} className="inline-block mr-1 align-middle" />{routePickHint}</div>}
 
                     <div
                       style={{

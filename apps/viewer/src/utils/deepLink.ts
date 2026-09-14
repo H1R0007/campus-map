@@ -87,15 +87,24 @@ export function resolveLink(
 }
 
 /**
- * Адрес текущего состояния: путь страницы и параметры маршрута.
+ * Адрес текущего состояния: текущая страница с параметрами маршрута.
  *
- * Путь берётся текущий, а не собирается от корня: навигатор может стоять в
- * подкаталоге (`CAMPUS_BASE_PATH`). Язык записывается, только если он не язык
- * данных, — русская ссылка остаётся короткой, а английская открывается
- * по-английски у любого получателя.
+ * Адрес страницы берётся текущий, а не собирается от корня: навигатор может
+ * стоять в подкаталоге (`CAMPUS_BASE_PATH`). Прежние параметры запроса
+ * заменяются целиком, фрагмент `#…` сохраняется. Язык записывается, только если
+ * он не язык данных, — русская ссылка остаётся короткой, а английская
+ * открывается по-английски у любого получателя.
+ *
+ * Результат — абсолютный адрес, а не путь с запросом. Путь страницы бывает
+ * `//` (лишний слэш в набранном адресе или QR-коде), и строка `//?from=…` —
+ * это ссылка без схемы на другой хост: `history.replaceState` отвергал её с
+ * SecurityError, и навигатор падал на первом же выборе точки. Абсолютный адрес
+ * всегда того же происхождения, что и страница.
+ *
+ * @param currentHref абсолютный адрес страницы: `window.location.href`
  */
 export function routeLink(
-  pathname: string,
+  currentHref: string,
   points: { from: string | null; to: string | null },
   language: Language
 ): string {
@@ -104,6 +113,7 @@ export function routeLink(
   if (points.to !== null) params.set('to', points.to);
   if (language !== DATA_LANGUAGE) params.set('lang', language);
 
-  const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
+  const url = new URL(currentHref);
+  url.search = params.toString();
+  return url.href;
 }

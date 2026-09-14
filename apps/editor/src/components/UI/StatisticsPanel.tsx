@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
 
 export const StatisticsPanel: React.FC = () => {
   const statisticsOpen = useEditorStore((s) => s.statisticsOpen);
@@ -61,7 +63,7 @@ export const StatisticsPanel: React.FC = () => {
           color: 'white',
         }}
       >
-        📊 Статистика
+        <span className="inline-flex items-center gap-2"><Icon name="chart" />Статистика</span>
       </button>
     );
   }
@@ -75,7 +77,7 @@ export const StatisticsPanel: React.FC = () => {
       }}
     >
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--editor-border)' }}>
-        <div className="text-white font-semibold">📊 Статистика</div>
+        <div className="text-white font-semibold flex items-center gap-2"><Icon name="chart" />Статистика</div>
         <button
           onClick={() => setStatisticsOpen(false)}
           className="p-1 rounded hover:bg-white/10"
@@ -92,10 +94,10 @@ export const StatisticsPanel: React.FC = () => {
             Общее
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <StatCard label="Всего узлов" value={stats.totalNodes} icon="📍" />
-            <StatCard label="На этаже" value={stats.floorNodes} icon="🏠" />
-            <StatCard label="Порталов" value={stats.portalNodes} icon="⭐" />
-            <StatCard label="Корпусов" value={stats.buildings} icon="🏢" />
+            <StatCard label="Всего узлов" value={stats.totalNodes} icon="pin" />
+            <StatCard label="На этаже" value={stats.floorNodes} icon="layers" />
+            <StatCard label="Порталов" value={stats.portalNodes} icon="star" />
+            <StatCard label="Корпусов" value={stats.buildings} icon="building" />
           </div>
         </section>
 
@@ -105,10 +107,10 @@ export const StatisticsPanel: React.FC = () => {
             Связи
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <StatCard label="Рёбер" value={stats.totalEdges} icon="🔗" />
-            <StatCard label="Переходов" value={stats.totalTransitions} icon="🚪" />
-            <StatCard label="Сирот" value={stats.orphanNodes} icon="🚫" color={stats.orphanNodes > 0 ? '#ef4444' : undefined} />
-            <StatCard label="Среднее связей" value={stats.avgConnections} icon="📈" />
+            <StatCard label="Рёбер" value={stats.totalEdges} icon="link" />
+            <StatCard label="Переходов" value={stats.totalTransitions} icon="transition" />
+            <StatCard label="Сирот" value={stats.orphanNodes} icon="ban" color={stats.orphanNodes > 0 ? '#ef4444' : undefined} />
+            <StatCard label="Среднее связей" value={stats.avgConnections} icon="trending" />
           </div>
         </section>
 
@@ -124,7 +126,9 @@ export const StatisticsPanel: React.FC = () => {
               border: `1px solid ${stats.isConnected ? '#22c55e' : '#ef4444'}`,
             }}
           >
-            <span className="text-2xl">{stats.isConnected ? '✅' : '⚠️'}</span>
+            <span className="flex-shrink-0" style={{ color: stats.isConnected ? '#22c55e' : '#ef4444' }}>
+              <Icon name={stats.isConnected ? 'checkCircle' : 'warning'} size={28} />
+            </span>
             <div>
               <div className="text-sm text-white font-medium">
                 {stats.isConnected ? 'Граф связен' : 'Граф не связен'}
@@ -164,13 +168,13 @@ export const StatisticsPanel: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ label: string; value: number | string; icon: string; color?: string }> = ({ label, value, icon, color }) => (
+const StatCard: React.FC<{ label: string; value: number | string; icon: IconName; color?: string }> = ({ label, value, icon, color }) => (
   <div
     className="rounded-lg p-2"
     style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
   >
     <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-      <span>{icon}</span>
+      <Icon name={icon} size={12} className="flex-shrink-0" />
       <span>{label}</span>
     </div>
     <div className="text-lg font-semibold" style={{ color: color || 'white' }}>

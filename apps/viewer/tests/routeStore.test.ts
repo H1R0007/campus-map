@@ -147,6 +147,29 @@ describe('ограничения маршрута', () => {
 
     expect(useRouteStore.getState().currentRoute?.found).toBe(false);
   });
+
+  it('не уводит карту с открытого этажа, через который идёт пересчитанный маршрут', () => {
+    useRouteStore.getState().setPoint('from', 'a1_hall');
+    useRouteStore.getState().setPoint('to', 'a2_room201');
+    // Человек рассматривает второй этаж маршрута, а карта открылась на первом.
+    useMapStore.getState().setActiveFloor('building_a', 2);
+
+    useRouteStore.getState().setOptions({ preferLift: true });
+
+    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 2 });
+  });
+
+  it('ведёт к началу, если пересчитанный маршрут через открытый вид не проходит', () => {
+    useRouteStore.getState().setPoint('from', 'a1_hall');
+    useRouteStore.getState().setPoint('to', 'campus_gate');
+    useMapStore.getState().setActiveFloor('building_a', 2);
+
+    useRouteStore.getState().setOptions({ preferLift: true });
+
+    expect(useRouteStore.getState().currentRoute?.found).toBe(true);
+    expect(useMapStore.getState().activeFloor).toEqual({ buildingId: 'building_a', floor: 1 });
+  });
 });
 
 describe('точка маршрута узлом', () => {
@@ -179,10 +202,12 @@ describe('точка маршрута узлом', () => {
     expect(useRouteStore.getState().toQuery).toBe('Холл А');
   });
 
-  it('подсказка передаёт имя, которое увидел пользователь', () => {
-    useRouteStore.getState().setPoint('to', 'a2_room201', '201');
+  it('подпись поля не зависит от того, по какому имени место нашлось', () => {
+    // Поиск находит «Main gate» и в русском интерфейсе, но поле получает имя
+    // на языке интерфейса.
+    useRouteStore.getState().setPoint('from', 'campus_gate');
 
-    expect(useRouteStore.getState().toQuery).toBe('201');
+    expect(useRouteStore.getState().fromQuery).toBe('Главный вход');
   });
 
   it('повторный выбор тех же точек не перестраивает показанный маршрут', () => {
