@@ -9,6 +9,22 @@
       масштабирует страницу благодаря `touch-action: manipulation` у body.
     -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      Тема — до первой отрисовки: иначе в тёмной теме страница мигала бы светлым
+      листом, пока грузится приложение (запись 34). Дальше тему держит
+      `startThemeSync`; ключ хранилища — `THEME_STORAGE_KEY`.
+    -->
+    <script>
+      (function () {
+        var preference = null;
+        try {
+          preference = window.localStorage.getItem('campus-map:theme');
+        } catch (error) {}
+        var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = preference === 'dark' || (preference !== 'light' && systemDark);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      })();
+    </script>
     <!-- Цвет строки браузера: в тёмной теме — фон навигатора (`--color-canvas`). -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0063CC" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0E1219" />

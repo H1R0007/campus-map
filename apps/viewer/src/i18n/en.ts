@@ -18,6 +18,13 @@ export const en: Messages = {
 
   languageSwitch: 'Interface language',
 
+  themeSwitch: 'Appearance',
+  theme: {
+    system: 'System',
+    light: 'Light',
+    dark: 'Dark',
+  },
+
   sheet: {
     label: 'Navigator panel',
     expand: 'Expand the panel',

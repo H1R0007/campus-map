@@ -5,6 +5,7 @@ import App from './App';
 import { ErrorBoundary } from './components/UI/ErrorBoundary';
 import { registerServiceWorker } from './pwa/registerServiceWorker';
 import { warmCacheWhenControlled } from './pwa/warmCache';
+import { startThemeSync } from './theme/themeSync';
 import './index.css';
 
 /**
@@ -22,6 +23,9 @@ import './index.css';
  * `ErrorBoundary` — снаружи приложения: ошибка отрисовки в любом его месте
  * показывает понятный экран, а не белую страницу.
  */
+
+// Тема — до отрисовки приложения (запись 34).
+startThemeSync();
 
 const container = document.getElementById('root');
 if (!container) {

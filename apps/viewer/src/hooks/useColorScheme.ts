@@ -1,18 +1,20 @@
+import { useSettingsStore } from '../stores/settingsStore';
+import { DARK_SCHEME_QUERY, resolveColorScheme } from '../theme/theme';
+import type { ColorScheme } from '../theme/theme';
 import { useMediaQuery } from './useMediaQuery';
 
-/** Тёмная тема телефона или компьютера. */
-export const DARK_SCHEME_QUERY = '(prefers-color-scheme: dark)';
-
-export type ColorScheme = 'light' | 'dark';
+export type { ColorScheme };
 
 /**
- * Тема системы — навигатор следует ей и своего переключателя не имеет
- * (запись 21).
+ * Тема на экране: выбранная в навигаторе, а «как в системе» — тема системы
+ * (запись 34).
  *
- * Стилям хук не нужен: CSS меняет токены сам. Он нужен тому, что берёт цвет
- * значением один раз, — слоям карты на canvas: при смене темы они читают
- * токены заново.
+ * Стилям хук не нужен: они читают атрибут `data-theme`, который держит
+ * `startThemeSync`. Он нужен тому, что берёт цвет значением один раз, — слоям
+ * карты на canvas: при смене темы они читают токены заново.
  */
 export function useColorScheme(): ColorScheme {
-  return useMediaQuery(DARK_SCHEME_QUERY) ? 'dark' : 'light';
+  const preference = useSettingsStore((s) => s.theme);
+  const systemDark = useMediaQuery(DARK_SCHEME_QUERY);
+  return resolveColorScheme(preference, systemDark);
 }

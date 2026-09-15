@@ -113,7 +113,7 @@ export default {
       assert.equal(dark.line, 'rgb(110, 168, 255)');
       assert.equal(dark.ground, 'rgb(22, 30, 26)', 'план в тёмной теме — тёмный лист');
       assert.equal(dark.filter, 'none', 'тёмный лист — токенами, а не инверсией');
-      const meta = await page.eval(`document.querySelector('meta[name="theme-color"][media*="dark"]')?.content ?? null`);
+      const meta = await page.eval(`document.querySelector('meta[name="theme-color"]')?.content ?? null`);
       assert.equal(meta, '#0E1219');
     });
 
@@ -134,6 +134,26 @@ export default {
       await checkContrast('тёмная тема, широкий экран');
       assertNoLowContrast();
       await shot('viewer-dark-desktop');
+    });
+
+    await step('переключатель темы: тёмная при светлой системе, выбор запоминается, «Как в системе» возвращает', async () => {
+      await page.viewport(390, 844, 2);
+      await useScheme('light');
+      await v.open('/');
+      await v.click('Развернуть панель');
+      await v.click('Тёмная');
+      await page.waitFor(`document.documentElement.dataset.theme === 'dark'`);
+      assert.equal((await look()).panel, 'rgb(27, 34, 46)', 'панель тёмная при светлой системе');
+      await shot('viewer-theme-switch');
+      assert.equal(await page.eval(`document.querySelector('meta[name="theme-color"]').content`), '#0E1219');
+
+      await v.open('/');
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'dark', 'выбор сохранился после перезагрузки');
+
+      await v.click('Развернуть панель');
+      await v.click('Как в системе');
+      await page.waitFor(`document.documentElement.dataset.theme === 'light'`);
+      assert.equal((await look()).panel, 'rgb(255, 255, 255)', 'снова как в системе');
     });
   },
 };

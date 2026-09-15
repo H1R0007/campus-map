@@ -54,36 +54,35 @@
     --gray-900: 17 24 39;
 }
 
-/* Тёмная тема — по теме системы (запись 21). Серая шкала перевёрнута: её
+/* Тёмная тема — атрибут `data-theme` на корне страницы: его ставит выбор в
+   навигаторе или тема системы (записи 21 и 34). Серая шкала перевёрнута: её
    ступени значат одно и то же в обеих темах. Контраст текста в обеих темах
    проверяет сценарий `viewer-theme` (`pnpm check:browser`). */
-@media (prefers-color-scheme: dark) {
-    :root {
-        color-scheme: dark;
+:root[data-theme='dark'] {
+    color-scheme: dark;
 
-        --color-accent: 110 168 255;     /* #6EA8FF */
-        --color-selected: 110 168 255 / 0.16;
-        --color-route: 110 168 255;
+    --color-accent: 110 168 255;     /* #6EA8FF */
+    --color-selected: 110 168 255 / 0.16;
+    --color-route: 110 168 255;
 
-        --color-surface: 27 34 46;       /* #1B222E */
-        --color-canvas: 14 18 25;        /* #0E1219 — как theme-color в index.html */
-        --color-map: 17 22 30;
-        --color-inverse: 229 233 239;
-        --color-on-inverse: 17 24 39;
-        --color-danger: 252 165 165;
-        --color-danger-soft: 69 26 26;
+    --color-surface: 27 34 46;       /* #1B222E */
+    --color-canvas: 14 18 25;        /* #0E1219 — как theme-color в index.html */
+    --color-map: 17 22 30;
+    --color-inverse: 229 233 239;
+    --color-on-inverse: 17 24 39;
+    --color-danger: 252 165 165;
+    --color-danger-soft: 69 26 26;
 
-        --gray-50: 36 44 58;
-        --gray-100: 44 53 69;
-        --gray-200: 58 68 86;
-        --gray-300: 78 88 107;
-        --gray-400: 125 135 153;
-        --gray-500: 150 160 176;
-        --gray-600: 172 181 195;
-        --gray-700: 200 207 217;
-        --gray-800: 226 231 238;
-        --gray-900: 243 245 248;
-    }
+    --gray-50: 36 44 58;
+    --gray-100: 44 53 69;
+    --gray-200: 58 68 86;
+    --gray-300: 78 88 107;
+    --gray-400: 125 135 153;
+    --gray-500: 150 160 176;
+    --gray-600: 172 181 195;
+    --gray-700: 200 207 217;
+    --gray-800: 226 231 238;
+    --gray-900: 243 245 248;
 }
 
 *, *::before, *::after {
@@ -151,12 +150,10 @@ button {
    него не меняются. Подобран по планам-чертежам; с официальными планами его
    нужно пересмотреть (запись 21). Векторные планы холста красятся токенами
    плана, без фильтра. */
-@media (prefers-color-scheme: dark) {
-    .leaflet-image-layer,
-    .campus-plan-raster,
-    .campus-placed-plan > svg:not(.campus-plan) {
-        filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
-    }
+:root[data-theme='dark'] .leaflet-image-layer,
+:root[data-theme='dark'] .campus-plan-raster,
+:root[data-theme='dark'] .campus-placed-plan > svg:not(.campus-plan) {
+    filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
 }
 
 /* ===== Холст кампуса ===== */
@@ -214,60 +211,58 @@ button {
 /* Векторные планы (`svg.campus-plan`, запись 30) в тёмной теме — тёмный лист
    со светлыми стенами. В светлой теме правил нет: цвета берутся из атрибутов
    файла, и план такой же, как в редакторе. */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --plan-floor: 30 34 42;
-        --plan-corridor: 44 50 61;
-        --plan-room: 37 43 53;
-        --plan-tint-blue: 33 49 68;
-        --plan-tint-warm: 58 47 35;
-        --plan-tint-green: 33 54 42;
-        --plan-tint-violet: 50 43 70;
-        --plan-wall: 148 158 174;
-        --plan-label: 205 212 222;
-        --plan-ground: 22 30 26;
-        --plan-street: 42 46 54;
-        --plan-path: 54 58 64;
-        --plan-parking: 40 44 52;
-        --plan-roof: 55 61 71;
-        --plan-roof-edge: 104 112 124;
-        --plan-roof-label: 214 220 229;
-    }
-
-    svg.campus-plan .plan-floor { fill: rgb(var(--plan-floor)); }
-    svg.campus-plan .plan-corridor { fill: rgb(var(--plan-corridor)); }
-    svg.campus-plan .plan-room { fill: rgb(var(--plan-room)); stroke: rgb(var(--plan-wall)); }
-    svg.campus-plan .plan-room--service { fill: rgb(var(--plan-floor)); }
-    svg.campus-plan .plan-room--toilet,
-    svg.campus-plan .plan-room--lab,
-    svg.campus-plan .plan-room--pool { fill: rgb(var(--plan-tint-blue)); }
-    svg.campus-plan .plan-room--canteen,
-    svg.campus-plan .plan-room--cloakroom,
-    svg.campus-plan .plan-room--hall { fill: rgb(var(--plan-tint-warm)); }
-    svg.campus-plan .plan-room--stairs,
-    svg.campus-plan .plan-room--library,
-    svg.campus-plan .plan-room--gym { fill: rgb(var(--plan-tint-green)); }
-    svg.campus-plan .plan-room--lift { fill: rgb(var(--plan-tint-violet)); }
-    svg.campus-plan .plan-wall,
-    svg.campus-plan .plan-stairs,
-    svg.campus-plan .plan-lift { stroke: rgb(var(--plan-wall)); }
-    svg.campus-plan .plan-door { stroke: rgb(var(--plan-corridor)); }
-    svg.campus-plan .plan-door--outer { stroke: rgb(var(--plan-floor)); }
-    svg.campus-plan .plan-label { fill: rgb(var(--plan-label)); }
-    svg.campus-plan .plan-icon path { stroke: rgb(var(--plan-label)); }
-
-    svg.campus-plan .plan-ground { fill: rgb(var(--plan-ground)); }
-    svg.campus-plan .plan-street { fill: rgb(var(--plan-street)); }
-    svg.campus-plan .plan-street-line,
-    svg.campus-plan .plan-parking-line,
-    svg.campus-plan .plan-walkway { stroke: rgb(var(--plan-path)); }
-    svg.campus-plan .plan-parking { fill: rgb(var(--plan-parking)); }
-    svg.campus-plan .plan-square { fill: rgb(var(--plan-path)); stroke: rgb(var(--plan-roof-edge)); }
-    svg.campus-plan .plan-roof,
-    svg.campus-plan .plan-bridge { fill: rgb(var(--plan-roof)); stroke: rgb(var(--plan-roof-edge)); }
-    svg.campus-plan .plan-roof-label { fill: rgb(var(--plan-roof-label)); }
-    svg.campus-plan .plan-bus-stop { fill: rgb(var(--plan-roof-edge)); }
+:root[data-theme='dark'] {
+    --plan-floor: 30 34 42;
+    --plan-corridor: 44 50 61;
+    --plan-room: 37 43 53;
+    --plan-tint-blue: 33 49 68;
+    --plan-tint-warm: 58 47 35;
+    --plan-tint-green: 33 54 42;
+    --plan-tint-violet: 50 43 70;
+    --plan-wall: 148 158 174;
+    --plan-label: 205 212 222;
+    --plan-ground: 22 30 26;
+    --plan-street: 42 46 54;
+    --plan-path: 54 58 64;
+    --plan-parking: 40 44 52;
+    --plan-roof: 55 61 71;
+    --plan-roof-edge: 104 112 124;
+    --plan-roof-label: 214 220 229;
 }
+
+:root[data-theme='dark'] svg.campus-plan .plan-floor { fill: rgb(var(--plan-floor)); }
+:root[data-theme='dark'] svg.campus-plan .plan-corridor { fill: rgb(var(--plan-corridor)); }
+:root[data-theme='dark'] svg.campus-plan .plan-room { fill: rgb(var(--plan-room)); stroke: rgb(var(--plan-wall)); }
+:root[data-theme='dark'] svg.campus-plan .plan-room--service { fill: rgb(var(--plan-floor)); }
+:root[data-theme='dark'] svg.campus-plan .plan-room--toilet,
+:root[data-theme='dark'] svg.campus-plan .plan-room--lab,
+:root[data-theme='dark'] svg.campus-plan .plan-room--pool { fill: rgb(var(--plan-tint-blue)); }
+:root[data-theme='dark'] svg.campus-plan .plan-room--canteen,
+:root[data-theme='dark'] svg.campus-plan .plan-room--cloakroom,
+:root[data-theme='dark'] svg.campus-plan .plan-room--hall { fill: rgb(var(--plan-tint-warm)); }
+:root[data-theme='dark'] svg.campus-plan .plan-room--stairs,
+:root[data-theme='dark'] svg.campus-plan .plan-room--library,
+:root[data-theme='dark'] svg.campus-plan .plan-room--gym { fill: rgb(var(--plan-tint-green)); }
+:root[data-theme='dark'] svg.campus-plan .plan-room--lift { fill: rgb(var(--plan-tint-violet)); }
+:root[data-theme='dark'] svg.campus-plan .plan-wall,
+:root[data-theme='dark'] svg.campus-plan .plan-stairs,
+:root[data-theme='dark'] svg.campus-plan .plan-lift { stroke: rgb(var(--plan-wall)); }
+:root[data-theme='dark'] svg.campus-plan .plan-door { stroke: rgb(var(--plan-corridor)); }
+:root[data-theme='dark'] svg.campus-plan .plan-door--outer { stroke: rgb(var(--plan-floor)); }
+:root[data-theme='dark'] svg.campus-plan .plan-label { fill: rgb(var(--plan-label)); }
+:root[data-theme='dark'] svg.campus-plan .plan-icon path { stroke: rgb(var(--plan-label)); }
+
+:root[data-theme='dark'] svg.campus-plan .plan-ground { fill: rgb(var(--plan-ground)); }
+:root[data-theme='dark'] svg.campus-plan .plan-street { fill: rgb(var(--plan-street)); }
+:root[data-theme='dark'] svg.campus-plan .plan-street-line,
+:root[data-theme='dark'] svg.campus-plan .plan-parking-line,
+:root[data-theme='dark'] svg.campus-plan .plan-walkway { stroke: rgb(var(--plan-path)); }
+:root[data-theme='dark'] svg.campus-plan .plan-parking { fill: rgb(var(--plan-parking)); }
+:root[data-theme='dark'] svg.campus-plan .plan-square { fill: rgb(var(--plan-path)); stroke: rgb(var(--plan-roof-edge)); }
+:root[data-theme='dark'] svg.campus-plan .plan-roof,
+:root[data-theme='dark'] svg.campus-plan .plan-bridge { fill: rgb(var(--plan-roof)); stroke: rgb(var(--plan-roof-edge)); }
+:root[data-theme='dark'] svg.campus-plan .plan-roof-label { fill: rgb(var(--plan-roof-label)); }
+:root[data-theme='dark'] svg.campus-plan .plan-bus-stop { fill: rgb(var(--plan-roof-edge)); }
 
 /* ===== Шапка и колонка управления картой ===== */
 
