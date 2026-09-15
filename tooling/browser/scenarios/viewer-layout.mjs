@@ -226,6 +226,8 @@ export default {
 
     await step('текст увеличен в 200 %: кнопки не обрезаются, язык — в панели', async () => {
       await v.open('/');
+      // Быстрые кнопки без заданной точки — в раскрытой шторке (запись 37).
+      await v.click('Развернуть панель');
       const idle = await page.eval(`(() => {
         const buttons = [...${PANEL}.querySelectorAll('ul[aria-label="Рядом"] button')];
         return {
@@ -238,7 +240,6 @@ export default {
       assert.deepEqual(idle.cut, [], 'подписи кнопок целиком');
       assert.equal(idle.headerLanguage, false, 'в шапке языка нет');
 
-      await v.click('Развернуть панель');
       assert.ok(await page.eval(`${PANEL}.querySelector('[role="group"]')?.offsetParent != null`), 'язык — в раскрытой панели');
 
       await v.open('/?from=a1_entrance&to=a3_room305');
@@ -354,6 +355,37 @@ export default {
       })()`);
       assert.ok(details.text.startsWith('осталось'), `первым — сколько осталось: ${details.text}`);
       assert.ok(details.prefixRight <= details.spanRight + 1, `время видно целиком: ${JSON.stringify(details)}`);
+    });
+
+    await step('пока карту двигают, шторка уступает ей место; перелёт камеры шторку не трогает', async () => {
+      const sheetTop = `Math.round(${PANEL}.getBoundingClientRect().top)`;
+
+      await v.open('/');
+      const idleTop = await page.eval(sheetTop);
+      await v.click('Корпуса');
+      await page.eval(`[...document.querySelectorAll('.campus-map-header button')].find((b) => b.textContent.trim() === 'Корпус Б').click()`);
+      const flight = [];
+      for (let index = 0; index < 8; index += 1) {
+        flight.push(await page.eval(sheetTop));
+        await page.sleep(60);
+      }
+      assert.ok(flight.every((top) => Math.abs(top - idleTop) <= 2), `перелёт камеры шторку не двигает: ${idleTop} → ${flight}`);
+
+      await v.open('/?to=b1_canteen');
+      await page.sleep(700);
+      const rest = await page.eval(sheetTop);
+      const mouse = (type, x, y, buttons) =>
+        page.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons, clickCount: 1 });
+      await mouse('mousePressed', 200, 300, 1);
+      for (let index = 1; index <= 8; index += 1) await mouse('mouseMoved', 200 - index * 10, 300 + index * 6, 1);
+      await page.sleep(400);
+      const held = await page.eval(sheetTop);
+      await mouse('mouseReleased', 120, 348, 0);
+      await page.sleep(800);
+      const released = await page.eval(sheetTop);
+      const height = await page.eval('innerHeight');
+      assert.ok(held > rest + 60 && held >= height - 90, `шторка уступила карте: ${rest} → ${held} при высоте ${height}`);
+      assert.ok(Math.abs(released - rest) <= 2, `шторка вернулась: ${rest} → ${released}`);
     });
 
     await step('шторку подняли и опустили жестом — кнопки масштаба над ней', async () => {

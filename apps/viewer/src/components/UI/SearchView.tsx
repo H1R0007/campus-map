@@ -16,6 +16,7 @@ import { BuildingList } from './BuildingList';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 import { PlaceIcon } from './PlaceIcon';
+import { QuickPlaces } from './QuickPlaces';
 import { RecentPlaces } from './RecentPlaces';
 
 /** Сколько мест показывать: поиск занимает весь экран телефона, и восемь помещаются без прокрутки. */
@@ -245,6 +246,9 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
             <p className="px-1 text-sm text-gray-600">
               {forNearest ? messages.search.nearestStart.hint : messages.search.hint}
             </p>
+            {/* Быстрые кнопки — пока цели нет. В свёрнутой шторке без заданной
+                точки их нет, и искать их будут здесь (запись 37). */}
+            {!forNearest && toNodeId === null && <QuickPlaces onRoute={closeSearch} />}
             {/* Уже заданная точка маршрута как вторая точка ничего не даст —
                 маршрут из места в него же. */}
             <RecentPlaces onChoose={choose} exclude={target === 'place' ? [] : [fromNodeId, toNodeId]} />

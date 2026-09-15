@@ -43,6 +43,10 @@ interface UiState {
   sheetExpanded: boolean;
   setSheetExpanded: (expanded: boolean) => void;
 
+  /** Человек двигает карту пальцем или мышью: шторка на телефоне уступает место карте (запись 37). */
+  mapGesture: boolean;
+  setMapGesture: (active: boolean) => void;
+
   mapObstruction: MapObstruction;
   setMapObstruction: (obstruction: MapObstruction) => void;
 }
@@ -58,6 +62,11 @@ export const useUiStore = create<UiState>((set, get) => ({
   sheetExpanded: false,
   setSheetExpanded: (expanded) => {
     if (get().sheetExpanded !== expanded) set({ sheetExpanded: expanded });
+  },
+
+  mapGesture: false,
+  setMapGesture: (active) => {
+    if (get().mapGesture !== active) set({ mapGesture: active });
   },
 
   mapObstruction: NO_OBSTRUCTION,

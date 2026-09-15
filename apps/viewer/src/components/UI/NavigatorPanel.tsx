@@ -39,6 +39,10 @@ const TAP_SLOP_PX = 6;
  *
  * Сколько карты закрывает панель, измеряется и уходит в отступы подгонки карты
  * (`mapInsetsOf`) и в `--campus-sheet-height` для колонки этажей.
+ *
+ * Пока человек двигает карту (`mapGesture`), шторка на телефоне уезжает вниз и
+ * оставляет край с ручкой, а когда карту отпустили — возвращается (запись 37).
+ * Отступы подгонки при этом прежние: сдвиг в замер не входит, и карта не прыгает.
  */
 export const NavigatorPanel: React.FC = () => {
   const isWide = useMediaQuery(WIDE_LAYOUT_QUERY);
@@ -53,6 +57,7 @@ export const NavigatorPanel: React.FC = () => {
   const sheetExpanded = useUiStore((s) => s.sheetExpanded);
   const setSheetExpanded = useUiStore((s) => s.setSheetExpanded);
   const setMapObstruction = useUiStore((s) => s.setMapObstruction);
+  const mapGesture = useUiStore((s) => s.mapGesture);
   const share = useShareRoute();
 
   const mode = sheetModeOf({ selectedNodeId, currentRoute, stepIndex, arrived });
@@ -185,7 +190,7 @@ export const NavigatorPanel: React.FC = () => {
         style={dragOffset ? { transform: `translateY(${dragOffset}px)` } : undefined}
         className={`fixed z-[1000] inset-x-0 bottom-0 flex flex-col bg-surface border border-gray-100 shadow-2xl rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-4 sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:w-[26rem] sm:rounded-3xl sm:pb-0 wide:top-4 wide:bottom-auto wide:w-[24rem] wide:max-h-[calc(100%-2rem)] wide:rounded-2xl ${
           dragOffset === null ? 'campus-panel--animated' : ''
-        }`}
+        } ${!isWide && mapGesture && dragOffset === null ? 'campus-panel--peek' : ''}`}
       >
         {hasHandle && (
           <button
