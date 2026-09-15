@@ -190,6 +190,8 @@ interface MouseDrag {
 class MouseRotate extends L.Handler {
   private drag: MouseDrag | null = null;
   private suppressMenu = false;
+  private frame = 0;
+  private pendingBearing: number | null = null;
 
   constructor(private readonly target: L.Map) {
     super(target);
@@ -253,8 +255,23 @@ class MouseRotate extends L.Handler {
       mapInternals(map)._stop();
       mapInternals(map)._moveStart(false, false);
     }
-    applyBearing(map, drag.startBearing + angleDelta(drag.startAngle, angle));
+    // Мышь присылает движения чаще кадров, а каждый поворот перерисовывает все
+    // слои: угол копится и ставится не чаще кадра.
+    this.pendingBearing = drag.startBearing + angleDelta(drag.startAngle, angle);
+    if (this.frame === 0) {
+      this.frame = requestAnimationFrame(() => {
+        this.frame = 0;
+        this.flush();
+      });
+    }
   };
+
+  private flush(): void {
+    if (this.pendingBearing === null) return;
+    const bearing = this.pendingBearing;
+    this.pendingBearing = null;
+    applyBearing(this.target, bearing);
+  }
 
   private readonly onUp = (event: PointerEvent): void => {
     if (this.drag && event.pointerId === this.drag.pointerId) this.end();
@@ -269,8 +286,15 @@ class MouseRotate extends L.Handler {
     container.removeEventListener('pointermove', this.onMove);
     container.removeEventListener('pointerup', this.onUp);
     container.removeEventListener('pointercancel', this.onUp);
-    if (!drag.moved) return;
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    if (!drag.moved) {
+      this.pendingBearing = null;
+      return;
+    }
 
+    // Последний угол — до конца движения: отпущенная мышь не теряет поворот.
+    this.flush();
     mapInternals(this.target)._moveEnd(false);
     settle(this.target);
     // Windows открывает меню правой кнопки при отпускании — после поворота оно ни к чему.
