@@ -73,8 +73,11 @@ export const IdleContent: React.FC<IdleContentProps> = ({ expanded }) => {
       {point('from', fromNodeId)}
       {point('to', toNodeId)}
 
-      {/* Быстрые кнопки — пока цели нет: они её и задают. */}
-      {toNodeId === null && <QuickPlaces />}
+      {/* Быстрые кнопки — пока цели нет: они её и задают. Без заданной точки
+          свёрнутая шторка — только поиск, место отдано карте: кнопки — в поиске и
+          в раскрытой шторке (запись 37). У двери с QR-кодом начало известно, и
+          кнопки с временем до места нужны сразу. */}
+      {toNodeId === null && (fromNodeId !== null || expanded) && <QuickPlaces />}
 
       {expanded && (
         <div className="pt-2 space-y-5">

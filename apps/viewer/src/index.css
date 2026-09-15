@@ -485,6 +485,12 @@ button {
     transition: transform 0.2s ease;
 }
 
+/* Пока человек двигает карту, шторка на телефоне уступает ей место — остаётся
+   край с ручкой — и возвращается, когда карту отпустили (запись 37). */
+.campus-panel--peek {
+    transform: translateY(calc(100% - 3.5rem - env(safe-area-inset-bottom, 0px)));
+}
+
 @media (prefers-reduced-motion: reduce) {
     .campus-panel--animated {
         transition: none;

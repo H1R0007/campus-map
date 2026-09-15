@@ -192,7 +192,7 @@ export const en: Messages = {
     slides: {
       search: {
         title: 'Find the place you need',
-        text: 'Type a room number or a name, like “305” or “library”. The Toilet and Canteen buttons lead to the nearest ones.',
+        text: 'Type a room number or a name, like “305” or “library”. The Toilet and Canteen buttons there lead to the nearest ones.',
       },
       qr: {
         title: 'The QR code at the door means “you are here”',

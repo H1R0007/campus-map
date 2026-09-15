@@ -12,6 +12,7 @@ import { PlaceLayer } from './PlaceLayer';
 import { PortalLayer } from './PortalLayer';
 import { MarkerLayer } from './MarkerLayer';
 import { PlanStatus } from './PlanStatus';
+import { MapGestureWatch } from './MapGestureWatch';
 import { WorldCanvas } from './WorldCanvas';
 
 /**
@@ -56,6 +57,7 @@ export const CampusMap: React.FC = () => {
       <MarkerLayer />
       <PlanStatus />
       <MapRail />
+      <MapGestureWatch />
     </>
   );
 

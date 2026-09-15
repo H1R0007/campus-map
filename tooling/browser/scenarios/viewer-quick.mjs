@@ -18,18 +18,23 @@ export default {
     const v = viewerHelpers(page, base);
     await page.viewport(390, 844, 2);
 
-    const quickLabels = () =>
-      page.eval(`[...(${PANEL}?.querySelectorAll('ul[aria-label="Рядом"] button') ?? [])].map((b) => b.getAttribute('aria-label'))`);
+    const quickLabels = (root = PANEL) =>
+      page.eval(`[...(${root}?.querySelectorAll('ul[aria-label="Рядом"] button') ?? [])].map((b) => b.getAttribute('aria-label'))`);
     const routeShown = () => page.waitFor(`${PANEL}.textContent.includes('Маршрут ·')`);
 
     await step('без «вы здесь» кнопка спрашивает, где вы, и ведёт к ближайшему', async () => {
       await v.open('/');
-      assert.deepEqual(await quickLabels(), [
-        'Ближайший туалет',
-        'Ближайшая столовая',
-        'Ближайший гардероб',
-        'Ближайший выход',
-      ]);
+      // Без заданной точки свёрнутая шторка — только поиск: быстрые кнопки — в
+      // поиске и в раскрытой шторке (запись 37).
+      const all = ['Ближайший туалет', 'Ближайшая столовая', 'Ближайший гардероб', 'Ближайший выход'];
+      assert.deepEqual(await quickLabels(), [], 'в свёрнутой шторке кнопок нет');
+      await v.click('Развернуть панель');
+      assert.deepEqual(await quickLabels(), all, 'кнопки в раскрытой шторке');
+      await v.click('Свернуть панель');
+
+      await v.click('Найти аудиторию или место');
+      await page.waitFor(`!!${SEARCH}`);
+      assert.deepEqual(await quickLabels(SEARCH), all, 'кнопки в поиске');
       await shot('viewer-quick-idle');
 
       await v.click('Ближайший туалет');

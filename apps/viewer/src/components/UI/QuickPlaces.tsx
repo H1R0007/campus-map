@@ -7,6 +7,11 @@ import { useUiStore } from '../../stores/uiStore';
 import { nearestHint, nearestPlaceOf } from '../../utils/nearestPlace';
 import { Icon } from './Icon';
 
+interface QuickPlacesProps {
+  /** Вызывается перед построением маршрута — например, чтобы закрыть поиск. */
+  onRoute?: () => void;
+}
+
 /**
  * Быстрые кнопки к ближайшему месту: туалет, столовая, гардероб, выход
  * (запись 22).
@@ -19,7 +24,7 @@ import { Icon } from './Icon';
  * Кнопок категорий, которых нет в данных, нет. Категория, до мест которой от
  * начала не дойти вовсе, недоступна.
  */
-export const QuickPlaces: React.FC = () => {
+export const QuickPlaces: React.FC<QuickPlacesProps> = ({ onRoute }) => {
   const graph = useMapStore((s) => s.graph);
   const aliasManager = useMapStore((s) => s.aliasManager);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
@@ -67,7 +72,14 @@ export const QuickPlaces: React.FC = () => {
             <button
               type="button"
               disabled={missing}
-              onClick={() => (fromNodeId === null ? openSearch('from', category) : routeToNearest(category))}
+              onClick={() => {
+                if (fromNodeId === null) {
+                  openSearch('from', category);
+                  return;
+                }
+                onRoute?.();
+                routeToNearest(category);
+              }}
               aria-label={hint !== null ? `${label}, ${hint}` : label}
               className="w-full min-h-[4.75rem] px-1 py-2 rounded-2xl bg-gray-50 flex flex-col items-center gap-1 text-center hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:hover:bg-gray-50"
             >
