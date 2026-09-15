@@ -12,20 +12,20 @@ import type { Language } from '../src/i18n/languages';
  */
 describe('formatDuration', () => {
   it('округляет вверх до минуты: опоздать хуже, чем прийти раньше', () => {
-    expect(formatDuration(61, 'ru')).toBe('~2 мин');
-    expect(formatDuration(120, 'en')).toBe('~2 min');
+    expect(formatDuration(61, 'ru')).toBe('~2\u00a0мин');
+    expect(formatDuration(120, 'en')).toBe('~2\u00a0min');
   });
 
   it('короткий маршрут показывается минутой, а не нулём', () => {
-    expect(formatDuration(0, 'ru')).toBe('~1 мин');
-    expect(formatDuration(25, 'en')).toBe('~1 min');
+    expect(formatDuration(0, 'ru')).toBe('~1\u00a0мин');
+    expect(formatDuration(25, 'en')).toBe('~1\u00a0min');
   });
 });
 
 /**
  * Шаги маршрута.
  *
- * Своя фикстура, метрическая, в масштабе 1 м на пиксель:
+ * Своя фикстура, метрическая, в масштабе 1\u00a0м на пиксель:
  *
  *   Территория:  gate ── campus_door ══ t1_door (вход в Башню)
  *   Башня, этажи 1–3:  stairs(0,0) ── hall(10,0) ── lift(20,0), room(10,10)

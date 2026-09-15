@@ -11,8 +11,8 @@ import { Icon } from './Icon';
  * Шапка карты на шаге пошаговой навигации: ход маршрута вместо ленты корпусов
  * (запись 23).
  *
- * Номер шага, полоса пройденного и что открыто на карте — «Корпус А, этаж 3»,
- * с метрикой ещё и сколько осталось идти. Выход из навигации — здесь же, а не в
+ * Номер шага, полоса пройденного, сколько осталось идти (с метрикой) и что
+ * открыто на карте — «Корпус А, этаж 3». Выход из навигации — здесь же, а не в
  * панели: в панели остаётся только сам шаг, крупно, с «Далее» и «Назад» под
  * большим пальцем. Возврата на территорию в пути нет: этаж открывает шаг, а
  * сменить его вручную можно в колонке этажей.
@@ -29,8 +29,10 @@ export const TripBar: React.FC = () => {
   const stepOf = messages.navigation.stepOf(index + 1, steps.length);
   const seconds = remainingSeconds(steps, index);
   const where = scopeLabel(scopeOf(activeFloor), buildingMetas, language);
+  // Сколько осталось — первым: на телефоне строка обрезается, а где человек,
+  // написано и в карточке шага под шапкой.
   const details =
-    seconds === null ? where : `${where} · ${messages.navigation.remaining(formatDuration(seconds, language))}`;
+    seconds === null ? where : `${messages.navigation.remaining(formatDuration(seconds, language))} · ${where}`;
 
   return (
     <>

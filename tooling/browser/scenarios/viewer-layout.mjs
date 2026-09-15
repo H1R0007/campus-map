@@ -229,10 +229,77 @@ export default {
           .map((element) => element.getAttribute('aria-label') ?? element.className);
       })()`);
       assert.deepEqual(hidden, [], 'колонка карты не уходит под шторку');
+      const floorList = await page.eval(`document.querySelector('.campus-floor-list')?.getBoundingClientRect().height ?? null`);
+      assert.ok(floorList === null || floorList >= 44, `этажи — целыми кнопками, а не обрезком списка: ${floorList}`);
+
+      // Кнопки в столбик — полной высоты, а сводка не ломается рядом с кнопками.
+      const overview = await page.eval(`(() => {
+        const panel = ${PANEL};
+        const start = [...panel.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Начать');
+        const summary = panel.querySelector('p');
+        return {
+          startHeight: start ? Math.round(start.getBoundingClientRect().height) : null,
+          summaryLines: summary ? Math.round(summary.getBoundingClientRect().height / parseFloat(getComputedStyle(summary).lineHeight)) : null,
+        };
+      })()`);
+      assert.ok(overview.startHeight >= 44, `«Начать» полной высоты: ${JSON.stringify(overview)}`);
+      assert.ok(overview.summaryLines !== null && overview.summaryLines <= 2, `сводка маршрута не больше двух строк: ${JSON.stringify(overview)}`);
       await shot('viewer-zoom200');
+
+      await v.open('/?to=b1_canteen');
+      const place = await page.eval(`(() => {
+        const panel = ${PANEL};
+        const heading = panel.querySelector('h2');
+        const route = [...panel.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Маршрут сюда');
+        return {
+          headingCut: heading.scrollWidth > heading.clientWidth + 1,
+          routeHeight: route ? Math.round(route.getBoundingClientRect().height) : null,
+          routeCut: route ? [...route.querySelectorAll('.truncate')].some((s) => s.scrollWidth > s.clientWidth + 1) : null,
+        };
+      })()`);
+      assert.equal(place.headingCut, false, `название места не обрезано: ${JSON.stringify(place)}`);
+      assert.ok(place.routeHeight >= 44 && place.routeCut === false, `«Маршрут сюда» целиком и полной высоты: ${JSON.stringify(place)}`);
     });
 
     await page.viewport(390, 844, 2);
+
+    await step('переключатель языка в шапке: цели нажатия не меньше 44 px', async () => {
+      await v.open('/');
+      // Размер цели — по тому, куда попадает нажатие, а не по рамке кнопки:
+      // область нажатия шире видимой кнопки.
+      const sizes = await page.eval(`(() => {
+        const group = document.querySelector('.campus-map-header [role="group"]');
+        return [...group.querySelectorAll('button')].map((button) => {
+          const rect = button.getBoundingClientRect();
+          const cx = rect.x + rect.width / 2;
+          const cy = rect.y + rect.height / 2;
+          const hits = (x, y) => document.elementFromPoint(x, y)?.closest('button') === button;
+          let width = 0;
+          for (let x = Math.floor(rect.left) - 30; x <= rect.right + 30; x += 1) if (hits(x, cy)) width += 1;
+          let height = 0;
+          for (let y = Math.floor(rect.top) - 30; y <= rect.bottom + 30; y += 1) if (hits(cx, y)) height += 1;
+          return { label: button.getAttribute('aria-label'), width, height };
+        });
+      })()`);
+      assert.equal(sizes.length, 2);
+      for (const size of sizes) assert.ok(size.width >= 44 && size.height >= 44, `цель «${size.label}»: ${JSON.stringify(size)}`);
+    });
+
+    await step('шаг навигации: сколько осталось идти — в шапке первым и целиком', async () => {
+      await v.open('/?from=campus_gate&to=a3_room305');
+      await v.click('Начать');
+      const details = await page.eval(`(() => {
+        const span = document.querySelector('.campus-map-header .truncate');
+        const text = span?.textContent ?? '';
+        const end = text.includes(' · ') ? text.indexOf(' · ') : text.length;
+        const range = document.createRange();
+        range.setStart(span.firstChild, 0);
+        range.setEnd(span.firstChild, end);
+        return { text, prefixRight: range.getBoundingClientRect().right, spanRight: span.getBoundingClientRect().right };
+      })()`);
+      assert.ok(details.text.startsWith('осталось'), `первым — сколько осталось: ${details.text}`);
+      assert.ok(details.prefixRight <= details.spanRight + 1, `время видно целиком: ${JSON.stringify(details)}`);
+    });
 
     await step('шторку подняли и опустили жестом — кнопки масштаба над ней', async () => {
       await v.open('/');

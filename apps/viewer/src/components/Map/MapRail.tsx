@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { WIDE_LAYOUT_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { floorsOfBuilding, useMapStore } from '../../stores/mapStore';
 import { useUiStore } from '../../stores/uiStore';
-import { zoomControlsFor } from '../../utils/railLayout';
+import { railContentFor } from '../../utils/railLayout';
 import { FloorSelector } from '../UI/FloorSelector';
 import { ZoomControls } from '../UI/ZoomControls';
 
@@ -30,7 +30,7 @@ import { ZoomControls } from '../UI/ZoomControls';
  * По той же причине кнопки уступают место, когда колонка низкая — маленький
  * телефон или текст, увеличенный в настройках: сначала уходит «Показать
  * целиком», потом «+» и «−». Кнопки не сжимаются, и раньше нижние уходили под
- * шторку.
+ * шторку. Колонку ниже одной кнопки оставляют и этажи (`railContentFor`).
  */
 export const MapRail: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -64,11 +64,12 @@ export const MapRail: React.FC = () => {
     L.DomEvent.disableScrollPropagation(element);
   }, []);
 
-  const zoom = !isWide && sheetExpanded ? 'none' : zoomControlsFor(heightRem, floorCount);
+  const content = railContentFor(heightRem, floorCount);
+  const zoom = !isWide && sheetExpanded ? 'none' : content.zoom;
 
   return (
     <div ref={ref} className="campus-map-rail">
-      <FloorSelector />
+      {content.floors && <FloorSelector />}
       {zoom !== 'none' && <ZoomControls withFit={zoom === 'full'} />}
     </div>
   );

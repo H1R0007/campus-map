@@ -45,7 +45,7 @@ export const ArrivalCard: React.FC = () => {
       <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
-          className="w-11 h-11 flex-shrink-0 rounded-full bg-primary text-white flex items-center justify-center"
+          className="w-11 h-11 flex-shrink-0 rounded-full bg-primary text-white flex items-center justify-center compact:hidden"
         >
           <Icon name="check" size={22} />
         </span>
@@ -54,7 +54,7 @@ export const ArrivalCard: React.FC = () => {
               читает и прибытие, и место. */}
           <h2 data-panel-focus tabIndex={-1} className="outline-none">
             <span className="block text-sm font-normal text-gray-600">{messages.arrival.title}</span>
-            <span className="block text-xl font-semibold leading-snug text-gray-900 line-clamp-2">{name}</span>
+            <span className="block text-xl font-semibold leading-snug text-gray-900 line-clamp-2 break-words">{name}</span>
           </h2>
           <p className="mt-0.5 text-sm text-gray-600">{nodePlaceLabel(graph, buildingMetas, toNodeId, language)}</p>
         </div>
@@ -65,18 +65,18 @@ export const ArrivalCard: React.FC = () => {
         <button
           type="button"
           onClick={swapPoints}
-          className="flex-1 min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
+          className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
         >
-          <Icon name="swap" className="flex-shrink-0" />
+          <Icon name="swap" className="flex-shrink-0 compact:hidden" />
           <span className="truncate">{messages.arrival.back}</span>
         </button>
         {exitReachable && (
           <button
             type="button"
             onClick={() => continueToNearest('exit')}
-            className="flex-1 min-w-0 h-12 px-4 rounded-xl bg-gray-100 text-gray-800 font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+            className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-gray-100 text-gray-800 font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
           >
-            <Icon name="exit" className="flex-shrink-0" />
+            <Icon name="exit" className="flex-shrink-0 compact:hidden" />
             <span className="truncate">{messages.arrival.toExit}</span>
           </button>
         )}

@@ -51,7 +51,7 @@ export default {
     await step('QR у входа: время до места и маршрут без поиска', async () => {
       await v.open('/?at=a1_entrance');
       const [toilet] = await quickLabels();
-      assert.match(toilet, /^Ближайший туалет, ~\d+ мин$/);
+      assert.match(toilet, /^Ближайший туалет, ~\d+\sмин$/);
       await shot('viewer-quick-qr');
 
       await v.click(toilet);
@@ -63,7 +63,7 @@ export default {
     await step('выход с третьего этажа — к входу корпуса на первом', async () => {
       await v.open('/?at=a3_room305');
       const exit = (await quickLabels()).find((label) => label.startsWith('Ближайший выход'));
-      assert.match(exit, /^Ближайший выход, ~\d+ мин$/);
+      assert.match(exit, /^Ближайший выход, ~\d+\sмин$/);
 
       await v.click(exit);
       await routeShown();

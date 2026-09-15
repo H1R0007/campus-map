@@ -61,23 +61,45 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
   return (
     <div className="px-4 pb-4">
       {currentRoute.found ? (
-        <div className="flex items-start gap-1">
+        <div className="flex items-start gap-1 compact:grid compact:grid-cols-[minmax(0,1fr)_auto_auto] compact:gap-y-0">
           {/* Цель — заголовком, сводка — строкой над ней. В пиксельном режиме
               сводка — число корпусов и этажей («1 этаж»), и заголовком она
               ничего не говорила; время и длина в метрическом режиме тоже
-              читаются лучше рядом с целью, чем вместо неё. */}
-          <div className="flex-1 min-w-0 pt-0.5">
-            <p className="text-sm text-gray-600">{messages.route.summaryLine(routeSummary(graph, currentRoute, language))}</p>
-            <h2 data-panel-focus tabIndex={-1} className="text-xl font-semibold leading-snug text-gray-900 line-clamp-2 outline-none">
+              читаются лучше рядом с целью, чем вместо неё.
+              На очень узком экране (текст увеличен до 200 %) сводка — во всю
+              ширину над целью и кнопками: рядом с кнопками она ломалась на три
+              строки, а кнопки строкой выше отнимали у карты ещё ряд. */}
+          <div className="flex-1 min-w-0 pt-0.5 compact:contents">
+            <p className="text-sm text-gray-600 compact:col-span-3 compact:row-start-1">
+              {messages.route.summaryLine(routeSummary(graph, currentRoute, language))}
+            </p>
+            <h2
+              data-panel-focus
+              tabIndex={-1}
+              className="text-xl font-semibold leading-snug text-gray-900 line-clamp-2 break-words outline-none compact:col-start-1 compact:row-start-2"
+            >
               {nameOf(toNodeId)}
             </h2>
             {/* В раскрытом обзоре начало видно в точках маршрута ниже. */}
             {!expanded && (
-              <p className="mt-0.5 text-sm text-gray-600 truncate">{messages.route.fromPlace(nameOf(fromNodeId))}</p>
+              <p className="mt-0.5 text-sm text-gray-600 truncate compact:col-start-1 compact:row-start-3">
+                {messages.route.fromPlace(nameOf(fromNodeId))}
+              </p>
             )}
           </div>
-          <IconButton ref={share.buttonRef} icon="share" label={messages.route.share} onClick={share.share} />
-          <IconButton icon="close" label={messages.route.resetRoute} onClick={clearRoute} className="-mr-2" />
+          <IconButton
+            ref={share.buttonRef}
+            icon="share"
+            label={messages.route.share}
+            onClick={share.share}
+            className="compact:col-start-2 compact:row-span-2 compact:row-start-2"
+          />
+          <IconButton
+            icon="close"
+            label={messages.route.resetRoute}
+            onClick={clearRoute}
+            className="-mr-2 compact:col-start-3 compact:row-span-2 compact:row-start-2"
+          />
         </div>
       ) : (
         <div className="flex items-start gap-3">
@@ -106,7 +128,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             <button
               type="button"
               onClick={() => navigation.goTo(0)}
-              className="flex-1 min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
+              className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
             >
               <Icon name="start" size={16} filled />
               {messages.route.start}
@@ -116,7 +138,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             <button
               type="button"
               onClick={() => setOptions({ allowStairs: true })}
-              className="flex-1 h-12 px-4 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-colors"
+              className="flex-1 compact:flex-none h-12 px-4 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-colors"
             >
               {messages.route.allowStairs}
             </button>
@@ -125,7 +147,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             <button
               type="button"
               onClick={onExpand}
-              className={`${SECONDARY_BUTTON} ${currentRoute.found || stairsBlock ? '' : 'flex-1'}`}
+              className={`${SECONDARY_BUTTON} ${currentRoute.found || stairsBlock ? '' : 'flex-1 compact:flex-none'}`}
             >
               {currentRoute.found && <Icon name="expand" />}
               {currentRoute.found ? messages.route.showSteps : messages.route.edit}

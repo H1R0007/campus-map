@@ -196,9 +196,9 @@ export const ru = {
     resetRoute: 'Сбросить маршрут',
     stepsTitle: 'Шаги маршрута',
     /** Время в пути; округление — забота вызывающей стороны. */
-    duration: (minutes: number) => `~${minutes} мин`,
+    duration: (minutes: number) => `~${minutes}\u00a0мин`,
     /** Длина пути; округление — забота вызывающей стороны. */
-    distance: (meters: number) => `${meters} м`,
+    distance: (meters: number) => `${meters}\u00a0м`,
     buildingsWord: BUILDINGS_WORD,
     floorsWord: FLOORS_WORD,
     notFound: (reason: string) => `Маршрут не найден: ${reason}`,
