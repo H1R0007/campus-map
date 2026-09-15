@@ -8,6 +8,8 @@ import { Icon } from './Icon';
 interface BuildingListProps {
   /** Вызывается перед переходом в корпус — например, чтобы закрыть поиск. */
   onChoose?: () => void;
+  /** Только эти корпуса — например, найденные по запросу; по умолчанию все. */
+  buildingIds?: readonly string[];
 }
 
 /**
@@ -18,7 +20,7 @@ interface BuildingListProps {
  * этим списком попадают без возврата на территорию, а при пяти и более корпусах
  * список читается легче ленты.
  */
-export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
+export const BuildingList: React.FC<BuildingListProps> = ({ onChoose, buildingIds }) => {
   const campusMeta = useMapStore((s) => s.campusMeta);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
@@ -29,7 +31,10 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
   // Список бывает на экране дважды — в панели и в поиске на её месте.
   const titleId = useId();
 
-  if (!campusMeta || !buildingMetas || campusMeta.buildings.length === 0) return null;
+  const buildings = campusMeta
+    ? campusMeta.buildings.filter((building) => !buildingIds || buildingIds.includes(building.id))
+    : [];
+  if (!buildingMetas || buildings.length === 0) return null;
 
   return (
     <section aria-labelledby={titleId}>
@@ -38,7 +43,7 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
       </h3>
 
       <ul className="space-y-1">
-        {campusMeta.buildings.map((building) => {
+        {buildings.map((building) => {
           const meta = buildingMetas.get(building.id);
           const floors = floorsOfBuilding(meta).length;
           const isCurrent = activeFloor?.buildingId === building.id;

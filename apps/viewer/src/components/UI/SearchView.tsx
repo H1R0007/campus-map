@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useChoosePlace } from '../../hooks/useChoosePlace';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useSuggestions } from '../../hooks/useSuggestions';
 import { messagesFor, useLanguage } from '../../i18n';
-import { useMapStore } from '../../stores/mapStore';
+import { shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import { useUiStore } from '../../stores/uiStore';
 import type { SearchTarget } from '../../stores/uiStore';
+import { matchingBuildings } from '../../utils/buildingSearch';
 import { moveActiveOption } from '../../utils/listNavigation';
 import { nodePlaceLabel } from '../../utils/placeLabels';
 import { portalTypeOf } from '../../utils/portals';
@@ -42,11 +43,13 @@ interface SearchViewProps {
  *
  * Что делает выбор, зависит от цели: место показывается на карте с карточкой,
  * начало или конец маршрута задаются сразу (`useChoosePlace`). Пустой поиск
- * показывает недавние места и корпуса.
+ * показывает недавние места и корпуса. Поиск места находит и корпуса по
+ * названию — «Корпус Б» ведёт в корпус; Enter открывает единственный найденный.
  */
 export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
   const graph = useMapStore((s) => s.graph);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
+  const campusMeta = useMapStore((s) => s.campusMeta);
   const aliasManager = useMapStore((s) => s.aliasManager);
   const fromNodeId = useRouteStore((s) => s.fromNodeId);
   const toNodeId = useRouteStore((s) => s.toNodeId);
@@ -96,6 +99,19 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
 
   const choose = (nodeId: string) => chooseFor(target, nodeId);
 
+  // Корпуса по названию — только в поиске места: начало и конец маршрута —
+  // места, а не корпуса целиком.
+  const buildingMatches = useMemo(
+    () => (target === 'place' && campusMeta && buildingMetas ? matchingBuildings(query, campusMeta, buildingMetas) : []),
+    [target, query, campusMeta, buildingMetas]
+  );
+
+  const openBuilding = (buildingId: string) => {
+    const { buildingFloors, setActiveFloor } = useMapStore.getState();
+    closeSearch();
+    setActiveFloor(buildingId, shownFloorOf(buildingFloors, buildingMetas?.get(buildingId), buildingId));
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (options.length === 0) return;
@@ -111,6 +127,9 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
       if (option) {
         event.preventDefault();
         choose(option.id);
+      } else if (options.length === 0 && buildingMatches.length === 1) {
+        event.preventDefault();
+        openBuilding(buildingMatches[0]);
       }
     }
   };
@@ -174,6 +193,11 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-2">
+        {buildingMatches.length > 0 && (
+          <div className={`px-2 ${listOpen ? 'pb-4' : 'py-2'}`}>
+            <BuildingList buildingIds={buildingMatches} onChoose={closeSearch} />
+          </div>
+        )}
         {listOpen ? (
           <ul id={LISTBOX_ID} role="listbox" aria-label={messages.search.suggestions} className="space-y-0.5">
             {options.map((option, index) => {
@@ -208,7 +232,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
               );
             })}
           </ul>
-        ) : trimmed !== '' ? (
+        ) : buildingMatches.length > 0 ? null : trimmed !== '' ? (
           // Пока запрос не устоялся (задержка поиска), «ничего не нашлось» не
           // показываем: иначе оно мигало бы на каждой букве.
           settled && (

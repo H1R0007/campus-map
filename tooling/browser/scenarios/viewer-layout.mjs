@@ -104,6 +104,23 @@ export default {
       assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Поделиться маршрутом');
     });
 
+    await step('поиск места находит корпус по названию и открывает его', async () => {
+      await v.open('/');
+      await v.click('Найти аудиторию или место');
+      await page.waitFor(`document.activeElement?.getAttribute('role') === 'combobox'`);
+      await page.eval(`(() => {
+        const input = document.activeElement;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'корпус б');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      const building = `[...document.querySelectorAll('[data-search-view] button')].find((b) => b.textContent.includes('Корпус Б'))`;
+      await page.waitFor(`!!${building}`);
+      await page.eval(`${building}.click()`);
+      await page.waitFor(
+        `!document.querySelector('[data-search-view]') && document.querySelector('.campus-map-header').innerText.includes('Корпус Б')`
+      );
+    });
+
     await step('ссылка только с целью открывает её карточку', async () => {
       await v.open('/?to=a3_room305');
       assert.ok((await v.panelText()).includes('Маршрут сюда'));
