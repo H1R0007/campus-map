@@ -18,6 +18,9 @@ export type { MapFrame, MapInsets } from './mapFrame.js';
 
 export { FLY_DURATION_S, flyToBounds, stopZoomMotion, targetZoomOf, zoomSmoothly } from './smoothCamera.js';
 
+export { bearingOf, rotateTo, viewBoundsOf } from './rotatingCrs.js';
+export { useMapBearing } from './rotationGestures.js';
+
 export { PixelMap } from './PixelMap.js';
 export type { PixelMapProps } from './PixelMap.js';
 

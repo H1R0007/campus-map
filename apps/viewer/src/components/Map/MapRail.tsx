@@ -1,9 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import { useMapBearing } from '@campus-map/mapkit';
 import { WIDE_LAYOUT_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { floorsOfBuilding, useMapStore } from '../../stores/mapStore';
 import { useUiStore } from '../../stores/uiStore';
 import { railContentFor } from '../../utils/railLayout';
+import { Compass } from '../UI/Compass';
 import { FloorSelector } from '../UI/FloorSelector';
 import { ZoomControls } from '../UI/ZoomControls';
 
@@ -64,11 +66,14 @@ export const MapRail: React.FC = () => {
     L.DomEvent.disableScrollPropagation(element);
   }, []);
 
-  const content = railContentFor(heightRem, floorCount);
+  // Компас — пока карта заметно повёрнута: доли градуса после доводки не в счёт.
+  const bearing = useMapBearing();
+  const content = railContentFor(heightRem, floorCount, Math.abs(bearing) >= 0.5);
   const zoom = !isWide && sheetExpanded ? 'none' : content.zoom;
 
   return (
     <div ref={ref} className="campus-map-rail">
+      {content.compass && <Compass bearing={bearing} />}
       {content.floors && <FloorSelector />}
       {zoom !== 'none' && <ZoomControls withFit={zoom === 'full'} />}
     </div>

@@ -6,6 +6,7 @@
  * масштаба, масштабировать можно жестом, поэтому кнопки уступают место:
  * сначала «Показать целиком», потом «+» и «−». Колонку ниже одной кнопки
  * оставляют и этажи: полоска списка в пару пикселей выглядела сломанной.
+ * Компас повёрнутой карты — первым сверху (запись 36).
  */
 
 /** Размеры колонки, rem: кнопка, промежуток между кнопками масштаба и между блоками колонки. */
@@ -21,18 +22,25 @@ const ZOOM_PAIR_REM = 2 * BUTTON_REM + ZOOM_GAP_REM;
 const MIN_VISIBLE_FLOORS = 2;
 
 export interface RailContent {
+  /** Показывать ли компас. */
+  compass: boolean;
   /** Показывать ли этажи корпуса. */
   floors: boolean;
   /** Кнопки масштаба: все, без «Показать целиком» или никаких. */
   zoom: 'full' | 'pair' | 'none';
 }
 
-/** Содержимое колонки высотой `heightRem` у корпуса с `floorCount` этажами. До замера — всё. */
-export function railContentFor(heightRem: number | null, floorCount: number): RailContent {
-  if (heightRem === null) return { floors: floorCount > 0, zoom: 'full' };
+/**
+ * Содержимое колонки высотой `heightRem` у корпуса с `floorCount` этажами;
+ * `rotated` — повёрнута ли карта. До замера — всё.
+ */
+export function railContentFor(heightRem: number | null, floorCount: number, rotated = false): RailContent {
+  if (heightRem === null) return { compass: rotated, floors: floorCount > 0, zoom: 'full' };
 
-  const floors = floorCount > 0 && heightRem >= BUTTON_REM;
+  const compass = rotated && heightRem >= BUTTON_REM;
+  const available = heightRem - (compass ? BUTTON_REM + RAIL_GAP_REM : 0);
+  const floors = floorCount > 0 && available >= BUTTON_REM;
   const floorsRem = floors ? Math.min(floorCount, MIN_VISIBLE_FLOORS) * BUTTON_REM + RAIL_GAP_REM : 0;
-  const zoom = heightRem >= floorsRem + ZOOM_FULL_REM ? 'full' : heightRem >= floorsRem + ZOOM_PAIR_REM ? 'pair' : 'none';
-  return { floors, zoom };
+  const zoom = available >= floorsRem + ZOOM_FULL_REM ? 'full' : available >= floorsRem + ZOOM_PAIR_REM ? 'pair' : 'none';
+  return { compass, floors, zoom };
 }

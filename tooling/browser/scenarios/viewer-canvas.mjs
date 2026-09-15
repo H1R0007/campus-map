@@ -172,5 +172,127 @@ export default {
       assert.ok(header.includes('Корпус А, этаж 1'), `в шапке — корпус шага, а не территория: ${header}`);
       assert.equal(await page.eval(`!!document.querySelector('.campus-floor-list')`), true, 'колонка этажей на месте');
     });
+
+    // Угол плана из его CSS-преобразования: поворот плана — его угол плюс угол карты.
+    const rotationOf = (selector) =>
+      page.eval(`(() => {
+        const plan = document.querySelector(${JSON.stringify(selector)});
+        const angle = (plan?.style.transform ?? '').split('rotate(')[1]?.split('deg')[0];
+        return angle === undefined ? null : Number(angle);
+      })()`);
+    const COMPASS = `document.querySelector('button[aria-label="Повернуть карту на север"]')`;
+    const CAMPUS_PLAN = '.campus-placed-plan[data-plan="campus"]';
+
+    await step('поворот двумя пальцами: план повёрнут, значки стоят, компас возвращает на север', async () => {
+      await page.viewport(390, 844, 2);
+      await v.open('/');
+      await v.openBuilding('Корпус Б');
+      await waitShown('building_b#1');
+      await page.sleep(700);
+
+      await page.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+      const fingers = (angle) => {
+        const radians = (angle * Math.PI) / 180;
+        return [
+          { x: 195 - 70 * Math.cos(radians), y: 420 - 70 * Math.sin(radians), id: 0 },
+          { x: 195 + 70 * Math.cos(radians), y: 420 + 70 * Math.sin(radians), id: 1 },
+        ];
+      };
+      await page.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(0) });
+      for (let index = 1; index <= 18; index += 1) {
+        await page.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(index * 5) });
+        await page.sleep(20);
+      }
+      await page.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await page.sleep(600);
+
+      const turned = await rotationOf(CAMPUS_PLAN);
+      assert.ok(turned !== null && turned > 45 && turned < 95, `карта повёрнута пальцами: ${turned}°`);
+      const upright = await page.eval(`[...document.querySelectorAll('.campus-roof-label, .campus-marker--portal')].every((marker) => !(marker.style.transform || '').includes('rotate'))`);
+      assert.equal(upright, true, 'значки и названия не поворачиваются');
+      assert.ok((await v.headerText()).includes('Корпус Б'), 'корпус остался текущим');
+      assert.equal(await page.eval(`!!${COMPASS}`), true, 'компас на месте');
+      await shot('viewer-canvas-rotated');
+
+      await page.eval(`${COMPASS}.click()`);
+      await page.waitFor(`!${COMPASS}`);
+      assert.ok(Math.abs(await rotationOf(CAMPUS_PLAN)) < 0.5, 'компас вернул карту на север');
+    });
+
+    await step('поворот правой кнопкой мыши: перетаскивание и подгонка к корпусу — по повёрнутой карте', async () => {
+      await page.viewport(1024, 768, 1);
+      await v.open('/');
+      // Приближено к корпусу: на общем виде территория меньше экрана, и Leaflet
+      // после любого перетаскивания возвращает её на середину — с поворотом и без.
+      await v.openBuilding('Корпус Б');
+      await waitShown('building_b#1');
+      await page.sleep(700);
+      const mouse = (type, x, y, button, buttons) =>
+        page.send('Input.dispatchMouseEvent', { type, x, y, button, buttons, clickCount: 1 });
+      const around = (angle) => [512 + 200 * Math.cos((angle * Math.PI) / 180), 384 + 200 * Math.sin((angle * Math.PI) / 180)];
+
+      // На 45° против часовой. При прямом угле два противоположных угла
+      // прямоугольника задают весь его габарит, а Leaflet берёт углы, которые при
+      // оси y вниз лежат на диагонали «низ слева — верх справа»: при повороте по
+      // часовой ширина по ним считается верно. Против часовой — нет, и подгонка
+      // без расчёта по четырём углам вывела бы территорию шире места под неё.
+      await mouse('mousePressed', ...around(0), 'right', 2);
+      for (let index = 1; index <= 12; index += 1) await mouse('mouseMoved', ...around(-index * 3.75), 'right', 2);
+      await mouse('mouseReleased', ...around(-45), 'right', 0);
+      await page.sleep(500);
+      const turned = await rotationOf(CAMPUS_PLAN);
+      assert.ok(turned !== null && Math.abs(turned + 45) < 3, `карта повёрнута мышью на 45° против часовой: ${turned}°`);
+
+      const centerOf = `(() => { const rect = document.querySelector('${CAMPUS_PLAN}').getBoundingClientRect(); return [rect.x + rect.width / 2, rect.y + rect.height / 2]; })()`;
+      const before = await page.eval(centerOf);
+      await mouse('mousePressed', 700, 500, 'left', 1);
+      for (let index = 1; index <= 10; index += 1) await mouse('mouseMoved', 700 - index * 10, 500, 'left', 1);
+      await page.sleep(300);
+      await mouse('mouseReleased', 600, 500, 'left', 0);
+      await page.sleep(500);
+      const after = await page.eval(centerOf);
+      assert.ok(Math.abs(after[0] - before[0] + 100) < 8 && Math.abs(after[1] - before[1]) < 8, `карта идёт за мышью: ${before} → ${after}`);
+
+      await v.click('Вернуться к карте кампуса');
+      await v.openBuilding('Корпус В');
+      await waitShown('building_c#1');
+      await page.sleep(1200);
+      const fit = await page.eval(`(() => {
+        const plan = document.querySelector('.campus-placed-plan[data-plan="floor"][data-building="building_c"][data-visible="true"]').getBoundingClientRect();
+        const panel = document.querySelector('section[aria-label="Панель навигатора"]').getBoundingClientRect();
+        return { left: plan.left - panel.right, right: innerWidth - plan.right, top: plan.top, bottom: innerHeight - plan.bottom };
+      })()`);
+      assert.ok(Object.values(fit).every((gap) => gap > -2), `корпус вписан в свободную часть повёрнутой карты: ${JSON.stringify(fit)}`);
+      await shot('viewer-canvas-rotated-desktop');
+
+      // Вся территория на повёрнутой карте: ширину здесь ограничивает свободная
+      // часть справа от панели, а расчёт габарита по двум углам занижал бы
+      // ширину повёрнутого прямоугольника — план вышел бы шире места под него.
+      await v.click('Показать план целиком');
+      await page.sleep(1200);
+      const whole = await page.eval(`(() => {
+        const plan = document.querySelector('${CAMPUS_PLAN}').getBoundingClientRect();
+        const panel = document.querySelector('section[aria-label="Панель навигатора"]').getBoundingClientRect();
+        return { plan: Math.round(plan.width), free: Math.round(innerWidth - panel.right) };
+      })()`);
+      assert.ok(whole.plan <= whole.free + 2, `территория шириной в свободную часть: ${JSON.stringify(whole)}`);
+
+      await page.eval(`${COMPASS}.click()`);
+      await page.waitFor(`!${COMPASS}`);
+    });
+
+    await step('поворот у самого севера доводится ровно до севера', async () => {
+      await v.open('/');
+      const mouse = (type, x, y, button, buttons) =>
+        page.send('Input.dispatchMouseEvent', { type, x, y, button, buttons, clickCount: 1 });
+      await mouse('mousePressed', 712, 384, 'right', 2);
+      await mouse('mouseMoved', 712, 400, 'right', 2);
+      await mouse('mouseMoved', 711, 402, 'right', 2);
+      await mouse('mouseReleased', 711, 402, 'right', 0);
+      await page.sleep(700);
+      assert.ok(Math.abs(await rotationOf(CAMPUS_PLAN)) < 0.5, 'карта снова ровно на север');
+      assert.equal(await page.eval(`!!${COMPASS}`), false, 'компаса нет');
+    });
   },
 };

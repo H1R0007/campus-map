@@ -5,6 +5,7 @@ import type { PlanFormat } from '@campus-map/core';
 import { planTransform } from './placement.js';
 import type { PlanPlacement } from './placement.js';
 import { loadPlanContent } from './planContent.js';
+import { bearingOf } from './rotatingCrs.js';
 import { PlanStatusContext } from './planStatus.js';
 import { FALLBACK_IMAGE_SIZE } from './useImageSize.js';
 import type { ImageSize, ImageStatus } from './useImageSize.js';
@@ -118,7 +119,12 @@ class PlacedPlanLayer extends L.Layer {
   private reset(): void {
     if (!this.map) return;
     const origin = this.map.latLngToLayerPoint(this.origin());
-    this.container.style.transform = planTransform(origin, this.map.getZoomScale(this.map.getZoom(), 0), this.placement);
+    this.container.style.transform = planTransform(
+      origin,
+      this.map.getZoomScale(this.map.getZoom(), 0),
+      this.placement,
+      bearingOf(this.map)
+    );
   }
 
   private animateZoom(event: L.ZoomAnimEvent): void {
@@ -129,7 +135,7 @@ class PlacedPlanLayer extends L.Layer {
       _latLngToNewLayerPoint(latlng: L.LatLng, zoom: number, center: L.LatLng): L.Point;
     })._latLngToNewLayerPoint.bind(this.map);
     const origin = toLayerPoint(this.origin(), event.zoom, event.center);
-    this.container.style.transform = planTransform(origin, this.map.getZoomScale(event.zoom, 0), this.placement);
+    this.container.style.transform = planTransform(origin, this.map.getZoomScale(event.zoom, 0), this.placement, bearingOf(this.map));
   }
 }
 

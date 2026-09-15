@@ -24,6 +24,8 @@ export interface WorldMapProps {
   constrainToBounds?: boolean;
   /** Сколько места по краям занимает интерфейс поверх карты. */
   fitInsets?: MapInsets;
+  /** Можно ли поворачивать карту пальцами, мышью и тачпадом (запись 36). */
+  rotatable?: boolean;
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
@@ -46,6 +48,7 @@ export function WorldMap({
   zoomControl = false,
   constrainToBounds = false,
   fitInsets = DEFAULT_INSETS,
+  rotatable = false,
   className,
   style = FILL_PARENT,
   children,
@@ -75,6 +78,7 @@ export function WorldMap({
       constrainToBounds={constrainToBounds}
       zoomControl={zoomControl}
       doubleClickZoom
+      rotatable={rotatable}
       className={className}
       style={style}
     >

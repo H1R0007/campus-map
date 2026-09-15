@@ -84,6 +84,12 @@ describe('planTransform', () => {
       'translate3d(10px, -4px, 0) rotate(20deg) scale(0.8)'
     );
   });
+
+  it('у повёрнутой карты план поворачивается и на угол карты', () => {
+    expect(planTransform({ x: 10, y: -4 }, 8, { ...PLACEMENT, rotationDeg: 20 }, -35)).toBe(
+      'translate3d(10px, -4px, 0) rotate(-15deg) scale(0.8)'
+    );
+  });
 });
 
 describe('containsPoint и distanceToPolygon', () => {

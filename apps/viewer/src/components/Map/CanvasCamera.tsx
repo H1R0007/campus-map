@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { containsPoint, fitPaddingOf, meterLatLng, useMapFrame } from '@campus-map/mapkit';
+import { containsPoint, fitPaddingOf, meterLatLng, useMapFrame, viewBoundsOf } from '@campus-map/mapkit';
 import { useMapStore } from '../../stores/mapStore';
 import type { CanvasLayout } from '../../utils/canvasLayout';
 import { DETAIL_PIXELS_PER_METER, PRELOAD_SHARE, isRevealedAt, screenShare } from '../../utils/canvasReveal';
@@ -126,10 +126,7 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
       // держался, только пока центр рядом с контуром: шаг «Войдите в здание»
       // кадрирует вход на краю корпуса, центр оказывался на газоне, и шапка
       // с колонкой этажей сбрасывались на территорию посреди навигации.
-      const freeView = L.latLngBounds(
-        map.containerPointToLatLng(L.point(edges.left, edges.top)),
-        map.containerPointToLatLng(L.point(size.x - edges.right, size.y - edges.bottom))
-      );
+      const freeView = viewBoundsOf(map, edges);
       const current = state.activeFloor?.buildingId ?? null;
       const containing = revealed.filter((building) => containsPoint(building.footprint, center));
       const focus =

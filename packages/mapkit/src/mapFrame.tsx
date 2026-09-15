@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { MapContainer, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { createRotatingCrs, projectedBox } from './rotatingCrs.js';
+import { MapRotation } from './rotationGestures.js';
 import { SmoothCamera, isMapMoving } from './smoothCamera.js';
 import type { ImageStatus } from './useImageSize.js';
 
@@ -108,7 +110,8 @@ export const DEFAULT_INSETS: MapInsets = Object.freeze({ top: 20, right: 20, bot
  * В `CRS.Simple` уровень `z` — это `2^z` экранных пикселей на единицу карты:
  * пиксель плана или метр территории.
  * Считается напрямую, а не через `map.getBoundsZoom`: тот ограничивает
- * результат текущим `minZoom`, а именно его здесь и нужно найти.
+ * результат текущим `minZoom`, а именно его здесь и нужно найти. Размер плана —
+ * на экране: у повёрнутой карты это габарит повёрнутого плана (запись 36).
  *
  * @returns `null`, пока у карты нет места (нулевой контейнер)
  */
@@ -116,8 +119,9 @@ function wholePlanZoom(map: L.Map, bounds: L.LatLngBounds, insets: MapInsets): n
   const size = map.getSize();
   const freeWidth = size.x - insets.left - insets.right;
   const freeHeight = size.y - insets.top - insets.bottom;
-  const planWidth = bounds.getEast() - bounds.getWest();
-  const planHeight = Math.abs(bounds.getNorth() - bounds.getSouth());
+  const planSize = projectedBox(map, bounds, 0).getSize();
+  const planWidth = planSize.x;
+  const planHeight = planSize.y;
 
   if (freeWidth <= 0 || freeHeight <= 0 || planWidth <= 0 || planHeight <= 0) return null;
 
@@ -221,9 +225,9 @@ export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBou
     };
 
     update();
-    map.on('resize', update);
+    map.on('resize rotateend', update);
     return () => {
-      map.off('resize', update);
+      map.off('resize rotateend', update);
     };
   }, [map, bounds, insets]);
 
@@ -252,6 +256,8 @@ interface PlanMapContainerProps {
   constrainToBounds: boolean;
   zoomControl: boolean;
   doubleClickZoom: boolean;
+  /** Можно ли поворачивать карту жестами (запись 36); система координат выбирается при создании. */
+  rotatable?: boolean;
   className?: string;
   style: CSSProperties;
   children: ReactNode;
@@ -267,10 +273,13 @@ export function PlanMapContainer({
   constrainToBounds,
   zoomControl,
   doubleClickZoom,
+  rotatable = false,
   className,
   style,
   children,
 }: PlanMapContainerProps) {
+  // `MapContainer` принимает систему координат только при создании карты.
+  const [crs] = useState(() => (rotatable ? createRotatingCrs({ x: center[1], y: center[0] }) : PLAN_CRS));
   // Кто попросил систему не анимировать интерфейс, получает карту без
   // затухания; плавная камера проверяет настройку сама — пролёт к маршруту у
   // части людей вызывает головокружение. Опции Leaflet применяются при создании
@@ -294,7 +303,7 @@ export function PlanMapContainer({
       scrollWheelZoom={false}
       doubleClickZoom={false}
       fadeAnimation={animate}
-      crs={PLAN_CRS}
+      crs={crs}
       zoomControl={zoomControl}
       attributionControl={false}
       maxBoundsViscosity={constrainToBounds ? 0.8 : 0}
@@ -302,6 +311,7 @@ export function PlanMapContainer({
       style={style}
     >
       <SmoothCamera doubleClickZoom={doubleClickZoom} />
+      {rotatable && <MapRotation />}
       {children}
     </MapContainer>
   );

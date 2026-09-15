@@ -45,6 +45,7 @@ export const en: Messages = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     fitPlan: 'Show the whole plan',
+    north: 'Rotate the map to north',
     planLoading: 'Loading the plan…',
     planUnavailable: 'The plan is unavailable',
     routeStart: 'Route start',

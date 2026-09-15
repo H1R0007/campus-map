@@ -84,10 +84,16 @@ export function unionExtent(a: MeterExtent, b: MeterExtent): MeterExtent {
  *
  * @param origin левый верхний угол плана в пикселях слоя карты
  * @param screenPixelsPerMeter масштаб карты
+ * @param bearingDeg угол поворота самой карты (запись 36): план поворачивается на свой угол и на него
  */
-export function planTransform(origin: MeterPoint, screenPixelsPerMeter: number, placement: PlanPlacement): string {
+export function planTransform(
+  origin: MeterPoint,
+  screenPixelsPerMeter: number,
+  placement: PlanPlacement,
+  bearingDeg = 0
+): string {
   const scale = screenPixelsPerMeter * placement.metersPerPixel;
-  return `translate3d(${origin.x}px, ${origin.y}px, 0) rotate(${placement.rotationDeg}deg) scale(${scale})`;
+  return `translate3d(${origin.x}px, ${origin.y}px, 0) rotate(${placement.rotationDeg + bearingDeg}deg) scale(${scale})`;
 }
 
 /** Лежит ли точка внутри многоугольника (включая границу — с точностью до вычислений). */

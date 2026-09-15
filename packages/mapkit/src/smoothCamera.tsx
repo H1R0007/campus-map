@@ -30,7 +30,8 @@ const internalsOf = (map: L.Map) => map as unknown as MapInternals;
 /** Длительность перелёта к корпусу, месту или маршруту, секунды. */
 export const FLY_DURATION_S = 0.6;
 
-const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+/** Просил ли человек систему не анимировать интерфейс. */
+export const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
 
 interface ZoomMotion {
   target: number;
@@ -50,7 +51,7 @@ export function isMapMoving(map: L.Map): boolean {
 }
 
 /** Центр, при котором место `latlng` на масштабе `zoom` стоит в точке контейнера `point`. */
-function centerKeeping(map: L.Map, latlng: L.LatLng, point: L.Point, zoom: number): L.LatLng {
+export function centerKeeping(map: L.Map, latlng: L.LatLng, point: L.Point, zoom: number): L.LatLng {
   const offset = point.subtract(map.getSize().divideBy(2));
   return map.unproject(map.project(latlng, zoom).subtract(offset), zoom);
 }
@@ -90,7 +91,7 @@ export function zoomSmoothly(map: L.Map, zoom: number, anchor: L.Point): void {
     return;
   }
 
-  if (reducedMotion()) {
+  if (prefersReducedMotion()) {
     map.setZoomAround(anchor, target, { animate: false });
     return;
   }
@@ -124,7 +125,7 @@ export function zoomSmoothly(map: L.Map, zoom: number, anchor: L.Point): void {
  */
 export function flyToBounds(map: L.Map, bounds: L.LatLngBounds, options: L.FitBoundsOptions): boolean {
   stopZoomMotion(map);
-  if (reducedMotion()) {
+  if (prefersReducedMotion()) {
     map.fitBounds(bounds, { ...options, animate: false });
     return false;
   }
