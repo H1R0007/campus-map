@@ -21,8 +21,8 @@ function step(overrides: Partial<RouteStep>): RouteStep {
 
 describe('stepMeta', () => {
   it('у пешего участка — длина, у перехода — время', () => {
-    expect(stepMeta(step({ kind: 'walk', distanceMeters: 42, durationSeconds: 30 }), 'ru')).toBe('40 м');
-    expect(stepMeta(step({ kind: 'transition', transition: 'lift', distanceMeters: 0, durationSeconds: 70 }), 'en')).toBe('~2 min');
+    expect(stepMeta(step({ kind: 'walk', distanceMeters: 42, durationSeconds: 30 }), 'ru')).toBe('40\u00a0м');
+    expect(stepMeta(step({ kind: 'transition', transition: 'lift', distanceMeters: 0, durationSeconds: 70 }), 'en')).toBe('~2\u00a0min');
   });
 
   it('в пиксельном режиме и у начала подписи нет', () => {

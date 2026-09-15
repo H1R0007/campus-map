@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="260" viewBox="0 0 720 260" class="campus-plan" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <rect class="plan-floor" x="0" y="0" width="720" height="260" fill="#EDECE8"/>
+  <rect class="plan-corridor" x="0" y="115" width="720" height="30" fill="#ECEFF2"/>
+  <rect class="plan-room plan-room--stairs" x="0" y="0" width="60" height="115" fill="#E3F1E6" stroke="#3F444D" stroke-width="2"/>
+  <line class="plan-stairs" x1="4" y1="6" x2="56" y2="6" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="12" x2="56" y2="12" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="18" x2="56" y2="18" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="24" x2="56" y2="24" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="30" x2="56" y2="30" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="36" x2="56" y2="36" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="42" x2="56" y2="42" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="48" x2="56" y2="48" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="54" x2="56" y2="54" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="60" x2="56" y2="60" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="66" x2="56" y2="66" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="72" x2="56" y2="72" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="78" x2="56" y2="78" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="84" x2="56" y2="84" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="90" x2="56" y2="90" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="96" x2="56" y2="96" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="102" x2="56" y2="102" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-stairs" x1="4" y1="108" x2="56" y2="108" stroke="#3F444D" stroke-width="1.2"/>
+  <rect class="plan-room plan-room--room" x="60" y="0" width="120" height="115" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--room" x="180" y="0" width="100" height="115" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--service" x="280" y="0" width="40" height="115" fill="#E9E9E6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--lift" x="320" y="0" width="40" height="115" fill="#ECE6F7" stroke="#3F444D" stroke-width="2"/>
+  <line class="plan-lift" x1="324" y1="4" x2="356" y2="111" stroke="#3F444D" stroke-width="1.2"/>
+  <line class="plan-lift" x1="356" y1="4" x2="324" y2="111" stroke="#3F444D" stroke-width="1.2"/>
+  <rect class="plan-room plan-room--dean" x="360" y="0" width="140" height="115" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--room" x="500" y="0" width="120" height="115" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--service" x="620" y="0" width="100" height="115" fill="#E9E9E6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--service" x="0" y="145" width="60" height="115" fill="#E9E9E6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--room" x="60" y="145" width="140" height="115" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--service" x="200" y="145" width="60" height="115" fill="#E9E9E6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--room" x="260" y="145" width="140" height="115" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--service" x="400" y="145" width="220" height="115" fill="#E9E9E6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--toilet" x="620" y="145" width="100" height="115" fill="#E6EFF9" stroke="#3F444D" stroke-width="2"/>
+  <line class="plan-door" x1="24" y1="115" x2="36" y2="115" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="114" y1="115" x2="126" y2="115" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="224" y1="115" x2="236" y2="115" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="334" y1="115" x2="346" y2="115" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="424" y1="115" x2="436" y2="115" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="554" y1="115" x2="566" y2="115" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="124" y1="145" x2="136" y2="145" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="324" y1="145" x2="336" y2="145" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="664" y1="145" x2="676" y2="145" stroke="#ECEFF2" stroke-width="4"/>
+  <rect class="plan-wall" x="2" y="2" width="716" height="256" fill="none" stroke="#3F444D" stroke-width="4"/>
+  <line class="plan-door plan-door--outer" x1="718" y1="121" x2="718" y2="139" stroke="#EDECE8" stroke-width="6"/>
+  <text class="plan-label" x="120" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-201</text>
+  <text class="plan-label" x="230" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-202</text>
+  <g class="plan-icon" transform="translate(415 8) scale(1.25)"><path d="M21 13.3A24 24 0 0112 15c-3.2 0-6.2-.6-9-1.7M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m-3 14h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text class="plan-label" x="430" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-203</text>
+  <text class="plan-label" x="560" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-204</text>
+  <text class="plan-label" x="130" y="235" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-205</text>
+  <text class="plan-label" x="330" y="235" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-206</text>
+  <g class="plan-icon" transform="translate(655 173) scale(1.25)"><path d="M7 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM17 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM12 3v18M5.5 21v-6h-1v-5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 019.5 10v5h-1v6M15.5 21v-4.5H13l2.2-6.8a1 1 0 01.95-.7h1.7a1 1 0 01.95.7l2.2 6.8h-2.5V21" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

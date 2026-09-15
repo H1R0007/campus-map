@@ -1,100 +1,140 @@
 {
   "nodes": [
     {
-      "id": "a3_corridor_w",
-      "x": 193,
-      "y": 239,
+      "id": "a3_corridor_1",
+      "x": 30,
+      "y": 130,
       "neighbors": [
-        "a3_corridor",
-        "a3_stairs",
-        "a3_room301",
-        "a3_room302",
+        "a3_corridor_2",
+        "a3_stairs"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_corridor_2",
+      "x": 120,
+      "y": 130,
+      "neighbors": [
+        "a3_corridor_1",
+        "a3_corridor_3",
+        "a3_room301"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_corridor_3",
+      "x": 130,
+      "y": 130,
+      "neighbors": [
+        "a3_corridor_2",
+        "a3_corridor_4",
         "a3_room304"
       ],
       "isPortal": false
     },
     {
-      "id": "a3_corridor",
-      "x": 484,
-      "y": 239,
+      "id": "a3_corridor_4",
+      "x": 240,
+      "y": 130,
       "neighbors": [
-        "a3_corridor_w",
-        "a3_corridor_e",
+        "a3_corridor_3",
+        "a3_corridor_5",
+        "a3_room302"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_corridor_5",
+      "x": 330,
+      "y": 130,
+      "neighbors": [
+        "a3_corridor_4",
+        "a3_corridor_6",
         "a3_room305"
       ],
       "isPortal": false
     },
     {
-      "id": "a3_corridor_e",
-      "x": 774,
-      "y": 239,
+      "id": "a3_corridor_6",
+      "x": 470,
+      "y": 130,
       "neighbors": [
-        "a3_corridor",
-        "a3_conference",
+        "a3_corridor_5",
+        "a3_corridor_7",
+        "a3_conference"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a3_corridor_7",
+      "x": 650,
+      "y": 130,
+      "neighbors": [
+        "a3_corridor_6",
         "a3_rector"
       ],
       "isPortal": false
     },
     {
       "id": "a3_stairs",
-      "x": 58,
-      "y": 239,
+      "x": 30,
+      "y": 58,
       "neighbors": [
-        "a3_corridor_w"
+        "a3_corridor_1"
       ],
       "isPortal": true
     },
     {
       "id": "a3_room301",
-      "x": 193,
-      "y": 86,
+      "x": 120,
+      "y": 103,
       "neighbors": [
-        "a3_corridor_w"
+        "a3_corridor_2"
       ],
       "isPortal": false
     },
     {
       "id": "a3_room302",
-      "x": 338,
-      "y": 86,
+      "x": 240,
+      "y": 103,
       "neighbors": [
-        "a3_corridor_w"
+        "a3_corridor_4"
       ],
       "isPortal": false
     },
     {
       "id": "a3_conference",
-      "x": 696,
-      "y": 86,
+      "x": 470,
+      "y": 103,
       "neighbors": [
-        "a3_corridor_e"
+        "a3_corridor_6"
       ],
       "isPortal": false
     },
     {
       "id": "a3_room304",
-      "x": 193,
-      "y": 391,
+      "x": 130,
+      "y": 157,
       "neighbors": [
-        "a3_corridor_w"
+        "a3_corridor_3"
       ],
       "isPortal": false
     },
     {
       "id": "a3_room305",
-      "x": 484,
-      "y": 391,
+      "x": 330,
+      "y": 157,
       "neighbors": [
-        "a3_corridor"
+        "a3_corridor_5"
       ],
       "isPortal": false
     },
     {
       "id": "a3_rector",
-      "x": 774,
-      "y": 391,
+      "x": 650,
+      "y": 157,
       "neighbors": [
-        "a3_corridor_e"
+        "a3_corridor_7"
       ],
       "isPortal": false
     }

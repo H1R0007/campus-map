@@ -14,7 +14,9 @@
     }
   ],
   "mapSize": {
-    "width": 1476,
-    "height": 780
-  }
+    "width": 640,
+    "height": 380
+  },
+  "metersPerPixel": 0.5,
+  "planFormat": "svg"
 }

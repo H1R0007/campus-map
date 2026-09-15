@@ -2,11 +2,15 @@ import React, { useEffect, useMemo } from 'react';
 import { CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import type { MapNode } from '@campus-map/core';
-import { fitPaddingOf } from '@campus-map/mapkit';
-import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { containsPoint, fitPaddingOf } from '@campus-map/mapkit';
+import { useCanvasLayout } from '../../hooks/useCanvasLayout';
+import { useMapView } from '../../hooks/useMapView';
+import { shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { pickNode } from '../../utils/mapPicking';
+import { isDetailShown, mapPointOf, shownNodesOf } from '../../utils/mapView';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import { themeColor } from '../../utils/themeColor';
+import { isCameraBusy } from './mapCamera';
 import { useMapInsets } from './mapChrome';
 
 /** Радиус касания, CSS-пиксели: примерно подушечка пальца. */
@@ -24,14 +28,15 @@ const SELECTION_MARGIN = 24;
  *
  * Выбирается помещение с названием или точка перехода. Коридор без названия —
  * нет: показать о нём нечего, а маршрут к узлу без названия из интерфейса не
- * строится. Неброские точки показывают, куда нажимать: на заглушках помещений
- * не видно вовсе, а на официальных планах подписано не всё. Точки переходов
- * рисует `PortalLayer`.
+ * строится. Неброские точки показывают, куда нажимать: на плане подписано не
+ * всё — ни на тестовой схеме, ни, скорее всего, на официальных планах. Точки
+ * переходов рисует `PortalLayer`.
  */
 export const PlaceLayer: React.FC = () => {
   const graph = useMapStore((s) => s.graph);
   const aliasManager = useMapStore((s) => s.aliasManager);
-  const activeFloor = useMapStore((s) => s.activeFloor);
+  const view = useMapView();
+  const layout = useCanvasLayout();
   const selectedNodeId = useMapStore((s) => s.selectedNodeId);
   const selectNode = useMapStore((s) => s.selectNode);
   const map = useMap();
@@ -46,25 +51,39 @@ export const PlaceLayer: React.FC = () => {
     [scheme]
   );
 
-  const nodes = useMemo(() => {
-    if (!graph) return [];
-    const scope = scopeOf(activeFloor);
-    return scope.mode === 'campus'
-      ? graph.getCampusNodes()
-      : graph.getNodesForFloor(scope.buildingId, scope.floor);
-  }, [graph, activeFloor]);
+  const nodes = useMemo(() => (graph ? shownNodesOf(graph, view) : []), [graph, view]);
+  // Точки и выбор нажатием — только там, где значки видны: на общем виде холста
+  // нажатие мимо крыши не выбирает невидимое место.
+  const detailNodes = useMemo(() => nodes.filter((node) => isDetailShown(view, node)), [nodes, view]);
+  const pointOf = (node: MapNode): [number, number] => (graph ? mapPointOf(graph, view, node) : [node.y, node.x]);
 
   const isNamed = (node: MapNode) => aliasManager?.getPrimaryAliasForId(node.id) != null;
 
   useMapEvents({
     click(event) {
       const picked = pickNode(
-        nodes,
+        detailNodes,
         (node) => node.isPortal || isNamed(node),
-        (node) => map.latLngToContainerPoint([node.y, node.x]),
+        (node) => map.latLngToContainerPoint(pointOf(node)),
         event.containerPoint,
         TAP_RADIUS
       );
+
+      // Нажатие на крышу корпуса ведёт в корпус: его помещений на карте ещё
+      // нет, выбирать нечего.
+      if (!picked && layout !== null && view.kind === 'canvas') {
+        const point = { x: event.latlng.lng, y: event.latlng.lat };
+        const roof = layout.buildings.find(
+          (building) => !view.revealed.has(building.id) && containsPoint(building.footprint, point)
+        );
+        if (roof) {
+          const { buildingFloors, buildingMetas, setActiveFloor, requestView } = useMapStore.getState();
+          setActiveFloor(roof.id, shownFloorOf(buildingFloors, buildingMetas?.get(roof.id), roof.id));
+          requestView({ kind: 'building', buildingId: roof.id });
+          return;
+        }
+      }
+
       selectNode(picked?.id ?? null);
     },
   });
@@ -75,19 +94,25 @@ export const PlaceLayer: React.FC = () => {
   // Выбранное место не должно оказаться под шторкой или за краем экрана: место
   // из поиска бывает в другой части плана, а карточка места поднимает край
   // шторки. Карта сдвигается, только если точки не видно.
+  // Числа, а не точка: на холсте вид пересобирается при каждом движении камеры,
+  // и новая точка того же места двигала бы карту обратно к нему.
+  const [selectedY, selectedX] = selected ? pointOf(selected) : [null, null];
   useEffect(() => {
-    if (!selected) return;
-    map.panInside([selected.y, selected.x], fitPaddingOf(insets, SELECTION_MARGIN));
-  }, [map, selected, insets]);
+    if (selectedY === null || selectedX === null) return;
+    // Камера уже летит к месту (выбор из поиска): сдвиг остановил бы перелёт на
+    // полпути, и карта осталась бы на общем виде.
+    if (isCameraBusy(map)) return;
+    map.panInside([selectedY, selectedX], fitPaddingOf(insets, SELECTION_MARGIN));
+  }, [map, selectedY, selectedX, insets]);
 
   return (
     <>
-      {nodes
+      {detailNodes
         .filter((node) => !node.isPortal && isNamed(node))
         .map((node) => (
           <CircleMarker
             key={node.id}
-            center={[node.y, node.x]}
+            center={pointOf(node)}
             radius={4}
             renderer={renderer}
             interactive={false}
@@ -97,7 +122,7 @@ export const PlaceLayer: React.FC = () => {
 
       {selected && (
         <CircleMarker
-          center={[selected.y, selected.x]}
+          center={pointOf(selected)}
           radius={14}
           renderer={renderer}
           interactive={false}

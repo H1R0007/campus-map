@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { DATA_LANGUAGE, isLanguage } from '../i18n/languages';
 import type { Language } from '../i18n/languages';
+import { THEME_STORAGE_KEY, isThemePreference } from '../theme/theme';
+import type { ThemePreference } from '../theme/theme';
 
 /**
  * Настройки интерфейса, выбранные пользователем.
@@ -76,9 +78,32 @@ function initialLanguage(): Language {
   });
 }
 
+/** Тема, выбранная при прошлом визите; без выбора и вне браузера — «как в системе». */
+function initialTheme(): ThemePreference {
+  if (typeof window === 'undefined') return 'system';
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isThemePreference(stored) ? stored : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+function storeTheme(theme: ThemePreference): void {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // См. `readStoredLanguage`: выбор действует до закрытия вкладки.
+  }
+}
+
 interface SettingsState {
   language: Language;
   setLanguage: (language: Language) => void;
+
+  /** Тема оформления: как в системе, светлая или тёмная (запись 34). */
+  theme: ThemePreference;
+  setTheme: (theme: ThemePreference) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -87,5 +112,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setLanguage: (language) => {
     storeLanguage(language);
     set({ language });
+  },
+
+  theme: initialTheme(),
+
+  setTheme: (theme) => {
+    storeTheme(theme);
+    set({ theme });
   },
 }));

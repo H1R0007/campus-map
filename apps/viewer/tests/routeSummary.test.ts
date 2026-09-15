@@ -19,14 +19,14 @@ describe('routeSummary', () => {
   it('в метрическом режиме — время и длина с округлением до десятков метров', () => {
     const route = metric(findPath(graph, 'campus_gate', 'a2_room201'), 301, 427);
 
-    expect(routeSummary(graph, route, 'ru')).toBe('~6 мин · 430 м');
-    expect(routeSummary(graph, route, 'en')).toBe('~6 min · 430 m');
+    expect(routeSummary(graph, route, 'ru')).toBe('~6\u00a0мин · 430\u00a0м');
+    expect(routeSummary(graph, route, 'en')).toBe('~6\u00a0min · 430\u00a0m');
   });
 
   it('короткая длина не округляется до нуля', () => {
     const route = metric(findPath(graph, 'a1_hall', 'a1_stairs'), 5, 4.4);
 
-    expect(routeSummary(graph, route, 'ru')).toBe('~1 мин · 4 м');
+    expect(routeSummary(graph, route, 'ru')).toBe('~1\u00a0мин · 4\u00a0м');
   });
 
   it('в пиксельном режиме — корпуса и этажи пути, территория не считается', () => {

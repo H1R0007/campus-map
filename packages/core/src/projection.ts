@@ -88,12 +88,20 @@ function elevationByNumber(building: BuildingMeta, floor: number): number | unde
   return base !== undefined && height !== undefined ? base + (floor - 1) * height : undefined;
 }
 
+/** Привязка плана этажа после наследования: значения этажа поверх значений корпуса. */
+export interface ResolvedPlanPlacement {
+  metersPerPixel: number;
+  originMeters: { x: number; y: number };
+  rotationDeg: number;
+  elevationMeters: number;
+}
+
 /**
  * Итоговая привязка этажа: значения этажа поверх значений корпуса.
  *
- * @returns преобразование либо список того, чего не хватает.
+ * @returns привязка либо список того, чего не хватает.
  */
-function resolvePlanFrame(building: BuildingMeta, floor: FloorMeta): PlanFrame | string[] {
+function resolvePlacement(building: BuildingMeta, floor: FloorMeta): ResolvedPlanPlacement | string[] {
   const scale = floor.placement?.metersPerPixel ?? building.placement?.metersPerPixel;
   const origin = floor.placement?.originMeters ?? building.placement?.originMeters;
   const rotationDeg = floor.placement?.rotationDeg ?? building.placement?.rotationDeg;
@@ -108,15 +116,30 @@ function resolvePlanFrame(building: BuildingMeta, floor: FloorMeta): PlanFrame |
     ];
   }
 
-  const radians = (rotationDeg * Math.PI) / 180;
+  return { metersPerPixel: scale, originMeters: origin, rotationDeg, elevationMeters: z };
+}
+
+/**
+ * Привязка плана этажа — где и под каким углом стоит его картинка на
+ * территории. Холст кампуса ставит по ней планы, а проекция — узлы.
+ *
+ * @returns `null`, если привязка этажа неполная
+ */
+export function resolvePlanPlacement(building: BuildingMeta, floor: FloorMeta): ResolvedPlanPlacement | null {
+  const placement = resolvePlacement(building, floor);
+  return Array.isArray(placement) ? null : placement;
+}
+
+function frameOf(placement: ResolvedPlanPlacement): PlanFrame {
+  const radians = (placement.rotationDeg * Math.PI) / 180;
 
   return {
-    scale,
+    scale: placement.metersPerPixel,
     cos: Math.cos(radians),
     sin: Math.sin(radians),
-    originX: origin.x,
-    originY: origin.y,
-    z,
+    originX: placement.originMeters.x,
+    originY: placement.originMeters.y,
+    z: placement.elevationMeters,
   };
 }
 
@@ -153,12 +176,12 @@ export function createCampusProjection(
 
   for (const building of buildingMetas) {
     for (const floor of building.floors) {
-      const frame = resolvePlanFrame(building, floor);
+      const placement = resolvePlacement(building, floor);
 
-      if (Array.isArray(frame)) {
-        unplacedFloors.push({ buildingId: building.id, floor: floor.floor, missing: frame });
+      if (Array.isArray(placement)) {
+        unplacedFloors.push({ buildingId: building.id, floor: floor.floor, missing: placement });
       } else {
-        frames.set(floorKey(building.id, floor.floor), frame);
+        frames.set(floorKey(building.id, floor.floor), frameOf(placement));
       }
     }
   }

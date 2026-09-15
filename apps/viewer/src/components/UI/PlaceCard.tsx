@@ -56,12 +56,19 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
   return (
     <div className="px-4 pb-4">
       <div className="flex items-start gap-3">
-        <PlaceIcon transition={transition} category={aliasManager?.getCategory(nodeId) ?? null} size="lg" />
+        {/* На очень узком экране (текст увеличен до 200 %) значок отдаёт ширину
+            названию: рядом с ним «Столовая» обрезалась посреди слова. */}
+        <PlaceIcon
+          transition={transition}
+          category={aliasManager?.getCategory(nodeId) ?? null}
+          size="lg"
+          className="compact:hidden"
+        />
         <div className="flex-1 min-w-0 pt-0.5">
           <h2
             data-panel-focus
             tabIndex={-1}
-            className="text-lg font-semibold leading-snug text-gray-900 line-clamp-2 outline-none"
+            className="text-lg font-semibold leading-snug text-gray-900 line-clamp-2 break-words outline-none"
           >
             {title}
           </h2>
@@ -75,9 +82,9 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
           <button
             type="button"
             onClick={() => choose('to')}
-            className="flex-1 min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
+            className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
           >
-            <Icon name="route" className="flex-shrink-0" />
+            <Icon name="route" className="flex-shrink-0 compact:hidden" />
             <span className="truncate">{messages.place.route}</span>
           </button>
           <button

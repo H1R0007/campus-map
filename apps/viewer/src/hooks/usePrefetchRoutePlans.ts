@@ -20,13 +20,15 @@ const requested = new Set<string>();
  */
 export function usePrefetchRoutePlans(): void {
   const graph = useMapStore((s) => s.graph);
+  const campusMeta = useMapStore((s) => s.campusMeta);
+  const buildingMetas = useMapStore((s) => s.buildingMetas);
   const route = useRouteStore((s) => s.currentRoute);
   const online = useOnline();
 
   useEffect(() => {
     if (!graph || !route?.found || !online) return;
 
-    for (const url of routePlanUrls(graph, route.path, DATA_BASE_URL)) {
+    for (const url of routePlanUrls(graph, route.path, campusMeta, buildingMetas, DATA_BASE_URL)) {
       if (requested.has(url)) continue;
       requested.add(url);
 
@@ -34,5 +36,5 @@ export function usePrefetchRoutePlans(): void {
         .then((response) => response.arrayBuffer())
         .catch(() => requested.delete(url));
     }
-  }, [graph, route, online]);
+  }, [graph, campusMeta, buildingMetas, route, online]);
 }

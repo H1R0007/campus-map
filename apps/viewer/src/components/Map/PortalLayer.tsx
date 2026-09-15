@@ -1,6 +1,9 @@
 import React from 'react';
 import { Marker } from 'react-leaflet';
-import { scopeOf, useMapStore } from '../../stores/mapStore';
+import { CAMPUS_BUILDING_ID } from '@campus-map/core';
+import { useMapView } from '../../hooks/useMapView';
+import { useMapStore } from '../../stores/mapStore';
+import { isDetailShown, mapPointOf, shownNodesOf } from '../../utils/mapView';
 import { portalTypeOf } from '../../utils/portals';
 import { portalIcon } from './markerIcons';
 
@@ -19,20 +22,25 @@ import { portalIcon } from './markerIcons';
  */
 export const PortalLayer: React.FC = () => {
   const graph = useMapStore((s) => s.graph);
-  const activeFloor = useMapStore((s) => s.activeFloor);
+  const view = useMapView();
 
   if (!graph) return null;
 
-  const scope = scopeOf(activeFloor);
+  // Выборка через индексы этажей графа (`shownNodesOf`), а не перебор всех
+  // узлов кампуса. Существенно, когда корпусов и этажей станет много.
+  const shown = shownNodesOf(graph, view).filter((node) => node.isPortal && isDetailShown(view, node));
+  const shownIds = new Set(shown.map((node) => node.id));
 
-  // Выборка через индекс графа: O(1) по этажу, а не перебор всех узлов
-  // кампуса. Существенно, когда корпусов и этажей станет много.
-  const nodes =
-    scope.mode === 'campus'
-      ? graph.getCampusNodes()
-      : graph.getNodesForFloor(scope.buildingId, scope.floor);
-
-  const portals = nodes.filter((node) => node.isPortal);
+  // На холсте вход в корпус — две точки в паре метров: снаружи на территории и
+  // внутри на этаже. Когда этаж виден, значок один — у двери корпуса.
+  const portals =
+    view.kind === 'canvas'
+      ? shown.filter(
+          (node) =>
+            node.building !== CAMPUS_BUILDING_ID ||
+            !graph.getNeighbors(node.id).some((id) => shownIds.has(id) && graph.getTransitionType(node.id, id) !== null)
+        )
+      : shown;
   if (portals.length === 0) return null;
 
   return (
@@ -40,7 +48,7 @@ export const PortalLayer: React.FC = () => {
       {portals.map((node) => (
         <Marker
           key={node.id}
-          position={[node.y, node.x]}
+          position={mapPointOf(graph, view, node)}
           icon={portalIcon(portalTypeOf(graph, node))}
           // Нажатие обрабатывает карта: слой мест выбирает ближайший узел в
           // радиусе касания, и маркер не должен перехватывать событие.

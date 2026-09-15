@@ -20,7 +20,8 @@ export default {
       await v.click('Начать');
       assert.ok((await v.headerText()).includes('Шаг 1 из 4'));
       assert.equal(await v.heading(), 'Старт');
-      assert.ok((await v.routeLines()).muted > 0, 'маршрут приглушён');
+      // Линия по открытому этажу появляется, когда камера долетела до шага.
+      await page.waitFor(`document.querySelectorAll('.campus-route-line--muted').length > 0`);
       await page.sleep(600);
       const width = await v.planWidthInScreens();
       assert.ok(width !== null && width < 4, `ширина плана в экранах: ${width}`);

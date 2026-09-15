@@ -18,6 +18,13 @@ export const en: Messages = {
 
   languageSwitch: 'Interface language',
 
+  themeSwitch: 'Appearance',
+  theme: {
+    system: 'System',
+    light: 'Light',
+    dark: 'Dark',
+  },
+
   sheet: {
     label: 'Navigator panel',
     expand: 'Expand the panel',
@@ -26,6 +33,7 @@ export const en: Messages = {
 
   map: {
     campus: 'Campus',
+    buildings: 'Buildings',
     floor: (floor) => `Floor ${floor}`,
     floors: 'Floors',
     floorOnRoute: (floor) => `${floor}, on the route`,
@@ -37,6 +45,7 @@ export const en: Messages = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     fitPlan: 'Show the whole plan',
+    north: 'Rotate the map to north',
     planLoading: 'Loading the plan…',
     planUnavailable: 'The plan is unavailable',
     routeStart: 'Route start',
@@ -139,8 +148,8 @@ export const en: Messages = {
     done: 'Done',
     resetRoute: 'Clear route',
     stepsTitle: 'Route steps',
-    duration: (minutes) => `~${minutes} min`,
-    distance: (meters) => `${meters} m`,
+    duration: (minutes) => `~${minutes}\u00a0min`,
+    distance: (meters) => `${meters}\u00a0m`,
     buildingsWord: { one: 'building', other: 'buildings' },
     floorsWord: { one: 'floor', other: 'floors' },
     notFound: (reason) => `No route found: ${reason}`,

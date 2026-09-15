@@ -39,9 +39,9 @@ export default {
 
       const expected = [
         'campus/meta.json',
-        'building_a/floors/1/map.png',
-        'building_a/floors/2/map.png',
-        'building_b/floors/2/map.png',
+        'building_a/floors/1/map.svg',
+        'building_a/floors/2/map.svg',
+        'building_b/floors/2/map.svg',
       ];
       const cached = () =>
         page.eval(`(async () => {
@@ -64,13 +64,23 @@ export default {
       const diagnostics = await page.eval(`(async () => ({
         caches: await caches.keys(),
         requests: performance.getEntriesByType('resource')
-          .filter((entry) => entry.name.includes('.png'))
+          .filter((entry) => entry.name.includes('/map.'))
           .map((entry) => entry.initiatorType + ' ' + new URL(entry.name).pathname),
       }))()`);
       assert.ok(
         expected.every((suffix) => paths.some((path) => path.endsWith(suffix))),
         `в кэше планов: ${JSON.stringify(paths)}\nкэши: ${JSON.stringify(diagnostics.caches)}\nзапросы планов: ${JSON.stringify(diagnostics.requests)}`
       );
+
+      // Сценарии идут в одном профиле браузера, и корпус В мог открыть другой
+      // сценарий — на широком экране холст показывает все корпуса. Его план
+      // убирается из кэша: последний шаг проверяет именно несохранённый этаж.
+      await page.eval(`(async () => {
+        const cache = await caches.open('campus-maps');
+        for (const request of await cache.keys()) {
+          if (request.url.includes('/building_c/')) await cache.delete(request);
+        }
+      })()`);
     });
 
     await step('без связи: навигатор открывается, сообщает об этом, планы шагов на месте', async () => {
@@ -104,11 +114,22 @@ export default {
     await step('без связи план, которого нет в памяти, так и называется', async () => {
       await v.click('Завершить пошаговую навигацию');
       await v.click('Вернуться к карте кампуса');
-      await v.click('Корпус В');
-      await page.waitFor(
-        `document.querySelector('.campus-plan-status')?.textContent === 'План этого этажа не сохранён — нужна связь'`,
-        15_000
-      );
+      await v.openBuilding('Корпус В');
+      try {
+        await page.waitFor(
+          `document.querySelector('.campus-plan-status')?.textContent === 'План этого этажа не сохранён — нужна связь'`,
+          15_000
+        );
+      } catch (cause) {
+        // Что на холсте: какой корпус в шапке, какие планы видны и в каком они состоянии.
+        const state = await page.eval(`({
+          header: document.querySelector('.campus-map-header')?.innerText ?? null,
+          status: document.querySelector('.campus-plan-status')?.textContent ?? null,
+          plans: [...document.querySelectorAll('.campus-placed-plan')].map((plan) => ({ ...plan.dataset, children: plan.childElementCount })),
+        })`);
+        throw new Error(`${cause.message}
+состояние карты: ${JSON.stringify(state)}`);
+      }
       await shot('viewer-offline-missing-plan');
     });
   },

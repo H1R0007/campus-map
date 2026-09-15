@@ -61,10 +61,35 @@ export interface BuildingPlacement extends PlanPlacement {
 }
 
 /**
+ * Формат файла плана: растровый PNG или векторный SVG (запись 29).
+ *
+ * Официальные планы вуза неизвестно в каком виде придут — сканами или
+ * чертежами, — а тестовые планы векторные. Имя файла фиксировано:
+ * `map.<формат>`. Произвольное имя файла в данных уже было источником
+ * молчаливых 404 (история `mapPath`), поэтому выбирается только формат.
+ */
+export const PLAN_FORMATS = ['png', 'svg'] as const;
+
+export type PlanFormat = (typeof PLAN_FORMATS)[number];
+
+/** Формат плана без поля в данных — PNG, как до появления поля. */
+export const DEFAULT_PLAN_FORMAT: PlanFormat = 'png';
+
+/** Является ли строка известным форматом плана. */
+export function isPlanFormat(value: string): value is PlanFormat {
+  return (PLAN_FORMATS as readonly string[]).includes(value);
+}
+
+/** Формат плана территории или этажа: значение из данных либо PNG. */
+export function planFormatOf(meta: { planFormat?: PlanFormat } | undefined): PlanFormat {
+  return meta?.planFormat ?? DEFAULT_PLAN_FORMAT;
+}
+
+/**
  * Метаданные этажа.
  *
  * Путей к файлам здесь нет намеренно: раскладка этажа фиксирована
- * (`buildings/<id>/floors/<n>/graph.json` и `map.png`, см. `dataset/paths.ts`).
+ * (`buildings/<id>/floors/<n>/graph.json` и `map.<planFormat>`, см. `dataset/paths.ts`).
  * Раньше формат содержал `mapPath` и `graphPath` — они грузились и
  * выгружались экспортом, но ни один читатель их не использовал: адреса всегда
  * собирались константами. Разметчик, вписавший туда другое имя файла, получал
@@ -96,6 +121,9 @@ export interface FloorMeta {
 
   /** Отметка пола этажа над уровнем территории, метры. Важнее формулы корпуса. */
   elevationMeters?: number;
+
+  /** Формат файла плана этажа; без поля — PNG. */
+  planFormat?: PlanFormat;
 }
 
 /**
@@ -168,6 +196,9 @@ export interface CampusMeta {
    * датасет работает в пиксельном режиме, даже если все корпуса привязаны.
    */
   metersPerPixel?: number;
+
+  /** Формат файла плана территории; без поля — PNG. */
+  planFormat?: PlanFormat;
 }
 
 /**

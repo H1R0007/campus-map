@@ -9,6 +9,8 @@ interface PlaceIconProps {
   /** Категория места: туалет, еда, гардероб, выход — значок категории вместо метки. */
   category?: PlaceCategory | null;
   size?: 'md' | 'lg';
+  /** Классы значка — например, чтобы скрыть его на очень узком экране. */
+  className?: string;
 }
 
 /**
@@ -17,14 +19,14 @@ interface PlaceIconProps {
  * фирменном цвете. Декоративный: что это за место, говорит
  * подпись рядом.
  */
-export const PlaceIcon: React.FC<PlaceIconProps> = ({ transition, category = null, size = 'md' }) => {
+export const PlaceIcon: React.FC<PlaceIconProps> = ({ transition, category = null, size = 'md', className = '' }) => {
   const box = size === 'lg' ? 'w-11 h-11' : 'w-9 h-9';
 
   if (transition !== null) {
     return (
       <span
         aria-hidden="true"
-        className={`${box} flex-shrink-0 rounded-full flex items-center justify-center text-white`}
+        className={`${box} flex-shrink-0 rounded-full flex items-center justify-center text-white ${className}`}
         style={{ backgroundColor: TRANSITION_COLORS[transition] }}
       >
         <TransitionGlyph type={transition} size={size === 'lg' ? 20 : 16} />
@@ -35,7 +37,7 @@ export const PlaceIcon: React.FC<PlaceIconProps> = ({ transition, category = nul
   return (
     <span
       aria-hidden="true"
-      className={`${box} flex-shrink-0 rounded-full flex items-center justify-center bg-selected text-accent`}
+      className={`${box} flex-shrink-0 rounded-full flex items-center justify-center bg-selected text-accent ${className}`}
     >
       <Icon name={category ?? 'pin'} size={size === 'lg' ? 22 : 18} />
     </span>

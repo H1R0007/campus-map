@@ -23,6 +23,21 @@ interface ActiveFloor {
   floor: number;
 }
 
+/** Куда перевести камеру холста: на территорию, к корпусу или к месту. */
+export type ViewTarget =
+  | { kind: 'campus' }
+  | { kind: 'building'; buildingId: string }
+  | { kind: 'node'; nodeId: string };
+
+/**
+ * Просьба перевести камеру холста (запись 32). Номер отличает повторную просьбу
+ * о том же виде: «к корпусу А» после того, как человек увёл карту сам.
+ */
+export interface ViewRequest {
+  seq: number;
+  target: ViewTarget;
+}
+
 /** Загруженный датасет в том виде, в каком его держит навигатор. */
 interface MapData {
   graph: Graph;
@@ -44,8 +59,31 @@ interface MapState {
    * Отдельного флага режима просмотра намеренно нет: он полностью
    * выводился из этого поля и мог с ним разойтись, а `setViewMode` не
    * вызывался ни из одного компонента.
+   *
+   * На холсте кампуса это корпус, к которому приближена камера, и его этаж:
+   * по нему шапка и колонка этажей показывают интерфейс корпуса.
    */
   activeFloor: ActiveFloor | null;
+
+  /**
+   * Этаж, открытый в каждом корпусе. На холсте у каждого корпуса свой этаж:
+   * вернувшись к корпусу, человек видит тот, что смотрел, а маршрут открывает
+   * этажи, по которым проходит. Корпус без записи показывает входной этаж
+   * (`shownFloorOf`).
+   */
+  buildingFloors: Readonly<Record<string, number>>;
+
+  /** Корпуса, приближенные настолько, что вместо крыши виден этаж. Ставит камера холста. */
+  revealedBuildings: readonly string[];
+
+  /** Корпуса, чьи этажи грузятся заранее: камера подлетает к ним. Ставит камера холста. */
+  nearBuildings: readonly string[];
+
+  /** Холст приближен настолько, что на территории видны точки мест и значки входов. */
+  canvasDetailed: boolean;
+
+  /** Последняя просьба к камере холста; карта из одного плана её не читает. */
+  viewRequest: ViewRequest | null;
 
   /**
    * Место, выбранное нажатием на карту: узел, для которого показана карточка
@@ -69,6 +107,22 @@ interface MapState {
    * (`scopeOfNode`), а не разбор полей узла на месте.
    */
   showNode: (nodeId: string) => void;
+
+  requestView: (target: ViewTarget) => void;
+
+  /**
+   * Корпус, к которому приближена камера холста, — или территория. В отличие
+   * от `setActiveFloor` камеру никуда не ведёт и выбранное место не снимает:
+   * этажи не менялись, место по-прежнему на карте.
+   */
+  focusFromCamera: (buildingId: string | null) => void;
+
+  setRevealedBuildings: (buildingIds: readonly string[]) => void;
+  setNearBuildings: (buildingIds: readonly string[]) => void;
+  setCanvasDetailed: (detailed: boolean) => void;
+
+  /** Открывает в корпусах этажи маршрута (`routeBuildingFloors`), камеру не ведёт. */
+  showRouteFloors: (floors: Readonly<Record<string, number>>) => void;
 }
 
 /**
@@ -116,6 +170,18 @@ export function entranceFloorOf(meta: BuildingMeta | undefined): number {
     : floors[0];
 }
 
+/** Этаж, который показывает корпус: открытый в нём последним, иначе входной. */
+export function shownFloorOf(
+  buildingFloors: Readonly<Record<string, number>>,
+  meta: BuildingMeta | undefined,
+  buildingId: string
+): number {
+  return buildingFloors[buildingId] ?? entranceFloorOf(meta);
+}
+
+const sameIds = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((id, index) => id === b[index]);
+
 export const useMapStore = create<MapState>((set, get) => ({
   graph: null,
   aliasManager: null,
@@ -123,6 +189,11 @@ export const useMapStore = create<MapState>((set, get) => ({
   buildingMetas: null,
 
   activeFloor: null,
+  buildingFloors: {},
+  revealedBuildings: [],
+  nearBuildings: [],
+  canvasDetailed: false,
+  viewRequest: null,
   selectedNodeId: null,
 
   setData: (data) => set(data),
@@ -131,15 +202,28 @@ export const useMapStore = create<MapState>((set, get) => ({
     // Повторный выбор того же этажа не должен создавать новый объект:
     // подписчики сравнивают `activeFloor` по ссылке, а смена ссылки при
     // неизменном значении пересоздала бы слои карты на ровном месте.
-    const current = get().activeFloor;
-    if (current?.buildingId === buildingId && current.floor === floor) return;
+    const { activeFloor: current, buildingFloors } = get();
+    if (current?.buildingId === buildingId && current.floor === floor) {
+      // Этаж маршрута мог записаться корпусу раньше (`showRouteFloors`), а
+      // открыт этот: запись должна совпадать с тем, что на экране.
+      if (buildingFloors[buildingId] !== floor) set({ buildingFloors: { ...buildingFloors, [buildingId]: floor } });
+      return;
+    }
 
-    set({ activeFloor: { buildingId, floor }, selectedNodeId: null });
+    set({
+      activeFloor: { buildingId, floor },
+      buildingFloors: { ...buildingFloors, [buildingId]: floor },
+      selectedNodeId: null,
+    });
+    // Камера идёт к корпусу, только если он другой: этажи одного корпуса
+    // листаются на месте.
+    if (current?.buildingId !== buildingId) get().requestView({ kind: 'building', buildingId });
   },
 
   clearActiveFloor: () => {
     if (get().activeFloor === null) return;
     set({ activeFloor: null, selectedNodeId: null });
+    get().requestView({ kind: 'campus' });
   },
 
   selectNode: (nodeId) => {
@@ -153,5 +237,38 @@ export const useMapStore = create<MapState>((set, get) => ({
     const scope = scopeOfNode(node);
     if (scope.mode === 'campus') get().clearActiveFloor();
     else get().setActiveFloor(scope.buildingId, scope.floor);
+    // Камера — к самому месту, а не ко всему корпусу: эта просьба заменяет
+    // просьбу о корпусе.
+    get().requestView({ kind: 'node', nodeId });
   },
+
+  requestView: (target) => set({ viewRequest: { seq: (get().viewRequest?.seq ?? 0) + 1, target } }),
+
+  focusFromCamera: (buildingId) => {
+    const { activeFloor, buildingFloors, buildingMetas } = get();
+    if ((activeFloor?.buildingId ?? null) === buildingId) return;
+
+    set({
+      activeFloor:
+        buildingId === null
+          ? null
+          : { buildingId, floor: shownFloorOf(buildingFloors, buildingMetas?.get(buildingId), buildingId) },
+    });
+  },
+
+  // Камера ставит наборы на каждом кадре масштаба: тот же набор не должен
+  // будить подписчиков.
+  setRevealedBuildings: (buildingIds) => {
+    if (!sameIds(get().revealedBuildings, buildingIds)) set({ revealedBuildings: buildingIds });
+  },
+
+  setNearBuildings: (buildingIds) => {
+    if (!sameIds(get().nearBuildings, buildingIds)) set({ nearBuildings: buildingIds });
+  },
+
+  setCanvasDetailed: (detailed) => {
+    if (get().canvasDetailed !== detailed) set({ canvasDetailed: detailed });
+  },
+
+  showRouteFloors: (floors) => set({ buildingFloors: { ...get().buildingFloors, ...floors } }),
 }));

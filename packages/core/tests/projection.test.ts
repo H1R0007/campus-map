@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, createCampusProjection } from '../src/index.js';
+import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, createCampusProjection, resolvePlanPlacement } from '../src/index.js';
 import type { BuildingMeta, CampusMeta, MapNode } from '../src/index.js';
 
 /**
@@ -190,5 +190,31 @@ describe('createCampusProjection: координаты', () => {
 
     expect(projection.toWorld(at('bA', 7, 0, 0))).toBeNull();
     expect(projection.toWorld(at('bZ', 1, 0, 0))).toBeNull();
+  });
+});
+
+describe('resolvePlanPlacement: привязка плана этажа', () => {
+  it('значения этажа поверх значений корпуса, отметка — по номеру этажа', () => {
+    const meta = building({
+      floors: [{ floor: 1 }, { floor: 2, placement: { rotationDeg: 15, originMeters: { x: 7, y: 8 } } }],
+    });
+
+    expect(resolvePlanPlacement(meta, meta.floors[0])).toEqual({
+      metersPerPixel: 0.1,
+      originMeters: { x: 100, y: 50 },
+      rotationDeg: 0,
+      elevationMeters: 0,
+    });
+    expect(resolvePlanPlacement(meta, meta.floors[1])).toEqual({
+      metersPerPixel: 0.1,
+      originMeters: { x: 7, y: 8 },
+      rotationDeg: 15,
+      elevationMeters: 4,
+    });
+  });
+
+  it('неполная привязка — null, а не значения по умолчанию', () => {
+    const meta = building({ placement: { metersPerPixel: 0.1, rotationDeg: 0 } });
+    expect(resolvePlanPlacement(meta, meta.floors[0])).toBeNull();
   });
 });

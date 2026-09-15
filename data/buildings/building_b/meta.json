@@ -6,20 +6,33 @@
       "name": "Building B"
     }
   },
+  "entranceFloor": 1,
+  "placement": {
+    "metersPerPixel": 0.1,
+    "originMeters": {
+      "x": 120,
+      "y": 41
+    },
+    "rotationDeg": 0,
+    "baseElevationMeters": 0,
+    "floorHeightMeters": 3.6
+  },
   "floors": [
     {
       "floor": 1,
       "mapSize": {
-        "width": 1356,
-        "height": 727
-      }
+        "width": 560,
+        "height": 240
+      },
+      "planFormat": "svg"
     },
     {
       "floor": 2,
       "mapSize": {
-        "width": 889,
-        "height": 503
-      }
+        "width": 560,
+        "height": 240
+      },
+      "planFormat": "svg"
     }
   ]
 }

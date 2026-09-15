@@ -40,6 +40,14 @@ export const ru = {
   /** Подпись группы кнопок выбора языка. */
   languageSwitch: 'Язык интерфейса',
 
+  /** Переключатель темы оформления (запись 34). */
+  themeSwitch: 'Оформление',
+  theme: {
+    system: 'Как в системе',
+    light: 'Светлая',
+    dark: 'Тёмная',
+  },
+
   /** Панель навигатора: шторка на телефоне, панель слева на широком экране. */
   sheet: {
     label: 'Панель навигатора',
@@ -49,6 +57,8 @@ export const ru = {
 
   map: {
     campus: 'Кампус',
+    /** Кнопка со списком корпусов в шапке телефона. */
+    buildings: 'Корпуса',
     floor: (floor: string) => `Этаж ${floor}`,
     floors: 'Этажи',
     /** Подпись кнопки этажа, через который идёт маршрут; `floor` — уже «Этаж 2». */
@@ -63,6 +73,8 @@ export const ru = {
     zoomIn: 'Приблизить',
     zoomOut: 'Отдалить',
     fitPlan: 'Показать план целиком',
+    /** Компас повёрнутой карты. */
+    north: 'Повернуть карту на север',
     planLoading: 'Загрузка плана…',
     planUnavailable: 'План недоступен',
     routeStart: 'Начало маршрута',
@@ -188,9 +200,9 @@ export const ru = {
     resetRoute: 'Сбросить маршрут',
     stepsTitle: 'Шаги маршрута',
     /** Время в пути; округление — забота вызывающей стороны. */
-    duration: (minutes: number) => `~${minutes} мин`,
+    duration: (minutes: number) => `~${minutes}\u00a0мин`,
     /** Длина пути; округление — забота вызывающей стороны. */
-    distance: (meters: number) => `${meters} м`,
+    distance: (meters: number) => `${meters}\u00a0м`,
     buildingsWord: BUILDINGS_WORD,
     floorsWord: FLOORS_WORD,
     notFound: (reason: string) => `Маршрут не найден: ${reason}`,

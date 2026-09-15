@@ -15,6 +15,12 @@ import { useCallback, useSyncExternalStore } from 'react';
 export const WIDE_LAYOUT_QUERY = '(min-width: 1024px), (min-width: 640px) and (max-height: 520px)';
 
 /**
+ * Телефон стоя: в шапке — кнопка «Корпуса» со списком и язык одной кнопкой,
+ * а не лента корпусов и пара кнопок языка, закрывавшие верх карты.
+ */
+export const PHONE_HEADER_QUERY = '(max-width: 639px)';
+
+/**
  * Совпадает ли медиазапрос — с подпиской на изменения: поворот телефона,
  * масштаб страницы, изменение окна.
  */

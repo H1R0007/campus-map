@@ -54,36 +54,35 @@
     --gray-900: 17 24 39;
 }
 
-/* Тёмная тема — по теме системы (запись 21). Серая шкала перевёрнута: её
+/* Тёмная тема — атрибут `data-theme` на корне страницы: его ставит выбор в
+   навигаторе или тема системы (записи 21 и 34). Серая шкала перевёрнута: её
    ступени значат одно и то же в обеих темах. Контраст текста в обеих темах
    проверяет сценарий `viewer-theme` (`pnpm check:browser`). */
-@media (prefers-color-scheme: dark) {
-    :root {
-        color-scheme: dark;
+:root[data-theme='dark'] {
+    color-scheme: dark;
 
-        --color-accent: 110 168 255;     /* #6EA8FF */
-        --color-selected: 110 168 255 / 0.16;
-        --color-route: 110 168 255;
+    --color-accent: 110 168 255;     /* #6EA8FF */
+    --color-selected: 110 168 255 / 0.16;
+    --color-route: 110 168 255;
 
-        --color-surface: 27 34 46;       /* #1B222E */
-        --color-canvas: 14 18 25;        /* #0E1219 — как theme-color в index.html */
-        --color-map: 17 22 30;
-        --color-inverse: 229 233 239;
-        --color-on-inverse: 17 24 39;
-        --color-danger: 252 165 165;
-        --color-danger-soft: 69 26 26;
+    --color-surface: 27 34 46;       /* #1B222E */
+    --color-canvas: 14 18 25;        /* #0E1219 — как theme-color в index.html */
+    --color-map: 17 22 30;
+    --color-inverse: 229 233 239;
+    --color-on-inverse: 17 24 39;
+    --color-danger: 252 165 165;
+    --color-danger-soft: 69 26 26;
 
-        --gray-50: 36 44 58;
-        --gray-100: 44 53 69;
-        --gray-200: 58 68 86;
-        --gray-300: 78 88 107;
-        --gray-400: 125 135 153;
-        --gray-500: 150 160 176;
-        --gray-600: 172 181 195;
-        --gray-700: 200 207 217;
-        --gray-800: 226 231 238;
-        --gray-900: 243 245 248;
-    }
+    --gray-50: 36 44 58;
+    --gray-100: 44 53 69;
+    --gray-200: 58 68 86;
+    --gray-300: 78 88 107;
+    --gray-400: 125 135 153;
+    --gray-500: 150 160 176;
+    --gray-600: 172 181 195;
+    --gray-700: 200 207 217;
+    --gray-800: 226 231 238;
+    --gray-900: 243 245 248;
 }
 
 *, *::before, *::after {
@@ -146,14 +145,99 @@ button {
     border: none !important;
 }
 
-/* План в тёмной теме — светлые линии на тёмном: яркий лист посреди тёмного
-   экрана слепил бы. Фильтр только у подложки, маршрут и отметки поверх неё не
-   меняются. Подобран по тестовым планам-чертежам; с официальными планами его
-   нужно пересмотреть (запись 21). */
-@media (prefers-color-scheme: dark) {
-    .leaflet-image-layer {
-        filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
+/* Растровый план в тёмной теме — светлые линии на тёмном: яркий лист посреди
+   тёмного экрана слепил бы. Фильтр только у плана, маршрут и отметки поверх
+   него не меняются. Подобран по планам-чертежам; с официальными планами его
+   нужно пересмотреть (запись 21). SVG-планы генератора перекрашивает стиль,
+   вписанный в план (`theme/planTheme.ts`, запись 35), без фильтра. */
+:root[data-theme='dark'] .leaflet-image-layer,
+:root[data-theme='dark'] .campus-plan-raster,
+:root[data-theme='dark'] .campus-plan-image--foreign {
+    filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
+}
+
+/* ===== Холст кампуса ===== */
+
+/* Этаж сменяется соседним плавно (запись 32). Проявление этажа вместо крыши
+   идёт вместе с масштабом — его прозрачность ставит `CanvasPlans`, без перехода. */
+.campus-placed-plan {
+    transition: opacity 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .campus-placed-plan {
+        transition: none;
     }
+}
+
+/* Этаж, пока камера не решила, насколько он проявлен, не виден: проявленность
+   ставит `CanvasPlans` в стиль обёртки содержимого. */
+.campus-canvas-plan[data-plan='floor'] > .campus-placed-plan__content {
+    opacity: 0;
+    display: none;
+}
+
+/* Изображение плана — блоком: у строчного снизу оставался бы зазор под
+   базовой линией, и план не совпадал бы с рамкой слоя. */
+.campus-plan-image {
+    display: block;
+}
+
+/* Крыши корпусов холста — в обеих темах. Тают по мере того, как проявляется
+   этаж; крыши и буквы с плана территории под ними не показываются — корпус
+   нарисован один раз (записи 32 и 35). Их прячет стиль, вписанный в план. */
+
+:root {
+    /* Фон холста — цвет травы плана территории (`plan-ground`). */
+    --canvas-ground: 228 238 218;
+    --plan-roof: 213 209 201;
+    --plan-roof-edge: 142 138 130;
+    --plan-roof-label: 70 66 60;
+}
+
+/* Холст без серого поля вокруг кампуса: фон карты — цвет травы территории.
+   План территории сливается с фоном, и холст выглядит во весь экран, как бы
+   его ни отдалили. У официального плана токен ставится в цвет его территории. */
+.leaflet-container.campus-canvas-map {
+    background: rgb(var(--canvas-ground));
+}
+
+.campus-roof {
+    fill: rgb(var(--plan-roof));
+    fill-opacity: 0.96;
+    stroke: rgb(var(--plan-roof-edge));
+    stroke-width: 1.5;
+}
+
+.campus-roof-label span {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--plan-roof-label));
+    /* Ореол цвета крыши: пунктир маршрута по другому этажу проходит под
+       названием и не режет буквы. */
+    text-shadow:
+        0 0 2px rgb(var(--plan-roof)),
+        0 0 4px rgb(var(--plan-roof)),
+        0 0 6px rgb(var(--plan-roof));
+    pointer-events: none;
+}
+
+/* Название — пока помещается на крыше и пока крыша не растаяла наполовину;
+   прозрачность ставит `CanvasPlans`. */
+.campus-roof-label {
+    opacity: 0;
+}
+
+/* Крыши холста в тёмной теме. Тёмный лист самих SVG-планов вписывается в план
+   перед показом (`theme/planTheme.ts`, запись 35). */
+:root[data-theme='dark'] {
+    --canvas-ground: 22 30 26;
+    --plan-roof: 55 61 71;
+    --plan-roof-edge: 104 112 124;
+    --plan-roof-label: 214 220 229;
 }
 
 /* ===== Шапка и колонка управления картой ===== */
@@ -176,6 +260,23 @@ button {
 
 .campus-map-header > * {
     pointer-events: auto;
+}
+
+/* Лента корпусов — во всю ширину шапки, но нажатия ловят только чипы: между
+   ними и за последним карта отвечает на жесты. Жест, начатый на чипе, ленту
+   по-прежнему прокручивает. */
+.campus-map-header > .campus-building-strip {
+    pointer-events: none;
+}
+
+.campus-building-strip button {
+    pointer-events: auto;
+}
+
+/* Список корпусов не заходит под шторку. */
+.campus-building-menu {
+    max-height: calc(100vh - var(--campus-sheet-height, 7rem) - 6rem - env(safe-area-inset-top, 0px));
+    max-height: calc(100dvh - var(--campus-sheet-height, 7rem) - 6rem - env(safe-area-inset-top, 0px));
 }
 
 /* На широком экране слева стоит панель навигатора — 24rem и поля по 1rem:
@@ -347,6 +448,11 @@ button {
    CSS перекрывает атрибут `stroke-opacity`, который ставит Leaflet. */
 .campus-route-line--muted {
     stroke-opacity: 0.35;
+}
+
+/* Участок маршрута на невидимом этаже холста — пунктир поверх плана (запись 32). */
+.campus-route-ghost {
+    stroke: rgb(var(--color-route));
 }
 
 .campus-endpoint--start {

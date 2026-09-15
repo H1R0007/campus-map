@@ -51,6 +51,8 @@ export function useStepNavigation(): StepNavigation {
   const setStep = useRouteStore((s) => s.setStep);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
   const clearActiveFloor = useMapStore((s) => s.clearActiveFloor);
+  const requestView = useMapStore((s) => s.requestView);
+  const currentRoute = useRouteStore((s) => s.currentRoute);
 
   const openScope = (scope: ViewScope) => {
     if (scope.mode === 'campus') clearActiveFloor();
@@ -71,7 +73,11 @@ export function useStepNavigation(): StepNavigation {
       openScope(step.scope);
     },
     showCurrent: () => {
-      if (index !== null) openScope(steps[index].scope);
+      if (index === null) return;
+      openScope(steps[index].scope);
+      // На холсте этаж мог быть открыт, а камера — уведена в сторону: к шагу.
+      const nodeId = currentRoute?.path[steps[index].pathRange[0]];
+      if (nodeId !== undefined) requestView({ kind: 'node', nodeId });
     },
     exit: () => setStep(null),
   };

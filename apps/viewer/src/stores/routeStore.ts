@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { PathResult, PathfindingOptions, PlaceCategory } from '@campus-map/core';
 import { DEFAULT_PATHFINDING_OPTIONS, findPath } from '@campus-map/core';
 import { nearestPlaceOf } from '../utils/nearestPlace';
-import { routePassesScope } from '../utils/routeFloors';
+import { routeBuildingFloors, routePassesScope } from '../utils/routeFloors';
 import { scopeOf, useMapStore } from './mapStore';
 
 /** Точка маршрута: начало или конец. */
@@ -109,7 +109,12 @@ export const useRouteStore = create<RouteState>((set, get) => {
     // осталась.
     const map = useMapStore.getState();
     const keepView = view === 'keep' && routePassesScope(graph, route.path, scopeOf(map.activeFloor));
-    if (!keepView) map.showNode(route.path[0]);
+    if (!keepView) {
+      // На холсте в корпусах открываются этажи маршрута — в корпусе цели виден
+      // этаж цели (запись 32); затем карта переходит к началу.
+      map.showRouteFloors(routeBuildingFloors(graph, route.path));
+      map.showNode(route.path[0]);
+    }
 
     return route;
   };

@@ -1,33 +1,40 @@
 import React, { useId } from 'react';
 import { messagesFor, useLanguage } from '../../i18n';
 import { pluralize } from '../../i18n/plural';
-import { entranceFloorOf, floorsOfBuilding, useMapStore } from '../../stores/mapStore';
+import { floorsOfBuilding, shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { buildingLabel } from '../../utils/placeLabels';
 import { Icon } from './Icon';
 
 interface BuildingListProps {
   /** Вызывается перед переходом в корпус — например, чтобы закрыть поиск. */
   onChoose?: () => void;
+  /** Только эти корпуса — например, найденные по запросу; по умолчанию все. */
+  buildingIds?: readonly string[];
 }
 
 /**
- * Корпуса кампуса списком; выбор открывает входной этаж корпуса.
+ * Корпуса кампуса списком; выбор открывает этаж, открытый в корпусе последним,
+ * а впервые — входной.
  *
  * Лента корпусов в шапке есть только на карте территории. Из корпуса в соседний
  * этим списком попадают без возврата на территорию, а при пяти и более корпусах
  * список читается легче ленты.
  */
-export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
+export const BuildingList: React.FC<BuildingListProps> = ({ onChoose, buildingIds }) => {
   const campusMeta = useMapStore((s) => s.campusMeta);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const activeFloor = useMapStore((s) => s.activeFloor);
   const setActiveFloor = useMapStore((s) => s.setActiveFloor);
+  const buildingFloors = useMapStore((s) => s.buildingFloors);
   const language = useLanguage();
   const messages = messagesFor(language);
   // Список бывает на экране дважды — в панели и в поиске на её месте.
   const titleId = useId();
 
-  if (!campusMeta || !buildingMetas || campusMeta.buildings.length === 0) return null;
+  const buildings = campusMeta
+    ? campusMeta.buildings.filter((building) => !buildingIds || buildingIds.includes(building.id))
+    : [];
+  if (!buildingMetas || buildings.length === 0) return null;
 
   return (
     <section aria-labelledby={titleId}>
@@ -36,7 +43,7 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
       </h3>
 
       <ul className="space-y-1">
-        {campusMeta.buildings.map((building) => {
+        {buildings.map((building) => {
           const meta = buildingMetas.get(building.id);
           const floors = floorsOfBuilding(meta).length;
           const isCurrent = activeFloor?.buildingId === building.id;
@@ -48,7 +55,7 @@ export const BuildingList: React.FC<BuildingListProps> = ({ onChoose }) => {
                 aria-current={isCurrent ? 'true' : undefined}
                 onClick={() => {
                   onChoose?.();
-                  setActiveFloor(building.id, entranceFloorOf(meta));
+                  setActiveFloor(building.id, shownFloorOf(buildingFloors, meta, building.id));
                 }}
                 className={`w-full min-h-[3.5rem] px-3 py-2 rounded-xl flex items-center gap-3 text-left transition-colors ${
                   isCurrent ? 'bg-selected' : 'hover:bg-gray-50'

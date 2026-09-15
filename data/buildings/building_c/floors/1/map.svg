@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" class="campus-plan" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <rect class="plan-floor" x="0" y="0" width="600" height="300" fill="#EDECE8"/>
+  <rect class="plan-corridor" x="0" y="135" width="600" height="30" fill="#ECEFF2"/>
+  <rect class="plan-room plan-room--gym" x="20" y="0" width="260" height="135" fill="#E6F2E6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--pool" x="320" y="0" width="260" height="135" fill="#DFEFF6" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--lockers" x="20" y="165" width="160" height="135" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--hall" x="240" y="165" width="120" height="135" fill="#F2F2EC" stroke="#3F444D" stroke-width="2"/>
+  <rect class="plan-room plan-room--athletics" x="420" y="165" width="160" height="135" fill="#FFFFFF" stroke="#3F444D" stroke-width="2"/>
+  <line class="plan-door" x1="144" y1="135" x2="156" y2="135" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="444" y1="135" x2="456" y2="135" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="94" y1="165" x2="106" y2="165" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="294" y1="165" x2="306" y2="165" stroke="#ECEFF2" stroke-width="4"/>
+  <line class="plan-door" x1="494" y1="165" x2="506" y2="165" stroke="#ECEFF2" stroke-width="4"/>
+  <rect class="plan-wall" x="2" y="2" width="596" height="296" fill="none" stroke="#3F444D" stroke-width="4"/>
+  <line class="plan-door plan-door--outer" x1="291" y1="298" x2="309" y2="298" stroke="#EDECE8" stroke-width="6"/>
+  <g class="plan-icon" transform="translate(135 18) scale(1.25)"><path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text class="plan-label" x="150" y="80" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">В-101</text>
+  <g class="plan-icon" transform="translate(435 18) scale(1.25)"><path d="M3 15c2 0 2-1.5 4.5-1.5S9.5 15 12 15s2.5-1.5 4.5-1.5S19 15 21 15M3 19c2 0 2-1.5 4.5-1.5S9.5 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19M8 12V5a2 2 0 014 0M16 12V5" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text class="plan-label" x="450" y="80" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">В-102</text>
+  <g class="plan-icon" transform="translate(85 203) scale(1.25)"><path d="M10 5.5a2 2 0 114 0c0 1.1-.9 1.7-2 2.2V9m0 0l-8.4 6.3A1.5 1.5 0 004.5 18h15a1.5 1.5 0 00.9-2.7L12 9z" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="plan-icon" transform="translate(285 203) scale(1.25)"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="plan-icon" transform="translate(485 203) scale(1.25)"><path d="M13 3.5a1.8 1.8 0 110 3.6 1.8 1.8 0 010-3.6zM7 21l3-6 3 2v4M10 15l1-5 4 3 3-1M11 10l-3 1-2 3" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text class="plan-label" x="500" y="265" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">В-103</text>
+</svg>

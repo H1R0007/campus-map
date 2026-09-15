@@ -33,13 +33,31 @@ export default {
       assert.deepEqual(failures, [], `низкий контраст:\n${failures.map((f) => JSON.stringify(f)).join('\n')}`);
     };
 
+    // Цвет травы на плане территории — пиксель у угла изображения: территория
+    // видна всегда, и по ней видно, какой лист на экране. План — изображение со
+    // вписанным стилем темы (запись 35), поэтому цвет читается с пикселя.
+    const GROUND = `(() => {
+      const image = document.querySelector('.campus-placed-plan[data-plan="campus"] img');
+      if (!image || !image.complete || image.naturalWidth === 0) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 4, 4, 1, 1, 0, 0, 1, 1);
+      const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+      return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+    })()`;
+    const LIGHT_GROUND = 'rgb(228, 238, 218)';
+    const DARK_GROUND = 'rgb(22, 30, 26)';
+
     const look = () =>
       page.eval(`(() => {
         const line = document.querySelector('.campus-route-line');
-        const image = document.querySelector('.leaflet-image-layer');
+        const image = document.querySelector('.campus-placed-plan[data-plan="campus"] img');
         return {
           panel: getComputedStyle(${PANEL}).backgroundColor,
           line: line ? getComputedStyle(line).stroke : null,
+          ground: ${GROUND},
           filter: image ? getComputedStyle(image).filter : null,
         };
       })()`);
@@ -92,10 +110,12 @@ export default {
     await step('светлая тема: текст на основных экранах контрастен', async () => {
       await useScheme('light');
       await mainScreens('light');
+      await page.waitFor(`${GROUND} === '${LIGHT_GROUND}'`);
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
-      assert.equal(light.filter, 'none', 'план в светлой теме без фильтра');
+      assert.equal(light.ground, LIGHT_GROUND, 'план в светлой теме — цвета файла');
+      assert.equal(light.filter, 'none', 'план без фильтра');
     });
 
     await step('тёмная тема: текст на основных экранах контрастен', async () => {
@@ -104,20 +124,28 @@ export default {
     });
 
     await step('тёмная тема: тёмная панель, светлая линия маршрута, план без яркого листа', async () => {
+      await page.waitFor(`${GROUND} === '${DARK_GROUND}'`);
       const dark = await look();
       assert.equal(dark.panel, 'rgb(27, 34, 46)');
       assert.equal(dark.line, 'rgb(110, 168, 255)');
-      assert.ok(dark.filter?.includes('invert'), `фильтр плана: ${dark.filter}`);
-      const meta = await page.eval(`document.querySelector('meta[name="theme-color"][media*="dark"]')?.content ?? null`);
+      assert.equal(dark.ground, DARK_GROUND, 'план в тёмной теме — тёмный лист');
+      assert.equal(
+        await page.eval(`getComputedStyle(document.querySelector('.leaflet-container')).backgroundColor`),
+        DARK_GROUND,
+        'фон холста в тёмной теме — тёмная трава территории'
+      );
+      assert.equal(dark.filter, 'none', 'тёмный лист — стилем в плане, а не инверсией');
+      const meta = await page.eval(`document.querySelector('meta[name="theme-color"]')?.content ?? null`);
       assert.equal(meta, '#0E1219');
     });
 
     await step('смена темы системы перекрашивает без перезагрузки', async () => {
       await useScheme('light');
-      await page.sleep(300);
+      await page.waitFor(`${GROUND} === '${LIGHT_GROUND}'`);
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
+      assert.equal(light.ground, LIGHT_GROUND, 'план снова светлый');
       assert.ok((await v.headerText()).includes('Шаг 3 из'), 'навигация не сбросилась');
     });
 
@@ -128,6 +156,26 @@ export default {
       await checkContrast('тёмная тема, широкий экран');
       assertNoLowContrast();
       await shot('viewer-dark-desktop');
+    });
+
+    await step('переключатель темы: тёмная при светлой системе, выбор запоминается, «Как в системе» возвращает', async () => {
+      await page.viewport(390, 844, 2);
+      await useScheme('light');
+      await v.open('/');
+      await v.click('Развернуть панель');
+      await v.click('Тёмная');
+      await page.waitFor(`document.documentElement.dataset.theme === 'dark'`);
+      assert.equal((await look()).panel, 'rgb(27, 34, 46)', 'панель тёмная при светлой системе');
+      await shot('viewer-theme-switch');
+      assert.equal(await page.eval(`document.querySelector('meta[name="theme-color"]').content`), '#0E1219');
+
+      await v.open('/');
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'dark', 'выбор сохранился после перезагрузки');
+
+      await v.click('Развернуть панель');
+      await v.click('Как в системе');
+      await page.waitFor(`document.documentElement.dataset.theme === 'light'`);
+      assert.equal((await look()).panel, 'rgb(255, 255, 255)', 'снова как в системе');
     });
   },
 };

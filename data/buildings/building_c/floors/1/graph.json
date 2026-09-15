@@ -1,82 +1,112 @@
 {
   "nodes": [
     {
-      "id": "c1_entrance",
-      "x": 396,
-      "y": 366,
+      "id": "c1_corridor_1",
+      "x": 100,
+      "y": 150,
       "neighbors": [
-        "c1_hall"
-      ],
-      "isPortal": true
-    },
-    {
-      "id": "c1_hall",
-      "x": 396,
-      "y": 272,
-      "neighbors": [
-        "c1_entrance",
-        "c1_corridor_w",
-        "c1_corridor_e"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "c1_corridor_w",
-      "x": 198,
-      "y": 175,
-      "neighbors": [
-        "c1_hall",
-        "c1_gym",
+        "c1_corridor_2",
         "c1_lockers"
       ],
       "isPortal": false
     },
     {
-      "id": "c1_corridor_e",
-      "x": 594,
-      "y": 175,
+      "id": "c1_corridor_2",
+      "x": 150,
+      "y": 150,
       "neighbors": [
-        "c1_hall",
-        "c1_pool",
+        "c1_corridor_1",
+        "c1_corridor_3",
+        "c1_gym"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_corridor_3",
+      "x": 300,
+      "y": 150,
+      "neighbors": [
+        "c1_corridor_2",
+        "c1_corridor_4",
+        "c1_hall"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_corridor_4",
+      "x": 450,
+      "y": 150,
+      "neighbors": [
+        "c1_corridor_3",
+        "c1_corridor_5",
+        "c1_pool"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_corridor_5",
+      "x": 500,
+      "y": 150,
+      "neighbors": [
+        "c1_corridor_4",
         "c1_athletics"
       ],
       "isPortal": false
     },
     {
       "id": "c1_gym",
-      "x": 198,
-      "y": 58,
+      "x": 150,
+      "y": 123,
       "neighbors": [
-        "c1_corridor_w"
+        "c1_corridor_2"
       ],
       "isPortal": false
     },
     {
       "id": "c1_pool",
-      "x": 594,
-      "y": 58,
+      "x": 450,
+      "y": 123,
       "neighbors": [
-        "c1_corridor_e"
+        "c1_corridor_4"
       ],
       "isPortal": false
     },
     {
       "id": "c1_lockers",
-      "x": 119,
-      "y": 292,
+      "x": 100,
+      "y": 177,
       "neighbors": [
-        "c1_corridor_w"
+        "c1_corridor_1"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "c1_hall",
+      "x": 300,
+      "y": 177,
+      "neighbors": [
+        "c1_corridor_3",
+        "c1_entrance"
       ],
       "isPortal": false
     },
     {
       "id": "c1_athletics",
-      "x": 673,
-      "y": 292,
+      "x": 500,
+      "y": 177,
       "neighbors": [
-        "c1_corridor_e"
+        "c1_corridor_5"
       ],
       "isPortal": false
+    },
+    {
+      "id": "c1_entrance",
+      "x": 300,
+      "y": 292,
+      "neighbors": [
+        "c1_hall"
+      ],
+      "isPortal": true
     }
   ]
 }

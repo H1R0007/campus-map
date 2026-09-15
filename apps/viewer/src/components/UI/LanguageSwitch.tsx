@@ -9,7 +9,34 @@ import { useSettingsStore } from '../../stores/settingsStore';
  * Кнопки подписаны кодом языка, а для экранного диктора — самоназванием на
  * этом же языке (`lang` у кнопки): человек, не читающий по-русски, должен
  * узнать «English», а не «Английский».
+ *
+ * Кнопки выглядят компактно, но нажимаются на 44 px: невидимое продолжение
+ * (`::after`) выходит вверх, вниз и наружу от пары, не заходя на соседнюю
+ * кнопку. Сами кнопки в 44 px раздули бы шапку.
  */
+/**
+ * Переключатель языка одной кнопкой — для шапки телефона, где пара кнопок
+ * отнимала место у карты. Подпись — код языка, на который кнопка переключает,
+ * для экранного диктора — его самоназвание.
+ */
+export const LanguageToggle: React.FC = () => {
+  const language = useSettingsStore((s) => s.language);
+  const setLanguage = useSettingsStore((s) => s.setLanguage);
+  const next = LANGUAGES[(LANGUAGES.indexOf(language) + 1) % LANGUAGES.length];
+
+  return (
+    <button
+      type="button"
+      lang={next}
+      aria-label={LANGUAGE_NAMES[next]}
+      onClick={() => setLanguage(next)}
+      className="w-11 h-11 rounded-xl bg-surface shadow-md text-xs font-semibold uppercase text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center"
+    >
+      {next}
+    </button>
+  );
+};
+
 export const LanguageSwitch: React.FC = () => {
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
@@ -28,7 +55,7 @@ export const LanguageSwitch: React.FC = () => {
             aria-label={LANGUAGE_NAMES[code]}
             aria-pressed={isActive}
             onClick={() => setLanguage(code)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase transition-colors ${
+            className={`relative px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase transition-colors after:absolute after:-inset-y-2.5 after:content-[''] first:after:-left-2.5 first:after:right-0 last:after:left-0 last:after:-right-2.5 ${
               isActive ? 'bg-surface text-gray-800 shadow-sm' : 'text-gray-600 hover:text-gray-800'
             }`}
           >

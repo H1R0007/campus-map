@@ -114,21 +114,21 @@ data/
 ├── campus/
 │   ├── meta.json       # Метаданные кампуса
 │   ├── graph.json      # Граф территории кампуса
-│   └── map.png         # Карта кампуса (изображение, добавляется вручную)
+│   └── map.png|svg     # План территории (файл, добавляется вручную)
 ├── buildings/
 │   └── {building_id}/
 │       ├── meta.json   # Метаданные корпуса и список этажей
 │       └── floors/
 │           └── {floor}/
 │               ├── graph.json  # Граф этажа
-│               └── map.png     # План этажа (изображение, добавляется вручную)
+│               └── map.png|svg # План этажа (файл, добавляется вручную)
 ├── transitions.json    # Переходы между этажами и корпусами
 └── aliases.json        # Человекочитаемые названия помещений
 \`\`\`
 
 ## Как применить
 
-Изображения планов (map.png) в архив не попадают — редактор их не меняет.
+Файлы планов (map.png или map.svg) в архив не попадают — редактор их не меняет.
 Их нужно положить в каталоги этажей вручную.
 
 Содержимое каталога \`data/\` кладётся в корень монорепо, рядом с
@@ -187,6 +187,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
         buildings: Array.from(buildingMetas.values()).map((b) => ({ id: b.id, name: b.name })),
         mapSize: resolveCampusMapSize(campusNodes, campusMeta),
         metersPerPixel: campusMeta?.metersPerPixel,
+        planFormat: campusMeta?.planFormat,
       } satisfies EveryField<CampusMeta>,
       null,
       2
@@ -224,6 +225,7 @@ export async function exportToZip(options: ExportOptions): Promise<void> {
                 mapSize: f.mapSize,
                 placement: f.placement,
                 elevationMeters: f.elevationMeters,
+                planFormat: f.planFormat,
               }) satisfies EveryField<FloorMeta>
           ),
         } satisfies EveryField<BuildingMeta>,

@@ -1,47 +1,219 @@
 {
   "nodes": [
     {
-      "id": "a1_corridor_w",
-      "x": 193,
-      "y": 239,
+      "id": "a1_corridor_1",
+      "x": 16,
+      "y": 130,
       "neighbors": [
-        "a1_corridor",
-        "a1_entrance_yard",
-        "a1_stairs",
-        "a1_room101",
-        "a1_room102",
+        "a1_corridor_2",
+        "a1_entrance_yard"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_2",
+      "x": 30,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_1",
+        "a1_corridor_3",
+        "a1_stairs"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_3",
+      "x": 100,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_2",
+        "a1_corridor_4",
         "a1_canteen"
       ],
       "isPortal": false
     },
     {
-      "id": "a1_corridor",
-      "x": 484,
-      "y": 239,
+      "id": "a1_corridor_4",
+      "x": 120,
+      "y": 130,
       "neighbors": [
-        "a1_corridor_w",
-        "a1_corridor_e",
-        "a1_hall",
-        "a1_lift",
+        "a1_corridor_3",
+        "a1_corridor_5",
+        "a1_room101"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_5",
+      "x": 230,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_4",
+        "a1_corridor_6",
+        "a1_room102"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_6",
+      "x": 250,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_5",
+        "a1_corridor_7",
+        "a1_cloakroom"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_7",
+      "x": 340,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_6",
+        "a1_corridor_8",
+        "a1_lift"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_8",
+      "x": 360,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_7",
+        "a1_corridor_9",
+        "a1_hall"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_9",
+      "x": 430,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_8",
+        "a1_corridor_10",
         "a1_room103"
       ],
       "isPortal": false
     },
     {
-      "id": "a1_corridor_e",
-      "x": 774,
-      "y": 239,
+      "id": "a1_corridor_10",
+      "x": 560,
+      "y": 130,
       "neighbors": [
-        "a1_corridor",
-        "a1_room104",
+        "a1_corridor_9",
+        "a1_corridor_11",
+        "a1_room104"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_corridor_11",
+      "x": 670,
+      "y": 130,
+      "neighbors": [
+        "a1_corridor_10",
         "a1_toilet"
       ],
       "isPortal": false
     },
     {
+      "id": "a1_stairs",
+      "x": 30,
+      "y": 58,
+      "neighbors": [
+        "a1_corridor_2"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "a1_room101",
+      "x": 120,
+      "y": 103,
+      "neighbors": [
+        "a1_corridor_4"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_room102",
+      "x": 230,
+      "y": 103,
+      "neighbors": [
+        "a1_corridor_5"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_lift",
+      "x": 340,
+      "y": 58,
+      "neighbors": [
+        "a1_corridor_7"
+      ],
+      "isPortal": true
+    },
+    {
+      "id": "a1_room103",
+      "x": 430,
+      "y": 103,
+      "neighbors": [
+        "a1_corridor_9"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_room104",
+      "x": 560,
+      "y": 103,
+      "neighbors": [
+        "a1_corridor_10"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_canteen",
+      "x": 100,
+      "y": 157,
+      "neighbors": [
+        "a1_corridor_3"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_cloakroom",
+      "x": 250,
+      "y": 157,
+      "neighbors": [
+        "a1_corridor_6"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_hall",
+      "x": 360,
+      "y": 157,
+      "neighbors": [
+        "a1_corridor_8",
+        "a1_entrance"
+      ],
+      "isPortal": false
+    },
+    {
+      "id": "a1_toilet",
+      "x": 670,
+      "y": 157,
+      "neighbors": [
+        "a1_corridor_11"
+      ],
+      "isPortal": false
+    },
+    {
       "id": "a1_entrance",
-      "x": 484,
-      "y": 448,
+      "x": 360,
+      "y": 252,
       "neighbors": [
         "a1_hall"
       ],
@@ -49,105 +221,13 @@
     },
     {
       "id": "a1_entrance_yard",
-      "x": 58,
-      "y": 95,
+      "x": 8,
+      "y": 130,
       "neighbors": [
-        "a1_corridor_w"
+        "a1_corridor_1"
       ],
       "isPortal": true,
       "comment": "Открыт до 18:00 — уточнить у коменданта"
-    },
-    {
-      "id": "a1_hall",
-      "x": 484,
-      "y": 343,
-      "neighbors": [
-        "a1_entrance",
-        "a1_corridor",
-        "a1_cloakroom"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_stairs",
-      "x": 58,
-      "y": 239,
-      "neighbors": [
-        "a1_corridor_w"
-      ],
-      "isPortal": true
-    },
-    {
-      "id": "a1_lift",
-      "x": 484,
-      "y": 143,
-      "neighbors": [
-        "a1_corridor"
-      ],
-      "isPortal": true
-    },
-    {
-      "id": "a1_room101",
-      "x": 193,
-      "y": 86,
-      "neighbors": [
-        "a1_corridor_w"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_room102",
-      "x": 338,
-      "y": 86,
-      "neighbors": [
-        "a1_corridor_w"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_room103",
-      "x": 629,
-      "y": 86,
-      "neighbors": [
-        "a1_corridor"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_room104",
-      "x": 774,
-      "y": 86,
-      "neighbors": [
-        "a1_corridor_e"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_canteen",
-      "x": 193,
-      "y": 391,
-      "neighbors": [
-        "a1_corridor_w"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_cloakroom",
-      "x": 338,
-      "y": 391,
-      "neighbors": [
-        "a1_hall"
-      ],
-      "isPortal": false
-    },
-    {
-      "id": "a1_toilet",
-      "x": 774,
-      "y": 391,
-      "neighbors": [
-        "a1_corridor_e"
-      ],
-      "isPortal": false
     }
   ]
 }

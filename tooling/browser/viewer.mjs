@@ -70,6 +70,18 @@ export function viewerHelpers(page, base) {
       await page.sleep(450);
     },
 
+    /**
+     * Открывает корпус из шапки: на широком экране — чипом ленты, на телефоне —
+     * из списка «Корпуса».
+     */
+    async openBuilding(name) {
+      const inStrip = await page.eval(
+        `[...document.querySelectorAll('.campus-map-header button')].some((b) => b.textContent.trim() === ${JSON.stringify(name)})`
+      );
+      if (!inStrip) await helpers.click('Корпуса');
+      await helpers.click(name);
+    },
+
     /** Набирает запрос в открытом поиске и ждёт подсказок. */
     async typeSearch(query) {
       await page.waitFor(`!!${SEARCH} && document.activeElement?.getAttribute('role') === 'combobox'`);
@@ -106,9 +118,15 @@ export function viewerHelpers(page, base) {
         return [rect.x + rect.width / 2, rect.y + rect.height / 2];
       })()`),
 
-    /** Во сколько ширин окна растянут план — признак приближения до предела. */
+    /**
+     * Во сколько ширин окна растянут план — признак приближения до предела. На
+     * холсте кампуса — самый широкий из видимых планов этажей.
+     */
     planWidthInScreens: () =>
-      page.eval(`(() => { const image = document.querySelector('.leaflet-image-layer'); return image ? image.getBoundingClientRect().width / innerWidth : null; })()`),
+      page.eval(`(() => {
+        const plans = [...document.querySelectorAll('.campus-placed-plan[data-plan="floor"][data-visible="true"], .leaflet-image-layer')];
+        return plans.length > 0 ? Math.max(...plans.map((plan) => plan.getBoundingClientRect().width)) / innerWidth : null;
+      })()`),
 
     /** Сколько линий маршрута приглушено и сколько нет. */
     routeLines: () =>

@@ -51,12 +51,12 @@ const CHECKS = [
   // --- данные датасета: контент должен быть данными, а не оболочкой ---
   { url: '/data/campus/meta.json', code: 200, contentType: 'json', title: 'мета кампуса' },
   { url: '/data/campus/graph.json', code: 200, contentType: 'json', title: 'граф кампуса' },
-  { url: '/data/campus/map.png', code: 200, contentType: 'image/png', title: 'карта кампуса' },
+  { url: '/data/campus/map.svg', code: 200, contentType: 'image/svg+xml', title: 'карта кампуса' },
   { url: '/data/transitions.json', code: 200, contentType: 'json', title: 'переходы между этажами' },
   { url: '/data/aliases.json', code: 200, contentType: 'json', title: 'алиасы аудиторий' },
   { url: '/data/buildings/building_a/meta.json', code: 200, contentType: 'json', title: 'мета корпуса А' },
   { url: '/data/buildings/building_a/floors/1/graph.json', code: 200, contentType: 'json', title: 'граф этажа А-1' },
-  { url: '/data/buildings/building_a/floors/1/map.png', code: 200, contentType: 'image/png', title: 'карта этажа А-1' },
+  { url: '/data/buildings/building_a/floors/1/map.svg', code: 200, contentType: 'image/svg+xml', title: 'карта этажа А-1' },
   { url: '/data/buildings/building_b/floors/2/graph.json', code: 200, contentType: 'json', title: 'граф этажа Б-2' },
 
   // --- отсутствующие файлы: честный 404, НЕ index.html ---
