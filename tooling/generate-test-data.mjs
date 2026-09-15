@@ -203,9 +203,10 @@ function generate(outDir) {
     c: doors.c1_entrance,
   });
 
-  // Крытый переход — полоса между торцевыми дверями корпусов, стоящих в ряд.
+  // Крытый переход — полоса между торцевыми дверями корпусов, стоящих в ряд. У
+  // корпусов вплотную переход — дверь в общей стене, и рисовать нечего.
   const bridges = [];
-  if (bridgeDoors.length === 2) {
+  if (bridgeDoors.length === 2 && Math.hypot(bridgeDoors[0].x - bridgeDoors[1].x, bridgeDoors[0].y - bridgeDoors[1].y) >= 1) {
     const [from, to] = bridgeDoors;
     bridges.push({
       corners: [

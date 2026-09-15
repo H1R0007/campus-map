@@ -99,6 +99,29 @@ export default {
       assert.ok(new Set(wheel).size >= 3 && wheel[wheel.length - 1] < before, `колесо отдаляет плавно: ${before} → ${wheel}`);
     });
 
+    await step('корпус, въехавший в экран под пальцем, виден целиком, пока палец держит карту', async () => {
+      await v.open('/');
+      await v.click('Корпус Б');
+      await page.sleep(900);
+      // Видимая на экране часть крыши корпуса В: за краем экрана Leaflet всё равно
+      // обрезает контур по области отрисовки, и полная ширина там ничего не значит.
+      const roof = `(() => {
+        const rect = document.getElementsByClassName('campus-roof campus-building-2')[0].getBoundingClientRect();
+        return Math.round(Math.max(0, Math.min(rect.right, innerWidth) - Math.max(rect.left, 0)));
+      })()`;
+      const mouse = (type, x, buttons) => page.send('Input.dispatchMouseEvent', { type, x, y: 380, button: 'left', buttons, clickCount: 1 });
+
+      await mouse('mousePressed', 330, 1);
+      for (let index = 1; index <= 20; index += 1) await mouse('mouseMoved', 330 - index * 15, 1);
+      await page.sleep(300);
+      const held = await page.eval(roof);
+      // Отпускание после паузы: карта не катится по инерции, и вид тот же.
+      await mouse('mouseReleased', 30, 0);
+      await page.sleep(700);
+      const released = await page.eval(roof);
+      assert.ok(held > 0 && Math.abs(held - released) < 2, `крыша корпуса В под пальцем: ${held} px, после отпускания: ${released} px`);
+    });
+
     await step('маршрут в корпусе: линия по открытому этажу, этаж цели просвечивает', async () => {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await waitShown('building_a#1');

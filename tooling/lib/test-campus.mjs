@@ -71,8 +71,9 @@ export const BUILDINGS = [
     width: 56,
     depth: 24,
     corridor: { y: 10.5, height: 3 },
-    // Коридор Б на одной линии с коридором А: переход — прямой крытый мост.
-    placement: { originMeters: { x: 120, y: 41 }, rotationDeg: 0 },
+    // Пристроен к торцу А, как большинство корпусов настоящего кампуса: общая
+    // стена, коридоры на одной линии, переход — дверь в торце.
+    placement: { originMeters: { x: 102, y: 41 }, rotationDeg: 0 },
     floors: {
       1: {
         rooms: [

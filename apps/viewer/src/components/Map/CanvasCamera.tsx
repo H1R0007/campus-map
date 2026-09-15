@@ -144,8 +144,9 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
     };
   }, [map, layout, footprintBounds]);
 
-  // По ходу масштаба, и во время перелёта тоже: этаж корпуса, к которому летит
-  // камера, должен начать грузиться до того, как крыша начнёт таять.
+  // По ходу масштаба и перетаскивания, во время перелёта тоже: этаж корпуса,
+  // к которому летит камера или который въезжает в экран под пальцем, должен
+  // начать грузиться до того, как крыша начнёт таять.
   useEffect(() => {
     const update = () => {
       const size = map.getSize();
@@ -168,10 +169,23 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
       state.setCanvasDetailed(pixelsPerMeter >= DETAIL_PIXELS_PER_METER);
     };
 
+    // Перетаскивание присылает движения чаще кадров — решение не чаще кадра.
+    let frame = 0;
+    const updateOnMove = () => {
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    };
+
     update();
     map.on('zoom moveend resize', update);
+    map.on('move', updateOnMove);
     return () => {
       map.off('zoom moveend resize', update);
+      map.off('move', updateOnMove);
+      cancelAnimationFrame(frame);
     };
   }, [map, layout, footprintBounds]);
 

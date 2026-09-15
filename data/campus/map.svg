@@ -21,18 +21,17 @@
   <line class="plan-walkway" x1="584" y1="360" x2="296" y2="360" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
   <line class="plan-walkway" x1="36" y1="292" x2="41" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
   <line class="plan-walkway" x1="132" y1="156" x2="41" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
-  <line class="plan-walkway" x1="132" y1="156" x2="296" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
+  <line class="plan-walkway" x1="132" y1="156" x2="260" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
   <line class="plan-walkway" x1="132" y1="135" x2="132" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
   <line class="plan-walkway" x1="57" y1="106" x2="41" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
-  <line class="plan-walkway" x1="296" y1="156" x2="296" y2="280" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
-  <line class="plan-walkway" x1="296" y1="133" x2="296" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
+  <line class="plan-walkway" x1="260" y1="156" x2="296" y2="280" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
+  <line class="plan-walkway" x1="260" y1="133" x2="260" y2="156" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
   <line class="plan-walkway" x1="448" y1="203" x2="296" y2="280" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
   <line class="plan-walkway" x1="455" y1="184" x2="448" y2="203" stroke="#F5F1E8" stroke-width="6" stroke-linecap="round"/>
-  <polygon class="plan-bridge" points="204,103 240,103 240,109 204,109" fill="#CBC6BD" stroke="#8E8A82" stroke-width="1"/>
   <polygon class="plan-roof" points="60,80 204,80 204,132 60,132" fill="#D5D1C9" stroke="#8E8A82" stroke-width="1.5"/>
   <text class="plan-roof-label" x="132" y="106" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="600" fill="#5E5A53">А</text>
-  <polygon class="plan-roof" points="240,82 352,82 352,130 240,130" fill="#D5D1C9" stroke="#8E8A82" stroke-width="1.5"/>
-  <text class="plan-roof-label" x="296" y="106" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="600" fill="#5E5A53">Б</text>
+  <polygon class="plan-roof" points="204,82 316,82 316,130 204,130" fill="#D5D1C9" stroke="#8E8A82" stroke-width="1.5"/>
+  <text class="plan-roof-label" x="260" y="106" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="600" fill="#5E5A53">Б</text>
   <polygon class="plan-roof" points="420,104 532.8,145 512.2,201.4 399.5,160.4" fill="#D5D1C9" stroke="#8E8A82" stroke-width="1.5"/>
   <text class="plan-roof-label" x="466.1" y="152.7" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="600" fill="#5E5A53">В</text>
   <rect class="plan-bus-stop" x="576" y="357" width="16" height="6" rx="1" fill="#8E9AAB"/>

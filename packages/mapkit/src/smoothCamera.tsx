@@ -188,6 +188,25 @@ function redrawRenderers(map: L.Map): void {
   }
 }
 
+/**
+ * Рендереры, чья область отрисовки уже не покрывает экран, обновляются по ходу
+ * перетаскивания. Штатно Leaflet обновляет их только по окончании движения, и
+ * всё за краем прежней области — крыши, линии, точки — оставалось обрезанным,
+ * пока палец на экране. Проверка дешёвая, а обновление — только когда экран
+ * действительно вышел за край: на телефоне это раз в полэкрана движения.
+ */
+function refreshUncoveredRenderers(map: L.Map): void {
+  const topLeft = map.containerPointToLayerPoint([0, 0]);
+  const view = L.bounds(topLeft, topLeft.add(map.getSize()));
+  for (const layer of Object.values(internalsOf(map)._layers)) {
+    if (!(layer instanceof L.Renderer)) continue;
+    const renderer = layer as unknown as { _bounds?: L.Bounds; _update(): void; _redraw?: () => void };
+    if (renderer._bounds?.contains(view)) continue;
+    renderer._update();
+    renderer._redraw?.();
+  }
+}
+
 function installSmoothCamera(map: L.Map, doubleClickZoom: boolean): () => void {
   const wheel = new SmoothWheelZoom(map).enable();
   const doubleClick = doubleClickZoom ? new SmoothDoubleClickZoom(map).enable() : null;
@@ -200,6 +219,16 @@ function installSmoothCamera(map: L.Map, doubleClickZoom: boolean): () => void {
   map.on('movestart', markMoving);
   map.on('moveend', markStill);
   map.on('zoom', redraw);
+  // Не чаще кадра: мышь и палец присылают движения чаще, чем экран обновляется.
+  let moveFrame = 0;
+  const refreshOnMove = () => {
+    if (moveFrame !== 0) return;
+    moveFrame = requestAnimationFrame(() => {
+      moveFrame = 0;
+      refreshUncoveredRenderers(map);
+    });
+  };
+  map.on('move', refreshOnMove);
   // Палец или перетаскивание во время плавного масштаба забирают камеру себе.
   map.on('dragstart', yieldToGesture);
   container.addEventListener('touchstart', yieldToGesture, { passive: true });
@@ -223,6 +252,8 @@ function installSmoothCamera(map: L.Map, doubleClickZoom: boolean): () => void {
     map.off('moveend', markStill);
     moving.delete(map);
     map.off('zoom', redraw);
+    map.off('move', refreshOnMove);
+    cancelAnimationFrame(moveFrame);
     map.off('dragstart', yieldToGesture);
     container.removeEventListener('touchstart', yieldToGesture);
     stopZoomMotion(map);

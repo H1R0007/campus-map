@@ -83,7 +83,7 @@
     },
     {
       "id": "campus_path_b",
-      "x": 296,
+      "x": 260,
       "y": 156,
       "neighbors": [
         "campus_path_a",
@@ -94,7 +94,7 @@
     },
     {
       "id": "campus_entrance_b",
-      "x": 296,
+      "x": 260,
       "y": 133,
       "neighbors": [
         "campus_path_b"

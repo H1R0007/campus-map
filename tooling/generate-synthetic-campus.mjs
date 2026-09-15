@@ -30,6 +30,8 @@
  *   --basements <n>    подземных этажей, по умолчанию 1
  *   --rooms <n>        аудиторий на этаже, по умолчанию 24
  *   --metric           привязать планы к метрике кампуса
+ *   --gap <м>          расстояние между корпусами, по умолчанию 0 — вплотную,
+ *                      как у большинства корпусов настоящего кампуса
  *   --force            перезаписать непустой каталог
  */
 
@@ -90,17 +92,16 @@ const HALL_WIDTH = 10;
 const BUILDING_DEPTH = 26;
 const CORRIDOR = { y: 11.5, height: 3 };
 
-/** Территория, метры: поля, длина перехода между корпусами, ряд корпусов и аллея. */
+/** Территория, метры: поля, ряд корпусов и аллея. */
 const CAMPUS_MARGIN = 30;
 const CAMPUS_DEPTH = 170;
-const BUILDING_GAP = 18;
 const BUILDINGS_Y = 40;
 const ALLEY_Y = BUILDINGS_Y + BUILDING_DEPTH + 12;
 /** Точка входа территории — снаружи двери корпуса. */
 const ENTRANCE_OUTSIDE = 1.5;
 
 function parseArgs(argv) {
-  const options = { out: null, buildings: 5, floors: 11, basements: 1, rooms: 24, metric: false, force: false };
+  const options = { out: null, buildings: 5, floors: 11, basements: 1, rooms: 24, gap: 0, metric: false, force: false };
 
   const integer = (flag, value, min, max) => {
     const n = Number(value);
@@ -117,6 +118,7 @@ function parseArgs(argv) {
     else if (flag === '--floors') options.floors = integer(flag, argv[++i], 1, 30);
     else if (flag === '--basements') options.basements = integer(flag, argv[++i], 0, 5);
     else if (flag === '--rooms') options.rooms = integer(flag, argv[++i], 2, 200);
+    else if (flag === '--gap') options.gap = integer(flag, argv[++i], 0, 200);
     else if (flag === '--metric') options.metric = true;
     else if (flag === '--force') options.force = true;
     else throw new Error(`Неизвестный аргумент: ${flag}`);
@@ -286,15 +288,16 @@ function roomAlias(id, letter, floor, index, code, latinCode) {
 }
 
 /**
- * Территория: корпуса в ряд вдоль аллеи, площадь и ворота к югу. Между
- * корпусами — длина перехода, поэтому мост второго этажа прямой.
+ * Территория: корпуса в ряд вдоль аллеи, площадь и ворота к югу. Корпуса стоят
+ * на расстоянии `gap` — по умолчанию вплотную, и переход второго этажа тогда
+ * дверь в общей стене; с зазором — прямой мост.
  */
-function campusLayout(letters, width) {
-  const campusWidth = 2 * CAMPUS_MARGIN + letters.length * width + (letters.length - 1) * BUILDING_GAP;
+function campusLayout(letters, width, gap) {
+  const campusWidth = 2 * CAMPUS_MARGIN + letters.length * width + (letters.length - 1) * gap;
   return {
     width: campusWidth,
     depth: CAMPUS_DEPTH,
-    origins: letters.map((_, index) => ({ x: CAMPUS_MARGIN + index * (width + BUILDING_GAP), y: BUILDINGS_Y })),
+    origins: letters.map((_, index) => ({ x: CAMPUS_MARGIN + index * (width + gap), y: BUILDINGS_Y })),
   };
 }
 
@@ -352,7 +355,7 @@ function generate(options, outDir) {
   const letters = LETTERS.slice(0, options.buildings);
   const floors = floorNumbers(options.floors, options.basements);
   const width = buildingWidth(options.rooms);
-  const layout = campusLayout(letters, width);
+  const layout = campusLayout(letters, width, options.gap);
 
   const aliases = [];
   const transitions = [];
@@ -427,10 +430,11 @@ function generate(options, outDir) {
       ].map(([x, y]) => toWorld(placement, x, y)),
       label: letter.cyrillic,
     });
-    if (buildingIndex < letters.length - 1 && options.floors >= 2) {
+    // У корпусов вплотную переход — дверь в общей стене, рисовать мост нечего.
+    if (buildingIndex < letters.length - 1 && options.floors >= 2 && options.gap >= 1) {
       const y = placement.originMeters.y + CORRIDOR.y + CORRIDOR.height / 2;
       const from = placement.originMeters.x + width;
-      const to = from + BUILDING_GAP;
+      const to = from + options.gap;
       bridges.push({
         corners: [
           { x: from, y: y - CORRIDOR.height / 2 },
