@@ -21,7 +21,14 @@ export const WorldCanvas: React.FC<{ children: ReactNode }> = ({ children }) => 
   if (layout === null) return null;
 
   return (
-    <WorldMap extent={layout.extent} fitInsets={insets} maxZoom={CANVAS_MAX_ZOOM} constrainToBounds rotatable>
+    <WorldMap
+      extent={layout.extent}
+      fitInsets={insets}
+      maxZoom={CANVAS_MAX_ZOOM}
+      constrainToBounds
+      rotatable
+      className="campus-canvas-map"
+    >
       <CanvasPlans layout={layout} />
       {/* Камера — раньше слоя маршрута: его подгонка вида в том же обновлении главнее. */}
       <CanvasCamera layout={layout} />

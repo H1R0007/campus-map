@@ -33,6 +33,11 @@ export default {
       assert.equal(overview.roofs.length, 3);
       assert.ok(overview.roofs.every((opacity) => opacity > 0.9), `крыши закрыты: ${overview.roofs}`);
       assert.equal(overview.portals, 0, 'на общем виде значков входа нет');
+      assert.equal(
+        await page.eval(`getComputedStyle(document.querySelector('.leaflet-container')).backgroundColor`),
+        'rgb(228, 238, 218)',
+        'вокруг кампуса — трава территории, а не серое поле'
+      );
       assert.deepEqual(await shownFloors(), []);
       assert.ok((await v.headerText()).includes('Корпуса'), 'в шапке телефона — кнопка «Корпуса»');
       await shot('viewer-canvas-overview');

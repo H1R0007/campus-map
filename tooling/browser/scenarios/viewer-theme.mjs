@@ -129,6 +129,11 @@ export default {
       assert.equal(dark.panel, 'rgb(27, 34, 46)');
       assert.equal(dark.line, 'rgb(110, 168, 255)');
       assert.equal(dark.ground, DARK_GROUND, 'план в тёмной теме — тёмный лист');
+      assert.equal(
+        await page.eval(`getComputedStyle(document.querySelector('.leaflet-container')).backgroundColor`),
+        DARK_GROUND,
+        'фон холста в тёмной теме — тёмная трава территории'
+      );
       assert.equal(dark.filter, 'none', 'тёмный лист — стилем в плане, а не инверсией');
       const meta = await page.eval(`document.querySelector('meta[name="theme-color"]')?.content ?? null`);
       assert.equal(meta, '#0E1219');
