@@ -204,6 +204,12 @@ button {
     font-size: 0.8125rem;
     font-weight: 600;
     color: rgb(var(--plan-roof-label));
+    /* Ореол цвета крыши: пунктир маршрута по другому этажу проходит под
+       названием и не режет буквы. */
+    text-shadow:
+        0 0 2px rgb(var(--plan-roof)),
+        0 0 4px rgb(var(--plan-roof)),
+        0 0 6px rgb(var(--plan-roof));
     pointer-events: none;
 }
 
