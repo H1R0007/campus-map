@@ -78,7 +78,7 @@
     {
       "id": "b1_library",
       "x": 110,
-      "y": 53,
+      "y": 93,
       "neighbors": [
         "b1_corridor_2"
       ],
@@ -87,7 +87,7 @@
     {
       "id": "b1_room101",
       "x": 320,
-      "y": 53,
+      "y": 93,
       "neighbors": [
         "b1_corridor_4"
       ],
@@ -96,7 +96,7 @@
     {
       "id": "b1_room102",
       "x": 430,
-      "y": 53,
+      "y": 93,
       "neighbors": [
         "b1_corridor_5"
       ],
@@ -114,7 +114,7 @@
     {
       "id": "b1_canteen",
       "x": 70,
-      "y": 188,
+      "y": 147,
       "neighbors": [
         "b1_corridor_1"
       ],
@@ -123,7 +123,7 @@
     {
       "id": "b1_hall",
       "x": 280,
-      "y": 188,
+      "y": 147,
       "neighbors": [
         "b1_corridor_3",
         "b1_entrance"
@@ -133,7 +133,7 @@
     {
       "id": "b1_toilet",
       "x": 480,
-      "y": 188,
+      "y": 147,
       "neighbors": [
         "b1_corridor_6"
       ],

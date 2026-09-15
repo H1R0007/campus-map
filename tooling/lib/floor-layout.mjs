@@ -18,6 +18,9 @@ const WALL_INSET = 0.8;
 /** Двери ближе этого расстояния — одна точка коридора, метры. */
 const MERGE_DISTANCE = 0.6;
 
+/** Точка помещения — на столько метров внутрь от его двери. */
+const ROOM_NODE_FROM_DOOR = 1.2;
+
 const PORTAL_KINDS = new Set(['stairs', 'lift']);
 
 export const toPixels = (meters) => Math.round(meters / PLAN_METERS_PER_PIXEL);
@@ -87,8 +90,13 @@ export function layoutFloor(spec) {
   });
   for (let i = 1; i < stops.length; i += 1) link(stops[i - 1].id, stops[i].id);
 
+  // Точка помещения — у его двери: последний отрезок маршрута идёт от двери к
+  // точке и через середину помещения перечёркивал номер аудитории. Лестница и
+  // лифт — в своей середине: там их значок на плане.
   for (const room of namedRooms) {
-    add(room.id, room.cx, room.cy, PORTAL_KINDS.has(room.kind), room.comment);
+    const portal = PORTAL_KINDS.has(room.kind);
+    const doorWall = room.side === 'n' ? corridor.y - ROOM_NODE_FROM_DOOR : corridor.y + corridor.height + ROOM_NODE_FROM_DOOR;
+    add(room.id, room.cx, portal ? room.cy : doorWall, portal, room.comment);
     link(room.id, roomStops.get(room.id).id);
   }
 

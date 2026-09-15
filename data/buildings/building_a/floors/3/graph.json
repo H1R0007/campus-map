@@ -87,7 +87,7 @@
     {
       "id": "a3_room301",
       "x": 120,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a3_corridor_2"
       ],
@@ -96,7 +96,7 @@
     {
       "id": "a3_room302",
       "x": 240,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a3_corridor_4"
       ],
@@ -105,7 +105,7 @@
     {
       "id": "a3_conference",
       "x": 470,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a3_corridor_6"
       ],
@@ -114,7 +114,7 @@
     {
       "id": "a3_room304",
       "x": 130,
-      "y": 203,
+      "y": 157,
       "neighbors": [
         "a3_corridor_3"
       ],
@@ -123,7 +123,7 @@
     {
       "id": "a3_room305",
       "x": 330,
-      "y": 203,
+      "y": 157,
       "neighbors": [
         "a3_corridor_5"
       ],
@@ -132,7 +132,7 @@
     {
       "id": "a3_rector",
       "x": 650,
-      "y": 203,
+      "y": 157,
       "neighbors": [
         "a3_corridor_7"
       ],

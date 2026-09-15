@@ -124,12 +124,14 @@ export function floorPlanSvg(geometry, labels) {
     );
   }
 
-  // Центр помещения на карте занимает точка места — значок встаёт над ним, номер
-  // под ним, иначе точка закрыла бы подпись.
+  // Точка помещения стоит у двери (`floor-layout.mjs`): значок и номер — в
+  // середине помещения со сдвигом на метр от двери, и ни точка, ни последний
+  // отрезок маршрута от двери их не закрывают.
   for (const room of rooms) {
     const code = room.id ? labels.get(room.id)?.code : undefined;
     const icon = ICONS[room.kind];
-    const [cx, cy] = [toPixels(room.cx), toPixels(room.cy)];
+    const awayFromDoor = toPixels(room.side === 'n' ? -1 : 1);
+    const [cx, cy] = [toPixels(room.cx), toPixels(room.cy) + awayFromDoor];
     if (icon) {
       const size = 30;
       const top = cy - size - 10;

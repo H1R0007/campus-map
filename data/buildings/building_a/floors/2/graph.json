@@ -120,7 +120,7 @@
     {
       "id": "a2_room201",
       "x": 120,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a2_corridor_2"
       ],
@@ -129,7 +129,7 @@
     {
       "id": "a2_room202",
       "x": 230,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a2_corridor_4"
       ],
@@ -147,7 +147,7 @@
     {
       "id": "a2_dean",
       "x": 430,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a2_corridor_7"
       ],
@@ -156,7 +156,7 @@
     {
       "id": "a2_room204",
       "x": 560,
-      "y": 58,
+      "y": 103,
       "neighbors": [
         "a2_corridor_8"
       ],
@@ -165,7 +165,7 @@
     {
       "id": "a2_room205",
       "x": 130,
-      "y": 203,
+      "y": 157,
       "neighbors": [
         "a2_corridor_3"
       ],
@@ -174,7 +174,7 @@
     {
       "id": "a2_room206",
       "x": 330,
-      "y": 203,
+      "y": 157,
       "neighbors": [
         "a2_corridor_5"
       ],
@@ -183,7 +183,7 @@
     {
       "id": "a2_toilet",
       "x": 670,
-      "y": 203,
+      "y": 157,
       "neighbors": [
         "a2_corridor_9"
       ],

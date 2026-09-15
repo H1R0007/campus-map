@@ -48,12 +48,12 @@
   <rect class="plan-wall" x="2" y="2" width="716" height="256" fill="none" stroke="#3F444D" stroke-width="4"/>
   <line class="plan-door plan-door--outer" x1="351" y1="258" x2="369" y2="258" stroke="#EDECE8" stroke-width="6"/>
   <line class="plan-door plan-door--outer" x1="2" y1="121" x2="2" y2="139" stroke="#EDECE8" stroke-width="6"/>
-  <text class="plan-label" x="120" y="80" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-101</text>
-  <text class="plan-label" x="230" y="80" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-102</text>
-  <text class="plan-label" x="430" y="80" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-103</text>
-  <text class="plan-label" x="560" y="80" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-104</text>
-  <g class="plan-icon" transform="translate(85 163) scale(1.25)"><path d="M6 3v5a3 3 0 003 3 3 3 0 003-3V3M9 3v18M18 21V3c-2.2 1.2-3.5 3.8-3.5 7v4H18" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g class="plan-icon" transform="translate(235 163) scale(1.25)"><path d="M10 5.5a2 2 0 114 0c0 1.1-.9 1.7-2 2.2V9m0 0l-8.4 6.3A1.5 1.5 0 004.5 18h15a1.5 1.5 0 00.9-2.7L12 9z" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g class="plan-icon" transform="translate(345 163) scale(1.25)"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g class="plan-icon" transform="translate(655 163) scale(1.25)"><path d="M7 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM17 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM12 3v18M5.5 21v-6h-1v-5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 019.5 10v5h-1v6M15.5 21v-4.5H13l2.2-6.8a1 1 0 01.95-.7h1.7a1 1 0 01.95.7l2.2 6.8h-2.5V21" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text class="plan-label" x="120" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-101</text>
+  <text class="plan-label" x="230" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-102</text>
+  <text class="plan-label" x="430" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-103</text>
+  <text class="plan-label" x="560" y="70" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#4B5563">А-104</text>
+  <g class="plan-icon" transform="translate(85 173) scale(1.25)"><path d="M6 3v5a3 3 0 003 3 3 3 0 003-3V3M9 3v18M18 21V3c-2.2 1.2-3.5 3.8-3.5 7v4H18" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="plan-icon" transform="translate(235 173) scale(1.25)"><path d="M10 5.5a2 2 0 114 0c0 1.1-.9 1.7-2 2.2V9m0 0l-8.4 6.3A1.5 1.5 0 004.5 18h15a1.5 1.5 0 00.9-2.7L12 9z" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="plan-icon" transform="translate(345 173) scale(1.25)"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="plan-icon" transform="translate(655 173) scale(1.25)"><path d="M7 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM17 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM12 3v18M5.5 21v-6h-1v-5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 019.5 10v5h-1v6M15.5 21v-4.5H13l2.2-6.8a1 1 0 01.95-.7h1.7a1 1 0 01.95.7l2.2 6.8h-2.5V21" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
 </svg>
