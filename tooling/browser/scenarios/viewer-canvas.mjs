@@ -61,6 +61,30 @@ export default {
       assert.equal(await page.eval(`!!document.querySelector('.campus-floor-list')`), false, 'колонки этажей нет');
     });
 
+    await step('камера движется кадрами: перелёт к корпусу и колесо — без скачков', async () => {
+      await v.open('/');
+      const planWidth = `Math.round(document.querySelector('.campus-placed-plan[data-plan="campus"]').getBoundingClientRect().width)`;
+      const sample = async (count) => {
+        const widths = [];
+        for (let index = 0; index < count; index += 1) {
+          widths.push(await page.eval(planWidth));
+          await page.sleep(50);
+        }
+        return widths;
+      };
+
+      // Нажатие без паузы помощника: иначе перелёт закончился бы до замеров.
+      await page.eval(`[...document.querySelectorAll('.campus-map-header button')].find((button) => button.textContent.trim() === 'Корпус В').click()`);
+      const flight = await sample(10);
+      assert.ok(new Set(flight).size >= 4, `перелёт кадрами: ${flight}`);
+
+      await page.sleep(700);
+      const before = await page.eval(planWidth);
+      await page.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y: 400, deltaX: 0, deltaY: 260 });
+      const wheel = await sample(8);
+      assert.ok(new Set(wheel).size >= 3 && wheel[wheel.length - 1] < before, `колесо отдаляет плавно: ${before} → ${wheel}`);
+    });
+
     await step('маршрут в корпусе: линия по открытому этажу, этаж цели просвечивает', async () => {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await waitShown('building_a#1');

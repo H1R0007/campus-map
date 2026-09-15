@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { MapContainer, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { SmoothCamera } from './smoothCamera.js';
 import type { ImageStatus } from './useImageSize.js';
 
 /**
@@ -71,12 +72,9 @@ export function fitPaddingOf(
 const PAN_MARGIN = 0.2;
 
 /**
- * Шаг масштаба при подгонке и жестах.
- *
- * Целые уровни — значение Leaflet по умолчанию — вписывали план до двух раз
- * мельче доступного места; шаг в четверть уровня на мелких масштабах всё ещё
- * отнимал десятую часть ширины телефона. Кнопки масштаба по-прежнему шагают на
- * целый уровень.
+ * Шаг, до которого округляется нижний предел масштаба. Сам масштаб карты — без
+ * ступенек (`zoomSnap: 0`): целые уровни Leaflet по умолчанию вписывали план до
+ * двух раз мельче доступного места, а ступеньки делали жесты рывками.
  */
 const ZOOM_SNAP = 0.1;
 
@@ -263,9 +261,9 @@ export function PlanMapContainer({
   children,
 }: PlanMapContainerProps) {
   // Кто попросил систему не анимировать интерфейс, получает карту без
-  // анимаций масштаба и затухания: плавный пролёт к маршруту у части людей
-  // вызывает головокружение. Опции Leaflet применяются при создании карты,
-  // поэтому настройка читается один раз.
+  // затухания; плавная камера проверяет настройку сама — пролёт к маршруту у
+  // части людей вызывает головокружение. Опции Leaflet применяются при создании
+  // карты, поэтому настройка читается один раз.
   const animate = useMemo(
     () => !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches,
     []
@@ -277,18 +275,22 @@ export function PlanMapContainer({
       center={center}
       zoom={0}
       maxZoom={maxZoom}
-      zoomSnap={ZOOM_SNAP}
-      zoomAnimation={animate}
+      // Масштаб без ступенек и без CSS-анимации Leaflet: камера движется
+      // покадрово (`SmoothCamera`, запись 33).
+      zoomSnap={0}
+      zoomAnimation={false}
+      markerZoomAnimation={false}
+      scrollWheelZoom={false}
+      doubleClickZoom={false}
       fadeAnimation={animate}
-      markerZoomAnimation={animate}
       crs={PLAN_CRS}
       zoomControl={zoomControl}
       attributionControl={false}
-      doubleClickZoom={doubleClickZoom}
       maxBoundsViscosity={constrainToBounds ? 0.8 : 0}
       className={className}
       style={style}
     >
+      <SmoothCamera doubleClickZoom={doubleClickZoom} />
       {children}
     </MapContainer>
   );

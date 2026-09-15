@@ -16,6 +16,8 @@
 export { DEFAULT_INSETS, fitPaddingOf, useMapFrame } from './mapFrame.js';
 export type { MapFrame, MapInsets } from './mapFrame.js';
 
+export { FLY_DURATION_S, flyToBounds, stopZoomMotion, targetZoomOf, zoomSmoothly } from './smoothCamera.js';
+
 export { PixelMap } from './PixelMap.js';
 export type { PixelMapProps } from './PixelMap.js';
 

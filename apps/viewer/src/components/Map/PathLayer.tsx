@@ -9,7 +9,7 @@ import { useRouteStore } from '../../stores/routeStore';
 import { useMapStore } from '../../stores/mapStore';
 import { focusBounds, routePoints, routeRuns, stepFocusPoints } from '../../utils/routeGeometry';
 import type { RouteRuns } from '../../utils/routeGeometry';
-import { fitSoon } from './mapCamera';
+import { fitSoon, isCameraBusy } from './mapCamera';
 import type { LatLngTuple } from '../../utils/routeGeometry';
 import { useMapInsets } from './mapChrome';
 
@@ -158,8 +158,18 @@ export const PathLayer: React.FC = () => {
   // по шагам, и промежуточный шаг уже прятал маршрут.
   useEffect(() => {
     const points = latestFocus.current;
+    if (points.length === 0) return;
+
+    // Место под карту поменялось во время перелёта к маршруту — перелёт
+    // перестраивается под новые отступы: вида после подгонки ещё нет, и
+    // сравнивать не с чем.
+    if (isCameraBusy(map)) {
+      fitFocus(points, insets);
+      return;
+    }
+
     const view = autoView.current;
-    if (points.length === 0 || view === null) return;
+    if (view === null) return;
 
     const size = map.getSize();
     const drift = map.latLngToContainerPoint(view.center).distanceTo(size.divideBy(2));

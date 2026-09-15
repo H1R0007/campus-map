@@ -1,4 +1,5 @@
 import type L from 'leaflet';
+import { flyToBounds } from '@campus-map/mapkit';
 
 /** Подгонка вида, отложенная до кадра. */
 interface PendingFit {
@@ -7,59 +8,102 @@ interface PendingFit {
   onMoveEnd?: () => void;
 }
 
-const pending = new WeakMap<L.Map, PendingFit>();
-
-/** Приватные флаги Leaflet: идёт ли анимация масштаба или прокрутки. */
 interface MapInternals {
-  _animatingZoom?: boolean;
-  _panAnim?: { _inProgress?: boolean };
+  _getBoundsCenterZoom(bounds: L.LatLngBounds, options: L.FitBoundsOptions): { center: L.LatLng; zoom: number };
 }
 
-function isAnimating(map: L.Map): boolean {
-  const internals = map as unknown as MapInternals;
-  return Boolean(internals._animatingZoom || internals._panAnim?._inProgress);
+const pending = new WeakMap<L.Map, PendingFit>();
+
+/** Номер последнего заказанного перелёта у каждой занятой камеры. */
+const busy = new WeakMap<L.Map, number>();
+let lastFlight = 0;
+
+/** Отписки текущего перелёта: новый перелёт снимает их у прежнего. */
+const cleanups = new WeakMap<L.Map, () => void>();
+
+/** Событие карты: заказанный перелёт закончился — или его прервал человек. */
+export const CAMERA_SETTLED = 'camerasettled';
+
+/**
+ * Занята ли камера перелётом. Пока занята, промежуточные `moveend` о виде ничего
+ * не говорят: вид ещё не тот, куда летит камера.
+ */
+export function isCameraBusy(map: L.Map): boolean {
+  return busy.has(map);
 }
 
 /**
- * Подгонка вида — одна на кадр, выполняется последняя заказанная.
+ * Перелёт к границам — один на кадр, выполняется последний заказанный.
  *
  * В одном обновлении камеру могут двигать двое: `CanvasCamera` — к месту или
- * корпусу, слой маршрута — к маршруту. Leaflet не принимает новый вид, пока
- * идёт анимация масштаба, и вторая подгонка терялась: карта оставалась там,
- * куда вела первая (запись 32).
+ * корпусу, слой маршрута — к маршруту. Второй перелёт прерывал бы первый в самом
+ * начале — лишний рывок; выполняется только последний (записи 32 и 33).
  *
- * @param onMoveEnd вызывается, когда карта встанет на место
+ * @param onMoveEnd вызывается, когда карта встала на место; у прерванного
+ *        человеком перелёта не вызывается
  */
 export function fitSoon(map: L.Map, bounds: L.LatLngBounds, options: L.FitBoundsOptions, onMoveEnd?: () => void): void {
   const scheduled = pending.has(map);
   pending.set(map, { bounds, options, onMoveEnd });
+  lastFlight += 1;
+  busy.set(map, lastFlight);
   if (scheduled) return;
 
   requestAnimationFrame(() => run(map));
 }
 
 function run(map: L.Map): void {
-  // Во время анимации масштаба Leaflet новый вид не принимает — подгонка ждёт
-  // её конца. Флаг приватный; на нём же Leaflet сам решает, принять ли вид.
-  if ((map as unknown as MapInternals)._animatingZoom) {
-    map.once('zoomend', () => run(map));
-    return;
-  }
-
   const fit = pending.get(map);
+  const flight = busy.get(map);
   pending.delete(map);
-  if (!fit) return;
+  if (!fit || flight === undefined) return;
+
+  cleanups.get(map)?.();
+  const container = map.getContainer();
+  let expectedZoom: number | null = null;
+
+  const unsubscribe = () => {
+    map.off('moveend', onMoveEnd);
+    map.off('dragstart', onGesture);
+    container.removeEventListener('wheel', onGesture);
+    container.removeEventListener('touchstart', onGesture);
+    if (cleanups.get(map) === unsubscribe) cleanups.delete(map);
+  };
+
+  const finish = (arrived: boolean) => {
+    unsubscribe();
+    // Заказан новый перелёт — камеру освободит он.
+    if (busy.get(map) !== flight) return;
+    busy.delete(map);
+    if (arrived) fit.onMoveEnd?.();
+    map.fire(CAMERA_SETTLED);
+  };
+
+  // Перелёт кончается своим `moveend` на целевом масштабе. Промежуточные
+  // `moveend` приходят и во время перелёта — по ним вид «после подгонки»
+  // записывался на полпути, и раскрытая шторка потом считала карту сдвинутой
+  // человеком.
+  const onMoveEnd = () => {
+    if (expectedZoom === null || Math.abs(map.getZoom() - expectedZoom) < 1e-6) finish(true);
+  };
+
+  // Человек перехватил карту — перелёт прерван, вида после подгонки не будет.
+  const onGesture = () => finish(false);
 
   try {
-    map.fitBounds(fit.bounds, fit.options);
-    // Конец движения ждётся после вызова, а не до: `fitBounds` останавливает
-    // идущую прокрутку, и её `moveend` приходил раньше, чем карта вставала на
-    // новое место. Без анимации карта уже на месте.
-    if (fit.onMoveEnd) {
-      if (isAnimating(map)) map.once('moveend', fit.onMoveEnd);
-      else fit.onMoveEnd();
+    // Тот же расчёт, которым пользуется `flyToBounds`: перелёт встаёт ровно на этот масштаб.
+    expectedZoom = (map as unknown as MapInternals)._getBoundsCenterZoom(fit.bounds, fit.options).zoom;
+    if (!flyToBounds(map, fit.bounds, fit.options)) {
+      finish(true);
+      return;
     }
+    map.on('moveend', onMoveEnd);
+    map.on('dragstart', onGesture);
+    container.addEventListener('wheel', onGesture, { passive: true });
+    container.addEventListener('touchstart', onGesture, { passive: true });
+    cleanups.set(map, unsubscribe);
   } catch {
     // Карта снята с экрана или у контейнера нулевой размер — подгонять не к чему.
+    finish(false);
   }
 }

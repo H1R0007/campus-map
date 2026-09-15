@@ -5,7 +5,7 @@ import { containsPoint, distanceToPolygon, fitPaddingOf, meterLatLng, useMapFram
 import { useMapStore } from '../../stores/mapStore';
 import type { CanvasLayout } from '../../utils/canvasLayout';
 import { focusBounds } from '../../utils/routeGeometry';
-import { fitSoon } from './mapCamera';
+import { CAMERA_SETTLED, fitSoon, isCameraBusy } from './mapCamera';
 import { useMapInsets } from './mapChrome';
 
 /** На экране корпус длиннее этого — вместо крыши виден этаж, CSS-пиксели. */
@@ -52,6 +52,8 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
   latestInsets.current = insets;
 
   const handledSeq = useRef<number | null>(null);
+  /** Куда летит камера по последней просьбе; снимается, когда перелёт закончился. */
+  const requestedBounds = useRef<L.LatLngBounds | null>(null);
 
   useEffect(() => {
     if (viewRequest === null || handledSeq.current === viewRequest.seq || graph === null) return;
@@ -71,11 +73,33 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
     }
 
     if (targetBounds === null) return;
+    requestedBounds.current = targetBounds;
     fitSoon(map, targetBounds, { ...fitPaddingOf(latestInsets.current, VIEW_MARGIN), maxZoom: map.getMaxZoom() });
   }, [viewRequest, graph, layout, bounds, map]);
 
+  // Место под карту поменялось, пока камера летит, — например, закрылся поиск,
+  // из которого выбрали место: перелёт перестраивается под новые отступы, иначе
+  // место оказалось бы под шторкой, а вид — отдалённым до упора.
+  useEffect(() => {
+    const target = requestedBounds.current;
+    if (target === null || !isCameraBusy(map)) return;
+    fitSoon(map, target, { ...fitPaddingOf(insets, VIEW_MARGIN), maxZoom: map.getMaxZoom() });
+  }, [insets, map]);
+
+  useEffect(() => {
+    const forget = () => {
+      requestedBounds.current = null;
+    };
+    map.on(CAMERA_SETTLED, forget);
+    return () => {
+      map.off(CAMERA_SETTLED, forget);
+    };
+  }, [map]);
+
   useEffect(() => {
     const update = () => {
+      // Во время перелёта вид промежуточный: решение примет его конец.
+      if (isCameraBusy(map)) return;
       const size = map.getSize();
       const edges = latestInsets.current;
       const pixelsPerMeter = map.getZoomScale(map.getZoom(), 0);
@@ -114,9 +138,9 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
     // Просьба к камере уже ждёт — решение примет конец её движения, иначе
     // текущий корпус на мгновение сбросился бы по старому виду.
     if (useMapStore.getState().viewRequest === null) update();
-    map.on('moveend zoomend resize', update);
+    map.on(`moveend zoomend resize ${CAMERA_SETTLED}`, update);
     return () => {
-      map.off('moveend zoomend resize', update);
+      map.off(`moveend zoomend resize ${CAMERA_SETTLED}`, update);
     };
   }, [map, layout]);
 

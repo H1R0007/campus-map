@@ -57,6 +57,8 @@ class PlacedPlanLayer extends L.Layer {
     this.getPane()?.appendChild(this.container);
 
     map.on('zoom viewreset', this.reset, this);
+    map.on('zoomstart', this.beginZoom, this);
+    map.on('zoomend', this.endZoom, this);
     if (animated) map.on('zoomanim', this.animateZoom, this);
     this.reset();
     return this;
@@ -64,6 +66,8 @@ class PlacedPlanLayer extends L.Layer {
 
   override onRemove(map: L.Map): this {
     map.off('zoom viewreset', this.reset, this);
+    map.off('zoomstart', this.beginZoom, this);
+    map.off('zoomend', this.endZoom, this);
     map.off('zoomanim', this.animateZoom, this);
     this.container.remove();
     this.map = null;
@@ -83,6 +87,17 @@ class PlacedPlanLayer extends L.Layer {
   setPlacement(placement: PlanPlacement): void {
     this.placement = placement;
     this.reset();
+  }
+
+  // На время масштаба план — отдельный слой браузера: он масштабируется готовым
+  // изображением, а не перерисовывает подробный SVG на каждом кадре. Резкость
+  // возвращается, когда движение закончилось.
+  private beginZoom(): void {
+    this.container.style.willChange = 'transform';
+  }
+
+  private endZoom(): void {
+    this.container.style.willChange = '';
   }
 
   private origin(): L.LatLng {

@@ -27,7 +27,8 @@ export default {
       await v.chooseOption('Столовая');
       assert.equal(await v.searchOpen(), false);
       assert.ok((await v.panelText()).includes('Маршрут сюда'));
-      assert.ok((await v.headerText()).includes('Этаж 1'), 'карта на этаже места');
+      const header = await v.headerText();
+      assert.ok(header.includes('Этаж 1'), `карта на этаже места: ${header}`);
       assert.equal(await page.eval('document.activeElement?.tagName'), 'H2', 'фокус на заголовке карточки');
     });
 
