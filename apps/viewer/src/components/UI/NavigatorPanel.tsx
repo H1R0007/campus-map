@@ -80,9 +80,15 @@ export const NavigatorPanel: React.FC = () => {
 
     const update = () => {
       const rect = panel.getBoundingClientRect();
+      // Сдвиг шторки в замер не входит. После жеста она доезжает на место
+      // анимацией, и замер посреди неё оставался последним — к концу анимации
+      // размер шторки не меняется, и нового замера не было: колонка масштаба
+      // уезжала под шторку до следующего изменения панели.
+      const transform = getComputedStyle(panel).transform;
+      const shift = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).m42 : 0;
       const obstruction = isWide
         ? { bottom: 0, left: Math.round(rect.right) }
-        : { bottom: Math.max(0, Math.round(window.innerHeight - rect.top)), left: 0 };
+        : { bottom: Math.max(0, Math.round(window.innerHeight - (rect.top - shift))), left: 0 };
 
       setMapObstruction(obstruction);
       document.documentElement.style.setProperty('--campus-sheet-height', `${obstruction.bottom}px`);

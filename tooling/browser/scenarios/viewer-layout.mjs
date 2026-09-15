@@ -225,6 +225,24 @@ export default {
 
     await page.viewport(390, 844, 2);
 
+    await step('шторку подняли и опустили жестом — кнопки масштаба над ней', async () => {
+      await v.open('/');
+      const handle = () => v.center('button[aria-controls="navigator-panel-body"]');
+      let [x, y] = await handle();
+      await page.dragVertical(x, y, -240);
+      await page.waitFor(`!!document.querySelector('button[aria-label="Свернуть панель"]')`);
+      await page.sleep(400);
+      [x, y] = await handle();
+      await page.dragVertical(x, y, 240);
+      await page.waitFor(`!!document.querySelector('button[aria-label="Развернуть панель"]')`);
+      await page.sleep(600);
+      const layout = await page.eval(`(() => {
+        const zoom = document.querySelector('.campus-zoom-controls');
+        return { zoomBottom: zoom ? zoom.getBoundingClientRect().bottom : null, sheetTop: ${PANEL}.getBoundingClientRect().top };
+      })()`);
+      assert.ok(layout.zoomBottom !== null && layout.zoomBottom <= layout.sheetTop, `кнопки масштаба над шторкой: ${JSON.stringify(layout)}`);
+    });
+
     await step('раскрытая шторка не прячет маршрут, который был виден', async () => {
       await v.open('/?from=campus_gate&to=a3_room305');
       await page.sleep(900);
