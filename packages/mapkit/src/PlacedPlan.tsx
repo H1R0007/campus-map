@@ -34,8 +34,9 @@ export function ensurePane(map: L.Map, name: string, zIndex: number): HTMLElemen
  *
  * `ImageOverlay` умеет только прямоугольник вдоль осей, а корпуса стоят под
  * углом. Слой держит элемент плана размером в пиксели изображения и ставит его
- * CSS-преобразованием (`planTransform`) — на каждое изменение масштаба и в
- * анимацию масштаба, как это делает сам `ImageOverlay`.
+ * CSS-преобразованием (`planTransform`) на каждом кадре масштаба и поворота.
+ * CSS-анимации масштаба Leaflet у карт mapkit нет (запись 33), поэтому и
+ * отдельного расчёта для неё слою не нужно.
  */
 class PlacedPlanLayer extends L.Layer {
   private readonly container: HTMLDivElement;
@@ -59,15 +60,11 @@ class PlacedPlanLayer extends L.Layer {
 
   override onAdd(map: L.Map): this {
     this.map = map;
-    // Приватное поле Leaflet: анимация масштаба включена и браузер её умеет.
-    const animated = (map as unknown as { _zoomAnimated: boolean })._zoomAnimated;
-    this.container.classList.add(animated ? 'leaflet-zoom-animated' : 'leaflet-zoom-hide');
     this.getPane()?.appendChild(this.container);
 
     map.on('zoom viewreset', this.reset, this);
     map.on('zoomstart', this.beginZoom, this);
     map.on('zoomend', this.endZoom, this);
-    if (animated) map.on('zoomanim', this.animateZoom, this);
     this.reset();
     return this;
   }
@@ -76,7 +73,6 @@ class PlacedPlanLayer extends L.Layer {
     map.off('zoom viewreset', this.reset, this);
     map.off('zoomstart', this.beginZoom, this);
     map.off('zoomend', this.endZoom, this);
-    map.off('zoomanim', this.animateZoom, this);
     this.container.remove();
     this.map = null;
     return this;
@@ -127,16 +123,6 @@ class PlacedPlanLayer extends L.Layer {
     );
   }
 
-  private animateZoom(event: L.ZoomAnimEvent): void {
-    if (!this.map) return;
-    // Тот же приватный расчёт, что у `ImageOverlay`: положение точки на слое при
-    // целевом масштабе и центре анимации.
-    const toLayerPoint = (this.map as unknown as {
-      _latLngToNewLayerPoint(latlng: L.LatLng, zoom: number, center: L.LatLng): L.Point;
-    })._latLngToNewLayerPoint.bind(this.map);
-    const origin = toLayerPoint(this.origin(), event.zoom, event.center);
-    this.container.style.transform = planTransform(origin, this.map.getZoomScale(event.zoom, 0), this.placement, bearingOf(this.map));
-  }
 }
 
 export interface PlacedPlanProps {

@@ -8,9 +8,8 @@ import { useRouteSteps } from '../../hooks/useStepNavigation';
 import { useRouteStore } from '../../stores/routeStore';
 import { useMapStore } from '../../stores/mapStore';
 import { focusBounds, routePoints, routeRuns, stepFocusPoints } from '../../utils/routeGeometry';
-import type { RouteRuns } from '../../utils/routeGeometry';
+import type { LatLngTuple, RouteRuns } from '../../utils/routeGeometry';
 import { fitSoon, isCameraBusy } from './mapCamera';
-import type { LatLngTuple } from '../../utils/routeGeometry';
 import { useMapInsets } from './mapChrome';
 
 /**
