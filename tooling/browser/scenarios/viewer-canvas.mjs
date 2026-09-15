@@ -34,12 +34,12 @@ export default {
       assert.ok(overview.roofs.every((opacity) => opacity > 0.9), `крыши закрыты: ${overview.roofs}`);
       assert.equal(overview.portals, 0, 'на общем виде значков входа нет');
       assert.deepEqual(await shownFloors(), []);
-      assert.ok((await v.headerText()).includes('Корпус Б'), 'в шапке — лента корпусов');
+      assert.ok((await v.headerText()).includes('Корпуса'), 'в шапке телефона — кнопка «Корпуса»');
       await shot('viewer-canvas-overview');
     });
 
     await step('корпус из шапки: камера приближает его, вместо крыши — этаж, в шапке — корпус', async () => {
-      await v.click('Корпус Б');
+      await v.openBuilding('Корпус Б');
       await waitShown('building_b#1');
       await page.waitFor(`[...document.querySelectorAll('.campus-roof')].some((roof) => Number(getComputedStyle(roof).fillOpacity) < 0.05)`);
       const header = await v.headerText();
@@ -55,7 +55,7 @@ export default {
 
       await v.click('Вернуться к карте кампуса');
       await waitNoFloors();
-      await v.click('Корпус Б');
+      await v.openBuilding('Корпус Б');
       await waitShown('building_b#2');
       assert.ok((await v.headerText()).includes('Этаж 2'), 'открыт этаж, который смотрели');
     });
@@ -64,7 +64,7 @@ export default {
       for (let index = 0; index < 3; index += 1) await v.click('Отдалить');
       await waitNoFloors();
       const header = await v.headerText();
-      assert.ok(header.includes('Корпус А') && header.includes('Корпус В'), `шапка: ${header}`);
+      assert.ok(header.includes('Корпуса') && !header.includes('Этаж'), `шапка: ${header}`);
       assert.equal(await page.eval(`!!document.querySelector('.campus-floor-list')`), false, 'колонки этажей нет');
     });
 
@@ -80,7 +80,9 @@ export default {
         return widths;
       };
 
-      // Нажатие без паузы помощника: иначе перелёт закончился бы до замеров.
+      // Нажатие без паузы помощника: иначе перелёт закончился бы до замеров. На
+      // телефоне корпуса — в списке «Корпуса»: он открывается заранее.
+      await v.click('Корпуса');
       await page.eval(`[...document.querySelectorAll('.campus-map-header button')].find((button) => button.textContent.trim() === 'Корпус В').click()`);
       const reveal = [];
       const flight = [];
@@ -101,7 +103,7 @@ export default {
 
     await step('корпус, въехавший в экран под пальцем, виден целиком, пока палец держит карту', async () => {
       await v.open('/');
-      await v.click('Корпус Б');
+      await v.openBuilding('Корпус Б');
       await page.sleep(900);
       // Видимая на экране часть крыши корпуса В: за краем экрана Leaflet всё равно
       // обрезает контур по области отрисовки, и полная ширина там ничего не значит.

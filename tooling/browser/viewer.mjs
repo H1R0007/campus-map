@@ -70,6 +70,18 @@ export function viewerHelpers(page, base) {
       await page.sleep(450);
     },
 
+    /**
+     * Открывает корпус из шапки: на широком экране — чипом ленты, на телефоне —
+     * из списка «Корпуса».
+     */
+    async openBuilding(name) {
+      const inStrip = await page.eval(
+        `[...document.querySelectorAll('.campus-map-header button')].some((b) => b.textContent.trim() === ${JSON.stringify(name)})`
+      );
+      if (!inStrip) await helpers.click('Корпуса');
+      await helpers.click(name);
+    },
+
     /** Набирает запрос в открытом поиске и ждёт подсказок. */
     async typeSearch(query) {
       await page.waitFor(`!!${SEARCH} && document.activeElement?.getAttribute('role') === 'combobox'`);

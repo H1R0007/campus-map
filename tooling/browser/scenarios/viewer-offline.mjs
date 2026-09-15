@@ -114,7 +114,7 @@ export default {
     await step('без связи план, которого нет в памяти, так и называется', async () => {
       await v.click('Завершить пошаговую навигацию');
       await v.click('Вернуться к карте кампуса');
-      await v.click('Корпус В');
+      await v.openBuilding('Корпус В');
       try {
         await page.waitFor(
           `document.querySelector('.campus-plan-status')?.textContent === 'План этого этажа не сохранён — нужна связь'`,

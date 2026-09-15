@@ -116,7 +116,7 @@ export default {
 
     await step('нажатие на точку плана открывает карточку места', async () => {
       await v.open('/');
-      await v.click('Корпус А');
+      await v.openBuilding('Корпус А');
       await page.sleep(900);
       const points = await page.eval(
         `[...document.querySelectorAll('.campus-marker--portal')].map((m) => { const r = m.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })`
@@ -146,6 +146,16 @@ export default {
     });
 
     await page.viewport(1440, 900, 1);
+
+    await step('широкий экран: за последним чипом ленты нажатие достаётся карте', async () => {
+      await v.open('/');
+      const underGap = await page.eval(`(() => {
+        const chips = [...document.querySelectorAll('.campus-map-header button:not([lang])')];
+        const last = chips[chips.length - 1].getBoundingClientRect();
+        return !!document.elementFromPoint(last.right + 40, last.top + last.height / 2)?.closest('.leaflet-container');
+      })()`);
+      assert.equal(underGap, true, 'лента не забирает нажатия у карты');
+    });
 
     await step('широкий экран: панель слева не закрывает маршрут и шапку', async () => {
       await v.open('/?from=campus_gate&to=b2_lab');
@@ -204,7 +214,7 @@ export default {
         return {
           rows: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top))).size,
           cut: buttons.flatMap((b) => [...b.querySelectorAll('span.truncate')]).filter((s) => s.scrollWidth > s.clientWidth).map((s) => s.textContent),
-          headerLanguage: document.querySelector('.campus-map-header [role="group"]')?.offsetParent != null,
+          headerLanguage: document.querySelector('.campus-map-header [lang]')?.offsetParent != null,
         };
       })()`);
       assert.equal(idle.rows, 2, 'кнопки «Рядом» — в два ряда');
@@ -263,7 +273,34 @@ export default {
 
     await page.viewport(390, 844, 2);
 
-    await step('переключатель языка в шапке: цели нажатия не меньше 44 px', async () => {
+    await step('шапка телефона: «Корпуса» со списком и язык одной кнопкой, между ними — карта', async () => {
+      await v.open('/');
+      const header = await page.eval(`(() => {
+        const header = document.querySelector('.campus-map-header');
+        const toggle = header.querySelector('button[lang]');
+        const rect = toggle.getBoundingClientRect();
+        const middle = header.getBoundingClientRect();
+        const gap = document.elementFromPoint(innerWidth / 2 + 40, middle.top + middle.height / 2);
+        return {
+          labels: [...header.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent.trim()),
+          toggle: [Math.round(rect.width), Math.round(rect.height)],
+          mapUnderGap: !!gap?.closest('.leaflet-container'),
+        };
+      })()`);
+      assert.deepEqual(header.labels, ['Корпуса', 'English'], `кнопки шапки: ${JSON.stringify(header)}`);
+      assert.ok(header.toggle[0] >= 44 && header.toggle[1] >= 44, `кнопка языка: ${header.toggle}`);
+      assert.equal(header.mapUnderGap, true, 'между кнопками шапки нажатие достаётся карте');
+
+      await v.click('Корпуса');
+      assert.equal(await page.eval(`document.querySelectorAll('.campus-building-menu li').length`), 3, 'в списке три корпуса');
+      await page.key('Escape');
+      assert.equal(await page.eval(`!document.querySelector('.campus-building-menu') && document.activeElement?.textContent.trim() === 'Корпуса'`), true, 'Escape закрыл список и вернул фокус на кнопку');
+      await v.openBuilding('Корпус В');
+      await page.waitFor(`document.querySelector('.campus-map-header').innerText.includes('Корпус В')`);
+    });
+
+    await step('RU/EN на широком экране: цели нажатия не меньше 44 px', async () => {
+      await page.viewport(1024, 768, 1);
       await v.open('/');
       // Размер цели — по тому, куда попадает нажатие, а не по рамке кнопки:
       // область нажатия шире видимой кнопки.
@@ -283,6 +320,7 @@ export default {
       })()`);
       assert.equal(sizes.length, 2);
       for (const size of sizes) assert.ok(size.width >= 44 && size.height >= 44, `цель «${size.label}»: ${JSON.stringify(size)}`);
+      await page.viewport(390, 844, 2);
     });
 
     await step('шаг навигации: сколько осталось идти — в шапке первым и целиком', async () => {

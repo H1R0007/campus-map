@@ -33,6 +33,7 @@ export const en: Messages = {
 
   map: {
     campus: 'Campus',
+    buildings: 'Buildings',
     floor: (floor) => `Floor ${floor}`,
     floors: 'Floors',
     floorOnRoute: (floor) => `${floor}, on the route`,

@@ -249,6 +249,23 @@ button {
     pointer-events: auto;
 }
 
+/* Лента корпусов — во всю ширину шапки, но нажатия ловят только чипы: между
+   ними и за последним карта отвечает на жесты. Жест, начатый на чипе, ленту
+   по-прежнему прокручивает. */
+.campus-map-header > .campus-building-strip {
+    pointer-events: none;
+}
+
+.campus-building-strip button {
+    pointer-events: auto;
+}
+
+/* Список корпусов не заходит под шторку. */
+.campus-building-menu {
+    max-height: calc(100vh - var(--campus-sheet-height, 7rem) - 6rem - env(safe-area-inset-top, 0px));
+    max-height: calc(100dvh - var(--campus-sheet-height, 7rem) - 6rem - env(safe-area-inset-top, 0px));
+}
+
 /* На широком экране слева стоит панель навигатора — 24rem и поля по 1rem:
    шапка начинается справа от неё. */
 @media (min-width: 1024px), (min-width: 640px) and (max-height: 520px) {
