@@ -1,26 +1,25 @@
 import type { PlanFormat } from '@campus-map/core';
-import { rewriteHrefReference, rewriteStyleReferences, rewriteUrlReferences } from './svgIds.js';
+import { parseSvgRoot, prepareSvgText } from './svgRoot.js';
 import type { ImageSize } from './useImageSize.js';
 
 /**
- * Содержимое плана для холста: встроенный SVG или картинка (запись 31).
+ * Содержимое плана для холста — изображение, растровое или SVG (записи 31 и 35).
  *
- * SVG встраивается в страницу, а не показывается через `<img>`: так план
- * перекрашивают правила CSS темы, и тёмной теме не нужен фильтр инверсии.
- * Встроенный SVG исполнял бы свои скрипты и обработчики, поэтому они
- * вырезаются: план — данные, а не код.
+ * SVG показывается изображением, а не встраивается в страницу. Подписи
+ * встроенного SVG Chromium заново раскладывал на каждом кадре масштаба — на
+ * подробных планах сотни миллисекунд на кадр. Изображение масштабируется
+ * готовым, не исполняет скриптов и не делит `id` с другими планами. Тему в
+ * изображение вносит стиль, вписанный в текст файла (`svgRoot.ts`).
  */
 
 export interface PlanContent {
-  element: Element;
+  element: HTMLImageElement;
   /** Размер плана в пикселях: у SVG — из `width`/`height` или `viewBox`, у картинки — натуральный. */
   size: ImageSize;
 }
 
 /** Текст SVG по адресу — один запрос на план, сколько бы раз его ни показали. */
 const svgTexts = new Map<string, Promise<string>>();
-
-const FORBIDDEN_ELEMENTS = new Set(['script', 'foreignobject', 'iframe', 'object', 'embed']);
 
 function fetchSvgText(url: string): Promise<string> {
   const cached = svgTexts.get(url);
@@ -36,100 +35,96 @@ function fetchSvgText(url: string): Promise<string> {
   return request;
 }
 
-/** Убирает из SVG исполняемое: скрипты, встроенный HTML, обработчики, `javascript:`-ссылки. */
-export function sanitizeSvg(root: Element): void {
-  for (const element of [root, ...root.querySelectorAll('*')]) {
-    if (FORBIDDEN_ELEMENTS.has(element.localName.toLowerCase())) {
-      element.remove();
-      continue;
-    }
-    for (const attribute of [...element.attributes]) {
-      const name = attribute.name.toLowerCase();
-      const scriptLink = (name === 'href' || name === 'xlink:href') && /^\s*javascript:/i.test(attribute.value);
-      if (name.startsWith('on') || scriptLink) element.removeAttribute(attribute.name);
-    }
-  }
-}
+/** Подготовка изображения, ждущая своего кадра. */
+const decodeQueue: Array<() => void> = [];
 
-/** Размер SVG в пикселях плана; `null`, если его не из чего взять. */
-export function svgSize(root: Element): ImageSize | null {
-  const width = Number.parseFloat(root.getAttribute('width') ?? '');
-  const height = Number.parseFloat(root.getAttribute('height') ?? '');
-  if (width > 0 && height > 0) return { width, height };
-
-  const viewBox = (root.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number);
-  return viewBox.length === 4 && viewBox[2] > 0 && viewBox[3] > 0 ? { width: viewBox[2], height: viewBox[3] } : null;
-}
-
-let scopedPlans = 0;
-
-/** Даёт `id` плана префикс, свой у каждого встроенного экземпляра, и переписывает ссылки на них. */
-function scopeSvgIds(root: Element): void {
-  const prefix = `campus-plan-${(scopedPlans += 1)}-`;
-  const ids = new Map<string, string>();
-  for (const element of root.querySelectorAll('[id]')) {
-    const id = element.getAttribute('id') ?? '';
-    ids.set(id, prefix + id);
-    element.setAttribute('id', prefix + id);
-  }
-  if (ids.size === 0) return;
-
-  for (const element of [root, ...root.querySelectorAll('*')]) {
-    for (const attribute of [...element.attributes]) {
-      const name = attribute.name.toLowerCase();
-      attribute.value =
-        name === 'href' || name === 'xlink:href'
-          ? rewriteHrefReference(attribute.value, ids)
-          : rewriteUrlReferences(attribute.value, ids);
-    }
-    if (element.localName === 'style' && element.textContent) {
-      element.textContent = rewriteStyleReferences(element.textContent, ids);
-    }
-  }
-}
-
-async function loadSvg(url: string, fallback: ImageSize): Promise<PlanContent> {
-  const text = await fetchSvgText(url);
-  const parsed = new DOMParser().parseFromString(text, 'image/svg+xml');
-  const root = parsed.documentElement;
-  if (root.localName !== 'svg' || parsed.getElementsByTagName('parsererror').length > 0) {
-    throw new Error(`План ${url}: не SVG`);
-  }
-
-  sanitizeSvg(root);
-  scopeSvgIds(root);
-  const size = svgSize(root) ?? fallback;
-  const element = document.importNode(root, true);
-  element.setAttribute('width', String(size.width));
-  element.setAttribute('height', String(size.height));
-  element.setAttribute('aria-hidden', 'true');
-  return { element, size };
-}
-
-function loadRaster(url: string): Promise<PlanContent> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.className = 'campus-plan-raster';
-    image.alt = '';
-    image.draggable = false;
-    image.decoding = 'async';
-    image.onload = () => {
-      if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-        resolve({ element: image, size: { width: image.naturalWidth, height: image.naturalHeight } });
-      } else {
-        reject(new Error(`План ${url}: пустое изображение`));
-      }
-    };
-    image.onerror = () => reject(new Error(`План ${url}: не загрузился`));
-    image.src = url;
+/**
+ * Очередь подготовки: не больше одного плана за кадр. Разбор подробного SVG
+ * при декодировании — работа главного потока, и когда камера подлетает к
+ * кварталу корпусов вплотную, планы нескольких этажей готовы одновременно:
+ * разом они подвешивали бы кадр.
+ */
+function nextDecodeSlot(): Promise<void> {
+  return new Promise((resolve) => {
+    decodeQueue.push(resolve);
+    if (decodeQueue.length === 1) requestAnimationFrame(releaseDecodeSlot);
   });
 }
 
+function releaseDecodeSlot(): void {
+  decodeQueue.shift()?.();
+  if (decodeQueue.length > 0) requestAnimationFrame(releaseDecodeSlot);
+}
+
+function planImage(className: string): HTMLImageElement {
+  const image = new Image();
+  image.className = className;
+  image.alt = '';
+  image.draggable = false;
+  image.decoding = 'async';
+  return image;
+}
+
 /**
- * Загружает план и готовит элемент для холста.
+ * Изображение загружено и, где браузер умеет, декодировано заранее — чтобы план
+ * не декодировался посреди кадра, когда появится на экране.
+ *
+ * `decode()` у SVG-изображений поддержан не во всех браузерах одинаково: отказ
+ * декодирования ещё не значит, что плана нет, — решает загрузка.
+ */
+async function imageReady(image: HTMLImageElement): Promise<boolean> {
+  try {
+    await image.decode();
+    return true;
+  } catch {
+    if (!image.complete) {
+      await new Promise((resolve) => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      });
+    }
+    return image.naturalWidth > 0;
+  }
+}
+
+async function loadSvg(url: string, fallback: ImageSize, css: string): Promise<PlanContent> {
+  const text = await fetchSvgText(url);
+  const root = parseSvgRoot(text);
+  if (root === null) throw new Error(`План ${url}: не SVG`);
+
+  const size = root.size ?? fallback;
+  // Планы с классами генератора перекрашиваются вписанным стилем; остальные в
+  // тёмной теме инвертирует фильтр приложения.
+  const image = planImage(root.classes.includes('campus-plan') ? 'campus-plan-image' : 'campus-plan-image campus-plan-image--foreign');
+  image.width = size.width;
+  image.height = size.height;
+
+  await nextDecodeSlot();
+  const source = URL.createObjectURL(new Blob([prepareSvgText(text, root, size, css)], { type: 'image/svg+xml' }));
+  try {
+    image.src = source;
+    if (!(await imageReady(image))) throw new Error(`План ${url}: не разобрался`);
+  } finally {
+    // Загруженное изображение адрес больше не держит.
+    URL.revokeObjectURL(source);
+  }
+  return { element: image, size };
+}
+
+async function loadRaster(url: string): Promise<PlanContent> {
+  const image = planImage('campus-plan-image campus-plan-raster');
+  image.src = url;
+  if (!(await imageReady(image))) throw new Error(`План ${url}: не загрузился`);
+  if (image.naturalHeight === 0) throw new Error(`План ${url}: пустое изображение`);
+  return { element: image, size: { width: image.naturalWidth, height: image.naturalHeight } };
+}
+
+/**
+ * Загружает план и готовит изображение для холста.
  *
  * @param fallback размер из метаданных — для SVG без `width`/`height` и `viewBox`
+ * @param css стиль, вписываемый в SVG перед показом, — например, тёмная тема
  */
-export function loadPlanContent(url: string, format: PlanFormat, fallback: ImageSize): Promise<PlanContent> {
-  return format === 'svg' ? loadSvg(url, fallback) : loadRaster(url);
+export function loadPlanContent(url: string, format: PlanFormat, fallback: ImageSize, css = ''): Promise<PlanContent> {
+  return format === 'svg' ? loadSvg(url, fallback, css) : loadRaster(url);
 }

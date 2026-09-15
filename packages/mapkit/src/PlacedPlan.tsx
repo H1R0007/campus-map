@@ -38,6 +38,12 @@ export function ensurePane(map: L.Map, name: string, zIndex: number): HTMLElemen
  */
 class PlacedPlanLayer extends L.Layer {
   private readonly container: HTMLDivElement;
+  /**
+   * Обёртка содержимого. У самого элемента плана прозрачность занята показом и
+   * скрытием (смена этажа), а приложению нужна своя — например, проявление
+   * этажа вместо крыши. Обёртка постоянна: содержимое внутри меняется.
+   */
+  private readonly content: HTMLDivElement;
   private map: L.Map | null = null;
 
   constructor(
@@ -47,6 +53,7 @@ class PlacedPlanLayer extends L.Layer {
     super();
     this.container = L.DomUtil.create('div', `campus-placed-plan ${className}`);
     Object.assign(this.container.style, { position: 'absolute', left: '0', top: '0', transformOrigin: '0 0', pointerEvents: 'none' });
+    this.content = L.DomUtil.create('div', 'campus-placed-plan__content', this.container);
   }
 
   override onAdd(map: L.Map): this {
@@ -78,8 +85,12 @@ class PlacedPlanLayer extends L.Layer {
     return this.container;
   }
 
+  get hasContent(): boolean {
+    return this.content.childElementCount > 0;
+  }
+
   setContent(element: Element | null, size: ImageSize): void {
-    this.container.replaceChildren(...(element ? [element] : []));
+    this.content.replaceChildren(...(element ? [element] : []));
     this.container.style.width = `${size.width}px`;
     this.container.style.height = `${size.height}px`;
   }
@@ -89,9 +100,9 @@ class PlacedPlanLayer extends L.Layer {
     this.reset();
   }
 
-  // На время масштаба план — отдельный слой браузера: он масштабируется готовым
-  // изображением, а не перерисовывает подробный SVG на каждом кадре. Резкость
-  // возвращается, когда движение закончилось.
+  // На время масштаба план — отдельный слой браузера: изображение масштабируется
+  // готовым. Когда движение закончилось, слой снимается, и браузер рисует план
+  // резко в новом масштабе; постоянный слой оставлял бы его размытым.
   private beginZoom(): void {
     this.container.style.willChange = 'transform';
   }
@@ -128,6 +139,8 @@ export interface PlacedPlanProps {
   placement: PlanPlacement;
   /** Размер из метаданных — пока план грузится и для SVG без размеров. */
   fallbackSize?: ImageSize;
+  /** Стиль, вписываемый в SVG-план перед показом, — например, тёмная тема (запись 35). */
+  svgStyle?: string;
   /**
    * Показан ли план. Скрытый план остаётся на карте прозрачным: повторный показ
    * не грузит его заново, а смена видимости плавная (переход — в CSS приложения).
@@ -147,7 +160,7 @@ export interface PlacedPlanProps {
 }
 
 /**
- * План на холсте кампуса (`WorldMap`): SVG встроен в страницу, картинка — `<img>`.
+ * План на холсте кампуса (`WorldMap`) — изображение, растровое или SVG.
  *
  * Состояние загрузки видимого плана сообщается холсту: «План загружается» и
  * «План недоступен» относятся к тому, что человек сейчас видит.
@@ -157,6 +170,7 @@ export function PlacedPlan({
   format,
   placement,
   fallbackSize = FALLBACK_IMAGE_SIZE,
+  svgStyle = '',
   visible = true,
   reportStatus = visible,
   className = '',
@@ -170,6 +184,7 @@ export function PlacedPlan({
   const [status, setStatus] = useState<ImageStatus>('loading');
   const fallback = useRef(fallbackSize);
   fallback.current = fallbackSize;
+  const loadedUrl = useRef<string | null>(null);
 
   useEffect(() => {
     if (pane === PLAN_PANE) ensurePane(map, PLAN_PANE, PLAN_PANE_Z_INDEX);
@@ -188,13 +203,18 @@ export function PlacedPlan({
 
   useEffect(() => {
     let cancelled = false;
-    setStatus('loading');
-    layer.setContent(null, fallback.current);
+    // Тот же план в новом стиле (сменилась тема) остаётся на месте, пока новый
+    // не готов, — без мигания пустым листом. Другой план — прежний убирается.
+    if (loadedUrl.current !== url || !layer.hasContent) {
+      setStatus('loading');
+      layer.setContent(null, fallback.current);
+    }
 
-    loadPlanContent(url, format, fallback.current).then(
+    loadPlanContent(url, format, fallback.current, svgStyle).then(
       (content) => {
         if (cancelled) return;
         layer.setContent(content.element, content.size);
+        loadedUrl.current = url;
         setStatus('ready');
       },
       () => {
@@ -204,7 +224,7 @@ export function PlacedPlan({
     return () => {
       cancelled = true;
     };
-  }, [layer, url, format]);
+  }, [layer, url, format, svgStyle]);
 
   useEffect(() => {
     const element = layer.element;

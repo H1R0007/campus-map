@@ -148,11 +148,11 @@ button {
 /* Растровый план в тёмной теме — светлые линии на тёмном: яркий лист посреди
    тёмного экрана слепил бы. Фильтр только у плана, маршрут и отметки поверх
    него не меняются. Подобран по планам-чертежам; с официальными планами его
-   нужно пересмотреть (запись 21). Векторные планы холста красятся токенами
-   плана, без фильтра. */
+   нужно пересмотреть (запись 21). SVG-планы генератора перекрашивает стиль,
+   вписанный в план (`theme/planTheme.ts`, запись 35), без фильтра. */
 :root[data-theme='dark'] .leaflet-image-layer,
 :root[data-theme='dark'] .campus-plan-raster,
-:root[data-theme='dark'] .campus-placed-plan > svg:not(.campus-plan) {
+:root[data-theme='dark'] .campus-plan-image--foreign {
     filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
 }
 
@@ -170,16 +170,18 @@ button {
     }
 }
 
-.campus-canvas-plan[data-plan='floor'] > * {
-    opacity: var(--reveal, 1);
+/* Этаж, пока камера не решила, насколько он проявлен, не виден: проявленность
+   ставит `CanvasPlans` в стиль обёртки содержимого. */
+.campus-canvas-plan[data-plan='floor'] > .campus-placed-plan__content {
+    opacity: 0;
+    display: none;
 }
 
 /* Крыши корпусов холста — в обеих темах. Тают по мере того, как проявляется
    этаж; крыши и буквы с плана территории под ними не показываются — корпус
-   нарисован один раз (записи 32 и 33). */
-.campus-canvas-plan[data-plan='campus'] svg.campus-plan .plan-roof,
-.campus-canvas-plan[data-plan='campus'] svg.campus-plan .plan-roof-label {
-    display: none;
+   нарисован один раз (записи 32 и 35). Их прячет стиль, вписанный в план. */
+.campus-plan-image {
+    display: block;
 }
 
 :root {
@@ -190,9 +192,8 @@ button {
 
 .campus-roof {
     fill: rgb(var(--plan-roof));
-    fill-opacity: calc(0.96 * (1 - var(--reveal, 0)));
+    fill-opacity: 0.96;
     stroke: rgb(var(--plan-roof-edge));
-    stroke-opacity: calc(1 - var(--reveal, 0));
     stroke-width: 1.5;
 }
 
@@ -204,65 +205,21 @@ button {
     font-weight: 600;
     color: rgb(var(--plan-roof-label));
     pointer-events: none;
-    /* Название — пока помещается на крыше и пока крыша не растаяла наполовину. */
-    opacity: calc(var(--fits, 1) * (1 - 2 * var(--reveal, 0)));
 }
 
-/* Векторные планы (`svg.campus-plan`, запись 30) в тёмной теме — тёмный лист
-   со светлыми стенами. В светлой теме правил нет: цвета берутся из атрибутов
-   файла, и план такой же, как в редакторе. */
+/* Название — пока помещается на крыше и пока крыша не растаяла наполовину;
+   прозрачность ставит `CanvasPlans`. */
+.campus-roof-label {
+    opacity: 0;
+}
+
+/* Крыши холста в тёмной теме. Тёмный лист самих SVG-планов вписывается в план
+   перед показом (`theme/planTheme.ts`, запись 35). */
 :root[data-theme='dark'] {
-    --plan-floor: 30 34 42;
-    --plan-corridor: 44 50 61;
-    --plan-room: 37 43 53;
-    --plan-tint-blue: 33 49 68;
-    --plan-tint-warm: 58 47 35;
-    --plan-tint-green: 33 54 42;
-    --plan-tint-violet: 50 43 70;
-    --plan-wall: 148 158 174;
-    --plan-label: 205 212 222;
-    --plan-ground: 22 30 26;
-    --plan-street: 42 46 54;
-    --plan-path: 54 58 64;
-    --plan-parking: 40 44 52;
     --plan-roof: 55 61 71;
     --plan-roof-edge: 104 112 124;
     --plan-roof-label: 214 220 229;
 }
-
-:root[data-theme='dark'] svg.campus-plan .plan-floor { fill: rgb(var(--plan-floor)); }
-:root[data-theme='dark'] svg.campus-plan .plan-corridor { fill: rgb(var(--plan-corridor)); }
-:root[data-theme='dark'] svg.campus-plan .plan-room { fill: rgb(var(--plan-room)); stroke: rgb(var(--plan-wall)); }
-:root[data-theme='dark'] svg.campus-plan .plan-room--service { fill: rgb(var(--plan-floor)); }
-:root[data-theme='dark'] svg.campus-plan .plan-room--toilet,
-:root[data-theme='dark'] svg.campus-plan .plan-room--lab,
-:root[data-theme='dark'] svg.campus-plan .plan-room--pool { fill: rgb(var(--plan-tint-blue)); }
-:root[data-theme='dark'] svg.campus-plan .plan-room--canteen,
-:root[data-theme='dark'] svg.campus-plan .plan-room--cloakroom,
-:root[data-theme='dark'] svg.campus-plan .plan-room--hall { fill: rgb(var(--plan-tint-warm)); }
-:root[data-theme='dark'] svg.campus-plan .plan-room--stairs,
-:root[data-theme='dark'] svg.campus-plan .plan-room--library,
-:root[data-theme='dark'] svg.campus-plan .plan-room--gym { fill: rgb(var(--plan-tint-green)); }
-:root[data-theme='dark'] svg.campus-plan .plan-room--lift { fill: rgb(var(--plan-tint-violet)); }
-:root[data-theme='dark'] svg.campus-plan .plan-wall,
-:root[data-theme='dark'] svg.campus-plan .plan-stairs,
-:root[data-theme='dark'] svg.campus-plan .plan-lift { stroke: rgb(var(--plan-wall)); }
-:root[data-theme='dark'] svg.campus-plan .plan-door { stroke: rgb(var(--plan-corridor)); }
-:root[data-theme='dark'] svg.campus-plan .plan-door--outer { stroke: rgb(var(--plan-floor)); }
-:root[data-theme='dark'] svg.campus-plan .plan-label { fill: rgb(var(--plan-label)); }
-:root[data-theme='dark'] svg.campus-plan .plan-icon path { stroke: rgb(var(--plan-label)); }
-
-:root[data-theme='dark'] svg.campus-plan .plan-ground { fill: rgb(var(--plan-ground)); }
-:root[data-theme='dark'] svg.campus-plan .plan-street { fill: rgb(var(--plan-street)); }
-:root[data-theme='dark'] svg.campus-plan .plan-street-line,
-:root[data-theme='dark'] svg.campus-plan .plan-parking-line,
-:root[data-theme='dark'] svg.campus-plan .plan-walkway { stroke: rgb(var(--plan-path)); }
-:root[data-theme='dark'] svg.campus-plan .plan-parking { fill: rgb(var(--plan-parking)); }
-:root[data-theme='dark'] svg.campus-plan .plan-square { fill: rgb(var(--plan-path)); stroke: rgb(var(--plan-roof-edge)); }
-:root[data-theme='dark'] svg.campus-plan .plan-roof,
-:root[data-theme='dark'] svg.campus-plan .plan-bridge { fill: rgb(var(--plan-roof)); stroke: rgb(var(--plan-roof-edge)); }
-:root[data-theme='dark'] svg.campus-plan .plan-roof-label { fill: rgb(var(--plan-roof-label)); }
-:root[data-theme='dark'] svg.campus-plan .plan-bus-stop { fill: rgb(var(--plan-roof-edge)); }
 
 /* ===== Шапка и колонка управления картой ===== */
 

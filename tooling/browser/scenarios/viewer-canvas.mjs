@@ -86,7 +86,7 @@ export default {
       const flight = [];
       for (let index = 0; index < 12; index += 1) {
         flight.push(await page.eval(planWidth));
-        reveal.push(Number(await page.eval(`getComputedStyle(document.querySelector('.leaflet-container')).getPropertyValue('--reveal-2')`)));
+        reveal.push(1 - Number(await page.eval(`getComputedStyle(document.getElementsByClassName('campus-roof campus-building-2')[0]).fillOpacity`)) / 0.96);
         await page.sleep(50);
       }
       assert.ok(new Set(flight).size >= 4, `перелёт кадрами: ${flight}`);

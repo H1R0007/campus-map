@@ -33,17 +33,32 @@ export default {
       assert.deepEqual(failures, [], `низкий контраст:\n${failures.map((f) => JSON.stringify(f)).join('\n')}`);
     };
 
+    // Цвет травы на плане территории — пиксель у угла изображения: территория
+    // видна всегда, и по ней видно, какой лист на экране. План — изображение со
+    // вписанным стилем темы (запись 35), поэтому цвет читается с пикселя.
+    const GROUND = `(() => {
+      const image = document.querySelector('.campus-placed-plan[data-plan="campus"] img');
+      if (!image || !image.complete || image.naturalWidth === 0) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 4, 4, 1, 1, 0, 0, 1, 1);
+      const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+      return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+    })()`;
+    const LIGHT_GROUND = 'rgb(228, 238, 218)';
+    const DARK_GROUND = 'rgb(22, 30, 26)';
+
     const look = () =>
       page.eval(`(() => {
         const line = document.querySelector('.campus-route-line');
-        // Векторный план холста красится токенами темы (запись 32): территория
-        // видна всегда, по её траве видно, какой лист на экране.
-        const ground = document.querySelector('svg.campus-plan .plan-ground');
+        const image = document.querySelector('.campus-placed-plan[data-plan="campus"] img');
         return {
           panel: getComputedStyle(${PANEL}).backgroundColor,
           line: line ? getComputedStyle(line).stroke : null,
-          ground: ground ? getComputedStyle(ground).fill : null,
-          filter: ground ? getComputedStyle(ground.closest('.campus-placed-plan')).filter : null,
+          ground: ${GROUND},
+          filter: image ? getComputedStyle(image).filter : null,
         };
       })()`);
 
@@ -95,10 +110,11 @@ export default {
     await step('светлая тема: текст на основных экранах контрастен', async () => {
       await useScheme('light');
       await mainScreens('light');
+      await page.waitFor(`${GROUND} === '${LIGHT_GROUND}'`);
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
-      assert.equal(light.ground, 'rgb(228, 238, 218)', 'план в светлой теме — цвета файла');
+      assert.equal(light.ground, LIGHT_GROUND, 'план в светлой теме — цвета файла');
       assert.equal(light.filter, 'none', 'план без фильтра');
     });
 
@@ -108,22 +124,23 @@ export default {
     });
 
     await step('тёмная тема: тёмная панель, светлая линия маршрута, план без яркого листа', async () => {
+      await page.waitFor(`${GROUND} === '${DARK_GROUND}'`);
       const dark = await look();
       assert.equal(dark.panel, 'rgb(27, 34, 46)');
       assert.equal(dark.line, 'rgb(110, 168, 255)');
-      assert.equal(dark.ground, 'rgb(22, 30, 26)', 'план в тёмной теме — тёмный лист');
-      assert.equal(dark.filter, 'none', 'тёмный лист — токенами, а не инверсией');
+      assert.equal(dark.ground, DARK_GROUND, 'план в тёмной теме — тёмный лист');
+      assert.equal(dark.filter, 'none', 'тёмный лист — стилем в плане, а не инверсией');
       const meta = await page.eval(`document.querySelector('meta[name="theme-color"]')?.content ?? null`);
       assert.equal(meta, '#0E1219');
     });
 
     await step('смена темы системы перекрашивает без перезагрузки', async () => {
       await useScheme('light');
-      await page.sleep(300);
+      await page.waitFor(`${GROUND} === '${LIGHT_GROUND}'`);
       const light = await look();
       assert.equal(light.panel, 'rgb(255, 255, 255)');
       assert.equal(light.line, 'rgb(0, 99, 204)');
-      assert.equal(light.ground, 'rgb(228, 238, 218)', 'план снова светлый');
+      assert.equal(light.ground, LIGHT_GROUND, 'план снова светлый');
       assert.ok((await v.headerText()).includes('Шаг 3 из'), 'навигация не сбросилась');
     });
 
