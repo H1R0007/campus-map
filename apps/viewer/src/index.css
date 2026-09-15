@@ -153,7 +153,8 @@ button {
    плана, без фильтра. */
 @media (prefers-color-scheme: dark) {
     .leaflet-image-layer,
-    .campus-plan-raster {
+    .campus-plan-raster,
+    .campus-placed-plan > svg:not(.campus-plan) {
         filter: invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(0.95);
     }
 }

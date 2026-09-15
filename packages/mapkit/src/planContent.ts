@@ -1,4 +1,5 @@
 import type { PlanFormat } from '@campus-map/core';
+import { rewriteHrefReference, rewriteStyleReferences, rewriteUrlReferences } from './svgIds.js';
 import type { ImageSize } from './useImageSize.js';
 
 /**
@@ -60,6 +61,33 @@ export function svgSize(root: Element): ImageSize | null {
   return viewBox.length === 4 && viewBox[2] > 0 && viewBox[3] > 0 ? { width: viewBox[2], height: viewBox[3] } : null;
 }
 
+let scopedPlans = 0;
+
+/** Даёт `id` плана префикс, свой у каждого встроенного экземпляра, и переписывает ссылки на них. */
+function scopeSvgIds(root: Element): void {
+  const prefix = `campus-plan-${(scopedPlans += 1)}-`;
+  const ids = new Map<string, string>();
+  for (const element of root.querySelectorAll('[id]')) {
+    const id = element.getAttribute('id') ?? '';
+    ids.set(id, prefix + id);
+    element.setAttribute('id', prefix + id);
+  }
+  if (ids.size === 0) return;
+
+  for (const element of [root, ...root.querySelectorAll('*')]) {
+    for (const attribute of [...element.attributes]) {
+      const name = attribute.name.toLowerCase();
+      attribute.value =
+        name === 'href' || name === 'xlink:href'
+          ? rewriteHrefReference(attribute.value, ids)
+          : rewriteUrlReferences(attribute.value, ids);
+    }
+    if (element.localName === 'style' && element.textContent) {
+      element.textContent = rewriteStyleReferences(element.textContent, ids);
+    }
+  }
+}
+
 async function loadSvg(url: string, fallback: ImageSize): Promise<PlanContent> {
   const text = await fetchSvgText(url);
   const parsed = new DOMParser().parseFromString(text, 'image/svg+xml');
@@ -69,6 +97,7 @@ async function loadSvg(url: string, fallback: ImageSize): Promise<PlanContent> {
   }
 
   sanitizeSvg(root);
+  scopeSvgIds(root);
   const size = svgSize(root) ?? fallback;
   const element = document.importNode(root, true);
   element.setAttribute('width', String(size.width));
