@@ -156,5 +156,19 @@ export default {
       })()`);
       assert.equal(icons.overlapping, 0, `значки входа: ${JSON.stringify(icons)}`);
     });
+
+    await step('широкий экран, шаг «Войдите в здание»: корпус остаётся текущим, хотя вход на краю кадра', async () => {
+      await page.viewport(1024, 768, 1);
+      await v.open('/?from=campus_gate&to=a3_room305');
+      await v.click('Начать');
+      await v.click('Далее');
+      await v.click('Далее');
+      await waitShown('building_a#1');
+      // Решение о текущем корпусе камера принимает, когда перелёт закончился.
+      await page.sleep(1500);
+      const header = await v.headerText();
+      assert.ok(header.includes('Корпус А, этаж 1'), `в шапке — корпус шага, а не территория: ${header}`);
+      assert.equal(await page.eval(`!!document.querySelector('.campus-floor-list')`), true, 'колонка этажей на месте');
+    });
   },
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { containsPoint, distanceToPolygon, fitPaddingOf, meterLatLng, useMapFrame } from '@campus-map/mapkit';
+import { containsPoint, fitPaddingOf, meterLatLng, useMapFrame } from '@campus-map/mapkit';
 import { useMapStore } from '../../stores/mapStore';
 import type { CanvasLayout } from '../../utils/canvasLayout';
 import { DETAIL_PIXELS_PER_METER, PRELOAD_SHARE, isRevealedAt, screenShare } from '../../utils/canvasReveal';
@@ -12,8 +12,6 @@ import { useMapInsets } from './mapChrome';
 /** Запас вокруг экрана, доля его размера: корпус у самого края открывается заранее. */
 const SCREEN_PAD = 0.25;
 
-/** Текущий корпус остаётся текущим, пока центр карты не дальше этого от его контура, px. */
-const KEEP_FOCUS_PX = 48;
 
 /** Сколько территории вокруг места показывает камера, метры: место и соседние помещения. */
 const PLACE_SPAN_METERS = 30;
@@ -123,15 +121,21 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
       );
       state.setRevealedBuildings(revealed.map((building) => building.id));
 
+      // Прежний корпус остаётся текущим, пока его этаж открыт и виден в
+      // свободной части карты, а центр не зашёл в другой корпус. Раньше он
+      // держался, только пока центр рядом с контуром: шаг «Войдите в здание»
+      // кадрирует вход на краю корпуса, центр оказывался на газоне, и шапка
+      // с колонкой этажей сбрасывались на территорию посреди навигации.
+      const freeView = L.latLngBounds(
+        map.containerPointToLatLng(L.point(edges.left, edges.top)),
+        map.containerPointToLatLng(L.point(size.x - edges.right, size.y - edges.bottom))
+      );
       const current = state.activeFloor?.buildingId ?? null;
       const containing = revealed.filter((building) => containsPoint(building.footprint, center));
       const focus =
         containing.find((building) => building.id === current) ??
         containing[0] ??
-        revealed.find(
-          (building) =>
-            building.id === current && distanceToPolygon(building.footprint, center) * pixelsPerMeter <= KEEP_FOCUS_PX
-        );
+        revealed.find((building) => building.id === current && freeView.intersects(footprintBounds.get(building.id)!));
       state.focusFromCamera(focus?.id ?? null);
     };
 
