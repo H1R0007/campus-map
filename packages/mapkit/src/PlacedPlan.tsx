@@ -133,6 +133,11 @@ export interface PlacedPlanProps {
    * не грузит его заново, а смена видимости плавная (переход — в CSS приложения).
    */
   visible?: boolean;
+  /**
+   * Сообщать ли холсту состояние загрузки. По умолчанию — пока план показан; план,
+   * загруженный заранее и ещё прозрачный, «План загружается» не вызывает.
+   */
+  reportStatus?: boolean;
   /** Классы элемента плана: по ним приложение оформляет планы. */
   className?: string;
   /** Pane Leaflet; по умолчанию — `PLAN_PANE`, под линиями и отметками. Свой pane создаёт вызывающий. */
@@ -153,6 +158,7 @@ export function PlacedPlan({
   placement,
   fallbackSize = FALLBACK_IMAGE_SIZE,
   visible = true,
+  reportStatus = visible,
   className = '',
   pane = PLAN_PANE,
   data,
@@ -209,9 +215,9 @@ export function PlacedPlan({
   }, [layer, className, visible, status, data]);
 
   useEffect(() => {
-    if (!visible || report === null) return;
+    if (!reportStatus || report === null) return;
     return report(id, status);
-  }, [report, id, visible, status]);
+  }, [report, id, reportStatus, status]);
 
   return null;
 }

@@ -15,6 +15,7 @@ const canvas = (revealed: string[], floor: number): MapView => ({
   kind: 'canvas',
   floors: new Map([['building_a', floor]]),
   revealed: new Set(revealed),
+  detailed: true,
 });
 
 describe('что видно на карте', () => {
@@ -48,5 +49,19 @@ describe('routeBuildingFloors', () => {
     expect(routeBuildingFloors(graph, inward)).toEqual({ building_a: 2 });
     expect(routeBuildingFloors(graph, [...inward].reverse())).toEqual({ building_a: 1 });
     expect(routeBuildingFloors(graph, ['campus_gate', 'campus_entrance_a'])).toEqual({});
+  });
+});
+
+describe('isDetailShown', () => {
+  it('на общем виде холста значков территории нет, у корпусов и на карте одного плана — есть', async () => {
+    const { isDetailShown } = await import('../src/utils/mapView');
+    const gate = graph.getNode('campus_gate')!;
+    const room = graph.getNode('a2_room201')!;
+    const overview: MapView = { kind: 'canvas', floors: new Map(), revealed: new Set(), detailed: false };
+
+    expect(isDetailShown(overview, gate)).toBe(false);
+    expect(isDetailShown(overview, room)).toBe(true);
+    expect(isDetailShown({ ...overview, detailed: true }, gate)).toBe(true);
+    expect(isDetailShown({ kind: 'plan', scope: { mode: 'campus' } }, gate)).toBe(true);
   });
 });

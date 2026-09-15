@@ -40,7 +40,7 @@ export function isCameraBusy(map: L.Map): boolean {
  * начале — лишний рывок; выполняется только последний (записи 32 и 33).
  *
  * @param onMoveEnd вызывается, когда карта встала на место; у прерванного
- *        человеком перелёта не вызывается
+ *        перелёта не вызывается
  */
 export function fitSoon(map: L.Map, bounds: L.LatLngBounds, options: L.FitBoundsOptions, onMoveEnd?: () => void): void {
   const scheduled = pending.has(map);
@@ -59,14 +59,11 @@ function run(map: L.Map): void {
   if (!fit || flight === undefined) return;
 
   cleanups.get(map)?.();
-  const container = map.getContainer();
   let expectedZoom: number | null = null;
 
   const unsubscribe = () => {
     map.off('moveend', onMoveEnd);
-    map.off('dragstart', onGesture);
-    container.removeEventListener('wheel', onGesture);
-    container.removeEventListener('touchstart', onGesture);
+    map.off('movestart', onInterrupt);
     if (cleanups.get(map) === unsubscribe) cleanups.delete(map);
   };
 
@@ -87,8 +84,10 @@ function run(map: L.Map): void {
     if (expectedZoom === null || Math.abs(map.getZoom() - expectedZoom) < 1e-6) finish(true);
   };
 
-  // Человек перехватил карту — перелёт прерван, вида после подгонки не будет.
-  const onGesture = () => finish(false);
+  // Карту повело другое движение — жест, кнопка масштаба, новый перелёт: этот
+  // прерван, вида после подгонки не будет. Сам перелёт начинает движение раньше,
+  // чем на него подписываются, и прерыванием себя не считает.
+  const onInterrupt = () => finish(false);
 
   try {
     // Тот же расчёт, которым пользуется `flyToBounds`: перелёт встаёт ровно на этот масштаб.
@@ -98,9 +97,7 @@ function run(map: L.Map): void {
       return;
     }
     map.on('moveend', onMoveEnd);
-    map.on('dragstart', onGesture);
-    container.addEventListener('wheel', onGesture, { passive: true });
-    container.addEventListener('touchstart', onGesture, { passive: true });
+    map.on('movestart', onInterrupt);
     cleanups.set(map, unsubscribe);
   } catch {
     // Карта снята с экрана или у контейнера нулевой размер — подгонять не к чему.

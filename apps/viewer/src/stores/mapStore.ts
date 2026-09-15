@@ -76,6 +76,12 @@ interface MapState {
   /** Корпуса, приближенные настолько, что вместо крыши виден этаж. Ставит камера холста. */
   revealedBuildings: readonly string[];
 
+  /** Корпуса, чьи этажи грузятся заранее: камера подлетает к ним. Ставит камера холста. */
+  nearBuildings: readonly string[];
+
+  /** Холст приближен настолько, что на территории видны точки мест и значки входов. */
+  canvasDetailed: boolean;
+
   /** Последняя просьба к камере холста; карта из одного плана её не читает. */
   viewRequest: ViewRequest | null;
 
@@ -112,6 +118,8 @@ interface MapState {
   focusFromCamera: (buildingId: string | null) => void;
 
   setRevealedBuildings: (buildingIds: readonly string[]) => void;
+  setNearBuildings: (buildingIds: readonly string[]) => void;
+  setCanvasDetailed: (detailed: boolean) => void;
 
   /** Открывает в корпусах этажи маршрута (`routeBuildingFloors`), камеру не ведёт. */
   showRouteFloors: (floors: Readonly<Record<string, number>>) => void;
@@ -171,6 +179,9 @@ export function shownFloorOf(
   return buildingFloors[buildingId] ?? entranceFloorOf(meta);
 }
 
+const sameIds = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((id, index) => id === b[index]);
+
 export const useMapStore = create<MapState>((set, get) => ({
   graph: null,
   aliasManager: null,
@@ -180,6 +191,8 @@ export const useMapStore = create<MapState>((set, get) => ({
   activeFloor: null,
   buildingFloors: {},
   revealedBuildings: [],
+  nearBuildings: [],
+  canvasDetailed: false,
   viewRequest: null,
   selectedNodeId: null,
 
@@ -243,10 +256,18 @@ export const useMapStore = create<MapState>((set, get) => ({
     });
   },
 
+  // Камера ставит наборы на каждом кадре масштаба: тот же набор не должен
+  // будить подписчиков.
   setRevealedBuildings: (buildingIds) => {
-    const current = get().revealedBuildings;
-    if (current.length === buildingIds.length && current.every((id, index) => id === buildingIds[index])) return;
-    set({ revealedBuildings: buildingIds });
+    if (!sameIds(get().revealedBuildings, buildingIds)) set({ revealedBuildings: buildingIds });
+  },
+
+  setNearBuildings: (buildingIds) => {
+    if (!sameIds(get().nearBuildings, buildingIds)) set({ nearBuildings: buildingIds });
+  },
+
+  setCanvasDetailed: (detailed) => {
+    if (get().canvasDetailed !== detailed) set({ canvasDetailed: detailed });
   },
 
   showRouteFloors: (floors) => set({ buildingFloors: { ...get().buildingFloors, ...floors } }),

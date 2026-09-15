@@ -6,8 +6,8 @@ import { CanvasCamera } from './CanvasCamera';
 import { CanvasPlans } from './CanvasPlans';
 import { useMapInsets } from './mapChrome';
 
-/** Наибольший масштаб холста: 2^6 = 64 экранных пикселя на метр — дверь и подпись у неё. */
-const CANVAS_MAX_ZOOM = 6;
+/** Наибольший масштаб холста: 2^5 = 32 экранных пикселя на метр — дверь и подпись у неё. */
+const CANVAS_MAX_ZOOM = 5;
 
 /**
  * Холст кампуса (запись 32): территория и этажи корпусов на одной карте в

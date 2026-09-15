@@ -7,9 +7,10 @@ import { useCanvasLayout } from '../../hooks/useCanvasLayout';
 import { useMapView } from '../../hooks/useMapView';
 import { shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { pickNode } from '../../utils/mapPicking';
-import { mapPointOf, shownNodesOf } from '../../utils/mapView';
+import { isDetailShown, mapPointOf, shownNodesOf } from '../../utils/mapView';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import { themeColor } from '../../utils/themeColor';
+import { isCameraBusy } from './mapCamera';
 import { useMapInsets } from './mapChrome';
 
 /** Радиус касания, CSS-пиксели: примерно подушечка пальца. */
@@ -51,6 +52,9 @@ export const PlaceLayer: React.FC = () => {
   );
 
   const nodes = useMemo(() => (graph ? shownNodesOf(graph, view) : []), [graph, view]);
+  // Точки и выбор нажатием — только там, где значки видны: на общем виде холста
+  // нажатие мимо крыши не выбирает невидимое место.
+  const detailNodes = useMemo(() => nodes.filter((node) => isDetailShown(view, node)), [nodes, view]);
   const pointOf = (node: MapNode): [number, number] => (graph ? mapPointOf(graph, view, node) : [node.y, node.x]);
 
   const isNamed = (node: MapNode) => aliasManager?.getPrimaryAliasForId(node.id) != null;
@@ -58,7 +62,7 @@ export const PlaceLayer: React.FC = () => {
   useMapEvents({
     click(event) {
       const picked = pickNode(
-        nodes,
+        detailNodes,
         (node) => node.isPortal || isNamed(node),
         (node) => map.latLngToContainerPoint(pointOf(node)),
         event.containerPoint,
@@ -95,12 +99,15 @@ export const PlaceLayer: React.FC = () => {
   const [selectedY, selectedX] = selected ? pointOf(selected) : [null, null];
   useEffect(() => {
     if (selectedY === null || selectedX === null) return;
+    // Камера уже летит к месту (выбор из поиска): сдвиг остановил бы перелёт на
+    // полпути, и карта осталась бы на общем виде.
+    if (isCameraBusy(map)) return;
     map.panInside([selectedY, selectedX], fitPaddingOf(insets, SELECTION_MARGIN));
   }, [map, selectedY, selectedX, insets]);
 
   return (
     <>
-      {nodes
+      {detailNodes
         .filter((node) => !node.isPortal && isNamed(node))
         .map((node) => (
           <CircleMarker

@@ -11,6 +11,7 @@ export function useMapView(): MapView {
   const activeFloor = useMapStore((s) => s.activeFloor);
   const buildingFloors = useMapStore((s) => s.buildingFloors);
   const revealedBuildings = useMapStore((s) => s.revealedBuildings);
+  const detailed = useMapStore((s) => s.canvasDetailed);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
 
   // Холст от текущего корпуса не зависит: иначе каждый пролёт камеры над
@@ -24,6 +25,6 @@ export function useMapView(): MapView {
     for (const meta of buildingMetas?.values() ?? []) {
       floors.set(meta.id, shownFloorOf(buildingFloors, meta, meta.id));
     }
-    return { kind: 'canvas', floors, revealed: new Set(revealedBuildings) };
-  }, [onCanvas, planFloor, buildingFloors, revealedBuildings, buildingMetas]);
+    return { kind: 'canvas', floors, revealed: new Set(revealedBuildings), detailed };
+  }, [onCanvas, planFloor, buildingFloors, revealedBuildings, detailed, buildingMetas]);
 }

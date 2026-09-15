@@ -26,7 +26,13 @@ export default {
 
     await step('общий вид: территория и крыши всех корпусов, этажей не видно', async () => {
       await v.open('/');
-      assert.equal(await page.eval(`document.querySelectorAll('.campus-roof:not(.campus-roof--open)').length`), 3);
+      const overview = await page.eval(`({
+        roofs: [...document.querySelectorAll('.campus-roof')].map((roof) => Number(getComputedStyle(roof).fillOpacity)),
+        portals: document.querySelectorAll('.campus-marker--portal').length,
+      })`);
+      assert.equal(overview.roofs.length, 3);
+      assert.ok(overview.roofs.every((opacity) => opacity > 0.9), `крыши закрыты: ${overview.roofs}`);
+      assert.equal(overview.portals, 0, 'на общем виде значков входа нет');
       assert.deepEqual(await shownFloors(), []);
       assert.ok((await v.headerText()).includes('Корпус Б'), 'в шапке — лента корпусов');
       await shot('viewer-canvas-overview');
@@ -35,6 +41,7 @@ export default {
     await step('корпус из шапки: камера приближает его, вместо крыши — этаж, в шапке — корпус', async () => {
       await v.click('Корпус Б');
       await waitShown('building_b#1');
+      await page.waitFor(`[...document.querySelectorAll('.campus-roof')].some((roof) => Number(getComputedStyle(roof).fillOpacity) < 0.05)`);
       const header = await v.headerText();
       assert.ok(header.includes('Корпус Б') && header.includes('Этаж 1'), `шапка: ${header}`);
       assert.ok(await page.eval(`!!document.querySelector('.campus-floor-list')`), 'колонка этажей корпуса');
@@ -75,8 +82,15 @@ export default {
 
       // Нажатие без паузы помощника: иначе перелёт закончился бы до замеров.
       await page.eval(`[...document.querySelectorAll('.campus-map-header button')].find((button) => button.textContent.trim() === 'Корпус В').click()`);
-      const flight = await sample(10);
+      const reveal = [];
+      const flight = [];
+      for (let index = 0; index < 12; index += 1) {
+        flight.push(await page.eval(planWidth));
+        reveal.push(Number(await page.eval(`getComputedStyle(document.querySelector('.leaflet-container')).getPropertyValue('--reveal-2')`)));
+        await page.sleep(50);
+      }
       assert.ok(new Set(flight).size >= 4, `перелёт кадрами: ${flight}`);
+      assert.ok(reveal.some((amount) => amount > 0.05 && amount < 0.95), `крыша тает постепенно: ${reveal}`);
 
       await page.sleep(700);
       const before = await page.eval(planWidth);
@@ -88,8 +102,10 @@ export default {
     await step('маршрут в корпусе: линия по открытому этажу, этаж цели просвечивает', async () => {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await waitShown('building_a#1');
-      assert.ok((await v.routeLines()).strong > 0, 'линия по первому этажу');
-      assert.ok(await page.eval(`document.querySelectorAll('.campus-route-ghost').length > 0`), 'третий этаж просвечивает');
+      // План этажа грузится и проявляется ещё в полёте, а линия по этажу и
+      // пунктир других этажей появляются, когда камера долетела.
+      await page.waitFor(`document.querySelectorAll('.campus-route-line:not(.campus-route-line--muted)').length > 0`);
+      await page.waitFor(`document.querySelectorAll('.campus-route-ghost').length > 0`);
       await shot('viewer-canvas-route');
     });
 
@@ -98,7 +114,7 @@ export default {
       await v.click('Далее');
       await v.click('Далее');
       await waitShown('building_a#3');
-      assert.equal(await page.eval(`document.querySelectorAll('.campus-route-ghost').length`), 0);
+      await page.waitFor(`document.querySelectorAll('.campus-route-ghost').length === 0`);
     });
 
     await step('при открытом этаже у двери корпуса один значок входа, а не два', async () => {

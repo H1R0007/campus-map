@@ -42,6 +42,13 @@ interface ZoomMotion {
 
 const motions = new WeakMap<L.Map, ZoomMotion>();
 
+const moving = new WeakSet<L.Map>();
+
+/** Движется ли карта — между `movestart` и `moveend`: перелёт, жест, плавный масштаб. */
+export function isMapMoving(map: L.Map): boolean {
+  return moving.has(map);
+}
+
 /** Центр, при котором место `latlng` на масштабе `zoom` стоит в точке контейнера `point`. */
 function centerKeeping(map: L.Map, latlng: L.LatLng, point: L.Point, zoom: number): L.LatLng {
   const offset = point.subtract(map.getSize().divideBy(2));
@@ -188,6 +195,10 @@ function installSmoothCamera(map: L.Map, doubleClickZoom: boolean): () => void {
   const yieldToGesture = () => stopZoomMotion(map);
   const container = map.getContainer();
 
+  const markMoving = () => moving.add(map);
+  const markStill = () => moving.delete(map);
+  map.on('movestart', markMoving);
+  map.on('moveend', markStill);
   map.on('zoom', redraw);
   // Палец или перетаскивание во время плавного масштаба забирают камеру себе.
   map.on('dragstart', yieldToGesture);
@@ -208,6 +219,9 @@ function installSmoothCamera(map: L.Map, doubleClickZoom: boolean): () => void {
   return () => {
     wheel.disable();
     doubleClick?.disable();
+    map.off('movestart', markMoving);
+    map.off('moveend', markStill);
+    moving.delete(map);
     map.off('zoom', redraw);
     map.off('dragstart', yieldToGesture);
     container.removeEventListener('touchstart', yieldToGesture);

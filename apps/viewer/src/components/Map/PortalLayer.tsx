@@ -3,7 +3,7 @@ import { Marker } from 'react-leaflet';
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import { useMapView } from '../../hooks/useMapView';
 import { useMapStore } from '../../stores/mapStore';
-import { mapPointOf, shownNodesOf } from '../../utils/mapView';
+import { isDetailShown, mapPointOf, shownNodesOf } from '../../utils/mapView';
 import { portalTypeOf } from '../../utils/portals';
 import { portalIcon } from './markerIcons';
 
@@ -28,7 +28,7 @@ export const PortalLayer: React.FC = () => {
 
   // Выборка через индексы этажей графа (`shownNodesOf`), а не перебор всех
   // узлов кампуса. Существенно, когда корпусов и этажей станет много.
-  const shown = shownNodesOf(graph, view).filter((node) => node.isPortal);
+  const shown = shownNodesOf(graph, view).filter((node) => node.isPortal && isDetailShown(view, node));
   const shownIds = new Set(shown.map((node) => node.id));
 
   // На холсте вход в корпус — две точки в паре метров: снаружи на территории и

@@ -1,21 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { containsPoint, distanceToPolygon, fitPaddingOf, meterLatLng, useMapFrame } from '@campus-map/mapkit';
 import { useMapStore } from '../../stores/mapStore';
 import type { CanvasLayout } from '../../utils/canvasLayout';
+import { DETAIL_PIXELS_PER_METER, PRELOAD_SHARE, isRevealedAt, screenShare } from '../../utils/canvasReveal';
 import { focusBounds } from '../../utils/routeGeometry';
 import { CAMERA_SETTLED, fitSoon, isCameraBusy } from './mapCamera';
 import { useMapInsets } from './mapChrome';
-
-/** На экране корпус длиннее этого — вместо крыши виден этаж, CSS-пиксели. */
-const REVEAL_PX = 140;
-
-/**
- * Открытый корпус закрывается, только став заметно меньше: без запаса этаж
- * мигал бы, пока человек держит масштаб на границе.
- */
-const HIDE_PX = 110;
 
 /** Запас вокруг экрана, доля его размера: корпус у самого края открывается заранее. */
 const SCREEN_PAD = 0.25;
@@ -36,10 +28,11 @@ const VIEW_MARGIN = 24;
  * к месту из поиска, на территорию. Слой маршрута подгоняет вид после неё — он
  * отрисован позже, и его подгонка в том же обновлении главнее (`fitSoon`).
  *
- * И наоборот — по положению карты решает, что на ней: какие корпуса приближены
- * настолько, что вместо крыши виден этаж, и к какому корпусу приближена камера.
- * Этот корпус становится текущим: шапка и колонка этажей показывают его.
- * Решение принимается по окончании движения, а не на каждом кадре.
+ * И наоборот — по положению карты решает, что на ней: какие корпуса открыты
+ * (`canvasReveal.ts`) и к какому корпусу приближена камера. Этот корпус
+ * становится текущим: шапка и колонка этажей показывают его. Решение
+ * принимается по окончании движения. По ходу масштаба решается только, чьи
+ * этажи грузить заранее и показывать ли значки территории.
  */
 export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
   const map = useMap();
@@ -50,6 +43,11 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
   const insets = useMapInsets();
   const latestInsets = useRef(insets);
   latestInsets.current = insets;
+
+  const footprintBounds = useMemo(
+    () => new Map(layout.buildings.map((building) => [building.id, L.latLngBounds(building.footprint.map(meterLatLng))])),
+    [layout]
+  );
 
   const handledSeq = useRef<number | null>(null);
   /** Куда летит камера по последней просьбе; снимается, когда перелёт закончился. */
@@ -114,12 +112,14 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
       // грузился бы впустую, а без связи этаж, которого человек не видел,
       // оказывался бы «сохранённым».
       const onScreen = map.getBounds().pad(SCREEN_PAD);
+      const freeWidth = size.x - edges.left - edges.right;
+      const freeHeight = size.y - edges.top - edges.bottom;
       const state = useMapStore.getState();
       const wasRevealed = new Set(state.revealedBuildings);
       const revealed = layout.buildings.filter(
         (building) =>
-          building.span * pixelsPerMeter >= (wasRevealed.has(building.id) ? HIDE_PX : REVEAL_PX) &&
-          onScreen.intersects(L.latLngBounds(building.footprint.map(meterLatLng)))
+          isRevealedAt(screenShare(building.span, pixelsPerMeter, freeWidth, freeHeight), wasRevealed.has(building.id)) &&
+          onScreen.intersects(footprintBounds.get(building.id)!)
       );
       state.setRevealedBuildings(revealed.map((building) => building.id));
 
@@ -142,7 +142,38 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
     return () => {
       map.off(`moveend zoomend resize ${CAMERA_SETTLED}`, update);
     };
-  }, [map, layout]);
+  }, [map, layout, footprintBounds]);
+
+  // По ходу масштаба, и во время перелёта тоже: этаж корпуса, к которому летит
+  // камера, должен начать грузиться до того, как крыша начнёт таять.
+  useEffect(() => {
+    const update = () => {
+      const size = map.getSize();
+      const edges = latestInsets.current;
+      const pixelsPerMeter = map.getZoomScale(map.getZoom(), 0);
+      const onScreen = map.getBounds().pad(SCREEN_PAD);
+      const freeWidth = size.x - edges.left - edges.right;
+      const freeHeight = size.y - edges.top - edges.bottom;
+      const state = useMapStore.getState();
+
+      state.setNearBuildings(
+        layout.buildings
+          .filter(
+            (building) =>
+              screenShare(building.span, pixelsPerMeter, freeWidth, freeHeight) >= PRELOAD_SHARE &&
+              onScreen.intersects(footprintBounds.get(building.id)!)
+          )
+          .map((building) => building.id)
+      );
+      state.setCanvasDetailed(pixelsPerMeter >= DETAIL_PIXELS_PER_METER);
+    };
+
+    update();
+    map.on('zoom moveend resize', update);
+    return () => {
+      map.off('zoom moveend resize', update);
+    };
+  }, [map, layout, footprintBounds]);
 
   return null;
 };

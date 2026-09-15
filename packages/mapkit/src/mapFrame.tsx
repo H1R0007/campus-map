@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { MapContainer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { SmoothCamera } from './smoothCamera.js';
+import { SmoothCamera, isMapMoving } from './smoothCamera.js';
 import type { ImageStatus } from './useImageSize.js';
 
 /**
@@ -170,18 +170,23 @@ export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBou
       const height = bounds.getNorth() - bounds.getSouth();
 
       // Ось y плана направлена вниз (`PLAN_CRS`): южная граница — верх экрана.
-      map.setMaxBounds(
-        L.latLngBounds(
-          [
-            bounds.getSouth() - height * PAN_MARGIN - insets.top * planPerScreenPixel,
-            bounds.getWest() - width * PAN_MARGIN - insets.left * planPerScreenPixel,
-          ],
-          [
-            bounds.getNorth() + height * PAN_MARGIN + insets.bottom * planPerScreenPixel,
-            bounds.getEast() + width * PAN_MARGIN + insets.right * planPerScreenPixel,
-          ]
-        )
+      const limits = L.latLngBounds(
+        [
+          bounds.getSouth() - height * PAN_MARGIN - insets.top * planPerScreenPixel,
+          bounds.getWest() - width * PAN_MARGIN - insets.left * planPerScreenPixel,
+        ],
+        [
+          bounds.getNorth() + height * PAN_MARGIN + insets.bottom * planPerScreenPixel,
+          bounds.getEast() + width * PAN_MARGIN + insets.right * planPerScreenPixel,
+        ]
       );
+
+      // Пределы меняются вместе с местом под картой — раскрылась шторка, закрылся
+      // поиск, — и `setMaxBounds` сразу прокручивал вид в новые пределы. Такая
+      // прокрутка останавливала перелёт камеры на старте (запись 33). Новые
+      // пределы соблюдаются по окончании движения, как и прежде.
+      if (map.options.maxBounds) map.options.maxBounds = limits;
+      else map.setMaxBounds(limits);
     };
 
     update();
@@ -201,12 +206,18 @@ export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBou
       const lowest = lowestZoom(map, bounds, insets);
       if (lowest === null) return;
 
-      // Сам `setMinZoom` поднимает масштаб ниже предела анимацией, и в её конце
-      // Leaflet возвращал масштаб, с которого она началась, — поверх подгонки
-      // вида, сделанной тем временем. Холст в метрах на широком экране начинал с
-      // масштаба ниже предела и оставался отдалённым до упора (запись 32).
-      if (map.getZoom() < lowest) map.setZoom(lowest, { animate: false });
-      map.setMinZoom(lowest);
+      // Предел ставится без движения карты. `setMinZoom` поднимал масштаб ниже
+      // предела анимацией, в конце которой Leaflet возвращал прежний масштаб
+      // поверх подгонки вида, а любое движение останавливало бы перелёт камеры
+      // (записи 32 и 33). Масштаб ниже нового предела поднимается, когда карта
+      // остановилась.
+      map.options.minZoom = lowest;
+      map.fire('zoomlevelschange');
+      const clamp = () => {
+        if (map.getZoom() < map.getMinZoom()) map.setZoom(map.getMinZoom(), { animate: false });
+      };
+      if (isMapMoving(map)) map.once('moveend', clamp);
+      else clamp();
     };
 
     update();

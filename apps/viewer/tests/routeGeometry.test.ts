@@ -151,6 +151,7 @@ describe('routeRuns на холсте кампуса', () => {
     kind: 'canvas',
     floors: new Map([['building_a', floor]]),
     revealed: new Set(revealed),
+    detailed: true,
   });
 
   it('корпус не приближен: улица сплошной линией, путь в корпусе просвечивает и продолжает её', () => {

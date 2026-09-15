@@ -1,5 +1,5 @@
 import type { Graph, MapNode, ViewScope } from '@campus-map/core';
-import { isNodeInScope, scopeOfNode } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, isNodeInScope, scopeOfNode } from '@campus-map/core';
 import type { LatLngTuple } from './routeGeometry';
 import { sameScope } from './routeFloors';
 
@@ -22,6 +22,8 @@ export type MapView =
       floors: ReadonlyMap<string, number>;
       /** Корпуса, приближенные настолько, что вместо крыши виден этаж. */
       revealed: ReadonlySet<string>;
+      /** Приближено ли настолько, что на территории видны точки мест и значки входов. */
+      detailed: boolean;
     };
 
 /** Видна ли на карте область — территория или этаж корпуса. */
@@ -34,6 +36,15 @@ export function isScopeShown(view: MapView, scope: ViewScope): boolean {
 /** Виден ли узел на карте. */
 export function isNodeShown(view: MapView, node: MapNode): boolean {
   return view.kind === 'plan' ? isNodeInScope(node, view.scope) : isScopeShown(view, scopeOfNode(node));
+}
+
+/**
+ * Показывать ли у видимого узла точку места или значок входа. На общем виде
+ * холста значки территории лежали бы кучей поверх крыш — там их нет; начало и
+ * конец маршрута видны всегда, их этот признак не касается.
+ */
+export function isDetailShown(view: MapView, node: MapNode): boolean {
+  return view.kind === 'plan' || view.detailed || node.building !== CAMPUS_BUILDING_ID;
 }
 
 /** Узлы, видимые на карте: выборка по индексам этажей графа, без перебора всех узлов. */
