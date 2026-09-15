@@ -17,7 +17,7 @@ import { Icon } from './Icon';
  * границы плана или всей территории с отступами под интерфейс — так же, как при
  * открытии карты, с учётом текущей высоты шторки.
  */
-export const ZoomControls: React.FC = () => {
+export const ZoomControls: React.FC<{ withFit?: boolean }> = ({ withFit = true }) => {
   const map = useMap();
   const { bounds } = useMapFrame();
   const insets = useMapInsets();
@@ -51,14 +51,16 @@ export const ZoomControls: React.FC = () => {
         <Icon name="minus" />
       </button>
 
-      <button
-        type="button"
-        onClick={() => flyToBounds(map, bounds, fitPaddingOf(insets))}
-        className="campus-zoom-controls__button campus-zoom-controls__button--reset"
-        aria-label={messages.map.fitPlan}
-      >
-        <Icon name="fit" />
-      </button>
+      {withFit && (
+        <button
+          type="button"
+          onClick={() => flyToBounds(map, bounds, fitPaddingOf(insets))}
+          className="campus-zoom-controls__button campus-zoom-controls__button--reset"
+          aria-label={messages.map.fitPlan}
+        >
+          <Icon name="fit" />
+        </button>
+      )}
     </div>
   );
 };

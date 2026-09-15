@@ -220,6 +220,15 @@ export default {
         return button ? { width: button.getBoundingClientRect().width, fits: button.scrollWidth <= button.clientWidth } : null;
       })()`);
       assert.ok(start !== null && start.width >= 150 && start.fits, `«Начать» целиком: ${JSON.stringify(start)}`);
+      // Между шапкой и шторкой при увеличенном тексте места мало: кнопки масштаба
+      // уступают его, а не уходят под шторку.
+      const hidden = await page.eval(`(() => {
+        const sheetTop = ${PANEL}.getBoundingClientRect().top;
+        return [...document.querySelectorAll('.campus-zoom-controls button, .campus-floor-list')]
+          .filter((element) => element.getBoundingClientRect().bottom > sheetTop + 1)
+          .map((element) => element.getAttribute('aria-label') ?? element.className);
+      })()`);
+      assert.deepEqual(hidden, [], 'колонка карты не уходит под шторку');
       await shot('viewer-zoom200');
     });
 
