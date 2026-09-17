@@ -71,14 +71,23 @@ export function viewerHelpers(page, base) {
     },
 
     /**
-     * Открывает корпус из шапки: на широком экране — чипом ленты, на телефоне —
-     * из списка «Корпуса».
+     * Открывает корпус из шапки: на широком экране — чипом ленты, иначе — из
+     * списка корпусов: кнопки «Корпуса» или плашки открытого корпуса.
      */
     async openBuilding(name) {
       const inStrip = await page.eval(
         `[...document.querySelectorAll('.campus-map-header button')].some((b) => b.textContent.trim() === ${JSON.stringify(name)})`
       );
-      if (!inStrip) await helpers.click('Корпуса');
+      if (!inStrip) {
+        const opened = await page.eval(`(() => {
+          const menu = document.querySelector('.campus-map-header button[aria-expanded="false"]');
+          if (!menu) return false;
+          menu.click();
+          return true;
+        })()`);
+        if (!opened) throw new Error('в шапке нет списка корпусов');
+        await page.sleep(300);
+      }
       await helpers.click(name);
     },
 

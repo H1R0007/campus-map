@@ -44,7 +44,7 @@ interface SearchViewProps {
  *
  * Что делает выбор, зависит от цели: место показывается на карте с карточкой,
  * начало или конец маршрута задаются сразу (`useChoosePlace`). Пустой поиск
- * показывает недавние места и корпуса. Поиск места находит и корпуса по
+ * показывает быстрые кнопки и недавние места. Поиск места находит и корпуса по
  * названию — «Корпус Б» ведёт в корпус; Enter открывает единственный найденный.
  */
 export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
@@ -252,7 +252,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
             {/* Уже заданная точка маршрута как вторая точка ничего не даст —
                 маршрут из места в него же. */}
             <RecentPlaces onChoose={choose} exclude={target === 'place' ? [] : [fromNodeId, toNodeId]} />
-            {target === 'place' && <BuildingList onChoose={closeSearch} />}
+
           </div>
         )}
       </div>

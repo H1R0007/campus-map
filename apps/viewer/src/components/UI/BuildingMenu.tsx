@@ -5,7 +5,11 @@ import { shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { Icon } from './Icon';
 
 /**
- * Корпуса на территории — кнопкой со списком, в шапке телефона.
+ * Выбор корпуса — кнопкой со списком в шапке, единственное место, где корпус
+ * выбирают (запись 37): на территории телефона — кнопка «Корпуса», в корпусе на
+ * любом экране — плашка с корпусом и этажом, из которой переходят в соседний
+ * корпус без возврата на территорию. Прежде корпуса были ещё списком в
+ * раскрытой панели и в пустом поиске — одно и то же в трёх местах.
  *
  * Лента корпусов на телефоне занимала всю ширину шапки и вместе с
  * переключателем языка закрывала верх карты целой полосой. Кнопка занимает
@@ -16,7 +20,12 @@ import { Icon } from './Icon';
  * Список закрывается выбором, Escape и нажатием мимо. При открытии фокус — на
  * первом корпусе, после Escape — снова на кнопке.
  */
-export const BuildingMenu: React.FC = () => {
+interface BuildingMenuProps {
+  /** Открытый корпус и этаж — кнопкой служит плашка с ними; без него — «Корпуса». */
+  current?: { title: string; subtitle: string };
+}
+
+export const BuildingMenu: React.FC<BuildingMenuProps> = ({ current }) => {
   const campusMeta = useMapStore((s) => s.campusMeta);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const buildingFloors = useMapStore((s) => s.buildingFloors);
@@ -54,17 +63,28 @@ export const BuildingMenu: React.FC = () => {
   if (!campusMeta || !buildingMetas) return null;
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0 wide:max-w-sm">
       <button
         ref={buttonRef}
         type="button"
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen(!open)}
-        className="h-11 px-4 rounded-xl bg-surface shadow-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+        className={`max-w-full h-11 rounded-xl bg-surface shadow-md text-left hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+          current ? 'pl-3 pr-2' : 'px-4 text-sm font-medium text-gray-700'
+        }`}
       >
-        <Icon name="building" size={16} className="flex-shrink-0 text-gray-500" />
-        {messages.map.buildings}
+        {current ? (
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-gray-800 truncate">{current.title}</span>
+            <span className="block text-xs text-gray-500 truncate">{current.subtitle}</span>
+          </span>
+        ) : (
+          <>
+            <Icon name="building" size={16} className="flex-shrink-0 text-gray-500" />
+            {messages.map.buildings}
+          </>
+        )}
         <Icon name={open ? 'expand' : 'collapse'} size={16} className="flex-shrink-0 text-gray-500" />
       </button>
 

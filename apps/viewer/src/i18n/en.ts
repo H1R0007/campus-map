@@ -18,7 +18,7 @@ export const en: Messages = {
 
   languageSwitch: 'Interface language',
 
-  themeSwitch: 'Appearance',
+  themeButton: (current, next) => `Appearance: ${current.toLowerCase()}. Tap for ${next.toLowerCase()}`,
   theme: {
     system: 'System',
     light: 'Light',

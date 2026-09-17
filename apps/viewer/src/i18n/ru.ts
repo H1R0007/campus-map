@@ -41,7 +41,8 @@ export const ru = {
   languageSwitch: 'Язык интерфейса',
 
   /** Переключатель темы оформления (запись 34). */
-  themeSwitch: 'Оформление',
+  /** Кнопка оформления: выбранное и следующее — уже «Как в системе», «Светлая». */
+  themeButton: (current: string, next: string) => `Оформление: ${current.toLowerCase()}. Нажмите — ${next.toLowerCase()}`,
   theme: {
     system: 'Как в системе',
     light: 'Светлая',

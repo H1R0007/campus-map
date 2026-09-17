@@ -163,7 +163,11 @@ export default {
       await useScheme('light');
       await v.open('/');
       await v.click('Развернуть панель');
-      await v.click('Тёмная');
+      // Оформление — одна круглая кнопка: как в системе → светлая → тёмная.
+      const themeButton = `[...document.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Оформление:'))`;
+      assert.equal(await page.eval(`${themeButton}?.getAttribute('aria-label')`), 'Оформление: как в системе. Нажмите — светлая');
+      await page.eval(`${themeButton}.click()`);
+      await page.eval(`${themeButton}.click()`);
       await page.waitFor(`document.documentElement.dataset.theme === 'dark'`);
       assert.equal((await look()).panel, 'rgb(27, 34, 46)', 'панель тёмная при светлой системе');
       await shot('viewer-theme-switch');
@@ -173,8 +177,9 @@ export default {
       assert.equal(await page.eval('document.documentElement.dataset.theme'), 'dark', 'выбор сохранился после перезагрузки');
 
       await v.click('Развернуть панель');
-      await v.click('Как в системе');
+      await page.eval(`${themeButton}.click()`);
       await page.waitFor(`document.documentElement.dataset.theme === 'light'`);
+      assert.equal(await page.eval(`${themeButton}?.getAttribute('aria-label')`), 'Оформление: как в системе. Нажмите — светлая');
       assert.equal((await look()).panel, 'rgb(255, 255, 255)', 'снова как в системе');
     });
   },

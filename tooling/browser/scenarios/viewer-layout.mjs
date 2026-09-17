@@ -104,6 +104,24 @@ export default {
       assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Поделиться маршрутом');
     });
 
+    await step('корпус выбирают только в шапке: из корпуса — плашкой, в панели и пустом поиске списка корпусов нет', async () => {
+      await v.open('/');
+      await v.click('Развернуть панель');
+      assert.equal(await page.eval(`${PANEL}.textContent.includes('Корпуса')`), false, 'в раскрытой панели списка корпусов нет');
+      assert.equal(await page.eval(`${PANEL}.textContent.includes('Как в системе')`), false, 'оформление — кнопкой, а не строкой выбора');
+      await v.click('Свернуть панель');
+
+      await v.click('Найти аудиторию или место');
+      await page.waitFor(`document.activeElement?.getAttribute('role') === 'combobox'`);
+      assert.equal(await page.eval(`document.querySelector('[data-search-view]').textContent.includes('Корпуса')`), false, 'в пустом поиске списка корпусов нет');
+      await page.key('Escape');
+
+      await v.openBuilding('Корпус А');
+      await page.waitFor(`document.querySelector('.campus-map-header').innerText.includes('Корпус А')`);
+      await v.openBuilding('Корпус В');
+      await page.waitFor(`document.querySelector('.campus-map-header').innerText.includes('Корпус В')`);
+    });
+
     await step('поиск места находит корпус по названию и открывает его', async () => {
       await v.open('/');
       await v.click('Найти аудиторию или место');
