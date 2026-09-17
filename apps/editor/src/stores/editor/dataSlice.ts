@@ -81,6 +81,27 @@ export interface DataSlice {
 
 const NO_ALIASES: string[] = [];
 
+/**
+ * Узлы открытого плана.
+ *
+ * Чистая функция, а не только действие стора: слои карты считают по ней
+ * выборку в `useMemo` от самих данных и не пересчитывают её на каждое
+ * изменение стора.
+ */
+export function floorNodesOf(
+  nodes: ReadonlyMap<string, MapNode>,
+  building: string | null,
+  floor: number | null,
+  showPortals: boolean
+): MapNode[] {
+  const scope = scopeOfFloor(building, floor);
+  const result: MapNode[] = [];
+  for (const node of nodes.values()) {
+    if (isNodeInScope(node, scope) && (showPortals || !node.isPortal)) result.push(node);
+  }
+  return result;
+}
+
 export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   nodes: new Map(),
   transitions: [],
@@ -151,14 +172,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
 
   getNodesForCurrentFloor: () => {
     const { nodes, currentBuilding, currentFloor, displayFilters } = get();
-    const scope = scopeOfFloor(currentBuilding, currentFloor);
-    let result = Array.from(nodes.values()).filter((n) => isNodeInScope(n, scope));
-
-    if (!displayFilters.showPortals) {
-      result = result.filter((n) => !n.isPortal);
-    }
-
-    return result;
+    return floorNodesOf(nodes, currentBuilding, currentFloor, displayFilters.showPortals);
   },
 
   getEdgesForCurrentFloor: () => {

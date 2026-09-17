@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { TRANSITION_TYPES, transitionTypeLabel } from '@campus-map/core';
+import { TRANSITION_TYPES } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore, EditorTool } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
 import { validateDataset } from '../../utils/validateData';
+import { TRANSITION_LABELS } from '../../utils/labels';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
@@ -142,7 +143,7 @@ export const Toolbar: React.FC = () => {
                     }}
                   >
                     <TransitionGlyph type={tp} size={14} />
-                    <span>{transitionTypeLabel(tp)}</span>
+                    <span>{TRANSITION_LABELS[tp]}</span>
                   </button>
                 );
               })}

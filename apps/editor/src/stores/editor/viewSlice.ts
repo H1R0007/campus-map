@@ -34,6 +34,8 @@ export interface ViewSlice {
   currentBuilding: string | null;
   currentFloor: number | null;
   cameraCenterRequest: CameraRequest | null;
+  /** Просьба показать план целиком: карта выполняет её при каждом новом значении. */
+  fitPlanRequest: number;
   displayFilters: DisplayFilters;
   gridSettings: GridSettings;
 
@@ -41,6 +43,7 @@ export interface ViewSlice {
   setCurrentFloor: (floor: number | null) => void;
   setCameraCenter: (x: number, y: number, zoom?: number) => void;
   clearCameraCenter: () => void;
+  requestFitPlan: () => void;
   /** Открывает план узла, ставит его в центр и выделяет. */
   centerOnNode: (nodeId: string, keepZoom?: boolean) => void;
   /** Открывает план узла, не трогая камеру и выделение. */
@@ -54,6 +57,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   currentBuilding: null,
   currentFloor: null,
   cameraCenterRequest: null,
+  fitPlanRequest: 0,
 
   displayFilters: {
     showPortals: true,
@@ -108,6 +112,11 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   clearCameraCenter: () =>
     set((s) => {
       s.cameraCenterRequest = null;
+    }),
+
+  requestFitPlan: () =>
+    set((s) => {
+      s.fitPlanRequest += 1;
     }),
 
   centerOnNode: (nodeId, keepZoom = true) => {

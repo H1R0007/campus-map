@@ -1,7 +1,7 @@
 import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '@campus-map/core';
 import type { MapNode, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
-import type { NeighborSnapshot } from '../historyStore';
+import type { NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
 import { snapshotNeighbors } from './graphState';
@@ -27,16 +27,23 @@ export interface EditSlice {
   removeNode: (nodeId: string) => void;
   moveNode: (nodeId: string, x: number, y: number) => void;
   commitMoveNode: (nodeId: string, fromX: number, fromY: number, toX: number, toY: number) => void;
+  /** Ставит узлы в точки без записи в историю — кадр перетаскивания. */
+  setNodePositions: (positions: readonly NodePosition[]) => void;
+  /**
+   * Одна запись истории на всё перетаскивание: узлы уже стоят в `after`
+   * (`setNodePositions`), отмена вернёт их в `before`.
+   */
+  commitNodePositions: (before: readonly NodePosition[], after: readonly NodePosition[]) => void;
   updateNode: (nodeId: string, updates: Partial<MapNode>) => void;
   addEdge: (fromId: string, toId: string) => void;
   removeEdge: (fromId: string, toId: string) => void;
   addTransition: (fromId: string, toId: string, type: TransitionType) => void;
   removeTransition: (fromId: string, toId: string) => void;
+  updateTransitionType: (fromId: string, toId: string, type: TransitionType) => void;
   setNodeAliases: (nodeId: string, names: string[]) => void;
   setNodeComment: (nodeId: string, comment: string) => void;
 
   splitEdge: (fromId: string, toId: string) => string | null;
-  subdivideEdge: (fromId: string, toId: string, count: number) => string[];
 
   deleteSelected: () => void;
   duplicateSelected: () => void;
@@ -187,6 +194,44 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
+  setNodePositions: (positions) =>
+    set((s) => {
+      for (const pos of positions) {
+        const n = s.nodes.get(pos.nodeId);
+        if (n) {
+          n.x = pos.x;
+          n.y = pos.y;
+        }
+      }
+      s.hasUnsavedChanges = true;
+    }),
+
+  commitNodePositions: (before, after) => {
+    const moved = after.filter((pos, i) => pos.x !== before[i]?.x || pos.y !== before[i]?.y);
+    if (moved.length === 0) return;
+
+    const history = useHistoryStore.getState();
+    if (after.length === 1) {
+      history.push({
+        type: 'MOVE_NODE',
+        description: 'Перемещение узла',
+        undoData: { ...before[0] },
+        redoData: { ...after[0] },
+      });
+    } else {
+      history.push({
+        type: 'BATCH',
+        description: `Перемещено ${after.length} узлов`,
+        undoData: { kind: 'moveMultiple', positions: before.map((p) => ({ ...p })) },
+        redoData: { kind: 'moveMultiple', positions: after.map((p) => ({ ...p })) },
+      });
+    }
+
+    set((s) => {
+      s.hasUnsavedChanges = true;
+    });
+  },
+
   updateNode: (nodeId, updates) => {
     const node = get().nodes.get(nodeId);
     if (!node) return;
@@ -297,6 +342,29 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     useHistoryStore.getState().push({
       type: 'REMOVE_TRANSITION',
       description: 'Удален переход',
+      undoData: { transitions: before },
+      redoData: { transitions: next },
+    });
+
+    set((s) => {
+      s.transitions = next;
+      s.hasUnsavedChanges = true;
+    });
+  },
+
+  updateTransitionType: (fromId, toId, type) => {
+    const st = get();
+    const index = st.transitions.findIndex(
+      (t) => (t.fromNode === fromId && t.toNode === toId) || (t.fromNode === toId && t.toNode === fromId)
+    );
+    if (index < 0 || st.transitions[index].type === type) return;
+
+    const before = [...st.transitions];
+    const next = before.map((t, i) => (i === index ? { ...t, type } : t));
+
+    useHistoryStore.getState().push({
+      type: 'UPDATE_TRANSITION',
+      description: 'Изменён тип перехода',
       undoData: { transitions: before },
       redoData: { transitions: next },
     });
@@ -428,88 +496,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     return newId;
   },
 
-  /** Разбить ребро на N сегментов (вставить N−1 узлов). */
-  subdivideEdge: (fromId, toId, count) => {
-    if (count < 2) return [];
-
-    const st = get();
-    const fromNode = st.nodes.get(fromId);
-    const toNode = st.nodes.get(toId);
-
-    if (!fromNode || !toNode) return [];
-    if (!fromNode.neighbors.includes(toId)) return [];
-
-    const segmentCount = Math.min(count, 20);
-    const nodeCount = segmentCount - 1;
-    if (nodeCount < 1) return [];
-
-    const { building, floor } = fromNode;
-    const { gridSettings } = st;
-
-    const newNodes: MapNode[] = [];
-    let counter = st.nodeIdCounter;
-
-    for (let i = 1; i <= nodeCount; i++) {
-      const t = i / segmentCount;
-      let x = Math.round(fromNode.x + (toNode.x - fromNode.x) * t);
-      let y = Math.round(fromNode.y + (toNode.y - fromNode.y) * t);
-
-      if (gridSettings.enabled && gridSettings.snap) {
-        x = Math.round(x / gridSettings.size) * gridSettings.size;
-        y = Math.round(y / gridSettings.size) * gridSettings.size;
-      }
-
-      newNodes.push({
-        id: `${building.toLowerCase()}_${floor}_node_${counter++}`,
-        x,
-        y,
-        building,
-        floor,
-        isPortal: false,
-        neighbors: [],
-      });
-    }
-
-    // Связи цепочкой: from — новые узлы — to.
-    for (let i = 0; i < newNodes.length; i++) {
-      newNodes[i].neighbors.push(i === 0 ? fromId : newNodes[i - 1].id);
-      newNodes[i].neighbors.push(i === newNodes.length - 1 ? toId : newNodes[i + 1].id);
-    }
-
-    useHistoryStore.getState().push({
-      type: 'BATCH',
-      description: `Разбиение ребра: ${nodeCount} узлов`,
-      undoData: {
-        kind: 'subdivideEdge',
-        nodeIds: newNodes.map((n) => n.id),
-        fromId,
-        toId,
-        neighborsBefore: snapshotNeighbors(st.nodes, [fromId, toId]),
-      },
-      redoData: { kind: 'subdivideEdge', nodes: newNodes, fromId, toId },
-    });
-
-    set((s) => {
-      s.nodeIdCounter = counter;
-
-      const from = s.nodes.get(fromId)!;
-      const to = s.nodes.get(toId)!;
-      from.neighbors = from.neighbors.filter((n) => n !== toId);
-      to.neighbors = to.neighbors.filter((n) => n !== fromId);
-
-      for (const n of newNodes) {
-        s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
-      }
-
-      from.neighbors.push(newNodes[0].id);
-      to.neighbors.push(newNodes[newNodes.length - 1].id);
-
-      s.selectedNodeIds = new Set(newNodes.map((n) => n.id));
-      s.hasUnsavedChanges = true;
-    });
-
-    return newNodes.map((n) => n.id);
-  },
 
   deleteSelected: () => {
     const { selectedNodeIds, nodes, transitions, aliases } = get();

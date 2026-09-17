@@ -53,7 +53,8 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
       break;
     }
     case 'ADD_TRANSITION':
-    case 'REMOVE_TRANSITION': {
+    case 'REMOVE_TRANSITION':
+    case 'UPDATE_TRANSITION': {
       s.transitions = [...entry.undoData.transitions];
       break;
     }
@@ -120,12 +121,7 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
           s.selectedNodeIds = new Set();
           break;
         }
-        case 'subdivideEdge': {
-          for (const id of u.nodeIds) s.nodes.delete(id);
-          applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
-          s.selectedNodeIds = new Set();
-          break;
-        }
+
       }
       break;
     }
@@ -184,7 +180,8 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
       break;
     }
     case 'ADD_TRANSITION':
-    case 'REMOVE_TRANSITION': {
+    case 'REMOVE_TRANSITION':
+    case 'UPDATE_TRANSITION': {
       s.transitions = [...entry.redoData.transitions];
       break;
     }
@@ -266,21 +263,7 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
           }
           break;
         }
-        case 'subdivideEdge': {
-          const { nodes: newNodes, fromId, toId } = r;
-          for (const n of newNodes) {
-            s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
-          }
-          const from = s.nodes.get(fromId);
-          const to = s.nodes.get(toId);
-          if (from && to) {
-            from.neighbors = from.neighbors.filter((n) => n !== toId);
-            to.neighbors = to.neighbors.filter((n) => n !== fromId);
-            from.neighbors.push(newNodes[0].id);
-            to.neighbors.push(newNodes[newNodes.length - 1].id);
-          }
-          break;
-        }
+
       }
       break;
     }

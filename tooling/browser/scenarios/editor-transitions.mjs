@@ -26,7 +26,7 @@ export default {
       await page.sleep(600);
     };
     const targets = () =>
-      page.eval(`[...document.querySelectorAll('.transition-target-tooltip')].flatMap((t) => [...t.querySelectorAll(':scope > div > div')].map((row) => row.textContent.trim()))`);
+      page.eval(`[...document.querySelectorAll('.transition-target-tooltip .transition-target')].map((row) => row.textContent.trim())`);
     const dashedLines = () =>
       page.eval(`[...document.querySelectorAll('.leaflet-overlay-pane path')].filter((p) => p.getAttribute('stroke-dasharray') === '8 8').length`);
 

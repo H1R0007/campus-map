@@ -44,7 +44,28 @@ const cases: Case[] = [
   { name: 'изменить заметку', act: () => store().setNodeComment('a1_room101', 'дверь закрыта после 18:00') },
   { name: 'стереть заметку', act: () => store().setNodeComment('a1_room101', '') },
   { name: 'разделить ребро', act: () => store().splitEdge('a1_hall', 'a1_stairs') },
-  { name: 'разбить ребро на части', act: () => store().subdivideEdge('a1_hall', 'a1_stairs', 4) },
+  { name: 'сменить тип перехода', act: () => store().updateTransitionType('a2_stairs', 'a1_stairs', 'lift') },
+  {
+    name: 'перетащить несколько узлов',
+    act: () => {
+      const before = [
+        { nodeId: 'a1_hall', x: 100, y: 120 },
+        { nodeId: 'a1_room101', x: 100, y: 60 },
+      ];
+      const after = before.map((p) => ({ ...p, x: p.x + 15, y: p.y - 5 }));
+      store().setNodePositions(after);
+      store().commitNodePositions(before, after);
+    },
+  },
+  {
+    name: 'перетащить один узел',
+    act: () => {
+      const before = [{ nodeId: 'a1_stairs', x: 300, y: 120 }];
+      const after = [{ nodeId: 'a1_stairs', x: 310, y: 118 }];
+      store().setNodePositions(after);
+      store().commitNodePositions(before, after);
+    },
+  },
   {
     name: 'удалить выделенные',
     setup: () => select('a1_hall', 'a1_room101', 'a1_stairs'),

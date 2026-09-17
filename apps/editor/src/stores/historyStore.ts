@@ -62,13 +62,6 @@ export type BatchUndoPayload =
       fromId: string;
       toId: string;
       neighborsBefore: NeighborSnapshot;
-    }
-  | {
-      kind: 'subdivideEdge';
-      nodeIds: string[];
-      fromId: string;
-      toId: string;
-      neighborsBefore: NeighborSnapshot;
     };
 
 /** Нагрузки повтора для составных действий. */
@@ -83,8 +76,7 @@ export type BatchRedoPayload =
       fixedNodesNeighbors: NeighborSnapshot;
       fixedTransitions: Transition[];
     }
-  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string }
-  | { kind: 'subdivideEdge'; nodes: MapNode[]; fromId: string; toId: string };
+  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string };
 
 /** Тип действия, по которому ветвится применение отмены и повтора. */
 export type ActionType =
@@ -96,6 +88,7 @@ export type ActionType =
   | 'REMOVE_EDGE'
   | 'ADD_TRANSITION'
   | 'REMOVE_TRANSITION'
+  | 'UPDATE_TRANSITION'
   | 'SET_ALIASES'
   | 'BATCH';
 
@@ -162,6 +155,13 @@ export type HistoryEntry =
     }
   | {
       type: 'REMOVE_TRANSITION';
+      description: string;
+      timestamp: number;
+      undoData: { transitions: Transition[] };
+      redoData: { transitions: Transition[] };
+    }
+  | {
+      type: 'UPDATE_TRANSITION';
       description: string;
       timestamp: number;
       undoData: { transitions: Transition[] };

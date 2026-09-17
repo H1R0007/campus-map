@@ -13,7 +13,6 @@ import { StatisticsPanel } from './components/UI/StatisticsPanel';
 import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
 import { RecentActions } from './components/UI/RecentActions';
 import { ContextMenu } from './components/UI/ContextMenu';
-import { EdgeContextMenu } from './components/UI/EdgeContextMenu';
 import { BookmarksPanel } from './components/UI/BookmarksPanel';
 import { useEditorStore } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
@@ -184,7 +183,6 @@ const App: React.FC = () => {
 
         <SearchPanel />
         <ContextMenu />
-        <EdgeContextMenu />
       </div>
     </ErrorBoundary>
   );

@@ -27,42 +27,45 @@ export const StatusBar: React.FC = () => {
   const toolInfo: Record<string, { name: string; hint: string }> = {
     select: {
       name: 'Выбор',
-      hint: 'ЛКМ — инфо | Shift+ЛКМ — мультивыбор | ПКМ — редактировать/drag | Ctrl+ПКМ — область'
+      hint:
+        'Щелчок — выбрать узел · перетащить — сдвинуть · Shift+щелчок — добавить к выбору · ' +
+        'Shift+протянуть — рамка · правая кнопка — меню',
     },
     node: {
       name: 'Узел',
-      hint: 'ЛКМ — создать узел'
+      hint: 'Щелчок по карте — поставить узел',
     },
     edge: {
       name: 'Ребро',
       hint: edgeStartNodeId
-        ? 'ЛКМ по второму узлу — создать связь | Esc — отмена'
-        : 'ЛКМ — выбрать первый узел'
+        ? 'Щелчок по второму узлу — соединить · Esc — отмена'
+        : 'Щелчок по первому узлу ребра',
     },
     transition: {
       name: 'Переход',
       hint: transitionStartNodeId
-        ? 'ЛКМ по второму узлу — создать переход | Esc — отмена'
-        : 'ЛКМ — выбрать первый узел'
+        ? 'Щелчок по второму узлу — создать переход · Esc — отмена'
+        : 'Щелчок по первому узлу перехода',
     },
     line: {
       name: 'Линия',
       hint: !lineTool.start
-        ? 'ЛКМ — начальная точка'
+        ? 'Щелчок — начало линии'
         : !lineTool.end
-        ? 'ЛКМ — конечная точка'
-        : '✓ Настройте в панели справа'
+        ? 'Щелчок — конец линии'
+        : 'Задайте число узлов в панели и нажмите «Создать»',
     },
     delete: {
       name: 'Удаление',
-      hint: 'ЛКМ — удалить узел/ребро'
+      hint: 'Щелчок по узлу, ребру или переходу — удалить',
     },
   };
 
   const currentTool = toolInfo[activeTool] || { name: activeTool, hint: '' };
 
   return (
-    <div
+    <footer
+      aria-label="Строка состояния"
       className="h-9 flex items-center justify-between px-4 text-xs select-none"
       style={{ backgroundColor: 'var(--editor-panel)', borderTop: '1px solid var(--editor-border)' }}
     >
@@ -112,6 +115,6 @@ export const StatusBar: React.FC = () => {
           </span>
         )}
       </div>
-    </div>
+    </footer>
   );
 };

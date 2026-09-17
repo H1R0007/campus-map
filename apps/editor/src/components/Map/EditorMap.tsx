@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
-import { PixelMap } from '@campus-map/mapkit';
+import { DEFAULT_INSETS, PixelMap, fitPaddingOf, flyToBounds, useMapFrame } from '@campus-map/mapkit';
 import { campusMapUrl, floorMapUrl, planFormatOf } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import type { EditorTool } from '../../stores/editorStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
+import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -25,6 +26,16 @@ const CameraController: React.FC = () => {
     map.setView([cameraCenterRequest.y, cameraCenterRequest.x], zoom, { animate: true, duration: 0.35 });
     clearCameraCenter();
   }, [map, cameraCenterRequest, clearCameraCenter]);
+
+  // «Показать план целиком» из меню карты.
+  const { bounds } = useMapFrame();
+  const fitPlanRequest = useEditorStore((s) => s.fitPlanRequest);
+  const fittedRequest = useRef(fitPlanRequest);
+  useEffect(() => {
+    if (fitPlanRequest === fittedRequest.current) return;
+    fittedRequest.current = fitPlanRequest;
+    flyToBounds(map, bounds, fitPaddingOf(DEFAULT_INSETS));
+  }, [map, bounds, fitPlanRequest]);
 
   return null;
 };
@@ -55,6 +66,10 @@ const KeyboardHandler: React.FC = () => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Открытое меню управляется своими клавишами: стрелки выбирают пункт, а не
+      // двигают узлы, Delete не удаляет выделение за спиной у меню.
+      if (useEditorStore.getState().contextMenu.open || target.closest?.('[role="menu"]')) return;
 
       const ctrl = e.ctrlKey || e.metaKey;
 
@@ -188,119 +203,112 @@ const KeyboardHandler: React.FC = () => {
   return null;
 };
 
+/**
+ * Нажатия на пустое место карты.
+ *
+ * - щелчок: инструмент «Узел» ставит узел, «Линия» — её концы, «Выбор»
+ *   снимает выделение;
+ * - перетаскивание двигает карту (Leaflet), Shift + перетаскивание — рамка
+ *   выделения, которая добавляет узлы к выбору;
+ * - правая кнопка — меню карты.
+ *
+ * Нажатия на узлы, рёбра и переходы сюда не доходят: их слои останавливают
+ * событие.
+ */
 const MapEventHandler: React.FC = () => {
   const map = useMap();
+  const boxRef = useRef(false);
 
-  const activeTool = useEditorStore((s) => s.activeTool);
-  const addNode = useEditorStore((s) => s.addNode);
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-
-  const lineTool = useEditorStore((s) => s.lineTool);
-  const lineSetStart = useEditorStore((s) => s.lineSetStart);
-  const lineSetEnd = useEditorStore((s) => s.lineSetEnd);
-  const lineReset = useEditorStore((s) => s.lineReset);
-
-  const selectionBox = useEditorStore((s) => s.selectionBox);
-  const startSelectionBox = useEditorStore((s) => s.startSelectionBox);
-  const updateSelectionBox = useEditorStore((s) => s.updateSelectionBox);
-  const finishSelectionBox = useEditorStore((s) => s.finishSelectionBox);
-  const cancelSelectionBox = useEditorStore((s) => s.cancelSelectionBox);
-
-  const selectingRef = useRef(false);
-
-  // safety: если mouseup произошёл вне карты — вернуть dragging
+  // Shift + перетаскивание у Leaflet приближает карту рамкой; здесь это рамка
+  // выделения.
   useEffect(() => {
-    const onWindowMouseUp = (e: MouseEvent) => {
-      if (!selectingRef.current) return;
-      if (e.button !== 2) return;
-      selectingRef.current = false;
-      try {
-        finishSelectionBox();
-      } finally {
-        map.dragging.enable();
-      }
+    map.boxZoom.disable();
+  }, [map]);
+
+  useEffect(() => {
+    const endBox = (commit: boolean) => {
+      if (!boxRef.current) return;
+      boxRef.current = false;
+      const st = useEditorStore.getState();
+      if (commit) st.finishSelectionBox(true);
+      else st.cancelSelectionBox();
+      suppressNextMapClick();
+      map.dragging.enable();
     };
-    window.addEventListener('mouseup', onWindowMouseUp, true);
-    return () => window.removeEventListener('mouseup', onWindowMouseUp, true);
-  }, [finishSelectionBox, map]);
+
+    // Кнопку могут отпустить и за пределами карты.
+    const onMouseUp = (ev: MouseEvent) => {
+      if (ev.button === 0) endBox(true);
+    };
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') endBox(false);
+    };
+    // Меню у точки карты теряет смысл, как только карта сдвинулась.
+    const closeMenu = () => {
+      if (useEditorStore.getState().contextMenu.open) useEditorStore.getState().closeContextMenu();
+    };
+
+    window.addEventListener('mouseup', onMouseUp, true);
+    window.addEventListener('keydown', onKeyDown, true);
+    map.on('movestart zoomstart', closeMenu);
+    return () => {
+      window.removeEventListener('mouseup', onMouseUp, true);
+      window.removeEventListener('keydown', onKeyDown, true);
+      map.off('movestart zoomstart', closeMenu);
+    };
+  }, [map]);
 
   useMapEvents({
     click: (e) => {
-      const dom = e.originalEvent as MouseEvent;
-      if (dom.button !== 0) return;
-      if (dom.defaultPrevented) return;
+      const dom = e.originalEvent;
+      if (dom.button !== 0 || isMapClickSuppressed()) return;
 
-      if (activeTool === 'node') {
-        addNode(e.latlng.lng, e.latlng.lat);
+      const st = useEditorStore.getState();
+      const { lng: x, lat: y } = e.latlng;
+
+      if (st.activeTool === 'node') {
+        st.addNode(x, y);
         return;
       }
 
-      if (activeTool === 'line') {
-        if (!lineTool.start) lineSetStart(e.latlng.lng, e.latlng.lat);
-        else if (!lineTool.end) lineSetEnd(e.latlng.lng, e.latlng.lat);
+      if (st.activeTool === 'line') {
+        if (!st.lineTool.start) st.lineSetStart(x, y);
+        else if (!st.lineTool.end) st.lineSetEnd(x, y);
         else {
-          lineReset();
-          lineSetStart(e.latlng.lng, e.latlng.lat);
+          st.lineReset();
+          st.lineSetStart(x, y);
         }
         return;
       }
 
-      if (activeTool === 'select' && !dom.shiftKey) {
-        // клик по пустому месту — сброс выделения
-        clearSelection();
-      }
+      if (st.activeTool === 'select' && !dom.shiftKey) st.clearSelection();
     },
 
-    // Ctrl+ПКМ selection box
     mousedown: (e) => {
-      const dom = e.originalEvent as MouseEvent;
-      if (activeTool === 'select' && dom.ctrlKey && dom.button === 2) {
-        dom.preventDefault();
-        dom.stopPropagation();
-        selectingRef.current = true;
-        map.dragging.disable();
-        startSelectionBox(e.latlng.lng, e.latlng.lat);
-      }
+      const dom = e.originalEvent;
+      const st = useEditorStore.getState();
+      if (st.activeTool !== 'select' || dom.button !== 0 || !dom.shiftKey) return;
+
+      dom.preventDefault();
+      boxRef.current = true;
+      map.dragging.disable();
+      st.startSelectionBox(e.latlng.lng, e.latlng.lat);
     },
 
     mousemove: (e) => {
-      if (selectionBox?.active && selectingRef.current) {
-        updateSelectionBox(e.latlng.lng, e.latlng.lat);
-      }
-    },
-
-    mouseup: (e) => {
-      const dom = e.originalEvent as MouseEvent;
-      if (selectingRef.current && dom.button === 2) {
-        dom.preventDefault();
-        dom.stopPropagation();
-        selectingRef.current = false;
-        try {
-          finishSelectionBox();
-        } finally {
-          map.dragging.enable();
-        }
-      }
+      if (boxRef.current) useEditorStore.getState().updateSelectionBox(e.latlng.lng, e.latlng.lat);
     },
 
     contextmenu: (e) => {
-      // отключаем браузерное меню на карте
-      e.originalEvent.preventDefault();
+      const dom = e.originalEvent;
+      dom.preventDefault();
+      useEditorStore.getState().openContextMenu(dom.clientX, dom.clientY, {
+        kind: 'map',
+        x: Math.round(e.latlng.lng),
+        y: Math.round(e.latlng.lat),
+      });
     },
   });
-
-  // на случай Esc — отмена selection box
-  useEffect(() => {
-    const onKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape' && selectingRef.current) {
-        selectingRef.current = false;
-        cancelSelectionBox();
-        map.dragging.enable();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [cancelSelectionBox, map]);
 
   return null;
 };

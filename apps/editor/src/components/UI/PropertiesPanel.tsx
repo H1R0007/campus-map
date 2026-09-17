@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { transitionTypeLabel, TRANSITION_TYPES } from '@campus-map/core';
+import { TRANSITION_TYPES } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { Icon } from './Icon';
+import { TRANSITION_LABELS } from '../../utils/labels';
 
 export const PropertiesPanel: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
@@ -166,7 +167,9 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   if (!node) return null;
 
   return (
-    <div
+    <aside
+      aria-label="Свойства узла"
+      data-node-id={node.id}
       className="absolute top-3 right-3 bottom-10 w-[380px] z-[1600] flex flex-col rounded-2xl shadow-2xl overflow-hidden"
       style={{
         backgroundColor: 'var(--editor-panel)',
@@ -287,7 +290,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                     color: 'white',
                   }}
                 >
-                  <TransitionGlyph type={type} size={14} /> {transitionTypeLabel(type)}
+                  <TransitionGlyph type={type} size={14} /> {TRANSITION_LABELS[type]}
                 </button>
               ))}
             </div>
@@ -668,7 +671,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           Скрыть
         </button>
       </div>
-    </div>
+    </aside>
   );
 };
 

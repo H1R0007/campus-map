@@ -18,9 +18,9 @@ function formatRouteTime(seconds: number): string {
 }
 
 /**
- * Toggle:
- * - routePickMode=true  => ПКМ на карте выбирает from/to
- * - routePickMode=false => ПКМ работает как обычно (свойства/drag), выбор только через поиск
+ * Переключатель выбора точек:
+ * - включён — щелчок по узлу на карте задаёт начало или конец маршрута;
+ * - выключен — щелчок выбирает узел как обычно, точки задаются поиском.
  */
 const PickModeToggle: React.FC<{
   enabled: boolean;
@@ -32,7 +32,7 @@ const PickModeToggle: React.FC<{
       style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
     >
       <div className="text-xs" style={{ color: enabled ? 'white' : 'var(--editor-text-muted)' }}>
-        ПКМ на карте
+        Щелчок по карте
       </div>
 
       <button
@@ -40,7 +40,7 @@ const PickModeToggle: React.FC<{
         onClick={() => onChange(!enabled)}
         className="relative w-12 h-6 rounded-full transition-colors"
         style={{ backgroundColor: enabled ? '#22c55e' : 'var(--editor-accent)' }}
-        title={enabled ? 'Включено: ПКМ по точке выбирает старт/финиш' : 'Выключено: выбор только через поиск'}
+        title={enabled ? 'Включено: щелчок по узлу выбирает начало или конец' : 'Выключено: точки — только через поиск'}
       >
         <div
           className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow"
@@ -279,8 +279,8 @@ export const RouteSimulatorPanel: React.FC = () => {
               style={{ backgroundColor: 'rgba(96, 165, 250, 0.12)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
             >
               {routePickTarget === 'from' || !route.fromNodeId
-                ? 'ПКМ по точке — выбрать СТАРТ'
-                : 'ПКМ по точке — выбрать ФИНИШ'}
+                ? 'Щелчок по узлу — начало маршрута'
+                : 'Щелчок по узлу — конец маршрута'}
             </div>
           )}
         </div>
@@ -306,7 +306,7 @@ export const RouteSimulatorPanel: React.FC = () => {
               setFromQuery(e.target.value);
               if (route.fromNodeId) setRouteSimulation({ fromNodeId: null });
             }}
-            placeholder="Поиск или ПКМ на карте…"
+            placeholder="Поиск или щелчок по узлу…"
             className="mt-1 w-full px-3 py-2 rounded-lg text-sm disabled:opacity-70"
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)', color: 'white' }}
           />
@@ -355,7 +355,7 @@ export const RouteSimulatorPanel: React.FC = () => {
               setToQuery(e.target.value);
               if (route.toNodeId) setRouteSimulation({ toNodeId: null });
             }}
-            placeholder="Поиск или ПКМ на карте…"
+            placeholder="Поиск или щелчок по узлу…"
             className="mt-1 w-full px-3 py-2 rounded-lg text-sm disabled:opacity-70"
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)', color: 'white' }}
           />
@@ -532,7 +532,7 @@ export const RouteSimulatorPanel: React.FC = () => {
             {/* hint */}
             {routePickMode && (
               <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Подсказка: при активном режиме выбора ПКМ по узлу будет выбирать старт/финиш вместо открытия свойств.
+                Пока включён выбор точек, щелчок по узлу задаёт точку маршрута, а не выбирает узел.
               </div>
             )}
           </div>

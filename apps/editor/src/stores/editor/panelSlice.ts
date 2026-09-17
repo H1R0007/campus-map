@@ -1,12 +1,26 @@
 import type { EditorSlice } from './types';
 
+/**
+ * На чём открыто контекстное меню.
+ *
+ * Меню одно на всё, и что в нём показать, решает только цель. Раньше
+ * существовали два компонента меню, оба открывались на ребре одновременно и
+ * закрывали друг друга раньше, чем срабатывала кнопка.
+ */
+export type ContextMenuTarget =
+  | { kind: 'node'; nodeId: string }
+  | { kind: 'selection'; nodeIds: string[] }
+  | { kind: 'edge'; from: string; to: string }
+  | { kind: 'transition'; from: string; to: string }
+  /** Пустое место карты; `x`, `y` — точка плана под курсором. */
+  | { kind: 'map'; x: number; y: number };
+
 export interface ContextMenuState {
   open: boolean;
+  /** Точка окна, где нажата правая кнопка. */
   x: number;
   y: number;
-  nodeId: string | null;
-  edgeFrom: string | null;
-  edgeTo: string | null;
+  target: ContextMenuTarget | null;
 }
 
 export interface Bookmark {
@@ -34,13 +48,7 @@ export interface PanelSlice {
   setFiltersOpen: (open: boolean) => void;
   setRouteSimulatorOpen: (open: boolean) => void;
 
-  openContextMenu: (
-    x: number,
-    y: number,
-    nodeId: string | null,
-    edgeFrom?: string | null,
-    edgeTo?: string | null
-  ) => void;
+  openContextMenu: (x: number, y: number, target: ContextMenuTarget) => void;
   closeContextMenu: () => void;
 
   addToSearchHistory: (query: string) => void;
@@ -63,9 +71,7 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     open: false,
     x: 0,
     y: 0,
-    nodeId: null,
-    edgeFrom: null,
-    edgeTo: null,
+    target: null,
   },
 
   searchHistory: [],
@@ -92,14 +98,14 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
       s.routeSimulatorOpen = open;
     }),
 
-  openContextMenu: (x, y, nodeId, edgeFrom = null, edgeTo = null) =>
+  openContextMenu: (x, y, target) =>
     set((s) => {
-      s.contextMenu = { open: true, x, y, nodeId, edgeFrom, edgeTo };
+      s.contextMenu = { open: true, x, y, target };
     }),
 
   closeContextMenu: () =>
     set((s) => {
-      s.contextMenu.open = false;
+      s.contextMenu = { open: false, x: 0, y: 0, target: null };
     }),
 
   addToSearchHistory: (query) =>

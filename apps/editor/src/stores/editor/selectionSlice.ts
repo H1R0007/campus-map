@@ -31,7 +31,8 @@ export interface SelectionSlice {
   clearSelection: () => void;
   addToSelection: (nodeIds: string[]) => void;
   removeFromSelection: (nodeIds: string[]) => void;
-  selectNodesInRect: (x1: number, y1: number, x2: number, y2: number) => void;
+  /** Узлы плана в прямоугольнике; `additive` — добавить к выбранным, а не заменить. */
+  selectNodesInRect: (x1: number, y1: number, x2: number, y2: number, additive?: boolean) => void;
   selectAll: () => void;
 
   setHoveredNode: (nodeId: string | null) => void;
@@ -40,7 +41,7 @@ export interface SelectionSlice {
 
   startSelectionBox: (x: number, y: number) => void;
   updateSelectionBox: (x: number, y: number) => void;
-  finishSelectionBox: () => void;
+  finishSelectionBox: (additive?: boolean) => void;
   cancelSelectionBox: () => void;
 
   setInlineEditNode: (nodeId: string | null) => void;
@@ -93,7 +94,7 @@ export const createSelectionSlice: EditorSlice<SelectionSlice> = (set, get) => (
       for (const id of nodeIds) s.selectedNodeIds.delete(id);
     }),
 
-  selectNodesInRect: (x1, y1, x2, y2) => {
+  selectNodesInRect: (x1, y1, x2, y2, additive = false) => {
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
     const minY = Math.min(y1, y2);
@@ -104,7 +105,8 @@ export const createSelectionSlice: EditorSlice<SelectionSlice> = (set, get) => (
       .filter((n) => n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY);
 
     set((s) => {
-      s.selectedNodeIds = new Set(inRect.map((n) => n.id));
+      const ids = inRect.map((n) => n.id);
+      s.selectedNodeIds = new Set(additive ? [...s.selectedNodeIds, ...ids] : ids);
     });
   },
 
@@ -143,10 +145,10 @@ export const createSelectionSlice: EditorSlice<SelectionSlice> = (set, get) => (
       }
     }),
 
-  finishSelectionBox: () => {
+  finishSelectionBox: (additive = false) => {
     const { selectionBox } = get();
     if (selectionBox) {
-      get().selectNodesInRect(selectionBox.startX, selectionBox.startY, selectionBox.endX, selectionBox.endY);
+      get().selectNodesInRect(selectionBox.startX, selectionBox.startY, selectionBox.endX, selectionBox.endY, additive);
     }
     set((s) => {
       s.selectionBox = null;
