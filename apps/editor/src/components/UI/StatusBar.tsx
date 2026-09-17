@@ -83,7 +83,9 @@ export const StatusBar: React.FC = () => {
       <div className="flex items-center gap-4">
         <span style={{ color: 'var(--editor-text-muted)' }}>
           <Icon name="pin" size={12} className="inline-block mr-1 align-middle" />
-          <span className="text-white">{locationText}</span>
+          <span className="text-white" data-status-place>
+            {locationText}
+          </span>
         </span>
 
         <span style={{ color: 'var(--editor-text-muted)' }}>

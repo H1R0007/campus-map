@@ -94,6 +94,8 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;
+      // План выбрал человек — метка маршрута больше не ведёт карту за собой.
+      state.routeSimulation.follow = false;
     }),
 
   setCurrentFloor: (floor) =>
@@ -104,6 +106,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;
+      state.routeSimulation.follow = false;
     }),
 
   setCameraCenter: (x, y, zoom) =>
@@ -135,6 +138,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
           zoom: keepZoom ? undefined : 2,
         };
         s.selectedNodeIds = new Set([nodeId]);
+        s.routeSimulation.follow = false;
       });
     }, 100);
   },

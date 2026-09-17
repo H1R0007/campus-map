@@ -283,6 +283,9 @@ export function editorHelpers(page, base) {
     /** Текст строки состояния. */
     status: () => page.eval(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent ?? ''`),
 
+    /** Открытый план словами: «Корпус А / Этаж 2» или «Кампус». */
+    place: () => page.eval(`document.querySelector('[data-status-place]')?.textContent ?? ''`),
+
     /** Сколько узлов выбрано — по строке состояния. */
     async selectedCount() {
       const match = (await helpers.status()).match(/Выбрано: (\d+)/);

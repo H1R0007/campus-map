@@ -22,6 +22,20 @@ export interface RouteSimulation {
   animationIndex: number;
   selectedPathIndex: number;
   animationSpeed: number;
+
+  /** Идёт ли метка по маршруту. Пауза оставляет линию на карте. */
+  playing: boolean;
+
+  /**
+   * Вести ли карту за меткой на другие этажи.
+   *
+   * По умолчанию нет: пока маршрут показан, разметчик обычно правит тот же
+   * этаж, а редактор прежде переключал план каждые несколько долей секунды —
+   * работать было невозможно. Любое переключение плана человеком снимает
+   * слежение.
+   */
+  follow: boolean;
+
   pathfindingOptions: PathfindingOptions;
 }
 
@@ -35,6 +49,8 @@ export function initialRouteSimulation(): RouteSimulation {
     animationIndex: 0,
     selectedPathIndex: 0,
     animationSpeed: 800,
+    playing: true,
+    follow: false,
     pathfindingOptions: { ...DEFAULT_PATHFINDING_OPTIONS },
   };
 }
@@ -50,8 +66,8 @@ export interface RouteSlice {
   setRouteSimulation: (sim: Partial<RouteSimulation>) => void;
   calculateRoute: (fromId: string, toId: string) => void;
   setRoutePathfindingOptions: (opts: Partial<PathfindingOptions>) => void;
-  startRouteAnimation: () => void;
-  stopRouteAnimation: () => void;
+  setRoutePlaying: (playing: boolean) => void;
+  setRouteFollow: (follow: boolean) => void;
   setRouteSelectedPath: (index: number) => void;
   setRouteAnimationSpeed: (speed: number) => void;
 
@@ -104,14 +120,14 @@ export const createRouteSlice: EditorSlice<RouteSlice> = (set, get) => ({
       Object.assign(s.routeSimulation.pathfindingOptions, opts);
     }),
 
-  startRouteAnimation: () =>
+  setRoutePlaying: (playing) =>
     set((s) => {
-      s.routeSimulation.animationIndex = 0;
+      s.routeSimulation.playing = playing;
     }),
 
-  stopRouteAnimation: () =>
+  setRouteFollow: (follow) =>
     set((s) => {
-      s.routeSimulation.active = false;
+      s.routeSimulation.follow = follow;
     }),
 
   setRouteSelectedPath: (index) =>
