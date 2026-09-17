@@ -54,7 +54,7 @@ export const RecentActions: React.FC = () => {
       <div className="max-h-40 overflow-y-auto">
         {recentEntries.map((entry, i) => (
           <div
-            key={entry.timestamp}
+            key={entry.id}
             className="px-3 py-2 text-xs flex items-center gap-2"
             style={{
               borderBottom: '1px solid var(--editor-border)',

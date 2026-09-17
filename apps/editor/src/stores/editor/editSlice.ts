@@ -127,7 +127,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     set((s) => {
       s.nodes.set(id, node);
       s.selectedNodeIds = new Set([id]);
-      s.hasUnsavedChanges = true;
     });
 
     return id;
@@ -174,7 +173,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       s.selectedNodeIds.delete(nodeId);
       s.edgeStartNodeId = null;
       s.transitionStartNodeId = null;
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -193,7 +191,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
       n.x = finalX;
       n.y = finalY;
-      s.hasUnsavedChanges = true;
     }),
 
   commitMoveNode: (nodeId, fromX, fromY, toX, toY) => {
@@ -204,10 +201,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       description: 'Перемещение узла',
       undoData: { nodeId, x: fromX, y: fromY },
       redoData: { nodeId, x: toX, y: toY },
-    });
-
-    set((s) => {
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -220,7 +213,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
           n.y = pos.y;
         }
       }
-      s.hasUnsavedChanges = true;
     }),
 
   commitNodePositions: (before, after) => {
@@ -243,10 +235,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         redoData: { kind: 'moveMultiple', positions: after.map((p) => ({ ...p })) },
       });
     }
-
-    set((s) => {
-      s.hasUnsavedChanges = true;
-    });
   },
 
   updateNode: (nodeId, updates) => {
@@ -272,7 +260,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       const n = s.nodes.get(nodeId);
       if (!n) return;
       Object.assign(n, updates);
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -299,7 +286,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       if (!aa || !bb) return;
       if (!aa.neighbors.includes(toId)) aa.neighbors.push(toId);
       if (!bb.neighbors.includes(fromId)) bb.neighbors.push(fromId);
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -318,7 +304,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       const bb = s.nodes.get(toId);
       if (aa) aa.neighbors = aa.neighbors.filter((x) => x !== toId);
       if (bb) bb.neighbors = bb.neighbors.filter((x) => x !== fromId);
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -349,7 +334,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
-      s.hasUnsavedChanges = true;
     });
 
     return 'created';
@@ -372,7 +356,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -395,7 +378,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -415,7 +397,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // Пустой список — отсутствие записи, как после отмены и повтора.
       if (next.length > 0) s.aliases.set(nodeId, next);
       else s.aliases.delete(nodeId);
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -451,7 +432,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       if (!n) return;
       if (next) n.comment = next;
       else delete n.comment;
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -514,7 +494,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       to.neighbors.push(newId);
 
       s.selectedNodeIds = new Set([newId]);
-      s.hasUnsavedChanges = true;
     });
 
     return newId;
@@ -567,7 +546,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       }
       s.transitions = s.transitions.filter((t) => !ids.includes(t.fromNode) && !ids.includes(t.toNode));
       s.selectedNodeIds = new Set();
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -626,7 +604,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
       s.selectedNodeIds = new Set(newNodes.map((n) => n.id));
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -686,7 +663,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
           node.y = pos.y;
         }
       }
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -713,7 +689,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         const node = s.nodes.get(id);
         if (node) node.isPortal = isPortal;
       }
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -741,7 +716,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
           if (!b.neighbors.includes(a.id)) b.neighbors.push(a.id);
         }
       }
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -827,7 +801,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
       s.selectedNodeIds = new Set(newNodes.map((n) => n.id));
-      s.hasUnsavedChanges = true;
     });
   },
 
@@ -886,7 +859,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
       s.selectedNodeIds = new Set([created[created.length - 1].id]);
-      s.hasUnsavedChanges = true;
       s.lineTool.start = null;
       s.lineTool.end = null;
     });
@@ -929,7 +901,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
           if (node) node.neighbors = neighbors;
         }
         s.transitions = fixedTransitions;
-        s.hasUnsavedChanges = true;
       });
     }
 
@@ -948,8 +919,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         category: aliasCategories.get(id),
       }));
     await exportToZip({ nodes, transitions, buildingMetas, aliases: aliasesArray, campusMeta });
-    set((s) => {
-      s.hasUnsavedChanges = false;
-    });
+    get().markSaved();
+    get().showNotice('Архив с данными скачан');
   },
 });

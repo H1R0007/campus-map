@@ -144,6 +144,72 @@ describe('отмена и повтор', () => {
   }
 });
 
+describe('несохранённые правки', () => {
+  const unsaved = () => useHistoryStore.getState().stateId() !== store().savedStateId;
+
+  it('свежезагруженные данные считаются сохранёнными', () => {
+    expect(unsaved()).toBe(false);
+  });
+
+  it('правка — есть несохранённое, отмена — снова нет', () => {
+    openFloor(1);
+    store().addNode(10, 10);
+    expect(unsaved()).toBe(true);
+
+    store().undo();
+    expect(unsaved()).toBe(false);
+
+    store().redo();
+    expect(unsaved()).toBe(true);
+  });
+
+  it('после сохранения правок нет, а следующая — есть', () => {
+    openFloor(1);
+    store().addNode(10, 10);
+    store().markSaved();
+    expect(unsaved()).toBe(false);
+
+    store().addNode(20, 20);
+    expect(unsaved()).toBe(true);
+
+    store().undo();
+    expect(unsaved()).toBe(false);
+  });
+
+  it('другая правка вместо отменённой — состояние другое', () => {
+    openFloor(1);
+    store().addNode(10, 10);
+    store().markSaved();
+    store().undo();
+    expect(unsaved()).toBe(true);
+
+    // Позиция в истории та же, что у сохранённой, но данные другие.
+    store().addNode(50, 50);
+    expect(unsaved()).toBe(true);
+  });
+});
+
+describe('отмена показывает, где случилась правка', () => {
+  it('открывает план узла и выделяет его', () => {
+    openFloor(1);
+    store().removeNode('a2_room201');
+    expect(store().currentFloor).toBe(1);
+
+    store().undo();
+
+    expect(store().currentBuilding).toBe('building_a');
+    expect(store().currentFloor).toBe(2);
+    expect(store().notice?.text).toContain('Отменено');
+  });
+
+  it('правку на открытом плане план не переключает', () => {
+    openFloor(1);
+    store().updateNode('a1_hall', { isPortal: true });
+    store().undo();
+    expect(store().currentFloor).toBe(1);
+  });
+});
+
 describe('действия без изменений не попадают в историю', () => {
   it('ребро, которое уже есть', () => {
     store().addEdge('a1_hall', 'a1_stairs');

@@ -41,3 +41,4 @@ export type { ContextMenuTarget, EditorNotice } from './editor/panelSlice';
 export type { AddTransitionResult } from './editor/editSlice';
 export type { NodePair } from './editor/selectionSlice';
 export { selectedRoute } from './editor/graphState';
+export { useUnsavedChanges } from './useUnsavedChanges';

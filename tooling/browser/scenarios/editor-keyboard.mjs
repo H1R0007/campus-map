@@ -83,6 +83,20 @@ export default {
       assert.ok(Math.abs(back.x - before.x) < 3, 'карта не вернулась');
     });
 
+    await step('после отмены правок редактор снова считает данные сохранёнными', async () => {
+      assert.match(await e.status(), /Сохранено/, 'в начале шага правок быть не должно');
+
+      const room = await e.nodePoint('a1_room101');
+      await e.click(room.x, room.y);
+      await e.key('ArrowRight');
+      assert.match(await e.status(), /Изменено/);
+
+      await e.key('z', { modifiers: MOD.ctrl });
+      assert.match(await e.notice(), /Отменено/, 'редактор не сказал, что отменил');
+      assert.match(await e.status(), /Сохранено/, 'после отмены всех правок состояние не честное');
+      await e.key('Escape');
+    });
+
     await step('PageUp и PageDown листают этажи корпуса', async () => {
       assert.match(await e.status(), /Этаж 1/);
       await e.key('PageUp');

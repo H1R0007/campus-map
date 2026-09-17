@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEditorStore } from '../../stores/editorStore';
+import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { Icon } from './Icon';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
@@ -11,7 +11,7 @@ export const StatusBar: React.FC = () => {
   const nodes = useEditorStore((state) => state.nodes);
   const transitions = useEditorStore((state) => state.transitions);
   const selectedNodeIds = useEditorStore((state) => state.selectedNodeIds);
-  const hasUnsavedChanges = useEditorStore((state) => state.hasUnsavedChanges);
+  const hasUnsavedChanges = useUnsavedChanges();
   const activeTool = useEditorStore((state) => state.activeTool);
   const edgeStartNodeId = useEditorStore((state) => state.edgeStartNodeId);
   const transitionStartNodeId = useEditorStore((state) => state.transitionStartNodeId);

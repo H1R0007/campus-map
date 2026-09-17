@@ -151,7 +151,6 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.selectedNodeIds = new Set();
       state.edgeStartNodeId = null;
       state.transitionStartNodeId = null;
-      state.hasUnsavedChanges = false;
       state.isLoading = false;
       state.lineTool.start = null;
       state.lineTool.end = null;

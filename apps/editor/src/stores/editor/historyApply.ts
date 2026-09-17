@@ -1,7 +1,65 @@
 import type { Draft } from 'immer';
+import type { Transition } from '@campus-map/core';
 import type { HistoryEntry } from '../historyStore';
 import { applyNeighborsSnapshot } from './graphState';
 import type { EditorStore } from './types';
+
+/** Ключ перехода со всеми полями: по нему видно, что именно изменилось. */
+const transitionKey = (t: Transition) => `${t.fromNode}|${t.toNode}|${t.type}`;
+
+/** Узлы переходов, которых коснулась правка: разница списков «до» и «после». */
+function changedTransitionNodes(before: Transition[], after: Transition[]): string[] {
+  const beforeKeys = new Set(before.map(transitionKey));
+  const afterKeys = new Set(after.map(transitionKey));
+  return [
+    ...before.filter((t) => !afterKeys.has(transitionKey(t))),
+    ...after.filter((t) => !beforeKeys.has(transitionKey(t))),
+  ].flatMap((t) => [t.fromNode, t.toNode]);
+}
+
+/**
+ * Узлы, которых касается запись истории.
+ *
+ * По ним отмена показывает, где именно она произошла: открывает нужный план
+ * и выделяет затронутое. Автоисправление меняет весь датасет сразу, поэтому
+ * для него список пуст — показывать нечего.
+ */
+export function entryNodes(entry: HistoryEntry): string[] {
+  switch (entry.type) {
+    case 'ADD_NODE':
+      return [entry.redoData.node.id];
+    case 'REMOVE_NODE':
+      return [entry.undoData.node.id];
+    case 'MOVE_NODE':
+    case 'UPDATE_NODE':
+    case 'SET_ALIASES':
+      return [entry.undoData.nodeId];
+    case 'ADD_EDGE':
+    case 'REMOVE_EDGE':
+      return [entry.redoData.fromId, entry.redoData.toId];
+    case 'ADD_TRANSITION':
+    case 'REMOVE_TRANSITION':
+    case 'UPDATE_TRANSITION':
+      return changedTransitionNodes(entry.undoData.transitions, entry.redoData.transitions);
+    case 'BATCH':
+      switch (entry.undoData.kind) {
+        case 'line':
+          return entry.undoData.nodeIds;
+        case 'deleteMultiple':
+          return entry.undoData.nodes.map((node) => node.id);
+        case 'moveMultiple':
+          return entry.undoData.positions.map((position) => position.nodeId);
+        case 'setPortal':
+          return entry.undoData.changes.map((change) => change.nodeId);
+        case 'chainConnect':
+          return Object.keys(entry.undoData.neighborsBefore);
+        case 'splitEdge':
+          return [entry.undoData.newNodeId, entry.undoData.fromId, entry.undoData.toId];
+        case 'autofix':
+          return [];
+      }
+  }
+}
 
 /**
  * Применение записи истории к состоянию: отмена и повтор.
