@@ -150,6 +150,11 @@ const KeyboardHandler: React.FC = () => {
             e.stopPropagation();
             st.paste();
             return;
+          case 'KeyS':
+            e.preventDefault();
+            e.stopPropagation();
+            st.requestSave();
+            return;
           default:
             // Остальные сочетания с Ctrl принадлежат браузеру.
             return;

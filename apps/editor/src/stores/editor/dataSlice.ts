@@ -61,7 +61,13 @@ export interface DataSlice {
   isLoading: boolean;
   nodeIdCounter: number;
 
-  loadData: (dataset: Dataset, warnings?: string[]) => void;
+  /**
+   * Принимает датасет.
+   *
+   * `unsaved` ставится при восстановлении черновика: данные в редакторе
+   * отличаются от лежащих на диске, и строка состояния обязана это показать.
+   */
+  loadData: (dataset: Dataset, warnings?: string[], options?: { unsaved?: boolean }) => void;
 
   getNode: (nodeId: string) => MapNode | undefined;
   getNodeAliases: (nodeId: string) => string[];
@@ -122,7 +128,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
    * заметка `comment` сохранена. Нормализовать что-либо повторно здесь
    * значит поддерживать второй пайплайн приведения данных.
    */
-  loadData: (dataset, warnings = []) =>
+  loadData: (dataset, warnings = [], options = {}) =>
     set((state) => {
       state.nodes = new Map();
       state.bookmarks = new Map();
@@ -158,6 +164,9 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.routeSimulation = initialRouteSimulation();
 
       useHistoryStore.getState().clear();
+      // −1 не совпадает ни с одним состоянием истории: восстановленный
+      // черновик считается несохранённым, пока его не сохранят.
+      state.savedStateId = options.unsaved === true ? -1 : 0;
     }),
 
   getNode: (nodeId) => get().nodes.get(nodeId),

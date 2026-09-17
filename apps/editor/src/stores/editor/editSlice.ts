@@ -74,7 +74,6 @@ export interface EditSlice {
   lineConfirm: () => void;
 
   autoFix: () => AutoFixReport;
-  exportToZip: () => Promise<void>;
 }
 
 export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
@@ -905,21 +904,5 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     }
 
     return report;
-  },
-
-  exportToZip: async () => {
-    const { nodes, transitions, buildingMetas, aliases, aliasTranslations, aliasCategories, campusMeta } = get();
-    const { exportToZip } = await import('../../utils/exportData');
-    const aliasesArray = Array.from(aliases.entries())
-      .filter(([id]) => nodes.has(id)) // алиасы удалённых узлов не выгружаются
-      .map(([id, names]) => ({
-        id,
-        names,
-        translations: aliasTranslations.get(id),
-        category: aliasCategories.get(id),
-      }));
-    await exportToZip({ nodes, transitions, buildingMetas, aliases: aliasesArray, campusMeta });
-    get().markSaved();
-    get().showNotice('Архив с данными скачан');
   },
 });

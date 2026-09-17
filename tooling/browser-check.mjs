@@ -19,7 +19,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
@@ -28,6 +28,7 @@ import editorMouse from './browser/scenarios/editor-mouse.mjs';
 import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorProperties from './browser/scenarios/editor-properties.mjs';
 import editorRoute from './browser/scenarios/editor-route.mjs';
+import editorSave from './browser/scenarios/editor-save.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import viewerCanvas from './browser/scenarios/viewer-canvas.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
@@ -56,6 +57,7 @@ const SCENARIOS = [
   editorKeyboard,
   editorProperties,
   editorRoute,
+  editorSave,
   editorPanels,
 ];
 
@@ -171,15 +173,45 @@ async function launchBrowser(executable) {
 }
 
 /**
+ * Поднимает dev-сервер приложения на копии каталога данных.
+ *
+ * Копия нужна, чтобы проверка сохранения не переписывала канонический
+ * `data/`: сценарий правит разметку и сохраняет её по-настоящему.
+ */
+async function startIsolatedData(app) {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'campus-map-data-'));
+  cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
+
+  const server = await startVite({ app, mode: 'dev', env: { CAMPUS_DATA_DIR: dataDir } });
+
+  return {
+    port: server.port,
+    dataDir,
+    stop() {
+      server.stop();
+      try {
+        rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      } catch (cause) {
+        console.warn(`Не удалось удалить копию данных ${dataDir}: ${cause.message}`);
+      }
+    },
+  };
+}
+
+/**
  * Проходит один сценарий в новой вкладке.
  *
  * Сценарию доступны режим сборки (`mode`) и остановка сервера приложения
  * (`stopServer`): так сценарий без связи отключает сеть по-настоящему. Сервер
  * после этого не поднимается, поэтому такой сценарий — последний у приложения.
  *
+ * Сценарию с `isolatedData` достаётся свой сервер на копии `data/` и путь к
+ * ней (`dataDir`): он проверяет сохранение, читая файлы с диска, и не трогает
+ * канонический датасет.
+ *
  * @returns {Promise<string | null>} текст провала или `null`
  */
-async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer }) {
+async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
 
@@ -201,7 +233,7 @@ async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer }
   };
 
   try {
-    await scenario.run({ page, base, step, shot, mode, stopServer });
+    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir });
     return null;
   } catch (error) {
     return error.stack ?? String(error);
@@ -248,13 +280,21 @@ async function main() {
       for (const scenario of scenarios) {
         total += 1;
         process.stdout.write(`  ${scenario.name}\n`);
+
+        // Сценарий, который сохраняет данные, работает на копии `data/` и со
+        // своим dev-сервером: запись в каталог данных есть только у него.
+        const isolated = scenario.isolatedData ? await startIsolatedData(appName) : null;
+
         const failure = await runScenario(scenario, {
           debugUrl: browser.debugUrl,
-          base,
+          base: isolated ? `http://127.0.0.1:${isolated.port}` : base,
           shots,
-          mode,
+          mode: isolated ? 'dev' : mode,
           stopServer: server.stop,
+          dataDir: isolated?.dataDir,
         });
+
+        isolated?.stop();
         if (failure) {
           failures.push(`${scenario.name}\n${failure}`);
           process.stdout.write(`  ПРОВАЛ\n${failure}\n`);

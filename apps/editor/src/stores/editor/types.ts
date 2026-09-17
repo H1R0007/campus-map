@@ -5,6 +5,7 @@ import type { HistorySlice } from './historySlice';
 import type { PanelSlice } from './panelSlice';
 import type { RouteSlice } from './routeSlice';
 import type { SelectionSlice } from './selectionSlice';
+import type { StorageSlice } from './storageSlice';
 import type { ToolSlice } from './toolSlice';
 import type { ViewSlice } from './viewSlice';
 
@@ -24,7 +25,8 @@ export type EditorStore = DataSlice &
   EditSlice &
   HistorySlice &
   PanelSlice &
-  RouteSlice;
+  RouteSlice &
+  StorageSlice;
 
 /** Создатель среза: `set` с immer поверх всего стора, срез возвращает свою часть. */
 export type EditorSlice<T> = StateCreator<EditorStore, [['zustand/immer', never]], [], T>;

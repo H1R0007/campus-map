@@ -1,5 +1,14 @@
 import { Graph, createCampusProjection } from '@campus-map/core';
-import type { BuildingMeta, CampusMeta, MapNode, PathResult, Transition } from '@campus-map/core';
+import type {
+  AliasEntry,
+  BuildingMeta,
+  CampusMeta,
+  Dataset,
+  MapNode,
+  PathResult,
+  PlaceCategory,
+  Transition,
+} from '@campus-map/core';
 import type { NeighborSnapshot } from '../historyStore';
 
 /**
@@ -49,6 +58,44 @@ export function buildGraphFromState(state: {
       : createCampusProjection(state.campusMeta, state.buildingMetas.values());
 
   return new Graph(state.nodes.values(), state.transitions, projection);
+}
+
+/** Состояние редактора, из которого собирается датасет. */
+export interface DatasetState {
+  nodes: ReadonlyMap<string, MapNode>;
+  transitions: readonly Transition[];
+  buildingMetas: ReadonlyMap<string, BuildingMeta>;
+  aliases: ReadonlyMap<string, string[]>;
+  aliasTranslations: ReadonlyMap<string, NonNullable<AliasEntry['translations']>>;
+  aliasCategories: ReadonlyMap<string, PlaceCategory>;
+  campusMeta: CampusMeta | null;
+}
+
+/**
+ * Датасет из состояния редактора — то, что уходит в файлы и в черновик.
+ *
+ * Названия собираются обратно в записи алиасов вместе с переводами и
+ * категориями, которые редактор пока не правит, но обязан сохранить: поле,
+ * которого нет в сборке, потерялось бы при первом же сохранении.
+ */
+export function datasetFromState(state: DatasetState): Dataset {
+  const aliases: AliasEntry[] = [...state.aliases.entries()]
+    // Названия удалённых узлов не сохраняются.
+    .filter(([id]) => state.nodes.has(id))
+    .map(([id, names]) => ({
+      id,
+      names: [...names],
+      translations: state.aliasTranslations.get(id),
+      category: state.aliasCategories.get(id),
+    }));
+
+  return {
+    campusMeta: state.campusMeta ?? { buildings: [], mapSize: { width: 1200, height: 800 } },
+    buildingMetas: [...state.buildingMetas.values()],
+    nodes: [...state.nodes.values()].map((node) => ({ ...node, neighbors: [...node.neighbors] })),
+    transitions: state.transitions.map((transition) => ({ ...transition })),
+    aliases,
+  };
 }
 
 /**

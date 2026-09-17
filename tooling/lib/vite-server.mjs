@@ -74,10 +74,12 @@ async function waitForServer(port, base, timeoutMs) {
 /**
  * Поднимает vite приложения на свободном порту.
  *
- * @param {{ app: 'viewer' | 'editor', mode: 'dev' | 'prod', base?: string, timeoutMs?: number }} options
+ * @param {{ app: 'viewer' | 'editor', mode: 'dev' | 'prod', base?: string, timeoutMs?: number,
+ *          env?: Record<string, string> }} options `env` добавляется к окружению
+ *        процесса — например, `CAMPUS_DATA_DIR` для работы на копии данных.
  * @returns {Promise<{ port: number, output: () => string, stop: () => void }>}
  */
-export async function startVite({ app, mode, base = '/', timeoutMs = 60_000 }) {
+export async function startVite({ app, mode, base = '/', timeoutMs = 60_000, env = {} }) {
   const appDir = path.join(repoRoot, 'apps', app);
   const port = await findFreePort();
 
@@ -98,7 +100,7 @@ export async function startVite({ app, mode, base = '/', timeoutMs = 60_000 }) {
     cwd: appDir,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
-    env: { ...process.env, BROWSER: 'none' },
+    env: { ...process.env, BROWSER: 'none', ...env },
   });
 
   let output = '';

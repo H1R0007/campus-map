@@ -7,6 +7,7 @@ import { createHistorySlice } from './editor/historySlice';
 import { createPanelSlice } from './editor/panelSlice';
 import { createRouteSlice } from './editor/routeSlice';
 import { createSelectionSlice } from './editor/selectionSlice';
+import { createStorageSlice } from './editor/storageSlice';
 import { createToolSlice } from './editor/toolSlice';
 import { createViewSlice } from './editor/viewSlice';
 import type { EditorStore } from './editor/types';
@@ -30,6 +31,7 @@ export const useEditorStore = create<EditorStore>()(
     ...createHistorySlice(...a),
     ...createPanelSlice(...a),
     ...createRouteSlice(...a),
+    ...createStorageSlice(...a),
   }))
 );
 

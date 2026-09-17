@@ -40,8 +40,10 @@ export default defineConfig({
   plugins: [
     react(),
 
-    // Редактор читает тот же датасет из корня монорепо, что и навигатор.
-    campusDataPlugin({ sourceDir: dataDir }),
+    // Редактор читает тот же датасет из корня монорепо, что и навигатор, и —
+    // в режиме разработки — сохраняет правки прямо в него: команда разметки
+    // запускает редактор из репозитория, а результат забирает git.
+    campusDataPlugin({ sourceDir: dataDir, writable: true }),
   ],
 
   server: {
