@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { TRANSITION_TYPES } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, TRANSITION_TYPES, distance } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
-import { TRANSITION_LABELS } from '../../utils/labels';
+import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
+
+/** Сколько ближайших узлов предлагать для быстрого соединения. */
+const CONNECT_CANDIDATES = 8;
+
+/** Пустой список названий одной ссылкой: новая ссылка обновляла бы панель зря. */
+const NO_ALIASES: string[] = [];
 
 export const PropertiesPanel: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
@@ -18,20 +25,32 @@ export const PropertiesPanel: React.FC = () => {
   return <PropertiesPanelInner nodeId={nodeId} onClose={clearSelection} />;
 };
 
+/**
+ * Карточка выбранного узла.
+ *
+ * Названия, соседи и переходы читаются из стора подпиской, а не снимком в
+ * момент выбора узла: посчитанный один раз список устаревал после первой же
+ * правки, и следующее действие в карточке шло по нему — добавленное
+ * название молча исчезало.
+ */
 const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = ({ nodeId, onClose }) => {
-  const node = useEditorStore((s) => s.getNode(nodeId));
-  const nodes = useEditorStore((s) => s.getNodesForCurrentFloor());
+  const node = useEditorStore((s) => s.nodes.get(nodeId));
+  const allNodes = useEditorStore((s) => s.nodes);
+  const allAliases = useEditorStore((s) => s.aliases);
+  const allTransitions = useEditorStore((s) => s.transitions);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
+  const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const updateNode = useEditorStore((s) => s.updateNode);
   const removeNode = useEditorStore((s) => s.removeNode);
   const addEdge = useEditorStore((s) => s.addEdge);
   const removeEdge = useEditorStore((s) => s.removeEdge);
   const removeTransition = useEditorStore((s) => s.removeTransition);
-  const getTransitionsForNode = useEditorStore((s) => s.getTransitionsForNode);
-  const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
-  const comment = useEditorStore((s) => s.getNodeComment(nodeId));
+  const comment = useEditorStore((s) => s.nodes.get(nodeId)?.comment ?? '');
   const setNodeComment = useEditorStore((s) => s.setNodeComment);
   const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
+  const centerOnNode = useEditorStore((s) => s.centerOnNode);
+  const setHoveredNode = useEditorStore((s) => s.setHoveredNode);
   const addBookmark = useEditorStore((s) => s.addBookmark);
 
   // Tool actions
@@ -40,16 +59,24 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
   const setTransitionType = useEditorStore((s) => s.setTransitionType);
 
-  const transitions = useMemo(() => getTransitionsForNode(nodeId), [getTransitionsForNode, nodeId]);
-  const aliases = useMemo(() => getNodeAliases(nodeId), [getNodeAliases, nodeId]);
+  const aliases = allAliases.get(nodeId) ?? NO_ALIASES;
 
+  const transitions = useMemo(
+    () => allTransitions.filter((t) => t.fromNode === nodeId || t.toNode === nodeId),
+    [allTransitions, nodeId]
+  );
+
+  // Ближайшие узлы плана, с которыми узел ещё не соединён: соединяют обычно с
+  // соседом по коридору, а не с первым попавшимся по порядку в файле.
   const unconnectedNodes = useMemo(() => {
     if (!node) return [];
-    return nodes.filter(n =>
-      n.id !== nodeId &&
-      !node.neighbors.includes(n.id)
-    ).slice(0, 10);
-  }, [nodes, node, nodeId]);
+    const onCampus = node.building === CAMPUS_BUILDING_ID;
+    return floorNodesOf(allNodes, onCampus ? null : node.building, onCampus ? null : node.floor, showPortals)
+      .filter((n) => n.id !== nodeId && !node.neighbors.includes(n.id))
+      .map((n) => ({ node: n, away: Math.round(distance(node, n)) }))
+      .sort((a, b) => a.away - b.away)
+      .slice(0, CONNECT_CANDIDATES);
+  }, [allNodes, node, nodeId, showPortals]);
 
   const [xText, setXText] = useState('');
   const [yText, setYText] = useState('');
@@ -312,20 +339,29 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           {showConnectPicker && unconnectedNodes.length > 0 && (
             <div className="mt-2 space-y-1">
               <div
-                className="max-h-32 overflow-y-auto rounded-lg p-1"
+                className="max-h-40 overflow-y-auto rounded-lg p-1"
                 style={{ backgroundColor: 'var(--editor-panel)' }}
               >
-                {unconnectedNodes.map(n => (
+                {unconnectedNodes.map(({ node: candidate, away }) => (
                   <button
-                    key={n.id}
+                    key={candidate.id}
                     onClick={() => {
-                      addEdge(node.id, n.id);
+                      addEdge(node.id, candidate.id);
                       setShowConnectPicker(false);
                     }}
-                    className="w-full px-2 py-1.5 text-left text-xs font-mono rounded hover:bg-white/10 transition-colors truncate"
-                    style={{ color: 'var(--editor-text-muted)' }}
+                    onMouseEnter={() => setHoveredNode(candidate.id)}
+                    onMouseLeave={() => setHoveredNode(null)}
+                    className="w-full px-2 py-1.5 text-left rounded hover:bg-white/10 transition-colors"
+                    title={candidate.id}
                   >
-                    {n.id}
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm truncate" style={{ color: 'white' }}>
+                        {nodeTitle(candidate.id, allAliases)}
+                      </span>
+                      <span className="text-xs shrink-0" style={{ color: 'var(--editor-text-muted)' }}>
+                        {away} px
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -444,8 +480,9 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 <button
                   onClick={() => removeAlias(idx)}
                   className="p-1 rounded hover:bg-red-500/20 transition-colors"
-                  style={{ color: '#fca5a5' }}
-                  title="Удалить"
+                  style={{ color: 'var(--editor-danger)' }}
+                  title="Удалить название"
+                  aria-label={`Удалить название «${alias}»`}
                 >
                   ✕
                 </button>
@@ -562,18 +599,23 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                     key={nb}
                     className="px-3 py-2 flex items-center justify-between gap-2 hover:bg-white/5"
                     style={{ borderBottom: '1px solid var(--editor-border)' }}
+                    onMouseEnter={() => setHoveredNode(nb)}
+                    onMouseLeave={() => setHoveredNode(null)}
                   >
                     <button
                       onClick={() => selectSingleNode(nb)}
-                      className="text-xs font-mono truncate flex-1 text-left hover:text-white transition-colors"
-                      style={{ color: 'var(--editor-text-muted)' }}
+                      className="truncate flex-1 text-left text-sm transition-colors"
+                      style={{ color: 'white' }}
+                      title={nb}
                     >
-                      {nb}
+                      {nodeTitle(nb, allAliases)}
                     </button>
                     <button
                       onClick={() => removeEdge(node.id, nb)}
                       className="px-2 py-1 rounded-md text-xs hover:bg-red-500/20 transition-colors"
-                      style={{ color: '#fca5a5' }}
+                      style={{ color: 'var(--editor-danger)' }}
+                      title="Удалить связь"
+                      aria-label={`Удалить связь с «${nodeTitle(nb, allAliases)}»`}
                     >
                       ✕
                     </button>
@@ -607,7 +649,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             ) : (
               <ul className="max-h-32 overflow-y-auto">
                 {transitions.map((t, idx) => {
-                  const other = t.fromNode === node.id ? t.toNode : t.fromNode;
+                  const otherId = t.fromNode === node.id ? t.toNode : t.fromNode;
+                  const other = allNodes.get(otherId);
                   const color = TRANSITION_COLORS[t.type];
 
                   return (
@@ -619,22 +662,30 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span
                           className="px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1"
-                          style={{ backgroundColor: color, color: 'white' }}
+                          style={{ backgroundColor: color, color: 'var(--editor-on-accent)' }}
+                          title={TRANSITION_LABELS[t.type]}
                         >
                           <TransitionGlyph type={t.type} size={14} />
                         </span>
                         <button
-                          onClick={() => selectSingleNode(other)}
-                          className="font-mono text-xs truncate hover:text-white transition-colors"
-                          style={{ color: 'var(--editor-text-muted)' }}
+                          onClick={() => centerOnNode(otherId)}
+                          className="min-w-0 text-left"
+                          title={`Перейти к другому концу: ${otherId}`}
                         >
-                          {other}
+                          <div className="text-sm truncate" style={{ color: 'white' }}>
+                            {nodeTitle(otherId, allAliases)}
+                          </div>
+                          <div className="text-xs truncate" style={{ color: 'var(--editor-text-muted)' }}>
+                            {other ? nodePlaceLabel(other, buildingMetas) : 'узла нет'}
+                          </div>
                         </button>
                       </div>
                       <button
                         onClick={() => removeTransition(t.fromNode, t.toNode)}
                         className="px-2 py-1 rounded-md text-xs hover:bg-red-500/20 transition-colors"
-                        style={{ color: '#fca5a5' }}
+                        style={{ color: 'var(--editor-danger)' }}
+                        title="Удалить переход"
+                        aria-label={`Удалить переход: ${TRANSITION_LABELS[t.type]} к «${nodeTitle(otherId, allAliases)}»`}
                       >
                         ✕
                       </button>

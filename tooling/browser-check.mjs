@@ -25,6 +25,7 @@ import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
 import editorMouse from './browser/scenarios/editor-mouse.mjs';
 import editorPanels from './browser/scenarios/editor-panels.mjs';
+import editorProperties from './browser/scenarios/editor-properties.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import viewerCanvas from './browser/scenarios/viewer-canvas.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
@@ -50,6 +51,7 @@ const SCENARIOS = [
   viewerOffline,
   editorTransitions,
   editorMouse,
+  editorProperties,
   editorPanels,
 ];
 

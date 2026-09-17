@@ -218,6 +218,41 @@ export function editorHelpers(page, base) {
       await helpers.click(point.x, point.y);
     },
 
+    /**
+     * Точка элемента внутри карточки свойств: карточка прокручивается к нему,
+     * и проверяется, что щелчок в эту точку придётся именно на него.
+     */
+    async panelPoint(selector) {
+      const point = await page.eval(`(() => {
+        const panel = document.querySelector('aside[aria-label="Свойства узла"]');
+        const el = panel?.querySelector(${JSON.stringify(selector)});
+        if (!el) return null;
+        el.scrollIntoView({ block: 'center' });
+        const r = el.getBoundingClientRect();
+        const x = r.x + r.width / 2;
+        const y = r.y + r.height / 2;
+        const at = document.elementFromPoint(x, y);
+        return { x, y, top: el === at || el.contains(at), cover: (${DESCRIBE})(at) };
+      })()`);
+      assert.ok(point, `в карточке свойств нет «${selector}»`);
+      assert.ok(point.top, `«${selector}» закрыт: ${point.cover}`);
+      return point;
+    },
+
+    /** Текст раздела карточки свойств по началу заголовка («Алиасы», «Соседи»). */
+    panelSection: (heading) =>
+      page.eval(`(() => {
+        const panel = document.querySelector('aside[aria-label="Свойства узла"]');
+        const section = [...(panel?.querySelectorAll('section') ?? [])].find((s) => s.textContent.trim().startsWith(${JSON.stringify(heading)}));
+        return section ? section.textContent.replace(/\\s+/g, ' ').trim() : null;
+      })()`),
+
+    /** Набирает текст в поле, которое сейчас в фокусе. */
+    async type(text) {
+      await page.send('Input.insertText', { text });
+      await page.sleep(150);
+    },
+
     /** Текст строки состояния. */
     status: () => page.eval(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent ?? ''`),
 
