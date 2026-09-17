@@ -199,6 +199,13 @@ interface HistoryState {
   maxEntries: number;
 
   push: (entry: HistoryEntryInput) => void;
+  /**
+   * Заменяет последнюю запись новой.
+   *
+   * Нужна, чтобы подряд идущие однотипные действия были одной записью:
+   * пять нажатий стрелки — один шаг отмены, а не пять.
+   */
+  replaceLast: (entry: HistoryEntryInput) => void;
   undo: () => HistoryEntry | null;
   redo: () => HistoryEntry | null;
   clear: () => void;
@@ -230,6 +237,14 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         entries: newEntries,
         currentIndex: newEntries.length - 1,
       };
+    }),
+
+  replaceLast: (entry) =>
+    set((state) => {
+      if (state.currentIndex < 0) return state;
+      const entries = state.entries.slice(0, state.currentIndex + 1);
+      entries[state.currentIndex] = { ...entry, timestamp: Date.now() } as HistoryEntry;
+      return { entries, currentIndex: state.currentIndex };
     }),
 
   undo: () => {

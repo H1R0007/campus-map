@@ -82,6 +82,8 @@ export const StatisticsPanel: React.FC = () => {
           onClick={() => setStatisticsOpen(false)}
           className="p-1 rounded hover:bg-white/10"
           style={{ color: 'var(--editor-text-muted)' }}
+          aria-label="Закрыть статистику"
+          title="Закрыть статистику"
         >
           ✕
         </button>

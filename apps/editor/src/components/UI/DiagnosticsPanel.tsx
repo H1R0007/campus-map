@@ -116,6 +116,8 @@ export const DiagnosticsPanel: React.FC = () => {
           onClick={() => setOpen(false)}
           className="p-2 rounded-xl hover:bg-white/10 transition-colors"
           style={{ color: 'var(--editor-text-muted)' }}
+          aria-label="Закрыть диагностику"
+          title="Закрыть диагностику"
         >
           ✕
         </button>

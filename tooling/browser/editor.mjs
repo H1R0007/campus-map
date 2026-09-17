@@ -253,6 +253,22 @@ export function editorHelpers(page, base) {
       await page.sleep(150);
     },
 
+    /** Значение поля карточки свойств по подписи для диктора. */
+    panelValue: (label) =>
+      page.eval(`document.querySelector('aside[aria-label="Свойства узла"] [aria-label=${JSON.stringify(label)}]')?.value ?? null`),
+
+    /** Включает или выключает переключатель в панели «Фильтры» по подписи. */
+    async toggleFilter(label) {
+      const ok = await page.eval(`(() => {
+        const box = [...document.querySelectorAll('label')].find((l) => l.textContent.includes(${JSON.stringify(label)}))?.querySelector('input');
+        if (!box) return false;
+        box.click();
+        return true;
+      })()`);
+      if (!ok) throw new Error(`нет переключателя «${label}»`);
+      await page.sleep(300);
+    },
+
     /** Текст сообщения над картой или пустая строка. */
     notice: () => page.eval(`document.querySelector('.editor-notice')?.textContent ?? ''`),
 

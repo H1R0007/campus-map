@@ -7,6 +7,12 @@ import type { AutoFixReport } from '../../utils/autoFix';
 import { snapshotNeighbors } from './graphState';
 import type { EditorSlice } from './types';
 
+/** Сдвиг вставки на том же плане, пиксели: копия не ложится точно на оригинал. */
+const PASTE_OFFSET = 20;
+
+/** За сколько миллисекунд подряд идущие сдвиги стрелками сливаются в одну запись отмены. */
+const MOVE_MERGE_MS = 900;
+
 /** Чем закончилась попытка создать переход. */
 export type AddTransitionResult = 'created' | 'samePlan' | 'exists' | 'missing';
 
@@ -62,6 +68,7 @@ export interface EditSlice {
   connectSelectedChain: () => void;
 
   copySelected: () => void;
+  /** Вставляет копию на открытый план; без сдвига — на своё место или рядом. */
   paste: (offsetX?: number, offsetY?: number) => void;
 
   lineConfirm: () => void;
@@ -623,37 +630,53 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
+  /**
+   * Сдвигает выделенные узлы ровно на заданное число пикселей плана.
+   *
+   * К сетке результат не притягивается: шаг выбирает тот, кто зовёт (у
+   * клавиш со включённой сеткой он равен клетке). Прежде сдвиг на пиксель с
+   * сеткой в 20 пикселей округлялся обратно, и стрелки не двигали узел вовсе.
+   *
+   * Подряд идущие сдвиги одного и того же набора узлов сливаются в одну
+   * запись отмены: пять нажатий стрелки — один шаг назад.
+   */
   moveSelectedBy: (dx, dy) => {
-    const { selectedNodeIds, nodes, gridSettings } = get();
+    const { selectedNodeIds, nodes } = get();
     if (selectedNodeIds.size === 0) return;
 
     const ids = Array.from(selectedNodeIds);
-    const before: { nodeId: string; x: number; y: number }[] = [];
-    const after: { nodeId: string; x: number; y: number }[] = [];
+    const before: NodePosition[] = [];
+    const after: NodePosition[] = [];
 
     for (const id of ids) {
       const node = nodes.get(id);
       if (!node) continue;
-
       before.push({ nodeId: id, x: node.x, y: node.y });
-
-      let newX = node.x + dx;
-      let newY = node.y + dy;
-
-      if (gridSettings.snap && gridSettings.enabled) {
-        newX = Math.round(newX / gridSettings.size) * gridSettings.size;
-        newY = Math.round(newY / gridSettings.size) * gridSettings.size;
-      }
-
-      after.push({ nodeId: id, x: newX, y: newY });
+      after.push({ nodeId: id, x: node.x + dx, y: node.y + dy });
     }
+    if (after.length === 0) return;
 
-    useHistoryStore.getState().push({
+    const history = useHistoryStore.getState();
+    const last = history.entries[history.currentIndex];
+    const continues =
+      last !== undefined &&
+      history.currentIndex === history.entries.length - 1 &&
+      last.type === 'BATCH' &&
+      last.undoData.kind === 'moveMultiple' &&
+      last.redoData.kind === 'moveMultiple' &&
+      Date.now() - last.timestamp < MOVE_MERGE_MS &&
+      last.redoData.positions.length === after.length &&
+      last.redoData.positions.every((p, i) => p.nodeId === after[i].nodeId && p.x === before[i].x && p.y === before[i].y);
+
+    const entry = {
       type: 'BATCH',
-      description: `Перемещено ${ids.length} узлов`,
-      undoData: { kind: 'moveMultiple', positions: before },
-      redoData: { kind: 'moveMultiple', positions: after },
-    });
+      description: `Перемещено ${after.length} узлов`,
+      undoData: continues && last.undoData.kind === 'moveMultiple' ? last.undoData : { kind: 'moveMultiple' as const, positions: before },
+      redoData: { kind: 'moveMultiple' as const, positions: after },
+    } as const;
+
+    if (continues) history.replaceLast(entry);
+    else history.push(entry);
 
     set((s) => {
       for (const pos of after) {
@@ -744,16 +767,28 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
-  paste: (offsetX = 50, offsetY = 50) => {
+  /**
+   * Вставляет скопированное на открытый план.
+   *
+   * Без явного сдвига копия ложится: на том же плане — рядом с оригиналом,
+   * на другом — в те же координаты, чтобы переносить коридор с этажа на этаж.
+   * Прежде узлы получали id открытого плана, но оставались в корпусе и на
+   * этаже оригинала: на кампусе вставленного было не найти.
+   */
+  paste: (offsetX, offsetY) => {
     const { clipboard, currentBuilding, currentFloor } = get();
     if (!clipboard || clipboard.nodes.length === 0) return;
+
+    const building = currentBuilding ?? CAMPUS_BUILDING_ID;
+    const floor = currentFloor ?? CAMPUS_FLOOR;
+    const samePlan = clipboard.nodes.every((n) => n.building === building && n.floor === floor);
+    const shiftX = offsetX ?? (samePlan ? PASTE_OFFSET : 0);
+    const shiftY = offsetY ?? (samePlan ? PASTE_OFFSET : 0);
 
     const oldToNew = new Map<string, string>();
     const newNodes: MapNode[] = [];
 
     let counter = get().nodeIdCounter;
-    const building = currentBuilding ?? 'campus';
-    const floor = currentFloor ?? 0;
 
     for (const node of clipboard.nodes) {
       const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
@@ -761,10 +796,10 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
       newNodes.push({
         id: newId,
-        x: node.x + offsetX,
-        y: node.y + offsetY,
-        building: currentBuilding ?? node.building,
-        floor: currentFloor ?? node.floor,
+        x: node.x + shiftX,
+        y: node.y + shiftY,
+        building,
+        floor,
         isPortal: node.isPortal,
         neighbors: [],
       });

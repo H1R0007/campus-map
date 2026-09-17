@@ -3,7 +3,7 @@ import { useMap, useMapEvents } from 'react-leaflet';
 import { DEFAULT_INSETS, PixelMap, fitPaddingOf, flyToBounds, useMapFrame } from '@campus-map/mapkit';
 import { campusMapUrl, floorMapUrl, planFormatOf } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
-import type { EditorTool } from '../../stores/editorStore';
+import type { EditorStore, EditorTool } from '../../stores/editorStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { EditorNodes } from './EditorNodes';
@@ -40,165 +40,169 @@ const CameraController: React.FC = () => {
   return null;
 };
 
+/** Клавиши инструментов — по физической клавише, а не по букве раскладки. */
+const TOOL_BY_CODE: Record<string, EditorTool> = {
+  KeyV: 'select',
+  KeyN: 'node',
+  KeyE: 'edge',
+  KeyT: 'transition',
+  KeyL: 'line',
+  KeyD: 'delete',
+};
+
+/** Стрелки: куда сдвигать узлы или карту. */
+const ARROW_STEPS: Record<string, { x: number; y: number }> = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+};
+
+/** На сколько стрелка двигает карту, когда ничего не выбрано, — пиксели экрана. */
+const PAN_STEP = 120;
+
+/** Соседний этаж открытого корпуса: PageUp — выше, PageDown — ниже. */
+function stepFloor(st: EditorStore, direction: 1 | -1): void {
+  if (st.currentBuilding === null || st.currentFloor === null) return;
+
+  const floors = (st.buildingMetas.get(st.currentBuilding)?.floors ?? [])
+    .map((meta) => meta.floor)
+    .sort((a, b) => a - b);
+  const index = floors.indexOf(st.currentFloor);
+  const next = index < 0 ? undefined : floors[index + direction];
+  if (next === undefined) return;
+
+  st.setCurrentFloor(next);
+}
+
+/**
+ * Клавиатура редактора.
+ *
+ * Клавиши читаются по коду физической клавиши (`event.code`): в русской
+ * раскладке Ctrl+Z приходит как «я», и отмена, копирование и переключение
+ * инструментов не работали вовсе.
+ *
+ * Стрелки двигают выделенные узлы, а без выделения — карту; PageUp и
+ * PageDown листают этажи открытого корпуса. Штатная клавиатура Leaflet
+ * выключена: иначе стрелка и двигала узел, и прокручивала карту под ним.
+ */
 const KeyboardHandler: React.FC = () => {
-  const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
+  const map = useMap();
 
-  const deleteSelected = useEditorStore((s) => s.deleteSelected);
-  const selectAll = useEditorStore((s) => s.selectAll);
-  const duplicateSelected = useEditorStore((s) => s.duplicateSelected);
-  const copySelected = useEditorStore((s) => s.copySelected);
-  const paste = useEditorStore((s) => s.paste);
-  const moveSelectedBy = useEditorStore((s) => s.moveSelectedBy);
-
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
-
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-  const setEdgeStartNode = useEditorStore((s) => s.setEdgeStartNode);
-  const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
-  const lineReset = useEditorStore((s) => s.lineReset);
-  const cancelSelectionBox = useEditorStore((s) => s.cancelSelectionBox);
-
-  const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
-  const setActiveTool = useEditorStore((s) => s.setActiveTool);
+  useEffect(() => {
+    map.keyboard.disable();
+    return () => {
+      map.keyboard.enable();
+    };
+  }, [map]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      const target = e.target as HTMLElement | null;
+      const st = useEditorStore.getState();
 
-      // Открытое меню управляется своими клавишами: стрелки выбирают пункт, а не
-      // двигают узлы, Delete не удаляет выделение за спиной у меню.
-      if (useEditorStore.getState().contextMenu.open || target.closest?.('[role="menu"]')) return;
+      // Открытое меню управляется своими клавишами: стрелки выбирают пункт, а
+      // не двигают узлы, Delete не удаляет выделение за спиной у меню.
+      if (st.contextMenu.open || target?.closest?.('[role="menu"]')) return;
 
+      const isInput =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable === true;
       const ctrl = e.ctrlKey || e.metaKey;
+      const { code } = e;
 
-      // Ctrl+F
-      if (ctrl && e.key.toLowerCase() === 'f') {
+      if (ctrl && code === 'KeyF') {
         e.preventDefault();
         e.stopPropagation();
-        setSearchOpen(true);
+        st.setSearchOpen(true);
         return;
       }
 
       if (isInput) return;
 
-      if (ctrl && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-        return;
-      }
-
-      if (ctrl && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key === 'Z'))) {
-        e.preventDefault();
-        redo();
-        return;
-      }
-
-      if (ctrl && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        e.stopPropagation();
-        selectAll();
-        return;
-      }
-
-      if (ctrl && e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        e.stopPropagation();
-        duplicateSelected();
-        return;
-      }
-
-      if (ctrl && e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        e.stopPropagation();
-        copySelected();
-        return;
-      }
-
-      if (ctrl && e.key.toLowerCase() === 'v') {
-        e.preventDefault();
-        e.stopPropagation();
-        paste();
-        return;
-      }
-
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeIds.size > 0) {
-        e.preventDefault();
-        deleteSelected();
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        clearSelection();
-        setEdgeStartNode(null);
-        setTransitionStartNode(null);
-        lineReset();
-        cancelSelectionBox();
-        return;
-      }
-
-      const step = e.shiftKey ? 10 : 1;
-      if (selectedNodeIds.size > 0) {
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          moveSelectedBy(-step, 0);
-          return;
-        }
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          moveSelectedBy(step, 0);
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          moveSelectedBy(0, -step);
-          return;
-        }
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          moveSelectedBy(0, step);
-          return;
+      if (ctrl) {
+        switch (code) {
+          case 'KeyZ':
+            e.preventDefault();
+            if (e.shiftKey) st.redo();
+            else st.undo();
+            return;
+          case 'KeyY':
+            e.preventDefault();
+            st.redo();
+            return;
+          case 'KeyA':
+            e.preventDefault();
+            e.stopPropagation();
+            st.selectAll();
+            return;
+          case 'KeyD':
+            e.preventDefault();
+            e.stopPropagation();
+            st.duplicateSelected();
+            return;
+          case 'KeyC':
+            e.preventDefault();
+            e.stopPropagation();
+            st.copySelected();
+            return;
+          case 'KeyV':
+            e.preventDefault();
+            e.stopPropagation();
+            st.paste();
+            return;
+          default:
+            // Остальные сочетания с Ctrl принадлежат браузеру.
+            return;
         }
       }
 
-      // Соответствие клавиш инструментам. Для клавиш, которые инструмент не
-      // переключают, значения нет — проверка на `undefined` и есть фильтр.
-      const toolByShortcut: Record<string, EditorTool> = {
-        v: 'select',
-        n: 'node',
-        e: 'edge',
-        t: 'transition',
-        l: 'line',
-        d: 'delete',
-      };
-      const tool = toolByShortcut[e.key.toLowerCase()];
-
-      if (!ctrl && tool) {
-        setActiveTool(tool);
+      if ((code === 'Delete' || code === 'Backspace') && st.selectedNodeIds.size > 0) {
+        e.preventDefault();
+        st.deleteSelected();
+        return;
       }
+
+      if (code === 'Escape') {
+        st.clearSelection();
+        st.setEdgeStartNode(null);
+        st.setTransitionStartNode(null);
+        st.lineReset();
+        st.cancelSelectionBox();
+        st.hideNotice();
+        return;
+      }
+
+      const arrow = ARROW_STEPS[code];
+      if (arrow) {
+        e.preventDefault();
+
+        if (st.selectedNodeIds.size === 0) {
+          map.panBy([arrow.x * PAN_STEP, arrow.y * PAN_STEP]);
+          return;
+        }
+
+        // Со включённой привязкой шаг — клетка сетки: сдвиг на пиксель
+        // притянулся бы обратно, и узел не двигался бы вовсе.
+        const { enabled, snap, size } = st.gridSettings;
+        const cell = enabled && snap ? size : 1;
+        const step = cell * (e.shiftKey ? (cell === 1 ? 10 : 5) : 1);
+        st.moveSelectedBy(arrow.x * step, arrow.y * step);
+        return;
+      }
+
+      if (code === 'PageUp' || code === 'PageDown') {
+        e.preventDefault();
+        stepFloor(st, code === 'PageUp' ? 1 : -1);
+        return;
+      }
+
+      const tool = TOOL_BY_CODE[code];
+      if (tool) st.setActiveTool(tool);
     };
 
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [
-    selectedNodeIds.size,
-    deleteSelected,
-    selectAll,
-    duplicateSelected,
-    copySelected,
-    paste,
-    moveSelectedBy,
-    undo,
-    redo,
-    clearSelection,
-    setEdgeStartNode,
-    setTransitionStartNode,
-    lineReset,
-    cancelSelectionBox,
-    setSearchOpen,
-    setActiveTool,
-  ]);
+  }, [map]);
 
   return null;
 };

@@ -232,7 +232,8 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           onClick={onClose}
           className="p-2 rounded-xl hover:bg-white/10 transition-colors"
           style={{ color: 'var(--editor-text-muted)' }}
-          title="Закрыть (Escape)"
+          aria-label="Закрыть свойства узла"
+          title="Закрыть свойства узла (Escape)"
         >
           ✕
         </button>
@@ -399,8 +400,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>X</label>
+              <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }} htmlFor="node-x">X</label>
               <input
+                id="node-x"
+                aria-label="Координата X"
                 value={xText}
                 onChange={(e) => setXText(e.target.value)}
                 onBlur={commitXY}
@@ -414,8 +417,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               />
             </div>
             <div>
-              <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>Y</label>
+              <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }} htmlFor="node-y">Y</label>
               <input
+                id="node-y"
+                aria-label="Координата Y"
                 value={yText}
                 onChange={(e) => setYText(e.target.value)}
                 onBlur={commitXY}

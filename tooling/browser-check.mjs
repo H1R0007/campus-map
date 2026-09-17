@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import os from 'node:os';
 import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
+import editorKeyboard from './browser/scenarios/editor-keyboard.mjs';
 import editorMouse from './browser/scenarios/editor-mouse.mjs';
 import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorProperties from './browser/scenarios/editor-properties.mjs';
@@ -51,6 +52,7 @@ const SCENARIOS = [
   viewerOffline,
   editorTransitions,
   editorMouse,
+  editorKeyboard,
   editorProperties,
   editorPanels,
 ];
