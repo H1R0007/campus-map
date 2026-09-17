@@ -23,6 +23,14 @@ export interface ContextMenuState {
   target: ContextMenuTarget | null;
 }
 
+/** Короткое сообщение над картой: что сделано или почему не сделано. */
+export interface EditorNotice {
+  text: string;
+  kind: 'info' | 'warn';
+  /** Меняется с каждым сообщением: одно и то же сообщение подряд видно снова. */
+  id: number;
+}
+
 export interface Bookmark {
   nodeId: string;
   name: string;
@@ -39,6 +47,7 @@ export interface PanelSlice {
   filtersOpen: boolean;
   routeSimulatorOpen: boolean;
   contextMenu: ContextMenuState;
+  notice: EditorNotice | null;
   searchHistory: string[];
   bookmarks: Map<string, Bookmark>;
 
@@ -50,6 +59,10 @@ export interface PanelSlice {
 
   openContextMenu: (x: number, y: number, target: ContextMenuTarget) => void;
   closeContextMenu: () => void;
+
+  /** Показать сообщение над картой; `warn` — не получилось. */
+  showNotice: (text: string, kind?: 'info' | 'warn') => void;
+  hideNotice: () => void;
 
   addToSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
@@ -74,6 +87,7 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     target: null,
   },
 
+  notice: null,
   searchHistory: [],
   bookmarks: new Map(),
 
@@ -106,6 +120,16 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   closeContextMenu: () =>
     set((s) => {
       s.contextMenu = { open: false, x: 0, y: 0, target: null };
+    }),
+
+  showNotice: (text, kind = 'info') =>
+    set((s) => {
+      s.notice = { text, kind, id: (s.notice?.id ?? 0) + 1 };
+    }),
+
+  hideNotice: () =>
+    set((s) => {
+      s.notice = null;
     }),
 
   addToSearchHistory: (query) =>

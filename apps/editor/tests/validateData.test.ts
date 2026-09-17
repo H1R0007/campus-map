@@ -49,6 +49,23 @@ describe('validateDataset', () => {
     expect(errors[0]).toContain('этаж 5');
   });
 
+  it('переход внутри одного плана — предупреждение', () => {
+    const p = params();
+    p.transitions.push({ fromNode: 'a1_hall', toNode: 'a1_room101', type: 'lift' });
+    const { errors, warnings } = validateDataset(p);
+    expect(errors).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('одного плана');
+  });
+
+  it('второй переход между теми же узлами — предупреждение', () => {
+    const p = params();
+    p.transitions.push({ fromNode: 'a2_stairs', toNode: 'a1_stairs', type: 'lift' });
+    const { warnings } = validateDataset(p);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('больше одного перехода');
+  });
+
   it('узел неизвестного корпуса — ошибка', () => {
     const p = params();
     p.nodes.set('z1_x', { id: 'z1_x', building: 'building_z', floor: 1, x: 0, y: 0, isPortal: false, neighbors: [] });

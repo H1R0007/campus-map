@@ -253,6 +253,17 @@ export function editorHelpers(page, base) {
       await page.sleep(150);
     },
 
+    /** Текст сообщения над картой или пустая строка. */
+    notice: () => page.eval(`document.querySelector('.editor-notice')?.textContent ?? ''`),
+
+    /** Подписи отметок переходов на другой план («↑ этаж 2»). */
+    transitionTargets: () =>
+      page.eval(`[...document.querySelectorAll('.transition-target')].map((row) => row.textContent.trim())`),
+
+    /** Пары узлов переходов, отмеченных на открытом плане. */
+    transitionKeys: () =>
+      page.eval(`[...document.querySelectorAll('[data-transition]')].map((el) => el.dataset.transition)`),
+
     /** Текст строки состояния. */
     status: () => page.eval(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent ?? ''`),
 

@@ -195,6 +195,61 @@ input[type='checkbox'] {
     color: var(--editor-on-accent);
 }
 
+/* --- Сообщение над картой --- */
+
+.editor-notice-layer {
+    position: absolute;
+    top: 12px;
+    left: 0;
+    right: 0;
+    z-index: 1800;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.editor-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(560px, calc(100% - 32px));
+    padding: 10px 10px 10px 14px;
+    border-radius: 12px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+    color: var(--editor-text);
+    font-size: 14px;
+    pointer-events: auto;
+}
+
+.editor-notice--warn {
+    border-color: var(--editor-danger);
+    color: var(--editor-danger);
+}
+
+.editor-notice__text {
+    flex: 1;
+}
+
+.editor-notice__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    cursor: pointer;
+}
+
+.editor-notice__close:hover {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
 /* --- Контекстное меню --- */
 
 .context-menu {

@@ -7,6 +7,9 @@ import type { AutoFixReport } from '../../utils/autoFix';
 import { snapshotNeighbors } from './graphState';
 import type { EditorSlice } from './types';
 
+/** Чем закончилась попытка создать переход. */
+export type AddTransitionResult = 'created' | 'samePlan' | 'exists' | 'missing';
+
 export interface ClipboardData {
   nodes: MapNode[];
   internalEdges: { from: string; to: string }[];
@@ -37,7 +40,14 @@ export interface EditSlice {
   updateNode: (nodeId: string, updates: Partial<MapNode>) => void;
   addEdge: (fromId: string, toId: string) => void;
   removeEdge: (fromId: string, toId: string) => void;
-  addTransition: (fromId: string, toId: string, type: TransitionType) => void;
+  /**
+   * Создаёт переход между планами.
+   *
+   * @returns что получилось: переход создан либо почему нет — узлы на одном
+   *          плане, переход уже есть, узла нет. Вызывающая сторона объясняет
+   *          это человеку.
+   */
+  addTransition: (fromId: string, toId: string, type: TransitionType) => AddTransitionResult;
   removeTransition: (fromId: string, toId: string) => void;
   updateTransitionType: (fromId: string, toId: string, type: TransitionType) => void;
   setNodeAliases: (nodeId: string, names: string[]) => void;
@@ -306,14 +316,19 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
   },
 
   addTransition: (fromId, toId, type) => {
-    if (fromId === toId) return;
     const st = get();
-    if (!st.nodes.has(fromId) || !st.nodes.has(toId)) return;
+    const from = st.nodes.get(fromId);
+    const to = st.nodes.get(toId);
+    if (fromId === toId || !from || !to) return 'missing';
+
+    // Переход связывает планы. Два узла одного плана соединяются ребром, а
+    // переход между ними навигатор провёл бы «сквозь этаж».
+    if (from.building === to.building && from.floor === to.floor) return 'samePlan';
 
     const exists = st.transitions.some(
       (t) => (t.fromNode === fromId && t.toNode === toId) || (t.fromNode === toId && t.toNode === fromId)
     );
-    if (exists) return;
+    if (exists) return 'exists';
 
     const before = [...st.transitions];
     const next = [...st.transitions, { fromNode: fromId, toNode: toId, type }];
@@ -329,6 +344,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       s.transitions = next;
       s.hasUnsavedChanges = true;
     });
+
+    return 'created';
   },
 
   removeTransition: (fromId, toId) => {

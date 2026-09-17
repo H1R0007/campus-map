@@ -12,6 +12,7 @@ import { FilterPanel } from './components/UI/FilterPanel';
 import { StatisticsPanel } from './components/UI/StatisticsPanel';
 import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
 import { RecentActions } from './components/UI/RecentActions';
+import { Notice } from './components/UI/Notice';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { BookmarksPanel } from './components/UI/BookmarksPanel';
 import { useEditorStore } from './stores/editorStore';
@@ -177,6 +178,7 @@ const App: React.FC = () => {
             <LineToolPanel />
             <RouteSimulatorPanel />
             <RecentActions />
+            <Notice />
           </div>
         </div>
         <StatusBar />

@@ -7,6 +7,7 @@ import { selectedRoute, useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import type { NodePosition } from '../../stores/historyStore';
 import { suppressNextMapClick } from '../../utils/clickGuard';
+import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { themeColor } from '../../utils/themeColor';
 
 /** С какого сдвига курсора, в пикселях экрана, нажатие становится перетаскиванием. */
@@ -207,13 +208,32 @@ export const EditorNodes: React.FC = () => {
         }
         return;
 
-      case 'transition':
-        if (!st.transitionStartNodeId) st.setTransitionStartNode(nodeId);
-        else if (st.transitionStartNodeId !== nodeId) {
-          st.addTransition(st.transitionStartNodeId, nodeId, st.transitionType);
+      case 'transition': {
+        const type = st.transitionType;
+        const startId = st.transitionStartNodeId;
+
+        if (!startId) {
+          st.setTransitionStartNode(nodeId);
+          st.showNotice(
+            `${TRANSITION_LABELS[type]} от «${nodeTitle(nodeId, st.aliases)}». Выберите второй узел — этаж или корпус можно переключить.`
+          );
+          return;
+        }
+        if (startId === nodeId) return;
+
+        const result = st.addTransition(startId, nodeId, type);
+        if (result === 'created') {
           st.setTransitionStartNode(null);
+          st.showNotice(
+            `${TRANSITION_LABELS[type]}: «${nodeTitle(startId, st.aliases)}» — «${nodeTitle(nodeId, st.aliases)}»`
+          );
+        } else if (result === 'samePlan') {
+          st.showNotice('Оба узла на одном плане: между ними нужна связь (ребро), а не переход.', 'warn');
+        } else if (result === 'exists') {
+          st.showNotice('Переход между этими узлами уже есть.', 'warn');
         }
         return;
+      }
 
       case 'delete':
         st.removeNode(nodeId);

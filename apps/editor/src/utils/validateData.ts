@@ -1,5 +1,5 @@
 import type { BuildingMeta, MapNode, Transition } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, edgeKey } from '@campus-map/core';
 
 export interface ValidationResult {
   errors: string[];
@@ -61,6 +61,33 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
     if (!nodes.has(transition.toNode)) {
       errors.push(`Переход ссылается на несуществующий конечный узел «${transition.toNode}»`);
     }
+  }
+
+  // Переход связывает планы. Оба конца на одном плане — это связь (ребро), а
+  // переход между ними навигатор провёл бы «сквозь этаж».
+  for (const transition of transitions) {
+    const from = nodes.get(transition.fromNode);
+    const to = nodes.get(transition.toNode);
+    if (!from || !to) continue;
+
+    if (from.building === to.building && from.floor === to.floor) {
+      warnings.push(
+        `Переход «${transition.fromNode}» — «${transition.toNode}» соединяет узлы одного плана: ` +
+          `между ними нужна связь, а не переход`
+      );
+    }
+  }
+
+  // Второй переход между теми же узлами: маршрут пойдёт по любому из них, а
+  // разметчик правит только один и не понимает, почему ничего не изменилось.
+  const seenTransitions = new Set<string>();
+  for (const transition of transitions) {
+    const key = edgeKey(transition.fromNode, transition.toNode);
+    if (seenTransitions.has(key)) {
+      warnings.push(`Между «${transition.fromNode}» и «${transition.toNode}» больше одного перехода`);
+      continue;
+    }
+    seenTransitions.add(key);
   }
 
   // Принадлежность узла корпусу и этажу должна подтверждаться meta.json.

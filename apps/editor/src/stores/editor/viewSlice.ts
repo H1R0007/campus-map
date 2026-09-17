@@ -86,8 +86,11 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
         state.currentFloor = null;
       }
       state.selectedNodeIds = new Set();
+      // Начатое ребро и линия живут в пределах плана, а начатый переход —
+      // наоборот: второй его конец почти всегда на другом этаже или в другом
+      // корпусе. Прежде смена плана сбрасывала начало, и лестницу между
+      // этажами нельзя было создать щелчками вовсе.
       state.edgeStartNodeId = null;
-      state.transitionStartNodeId = null;
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;
@@ -98,7 +101,6 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       state.currentFloor = floor;
       state.selectedNodeIds = new Set();
       state.edgeStartNodeId = null;
-      state.transitionStartNodeId = null;
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;

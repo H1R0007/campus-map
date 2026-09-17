@@ -37,6 +37,7 @@ export type { EditorStore } from './editor/types';
 export type { EditorTool, LineToolState } from './editor/toolSlice';
 export type { DisplayFilters, GridSettings } from './editor/viewSlice';
 export type { RouteSimulation } from './editor/routeSlice';
-export type { ContextMenuTarget } from './editor/panelSlice';
+export type { ContextMenuTarget, EditorNotice } from './editor/panelSlice';
+export type { AddTransitionResult } from './editor/editSlice';
 export type { NodePair } from './editor/selectionSlice';
 export { selectedRoute } from './editor/graphState';

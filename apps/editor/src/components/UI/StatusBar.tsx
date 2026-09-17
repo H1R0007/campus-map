@@ -2,6 +2,7 @@ import React from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { Icon } from './Icon';
+import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
 
 export const StatusBar: React.FC = () => {
   const currentBuilding = useEditorStore((state) => state.currentBuilding);
@@ -14,7 +15,16 @@ export const StatusBar: React.FC = () => {
   const activeTool = useEditorStore((state) => state.activeTool);
   const edgeStartNodeId = useEditorStore((state) => state.edgeStartNodeId);
   const transitionStartNodeId = useEditorStore((state) => state.transitionStartNodeId);
+  const transitionType = useEditorStore((state) => state.transitionType);
+  const aliases = useEditorStore((state) => state.aliases);
   const lineTool = useEditorStore((state) => state.lineTool);
+
+  // Начатый переход переживает смену этажа, поэтому подсказка называет, от
+  // какого узла и с какого плана он строится.
+  const transitionStart = transitionStartNodeId ? nodes.get(transitionStartNodeId) : undefined;
+  const transitionStartLabel = transitionStart
+    ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(transitionStart.id, aliases)}» (${nodePlaceLabel(transitionStart, buildingMetas)})`
+    : '';
 
   const historyEntries = useHistoryStore((state) => state.entries);
   const historyIndex = useHistoryStore((state) => state.currentIndex);
@@ -44,8 +54,8 @@ export const StatusBar: React.FC = () => {
     transition: {
       name: 'Переход',
       hint: transitionStartNodeId
-        ? 'Щелчок по второму узлу — создать переход · Esc — отмена'
-        : 'Щелчок по первому узлу перехода',
+        ? `${transitionStartLabel} · щелчок по второму узлу — создать · этаж можно переключить · Esc — отмена`
+        : `${TRANSITION_LABELS[transitionType]}: щелчок по первому узлу`,
     },
     line: {
       name: 'Линия',
