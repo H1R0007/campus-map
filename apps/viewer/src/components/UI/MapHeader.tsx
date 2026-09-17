@@ -37,9 +37,10 @@ function scrollStripByWheel(event: WheelEvent<HTMLDivElement>): void {
  * ленту можно прокрутить, было не понять. Длинное название корпуса обрезается
  * многоточием, а экранный диктор читает его целиком.
  *
- * В корпусе — возврат на территорию, имя корпуса и этаж. Подпись не
- * растягивается на всю ширину: на широком экране растянутая плашка читалась как
- * отдельная панель, а на телефоне закрывала карту под шапкой.
+ * В корпусе — возврат на территорию и плашка с корпусом и этажом: она же
+ * открывает список корпусов (`BuildingMenu`). Плашка не растягивается на всю
+ * ширину: на широком экране растянутая читалась как отдельная панель, а на
+ * телефоне закрывала карту под шапкой.
  *
  * На шаге пошаговой навигации вместо этого — ход маршрута и выход из навигации
  * (`TripBar`, запись 23).
@@ -114,14 +115,12 @@ export const MapHeader: React.FC = () => {
             <Icon name="back" />
           </button>
 
-          <div className="min-w-0 h-11 px-3 rounded-xl bg-surface shadow-md flex flex-col justify-center wide:max-w-sm">
-            <div className="text-sm font-semibold text-gray-800 truncate">
-              {buildingLabel(buildingMetas, activeFloor.buildingId, language)}
-            </div>
-            <div className="text-xs text-gray-500 truncate">
-              {messages.map.floor(formatFloor(activeFloor.floor))}
-            </div>
-          </div>
+          <BuildingMenu
+            current={{
+              title: buildingLabel(buildingMetas, activeFloor.buildingId, language),
+              subtitle: messages.map.floor(formatFloor(activeFloor.floor)),
+            }}
+          />
         </>
       )}
 
