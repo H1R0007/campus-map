@@ -75,6 +75,15 @@ export default {
       assert.match(await page.eval(`document.querySelector('[role="dialog"]').textContent`), /несохранённая работа/i);
       await shot('editor-draft');
 
+      // Окно черновика — модальное: фокус внутри и Tab из него не уходит.
+      const insideDialog = () =>
+        page.eval(`document.querySelector('[role="dialog"]')?.contains(document.activeElement) ?? false`);
+      assert.ok(await insideDialog(), 'фокус не в окне черновика');
+      for (let i = 0; i < 3; i++) {
+        await e.key('Tab', { keyCode: 9 });
+        assert.ok(await insideDialog(), 'Tab увёл фокус из окна черновика');
+      }
+
       await e.press('Восстановить');
       await page.sleep(500);
       assert.match(await e.status(), /Изменено/, 'восстановленная работа должна считаться несохранённой');

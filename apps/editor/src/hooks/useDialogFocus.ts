@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 const FOCUSABLE =
@@ -20,6 +20,12 @@ export function useDialogFocus(
   onClose: () => void,
   initial?: RefObject<HTMLElement | null>
 ): void {
+  // Обработчик закрытия держится в ссылке: иначе новая стрелочная функция на
+  // каждом рендере перезапускала бы эффект, и фокус на каждом обновлении
+  // окна прыгал бы обратно на первую кнопку.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -30,7 +36,7 @@ export function useDialogFocus(
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        onClose();
+        closeRef.current();
         return;
       }
       if (e.key !== 'Tab' || !root) return;
@@ -52,5 +58,5 @@ export function useDialogFocus(
       window.removeEventListener('keydown', onKeyDown, true);
       previous?.focus?.();
     };
-  }, [open, container, onClose, initial]);
+  }, [open, container, initial]);
 }
