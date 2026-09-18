@@ -8,7 +8,7 @@ import { floorNodesOf } from '../../stores/editor/dataSlice';
 import type { NodePosition } from '../../stores/historyStore';
 import { suppressNextMapClick } from '../../utils/clickGuard';
 import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
-import { themeColor } from '../../utils/themeColor';
+import { mapPalette } from '../../utils/themeColor';
 
 /** С какого сдвига курсора, в пикселях экрана, нажатие становится перетаскиванием. */
 const DRAG_THRESHOLD = 4;
@@ -46,8 +46,8 @@ export const EditorNodes: React.FC = () => {
   const map = useMap();
   const dragRef = useRef<DragState | null>(null);
 
-  // Акцент темы значением: атрибуты SVG, которые ставит Leaflet, `var()` не понимают.
-  const highlightColor = useMemo(() => themeColor('--editor-highlight'), []);
+  // Цвета темы значением: атрибуты SVG, которые ставит Leaflet, `var()` не понимают.
+  const palette = mapPalette();
 
   const allNodes = useEditorStore((s) => s.nodes);
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
@@ -327,44 +327,44 @@ export const EditorNodes: React.FC = () => {
         const isRouteTo = route.toNodeId === node.id;
         const isInRoute = routePath.has(node.id);
 
-        let fillColor = '#6366f1';
-        let strokeColor = '#4f46e5';
+        let fillColor = palette.node;
+        let strokeColor = palette.nodeStroke;
 
         if (node.isPortal) {
-          fillColor = '#f59e0b';
-          strokeColor = '#d97706';
+          fillColor = palette.portal;
+          strokeColor = palette.portalStroke;
         }
         if (isEdgeStart) {
-          fillColor = '#22c55e';
-          strokeColor = '#16a34a';
+          fillColor = palette.start;
+          strokeColor = palette.startStroke;
         }
         if (isTransitionStart) {
           // Узел, от которого строится переход: цвет выбранного типа, как у его
           // кнопки в панели инструментов, и обводка акцентом темы.
           fillColor = TRANSITION_COLORS[transitionType];
-          strokeColor = highlightColor;
+          strokeColor = palette.highlight;
         }
         if (isInRoute) {
-          fillColor = '#8b5cf6';
-          strokeColor = '#7c3aed';
+          fillColor = palette.route;
+          strokeColor = palette.routeStroke;
         }
         if (isRouteFrom) {
-          fillColor = '#22c55e';
-          strokeColor = '#16a34a';
+          fillColor = palette.start;
+          strokeColor = palette.startStroke;
         }
         if (isRouteTo) {
-          fillColor = '#ef4444';
-          strokeColor = '#dc2626';
+          fillColor = palette.finish;
+          strokeColor = palette.finishStroke;
         }
         if (isSelected) {
-          fillColor = highlightColor;
-          strokeColor = '#dc2626';
+          fillColor = palette.highlight;
+          strokeColor = palette.finishStroke;
         }
 
         let extraStroke: string | null = null;
-        if (errorIds.has(node.id)) extraStroke = '#ef4444';
-        else if (orphanIds.has(node.id)) extraStroke = '#f97316';
-        else if (noAliasIds.has(node.id)) extraStroke = '#eab308';
+        if (errorIds.has(node.id)) extraStroke = palette.problemError;
+        else if (orphanIds.has(node.id)) extraStroke = palette.problemOrphan;
+        else if (noAliasIds.has(node.id)) extraStroke = palette.problemNoName;
 
         const radius = isHovered || isSelected ? 10 : 8;
         const weight = isSelected || isHovered || isEdgeStart || isTransitionStart ? 3 : 2;

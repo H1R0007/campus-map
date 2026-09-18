@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { CircleMarker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
+import { mapPalette } from '../../utils/themeColor';
 import { edgeKey, scopeOfFloor } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
@@ -90,6 +91,7 @@ export const EditorTransitions: React.FC = () => {
   const showTransitions = useEditorStore((s) => s.displayFilters.showTransitions);
   const hoveredTransition = useEditorStore((s) => s.hoveredTransition);
   const setHoveredTransition = useEditorStore((s) => s.setHoveredTransition);
+  const palette = mapPalette();
 
   const { lines, markers } = useMemo(() => {
     if (!showTransitions) return NO_TRANSITIONS;
@@ -117,7 +119,7 @@ export const EditorTransitions: React.FC = () => {
               [to.y, to.x],
             ]}
             pathOptions={{
-              color: isHovered ? '#ffffff' : color,
+              color: isHovered ? palette.lineHover : color,
               weight: isHovered ? 6 : 4,
               opacity: isHovered ? 1 : 0.85,
               dashArray: '8 8',

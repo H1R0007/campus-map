@@ -1,18 +1,8 @@
 import React from 'react';
 import { TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
-import type { EditorTool } from '../../stores/editorStore';
 import { Icon } from '../UI/Icon';
-import type { IconName } from '../UI/Icon';
-
-/** Инструменты. Значок `null` — значок выбранного типа перехода. */
-export const TOOLS: { id: EditorTool; icon: IconName | null; label: string; shortcut: string }[] = [
-  { id: 'select', label: 'Выбор', shortcut: 'V', icon: 'select' },
-  { id: 'node', label: 'Узел', shortcut: 'N', icon: 'plus' },
-  { id: 'edge', label: 'Связь', shortcut: 'E', icon: 'link' },
-  { id: 'transition', label: 'Переход', shortcut: 'T', icon: null },
-  { id: 'line', label: 'Линия', shortcut: 'L', icon: 'ruler' },
-];
+import { TOOLS } from './tools';
 
 /**
  * Колонка инструментов слева от карты: значок и подпись, как в графических

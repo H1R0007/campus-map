@@ -1,8 +1,10 @@
 import React from 'react';
 import { Rectangle } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
+import { mapPalette } from '../../utils/themeColor';
 
 export const SelectionBox: React.FC = () => {
+  const palette = mapPalette();
   const selectionBox = useEditorStore((s) => s.selectionBox);
 
   if (!selectionBox) return null;
@@ -18,9 +20,9 @@ export const SelectionBox: React.FC = () => {
     <Rectangle
       bounds={bounds}
       pathOptions={{
-        color: '#60a5fa',
+        color: palette.draft,
         weight: 2,
-        fillColor: '#60a5fa',
+        fillColor: palette.draft,
         fillOpacity: 0.15,
         dashArray: '5, 5',
       }}

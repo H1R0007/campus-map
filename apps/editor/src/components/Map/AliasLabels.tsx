@@ -38,20 +38,7 @@ export const AliasLabels: React.FC = () => {
             offset={[0, -15]}
             className="alias-label-tooltip"
           >
-            <div
-              style={{
-                padding: '2px 6px',
-                backgroundColor: 'rgba(0, 0, 0, 0.75)',
-                borderRadius: '4px',
-                color: 'white',
-                fontSize: '10px',
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                maxWidth: '120px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
+            <div className="alias-label">
               {alias}
             </div>
           </Tooltip>

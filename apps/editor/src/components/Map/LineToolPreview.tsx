@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
+import { mapPalette } from '../../utils/themeColor';
 
 export const LineToolPreview: React.FC = () => {
+  const palette = mapPalette();
   const activeTool = useEditorStore((s) => s.activeTool);
   const lt = useEditorStore((s) => s.lineTool);
 
@@ -52,8 +54,8 @@ export const LineToolPreview: React.FC = () => {
         center={[lt.start.y, lt.start.x]}
         radius={8}
         pathOptions={{
-          color: '#60a5fa',
-          fillColor: '#60a5fa',
+          color: palette.draft,
+          fillColor: palette.draft,
           fillOpacity: 0.9,
           weight: 2
         }}
@@ -68,8 +70,8 @@ export const LineToolPreview: React.FC = () => {
         center={[lt.start.y, lt.start.x]}
         radius={8}
         pathOptions={{
-          color: '#60a5fa',
-          fillColor: '#60a5fa',
+          color: palette.draft,
+          fillColor: palette.draft,
           fillOpacity: 0.9,
           weight: 2
         }}
@@ -86,7 +88,7 @@ export const LineToolPreview: React.FC = () => {
           [lt.end.y, lt.end.x],
         ]}
         pathOptions={{
-          color: '#60a5fa',
+          color: palette.draft,
           weight: 3,
           opacity: 0.9,
           dashArray: '6 6'
@@ -100,8 +102,8 @@ export const LineToolPreview: React.FC = () => {
           center={p}
           radius={5}
           pathOptions={{
-            color: '#93c5fd',
-            fillColor: '#93c5fd',
+            color: palette.draftPoint,
+            fillColor: palette.draftPoint,
             fillOpacity: 0.9,
             weight: 1
           }}

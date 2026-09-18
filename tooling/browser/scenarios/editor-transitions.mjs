@@ -77,7 +77,8 @@ export default {
         .map((p) => (p.getAttribute('fill') + '|' + p.getAttribute('stroke')).toLowerCase())
         .filter((f) => ['#b45309', '#15803d', '#6d28d9', '#0e7490'].some((c) => f.startsWith(c)))`);
       assert.equal(colored.length, 1, `окрашенные узлы: ${JSON.stringify(colored)}`);
-      assert.ok(colored[0].endsWith('#e94560'), 'обводка — акцент темы');
+      const highlight = await page.eval(`getComputedStyle(document.documentElement).getPropertyValue('--editor-highlight').trim()`);
+      assert.ok(colored[0].endsWith(highlight.toLowerCase()), `обводка — акцент темы ${highlight}: ${colored[0]}`);
     });
 
     await step('лестница между этажами: щелчок, смена этажа, щелчок', async () => {

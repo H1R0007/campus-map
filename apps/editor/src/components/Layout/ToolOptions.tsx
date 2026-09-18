@@ -5,7 +5,7 @@ import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 import { Icon } from '../UI/Icon';
-import { TOOLS } from './ToolRail';
+import { TOOLS } from './tools';
 
 /** Короткие подписи типов на кнопках строки: инструмент уже называется «Переход». */
 const CHIP_LABELS: Record<TransitionType, string> = {

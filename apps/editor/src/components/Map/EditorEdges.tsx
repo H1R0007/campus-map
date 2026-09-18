@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Polyline } from 'react-leaflet';
 import L from 'leaflet';
+import { mapPalette } from '../../utils/themeColor';
 import { edgeKey } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
@@ -27,6 +28,7 @@ export const EditorEdges: React.FC = () => {
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const hoveredEdge = useEditorStore((s) => s.hoveredEdge);
   const setHoveredEdge = useEditorStore((s) => s.setHoveredEdge);
+  const palette = mapPalette();
 
   const edges = useMemo(() => {
     if (!showEdges) return [];
@@ -62,7 +64,7 @@ export const EditorEdges: React.FC = () => {
               [b.y, b.x],
             ]}
             pathOptions={{
-              color: isHovered ? '#60a5fa' : '#4b5563',
+              color: isHovered ? palette.edgeHover : palette.edge,
               weight: isHovered ? 7 : 4, // толще для щелчка
               opacity: isHovered ? 0.95 : 0.6,
               className: 'editor-edge',

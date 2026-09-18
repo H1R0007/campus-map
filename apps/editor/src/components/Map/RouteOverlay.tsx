@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
 import { selectedRoute, useEditorStore } from '../../stores/editorStore';
+import { mapPalette } from '../../utils/themeColor';
 
 /**
  * Линия маршрута и метка, идущая по нему.
@@ -14,6 +15,7 @@ import { selectedRoute, useEditorStore } from '../../stores/editorStore';
 export const RouteOverlay: React.FC = () => {
   const route = useEditorStore((s) => s.routeSimulation);
   const getNode = useEditorStore((s) => s.getNode);
+  const palette = mapPalette();
   // Метка идёт, только пока вкладка маршрута видна.
   const simulatorOpen = useEditorStore((s) => s.inspectorTab === 'route' && !s.inspectorCollapsed);
 
@@ -90,7 +92,7 @@ export const RouteOverlay: React.FC = () => {
       {visiblePositions.length > 1 && (
         <Polyline
           positions={visiblePositions}
-          pathOptions={{ color: '#8b5cf6', weight: 5, opacity: 0.85, dashArray: '10 6' }}
+          pathOptions={{ color: palette.route, weight: 5, opacity: 0.85, dashArray: '10 6' }}
         />
       )}
 
@@ -100,12 +102,12 @@ export const RouteOverlay: React.FC = () => {
           <CircleMarker
             center={[animNode.y, animNode.x]}
             radius={18}
-            pathOptions={{ color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.18, weight: 2 }}
+            pathOptions={{ color: palette.route, fillColor: palette.route, fillOpacity: 0.18, weight: 2 }}
           />
           <CircleMarker
             center={[animNode.y, animNode.x]}
             radius={10}
-            pathOptions={{ color: '#ffffff', fillColor: '#8b5cf6', fillOpacity: 1, weight: 3 }}
+            pathOptions={{ color: palette.markerStroke, fillColor: palette.route, fillOpacity: 1, weight: 3 }}
           />
         </>
       )}
@@ -115,7 +117,7 @@ export const RouteOverlay: React.FC = () => {
         <CircleMarker
           center={[startNode.y, startNode.x]}
           radius={12}
-          pathOptions={{ color: '#ffffff', fillColor: '#22c55e', fillOpacity: 1, weight: 3 }}
+          pathOptions={{ color: palette.markerStroke, fillColor: palette.start, fillOpacity: 1, weight: 3 }}
         />
       )}
 
@@ -124,7 +126,7 @@ export const RouteOverlay: React.FC = () => {
         <CircleMarker
           center={[endNode.y, endNode.x]}
           radius={12}
-          pathOptions={{ color: '#ffffff', fillColor: '#ef4444', fillOpacity: 1, weight: 3 }}
+          pathOptions={{ color: palette.markerStroke, fillColor: palette.finish, fillOpacity: 1, weight: 3 }}
         />
       )}
     </>

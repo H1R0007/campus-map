@@ -41,19 +41,14 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          className="h-full w-full flex items-center justify-center p-6"
-          style={{ backgroundColor: 'var(--editor-bg)' }}
-        >
-          <div className="max-w-md text-center">
-            <h1 className="text-white font-semibold text-lg">Произошла ошибка</h1>
-            <p className="mt-2 text-sm" style={{ color: 'var(--editor-text-muted)' }}>
-              {this.state.error?.message || 'Неизвестная ошибка'}
-            </p>
+        <div className="editor-splash">
+          <div className="editor-splash__box">
+            <h1 className="editor-splash__title">Произошла ошибка</h1>
+            <p className="editor-splash__text">{this.state.error?.message || 'Неизвестная ошибка'}</p>
             <button
+              type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 rounded-lg text-white"
-              style={{ backgroundColor: 'var(--editor-highlight)' }}
+              className="editor-button editor-button--primary mt-4"
             >
               Перезагрузить
             </button>
@@ -135,11 +130,8 @@ const App: React.FC = () => {
 
   if (isLoading && !error) {
     return (
-      <div
-        className="h-full w-full flex items-center justify-center"
-        style={{ backgroundColor: 'var(--editor-bg)' }}
-      >
-        <div className="text-center">
+      <div className="editor-splash">
+        <div className="editor-splash__box">
           {/* `borderTopColor` задаётся явно: иначе inline-`borderColor`
               перекрывает утилиту `border-t-transparent`, и индикатор
               выглядит сплошным кольцом, а не вращающейся дугой. */}
@@ -150,7 +142,7 @@ const App: React.FC = () => {
               borderTopColor: 'transparent',
             }}
           />
-          <p style={{ color: 'var(--editor-text-muted)' }}>Загрузка редактора…</p>
+          <p className="editor-splash__text">Загрузка редактора…</p>
         </div>
       </div>
     );
@@ -158,19 +150,14 @@ const App: React.FC = () => {
 
   if (error) {
     return (
-      <div
-        className="h-full w-full flex items-center justify-center p-6"
-        style={{ backgroundColor: 'var(--editor-bg)' }}
-      >
-        <div className="max-w-md text-center">
-          <h1 className="text-white font-semibold text-lg">Ошибка загрузки</h1>
-          <p className="mt-2 text-sm whitespace-pre-wrap" style={{ color: 'var(--editor-text-muted)' }}>
-            {error}
-          </p>
+      <div className="editor-splash">
+        <div className="editor-splash__box">
+          <h1 className="editor-splash__title">Ошибка загрузки</h1>
+          <p className="editor-splash__text editor-splash__text--pre">{error}</p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 rounded-lg text-white"
-            style={{ backgroundColor: 'var(--editor-highlight)' }}
+            className="editor-button editor-button--primary mt-4"
           >
             Перезагрузить
           </button>

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import type { MapNode } from '@campus-map/core';
 import { selectedRoute, useEditorStore } from '../../stores/editorStore';
+import { nodePlaceLabel, nodeTitle } from '../../utils/labels';
 import { Icon } from './Icon';
 
 /**
@@ -14,44 +16,6 @@ function formatRouteTime(seconds: number): string {
   const minutes = Math.floor(total / 60);
   return minutes > 0 ? `${minutes} мин ${total % 60} с` : `${total} с`;
 }
-
-/**
- * Переключатель выбора точек:
- * - включён — щелчок по узлу на карте задаёт начало или конец маршрута;
- * - выключен — щелчок выбирает узел как обычно, точки задаются поиском.
- */
-const PickModeToggle: React.FC<{
-  enabled: boolean;
-  onChange: (v: boolean) => void;
-}> = ({ enabled, onChange }) => {
-  return (
-    <div
-      className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl"
-      style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
-    >
-      <div className="text-xs" style={{ color: enabled ? 'white' : 'var(--editor-text-muted)' }}>
-        Щелчок по карте
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onChange(!enabled)}
-        className="relative w-12 h-6 rounded-full transition-colors"
-        style={{ backgroundColor: enabled ? '#22c55e' : 'var(--editor-accent)' }}
-        title={enabled ? 'Включено: щелчок по узлу выбирает начало или конец' : 'Выключено: точки — только через поиск'}
-      >
-        <div
-          className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow"
-          style={{ left: enabled ? 'calc(100% - 20px)' : '4px' }}
-        />
-      </button>
-
-      <div className="text-xs" style={{ color: !enabled ? 'white' : 'var(--editor-text-muted)' }}>
-        Только поиск
-      </div>
-    </div>
-  );
-};
 
 /**
  * Вкладка «Маршрут» инспектора: маршрут между двумя узлами так, как его
@@ -80,6 +44,8 @@ export const RouteView: React.FC = () => {
   const searchNodes = useEditorStore((s) => s.searchNodes);
   const getNode = useEditorStore((s) => s.getNode);
   const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
+  const aliases = useEditorStore((s) => s.aliases);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
 
   const [fromQuery, setFromQuery] = useState('');
@@ -237,302 +203,237 @@ export const RouteView: React.FC = () => {
   }, [currentPath, getNode]);
 
   return (
-    <div className="space-y-3">
-        {/* Pick mode */}
-        <div className="space-y-2">
-          <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-            Выбор точек мышью
-          </div>
-          <PickModeToggle enabled={routePickMode} onChange={setRoutePickMode} />
-          {routePickMode && (
-            <div
-              className="text-xs p-2 rounded-lg"
-              style={{ backgroundColor: 'rgba(96, 165, 250, 0.12)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
-            >
-              {routePickTarget === 'from' || !route.fromNodeId
-                ? 'Щелчок по узлу — начало маршрута'
-                : 'Щелчок по узлу — конец маршрута'}
-            </div>
-          )}
-        </div>
+    <div className="editor-card">
+      <section className="editor-card__section editor-card__section--first" aria-labelledby="route-points">
+        <h2 id="route-points" className="editor-card__heading">
+          Откуда и куда
+        </h2>
+        <label className="editor-check">
+          <input type="checkbox" checked={routePickMode} onChange={(e) => setRoutePickMode(e.target.checked)} />
+          <span className="editor-check__text">
+            Выбирать точки щелчком по карте
+            <span className="editor-check__hint">
+              {!routePickMode
+                ? 'выключено: щелчок выбирает узел, точки — поиском'
+                : routePickTarget === 'from' || !route.fromNodeId
+                  ? 'щёлкните узел — начало маршрута'
+                  : 'щёлкните узел — конец маршрута'}
+            </span>
+          </span>
+        </label>
 
-        {/* FROM */}
-        <div className="relative">
-          <div className="flex items-center justify-between">
-            <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="w-2.5 h-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: '#22c55e' }} />Откуда</span>
-            </label>
-            {route.fromNodeId && (
-              <button type="button" onClick={clearFrom} className="text-xs hover:underline" style={{ color: '#fca5a5' }}>
-                сброс
-              </button>
-            )}
-          </div>
+        <RoutePointField
+          label="Откуда"
+          marker="start"
+          query={fromQuery}
+          chosen={route.fromNodeId}
+          results={fromResults}
+          onFocus={() => setRoutePickTarget('from')}
+          onQuery={(value) => {
+            setFromQuery(value);
+            if (route.fromNodeId) setRouteSimulation({ fromNodeId: null });
+          }}
+          onPick={selectFrom}
+          onClear={clearFrom}
+        />
+        <RoutePointField
+          label="Куда"
+          marker="finish"
+          query={toQuery}
+          chosen={route.toNodeId}
+          results={toResults}
+          onFocus={() => setRoutePickTarget('to')}
+          onQuery={(value) => {
+            setToQuery(value);
+            if (route.toNodeId) setRouteSimulation({ toNodeId: null });
+          }}
+          onPick={selectTo}
+          onClear={clearTo}
+        />
 
-          <input
-            value={fromQuery}
-            disabled={!!route.fromNodeId}
-            onFocus={() => setRoutePickTarget('from')}
-            onChange={(e) => {
-              setFromQuery(e.target.value);
-              if (route.fromNodeId) setRouteSimulation({ fromNodeId: null });
-            }}
-            placeholder="Поиск или щелчок по узлу…"
-            className="mt-1 w-full px-3 py-2 rounded-lg text-sm disabled:opacity-70"
-            style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)', color: 'white' }}
-          />
-
-          {!route.fromNodeId && fromResults.length > 0 && (
-            <div
-              className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-10"
-              style={{ backgroundColor: 'var(--editor-panel)', border: '1px solid var(--editor-border)' }}
-            >
-              {fromResults.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => selectFrom(n.id)}
-                  className="w-full px-3 py-2 text-left hover:bg-white/10"
-                  style={{ color: 'white' }}
-                >
-                  <div className="text-sm">{getNodeAliases(n.id)[0] || n.id}</div>
-                  <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                    {n.building} / этаж {n.floor}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* TO */}
-        <div className="relative">
-          <div className="flex items-center justify-between">
-            <label className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="w-2.5 h-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: '#ef4444' }} />Куда</span>
-            </label>
-            {route.toNodeId && (
-              <button type="button" onClick={clearTo} className="text-xs hover:underline" style={{ color: '#fca5a5' }}>
-                сброс
-              </button>
-            )}
-          </div>
-
-          <input
-            value={toQuery}
-            disabled={!!route.toNodeId}
-            onFocus={() => setRoutePickTarget('to')}
-            onChange={(e) => {
-              setToQuery(e.target.value);
-              if (route.toNodeId) setRouteSimulation({ toNodeId: null });
-            }}
-            placeholder="Поиск или щелчок по узлу…"
-            className="mt-1 w-full px-3 py-2 rounded-lg text-sm disabled:opacity-70"
-            style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)', color: 'white' }}
-          />
-
-          {!route.toNodeId && toResults.length > 0 && (
-            <div
-              className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-10"
-              style={{ backgroundColor: 'var(--editor-panel)', border: '1px solid var(--editor-border)' }}
-            >
-              {toResults.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => selectTo(n.id)}
-                  className="w-full px-3 py-2 text-left hover:bg-white/10"
-                  style={{ color: 'white' }}
-                >
-                  <div className="text-sm">{getNodeAliases(n.id)[0] || n.id}</div>
-                  <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                    {n.building} / этаж {n.floor}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* actions */}
-        <div className="flex gap-2 pt-1">
+        <div className="editor-card__actions">
           <button
             type="button"
             onClick={handleBuild}
             disabled={!route.fromNodeId || !route.toNodeId}
-            className="flex-1 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
+            className="editor-button editor-button--primary flex-1"
           >
             Построить
           </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-4 py-2 rounded-xl text-sm"
-            style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
-            title="Сбросить маршрут и анимацию"
-          >
+          <button type="button" onClick={handleReset} className="editor-button editor-button--ghost" title="Сбросить маршрут и анимацию">
             Сброс
           </button>
         </div>
+      </section>
 
-        {/* result */}
-        {route.active && (
-          <div className="space-y-3">
-            <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-white font-medium">Маршрут</div>
-                <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                  {currentPath.length} точек
-                </div>
-              </div>
-
-              {/* Длина и время — главная проверка привязки планов к метрике */}
-              <div className="mt-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                {currentRoute && currentRoute.distanceMeters !== null && currentRoute.durationSeconds !== null
-                  ? `${Math.round(currentRoute.distanceMeters)} м · ${formatRouteTime(currentRoute.durationSeconds)}`
-                  : 'Длины и времени нет: планы не привязаны к метрике кампуса'}
-              </div>
-
-              {pathInfo?.multiLevel && (
-                <div className="mt-2 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                  <Icon name="warning" size={12} className="inline-block mr-1 align-middle" />
-                  Путь идёт через разные этажи или корпуса. Участки на других планах не видны;
-                  чтобы карта шла за меткой, включите «Вести карту за меткой».
-                </div>
+      {route.active && (
+        <>
+          <section className="editor-card__section" aria-labelledby="route-result">
+            <h2 id="route-result" className="editor-card__heading">
+              Маршрут
+            </h2>
+            <dl className="editor-facts">
+              <dt>Точек в маршруте</dt>
+              <dd>{currentPath.length}</dd>
+              {currentRoute && currentRoute.distanceMeters !== null && currentRoute.durationSeconds !== null && (
+                <>
+                  <dt>Длина</dt>
+                  <dd>{Math.round(currentRoute.distanceMeters)} м</dd>
+                  <dt>Время пешком</dt>
+                  <dd>{formatRouteTime(currentRoute.durationSeconds)}</dd>
+                </>
               )}
+            </dl>
+            {/* Длина и время — главная проверка привязки планов к метрике. */}
+            {(!currentRoute || currentRoute.distanceMeters === null || currentRoute.durationSeconds === null) && (
+              <p className="editor-section__hint">Длины и времени нет: планы не привязаны к метрике кампуса.</p>
+            )}
+            {pathInfo?.multiLevel && (
+              <div className="editor-callout">
+                Путь идёт через разные этажи или корпуса. Участки на других планах не видны; чтобы карта шла за
+                меткой, включите «Вести карту за меткой».
+              </div>
+            )}
 
-              {/* alternatives */}
-              {routes.length > 1 && (
-                <div className="mt-3">
-                  <div className="text-xs mb-1" style={{ color: 'var(--editor-text-muted)' }}>
-                    Альтернативы (как в навигаторах):
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {routes.map((alternative, i) => {
-                      const p = alternative.path;
-                      const active = i === selectedPathIndex;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setRouteSelectedPath(i)}
-                          className="px-3 py-1.5 rounded-lg text-xs transition-all"
-                          style={{
-                            backgroundColor: active ? 'var(--editor-highlight)' : 'var(--editor-accent)',
-                            color: 'white',
-                            border: active ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent',
-                          }}
-                          title={`Путь ${i + 1}, длина ${p.length}`}
-                        >
-                          Путь {i + 1} ({p.length})
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            {routes.length > 1 && (
+              <div className="editor-card__actions" role="group" aria-label="Другие варианты маршрута">
+                {routes.map((alternative, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="editor-chip"
+                    aria-pressed={i === selectedPathIndex}
+                    onClick={() => setRouteSelectedPath(i)}
+                  >
+                    Вариант {i + 1}: {alternative.path.length} точек
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="editor-card__section" aria-labelledby="route-marker">
+            <h2 id="route-marker" className="editor-card__heading">
+              Метка на карте
+            </h2>
+            <p className="editor-section__hint">
+              Метка идёт по маршруту, пока открыта эта вкладка. С «вести карту» редактор сам открывает план, по
+              которому она идёт сейчас; любое переключение плана вручную это выключает.
+            </p>
+            <div className="editor-card__actions">
+              <button type="button" onClick={() => setRoutePlaying(!playing)} className="editor-button editor-button--accent">
+                {playing ? 'Пауза' : 'Продолжить'}
+              </button>
             </div>
-
-            {/* Движение метки по маршруту */}
-            <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRoutePlaying(!playing)}
-                  className="px-3 py-2 rounded-lg text-sm"
-                  style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
-                >
-                  {playing ? 'Пауза' : 'Продолжить'}
-                </button>
-                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={follow}
-                    onChange={(event) => setRouteFollow(event.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span style={{ color: follow ? 'white' : 'var(--editor-text-muted)' }}>Вести карту за меткой</span>
-                </label>
-              </div>
-              <p className="mt-2 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Метка идёт по маршруту, пока открыта эта вкладка. С «вести карту» редактор сам открывает
-                план, по которому метка идёт сейчас; любое переключение плана вручную это выключает.
-              </p>
-
-              <div className="flex items-center justify-between mt-3 mb-2">
-                <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                  <span className="inline-flex items-center gap-1.5"><Icon name="clock" size={12} />Скорость движения метки</span>
-                </div>
-                <div className="text-xs font-mono" style={{ color: 'white' }}>
-                  {animationSpeed} ms
-                </div>
-              </div>
+            <label className="editor-check">
+              <input type="checkbox" checked={follow} onChange={(event) => setRouteFollow(event.target.checked)} />
+              <span className="editor-check__text">Вести карту за меткой</span>
+            </label>
+            <label className="editor-check">
+              <span className="editor-check__text">
+                Шаг метки
+                <span className="editor-check__hint">{animationSpeed} мс на точку</span>
+              </span>
               <input
                 type="range"
                 min={80}
                 max={3000}
                 step={20}
                 value={animationSpeed}
-                onChange={(e) => setRouteAnimationSpeed(parseInt(e.target.value, 10))}
-                className="w-full"
-                style={{ accentColor: 'var(--editor-highlight)' }}
+                onChange={(e) => setRouteAnimationSpeed(Number.parseInt(e.target.value, 10))}
+                aria-label="Шаг метки, миллисекунд на точку"
+                className="editor-range"
               />
-              <div className="flex justify-between text-[10px] mt-1" style={{ color: 'var(--editor-text-muted)' }}>
-                <span>быстро</span>
-                <span>медленно</span>
-              </div>
-            </div>
+            </label>
+          </section>
 
-            {/* nodes list */}
-            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}>
-              <div className="px-3 py-2 text-xs font-medium" style={{ borderBottom: '1px solid var(--editor-border)', color: 'var(--editor-text-muted)' }}>
-                Точки маршрута — щелчок открывает план точки
-              </div>
-              <div className="max-h-56 overflow-y-auto">
-                {currentPath.map((id, idx) => {
-                  const n = getNode(id);
-                  const title = (getNodeAliases(id)[0] || id) + (n ? ` — ${n.building}/${n.floor}` : '');
-                  const isStart = idx === 0;
-                  const isEnd = idx === currentPath.length - 1;
-
-                  return (
-                    <button
-                      key={`${id}-${idx}`}
-                      type="button"
-                      onClick={() => gotoNode(id)}
-                      className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-white/5"
-                      style={{ borderBottom: '1px solid var(--editor-border)' }}
-                      title={title}
-                    >
-                      {/* Цвета старта и финиша — те же, что у точек маршрута на карте (`EditorNodes`). */}
+          <section className="editor-card__section" aria-labelledby="route-steps">
+            <h2 id="route-steps" className="editor-card__heading">
+              Точки маршрута
+            </h2>
+            <p className="editor-section__hint">Щелчок открывает план точки.</p>
+            <ol className="editor-list">
+              {currentPath.map((id, idx) => {
+                const n = getNode(id);
+                const isStart = idx === 0;
+                const isEnd = idx === currentPath.length - 1;
+                return (
+                  <li key={`${id}-${idx}`} className="editor-list__row">
+                    <button type="button" onClick={() => gotoNode(id)} className="editor-list__main" title={id}>
+                      {/* Цвета старта и финиша — те же, что у точек маршрута на карте. */}
                       <span
                         aria-hidden="true"
-                        className="w-2.5 h-2.5 flex-shrink-0 rounded-full"
-                        style={{ backgroundColor: isStart ? '#22c55e' : isEnd ? '#ef4444' : 'var(--editor-text-muted)' }}
+                        className={`editor-route-dot${isStart ? ' editor-route-dot--start' : isEnd ? ' editor-route-dot--finish' : ''}`}
                       />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm text-white truncate">{getNodeAliases(id)[0] || id}</div>
-                        <div className="text-xs truncate" style={{ color: 'var(--editor-text-muted)' }}>
-                          {n ? `${n.building} / этаж ${n.floor}` : '—'}
-                        </div>
-                      </div>
-                      <div className="text-[10px] font-mono" style={{ color: 'var(--editor-text-muted)' }}>
-                        #{idx + 1}
-                      </div>
+                      <span className="editor-list__text">
+                        <span className="editor-list__name">
+                          {idx + 1}. {nodeTitle(id, aliases)}
+                        </span>
+                        <span className="editor-list__sub">{n ? nodePlaceLabel(n, buildingMetas) : 'узла нет'}</span>
+                      </span>
                     </button>
-                  );
-                })}
-              </div>
-            </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        </>
+      )}
+    </div>
+  );
+};
 
-            {routePickMode && (
-              <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Пока включён выбор точек, щелчок по узлу задаёт точку маршрута, а не выбирает узел.
-              </div>
-            )}
-          </div>
+/** Поле точки маршрута: поиск по названию и выбранная точка. */
+const RoutePointField: React.FC<{
+  label: string;
+  marker: 'start' | 'finish';
+  query: string;
+  chosen: string | null;
+  results: MapNode[];
+  onFocus: () => void;
+  onQuery: (value: string) => void;
+  onPick: (nodeId: string) => void;
+  onClear: () => void;
+}> = ({ label, marker, query, chosen, results, onFocus, onQuery, onPick, onClear }) => {
+  const aliases = useEditorStore((s) => s.aliases);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
+
+  return (
+    <div className="editor-route-field">
+      <div className="editor-route-field__label">
+        <span aria-hidden="true" className={`editor-route-dot editor-route-dot--${marker}`} />
+        <span>{label}</span>
+      </div>
+      <div className="editor-card__row">
+        <input
+          value={query}
+          disabled={!!chosen}
+          onFocus={onFocus}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Название или щелчок по узлу"
+          aria-label={`${label}: название узла`}
+          className="editor-input"
+        />
+        {chosen && (
+          <button type="button" className="editor-icon-button" onClick={onClear} aria-label={`Сбросить: ${label.toLowerCase()}`}>
+            <Icon name="close" />
+          </button>
         )}
+      </div>
+      {!chosen && results.length > 0 && (
+        <ul className="editor-list editor-route-field__results" aria-label={`${label}: найденные узлы`}>
+          {results.map((n) => (
+            <li key={n.id} className="editor-list__row">
+              <button type="button" className="editor-list__main" onClick={() => onPick(n.id)}>
+                <span className="editor-list__text">
+                  <span className="editor-list__name">{nodeTitle(n.id, aliases)}</span>
+                  <span className="editor-list__sub">{nodePlaceLabel(n, buildingMetas)}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

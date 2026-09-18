@@ -51,164 +51,86 @@ export const ProblemsView: React.FC = () => {
     );
   };
 
+  const clean = report.errors.length === 0 && report.warnings.length === 0 && loadWarnings.length === 0;
+
   return (
-    <div className="space-y-3">
-        {/* Summary */}
-        <div className="flex gap-2">
-          <div
-            className="flex-1 rounded-xl p-3"
-            style={{
-              backgroundColor: report.errors.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'var(--editor-bg)',
-              border: '1px solid var(--editor-border)'
-            }}
-          >
-            <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>Ошибки</div>
-            <div
-              className="text-lg font-semibold"
-              style={{ color: report.errors.length ? '#fca5a5' : '#22c55e' }}
-            >
-              {report.errors.length}
-            </div>
-          </div>
-          <div
-            className="flex-1 rounded-xl p-3"
-            style={{
-              backgroundColor: report.warnings.length > 0 ? 'rgba(251, 191, 36, 0.1)' : 'var(--editor-bg)',
-              border: '1px solid var(--editor-border)'
-            }}
-          >
-            <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>Предупреждения</div>
-            <div
-              className="text-lg font-semibold"
-              style={{ color: report.warnings.length ? '#fbbf24' : '#22c55e' }}
-            >
-              {report.warnings.length}
-            </div>
-          </div>
-        </div>
+    <div className="editor-card">
+      <section className="editor-card__section editor-card__section--first" aria-label="Итог проверки">
+        <dl className="editor-facts">
+          <dt>Ошибки</dt>
+          <dd className={report.errors.length > 0 ? 'editor-facts__bad' : 'editor-facts__ok'}>{report.errors.length}</dd>
+          <dt>Предупреждения</dt>
+          <dd className={report.warnings.length > 0 ? 'editor-facts__warn' : 'editor-facts__ok'}>
+            {report.warnings.length}
+          </dd>
+        </dl>
 
-        {/* Режим датасета: от него зависит, покажет ли навигатор время в пути */}
-        <div
-          className="rounded-xl p-3 text-xs"
-          style={{
-            backgroundColor: 'var(--editor-bg)',
-            border: '1px solid var(--editor-border)',
-            color: 'var(--editor-text-muted)',
-          }}
-        >
-          {metricMode === 'metric'
-            ? 'Метрика кампуса: планы привязаны к территории, навигатор показывает время в пути.'
-            : 'Пиксельный режим: планы не привязаны к метрике кампуса, навигатор не показывает время в пути.'}
-        </div>
+        {clean && <div className="editor-callout editor-callout--ok">Данные в порядке.</div>}
 
-        {/* Auto-fix button */}
         <button
+          type="button"
           onClick={handleAutoFix}
           disabled={report.errors.length === 0 && report.warnings.length === 0}
-          className="w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-          style={{
-            backgroundColor: 'var(--editor-highlight)',
-            color: 'white',
-          }}
+          className="editor-button editor-button--primary editor-button--block mt-2"
         >
-          <span className="inline-flex items-center gap-2"><Icon name="zap" />Исправить что можно</span>
+          <Icon name="zap" />
+          Исправить что можно
         </button>
 
-        {/* Last fix report */}
         {lastFixReport && (
-          <div
-            className="rounded-xl p-3 text-sm whitespace-pre-line"
-            style={{
-              backgroundColor: 'var(--editor-bg)',
-              border: '1px solid var(--editor-border)',
-              color: 'var(--editor-text-muted)',
-            }}
-          >
+          <div className="editor-callout editor-callout--pre" role="status">
             {lastFixReport}
           </div>
         )}
+      </section>
 
-        {/* Errors */}
-        {report.errors.length > 0 && (
-          <div
-            className="rounded-xl p-3"
-            style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
-          >
-            <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fca5a5' }}>
-              <Icon name="errorCircle" size={14} />
-              Ошибки
-            </div>
-            <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              {report.errors.slice(0, 50).map((e, i) => (
-                <li key={i} className="break-words">• {e}</li>
-              ))}
-              {report.errors.length > 50 && (
-                <li className="text-yellow-500">... и ещё {report.errors.length - 50}</li>
-              )}
-            </ul>
-          </div>
-        )}
+      <ProblemList title="Ошибки" kind="error" items={report.errors} />
+      <ProblemList title="Предупреждения" kind="warn" items={report.warnings} />
+      <ProblemList
+        title="Замечания к загруженным файлам"
+        kind="note"
+        items={loadWarnings}
+        hint="Найдены при чтении файлов данных. На текущую разметку не влияют и автоисправлением не убираются."
+      />
 
-        {/* Warnings */}
-        {report.warnings.length > 0 && (
-          <div
-            className="rounded-xl p-3"
-            style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
-          >
-            <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fbbf24' }}>
-              <Icon name="warning" size={14} />
-              Предупреждения
-            </div>
-            <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              {report.warnings.slice(0, 50).map((w, i) => (
-                <li key={i} className="break-words">• {w}</li>
-              ))}
-              {report.warnings.length > 50 && (
-                <li className="text-yellow-500">... и ещё {report.warnings.length - 50}</li>
-              )}
-            </ul>
-          </div>
-        )}
-
-        {/* Замечания к исходным файлам */}
-        {loadWarnings.length > 0 && (
-          <div
-            className="rounded-xl p-3"
-            style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
-          >
-            <div className="text-sm font-semibold flex items-center gap-2" style={{ color: '#fbbf24' }}>
-              <Icon name="note" size={14} />
-              Замечания к загруженным файлам
-            </div>
-            <p className="mt-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              Найдены при чтении датасета. На текущую разметку не влияют и
-              автоисправлением не убираются.
-            </p>
-            <ul className="mt-2 space-y-1 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-              {loadWarnings.slice(0, 50).map((w, i) => (
-                <li key={i} className="break-words">• {w}</li>
-              ))}
-              {loadWarnings.length > 50 && (
-                <li className="text-yellow-500">... и ещё {loadWarnings.length - 50}</li>
-              )}
-            </ul>
-          </div>
-        )}
-
-        {/* All good */}
-        {report.errors.length === 0 &&
-          report.warnings.length === 0 &&
-          loadWarnings.length === 0 && (
-          <div
-            className="rounded-xl p-4 text-center"
-            style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e' }}
-          >
-            <div className="mb-2 flex justify-center" style={{ color: '#22c55e' }}>
-              <Icon name="checkCircle" size={28} />
-            </div>
-            <div className="text-sm text-white">Данные в порядке!</div>
-          </div>
-        )}
+      <section className="editor-card__section" aria-labelledby="problems-metric">
+        <h3 id="problems-metric" className="editor-card__heading">
+          Метрика кампуса
+        </h3>
+        <p className="editor-section__hint">
+          {metricMode === 'metric'
+            ? 'Планы привязаны к территории: навигатор показывает время в пути.'
+            : 'Пиксельный режим: планы не привязаны к метрике кампуса, и навигатор не показывает время в пути.'}
+        </p>
+      </section>
     </div>
+  );
+};
+
+/** Не больше 50 замечаний одного вида: список читают глазами, а не машиной. */
+const SHOWN = 50;
+
+const ProblemList: React.FC<{ title: string; kind: 'error' | 'warn' | 'note'; items: string[]; hint?: string }> = ({
+  title,
+  kind,
+  items,
+  hint,
+}) => {
+  if (items.length === 0) return null;
+
+  return (
+    <section className="editor-card__section" aria-label={`${title}: ${items.length}`}>
+      <h3 className={`editor-card__heading editor-problems__title editor-problems__title--${kind}`}>
+        <Icon name={kind === 'error' ? 'errorCircle' : kind === 'warn' ? 'warning' : 'note'} />
+        {title} ({items.length})
+      </h3>
+      {hint && <p className="editor-section__hint">{hint}</p>}
+      <ul className="editor-problems">
+        {items.slice(0, SHOWN).map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+        {items.length > SHOWN && <li>…и ещё {items.length - SHOWN}</li>}
+      </ul>
+    </section>
   );
 };
