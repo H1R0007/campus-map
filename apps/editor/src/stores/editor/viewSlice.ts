@@ -16,6 +16,10 @@ export function openingFloorOf(meta: BuildingMeta | undefined): number | null {
 }
 
 export interface DisplayFilters {
+  /** Соседний этаж бледно поверх открытого — «калька». */
+  showNeighbourFloor: boolean;
+  /** Какой этаж показывать калькой: ниже (`true`) или выше. */
+  neighbourFloorBelow: boolean;
   showPortals: boolean;
   showEdges: boolean;
   showTransitions: boolean;
@@ -79,6 +83,8 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   fitPlanRequest: 0,
 
   displayFilters: {
+    showNeighbourFloor: false,
+    neighbourFloorBelow: true,
     showPortals: true,
     showEdges: true,
     showTransitions: true,

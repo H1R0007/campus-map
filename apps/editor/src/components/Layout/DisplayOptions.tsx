@@ -56,6 +56,26 @@ export const DisplayOptions: React.FC = () => {
           checked={displayFilters.showTransitions}
           onChange={(v) => setDisplayFilters({ showTransitions: v })}
         />
+        <Check
+          label="Соседний этаж бледно"
+          hint="чтобы лестницы и туалеты вставали друг над другом"
+          checked={displayFilters.showNeighbourFloor}
+          onChange={(v) => setDisplayFilters({ showNeighbourFloor: v })}
+        />
+        {displayFilters.showNeighbourFloor && (
+          <label className="editor-check">
+            <span className="editor-check__text">Какой этаж показывать</span>
+            <select
+              value={displayFilters.neighbourFloorBelow ? 'below' : 'above'}
+              onChange={(e) => setDisplayFilters({ neighbourFloorBelow: e.target.value === 'below' })}
+              aria-label="Какой этаж показывать бледно"
+              className="editor-input editor-input--narrow"
+            >
+              <option value="below">ниже</option>
+              <option value="above">выше</option>
+            </select>
+          </label>
+        )}
       </section>
 
       <section className="editor-section" aria-labelledby="highlight-title">

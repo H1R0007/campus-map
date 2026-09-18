@@ -16,6 +16,7 @@ import { SnapPreview } from './SnapPreview';
 import { LineToolPreview } from './LineToolPreview';
 import { SelectionBox } from './SelectionBox';
 import { GridOverlay } from './GridOverlay';
+import { NeighbourFloor } from './NeighbourFloor';
 import { RouteOverlay } from './RouteOverlay';
 import { AliasLabels } from './AliasLabels';
 
@@ -447,6 +448,7 @@ export const EditorMap: React.FC = () => {
       <KeyboardHandler />
 
       {/* overlays order */}
+      <NeighbourFloor />
       <GridOverlay />
       <EditorEdges />
       <EditorTransitions />

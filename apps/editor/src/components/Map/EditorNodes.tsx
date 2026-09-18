@@ -442,7 +442,11 @@ const NodeMarker = React.memo(function NodeMarker({
   const handlers = useMemo(
     () => ({
       // Метка для сценариев в браузере и отладки: какой узел под этим кружком.
-      add: (e: L.LeafletEvent) => (e.target as L.Path).getElement()?.setAttribute('data-node-id', node.id),
+      add: (e: L.LeafletEvent) => {
+        const element = (e.target as L.Path).getElement();
+        element?.setAttribute('data-node-id', node.id);
+        element?.classList.add('editor-node');
+      },
       mousedown: (e: L.LeafletMouseEvent) => onMouseDown(node, e),
       // Щелчок по узлу — узлу. Leaflet отдаёт событие слою, только если слой на
       // него подписан, а иначе — карте, и та сняла бы выбор, только что
@@ -461,7 +465,7 @@ const NodeMarker = React.memo(function NodeMarker({
   );
 
   const pathOptions = useMemo(
-    () => ({ fillColor: fill, color: stroke, fillOpacity: 0.9, weight, className: 'editor-node' }),
+    () => ({ fillColor: fill, color: stroke, fillOpacity: 0.9, weight }),
     [fill, stroke, weight]
   );
 

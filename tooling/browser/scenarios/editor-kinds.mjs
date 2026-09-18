@@ -215,6 +215,46 @@ export default {
       await e.key('Escape', { keyCode: 27 });
     });
 
+    await step('калька: соседний этаж виден бледно и не ловит щелчки', async () => {
+      const ghosts = () => page.eval(`document.querySelectorAll('.editor-ghost-node').length`);
+      assert.equal(await ghosts(), 0, 'калька включена без спроса');
+
+      // На первом этаже соседний снизу — не существует, поэтому берём этаж выше.
+      await e.toggleFilter('Соседний этаж бледно');
+      await page.sleep(400);
+      assert.ok((await ghosts()) > 0, 'калька не появилась');
+
+      // Щелчок прямо по бледной точке соседнего этажа попадает в свой этаж:
+      // калька ничего не ловит мышью.
+      const onGhost = await page.eval(`(() => {
+        for (const ghost of document.querySelectorAll('.editor-ghost-node')) {
+          const r = ghost.getBoundingClientRect();
+          const x = r.x + r.width / 2;
+          const y = r.y + r.height / 2;
+          // Под бледной точкой не должно быть ни своей точки, ни кнопки:
+          // иначе щелчок достанется им, а не карте.
+          const stack = document.elementsFromPoint(x, y);
+          if (stack.some((el) => el.closest('[data-node-id], [data-edge], button, [role="menu"], .leaflet-control'))) continue;
+          return { x, y };
+        }
+        return null;
+      })()`);
+      assert.ok(onGhost, 'не нашёл свободной бледной точки для щелчка');
+
+      const before = await e.nodeIds();
+      await e.key('1', { code: 'Digit1' });
+      await e.click(onGhost.x, onGhost.y);
+      const added = (await e.nodeIds()).filter((id) => !before.includes(id));
+      assert.equal(added.length, 1, 'щелчок сквозь кальку не поставил точку на своём этаже');
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.key('Escape', { keyCode: 27 });
+
+      await shot('editor-kinds-ghost');
+      await e.toggleFilter('Соседний этаж бледно');
+      await page.sleep(300);
+      assert.equal(await ghosts(), 0, 'калька осталась после выключения');
+    });
+
     await step('отмена возвращает каталог видов как было', async () => {
       await e.key('z', { modifiers: MOD.ctrl });
       const kinds = await palette();

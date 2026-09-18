@@ -171,14 +171,17 @@ const TransitionLine = React.memo(function TransitionLine({
       weight: hovered ? 6 : 4,
       opacity: hovered ? 1 : 0.85,
       dashArray: '8 8',
-      className: 'editor-transition',
     }),
     [color, hovered]
   );
 
   const handlers = useMemo(
     () => ({
-      add: (e: L.LeafletEvent) => (e.target as L.Path).getElement()?.setAttribute('data-transition', transitionKey),
+      add: (e: L.LeafletEvent) => {
+        const element = (e.target as L.Path).getElement();
+        element?.setAttribute('data-transition', transitionKey);
+        element?.classList.add('editor-transition');
+      },
       mouseover: () => onHover({ from: fromId, to: toId }),
       mouseout: () => onHover(null),
       click: (e: L.LeafletMouseEvent) => L.DomEvent.stopPropagation(e),

@@ -122,14 +122,17 @@ const EdgeLine = React.memo(function EdgeLine({
       // Наведённая связь толще: по ней целятся правой кнопкой.
       weight: hovered ? 7 : 4,
       opacity: hovered ? 0.95 : 0.6,
-      className: 'editor-edge',
     }),
     [color, hovered]
   );
 
   const handlers = useMemo(
     () => ({
-      add: (e: L.LeafletEvent) => (e.target as L.Path).getElement()?.setAttribute('data-edge', edgeId),
+      add: (e: L.LeafletEvent) => {
+        const element = (e.target as L.Path).getElement();
+        element?.setAttribute('data-edge', edgeId);
+        element?.classList.add('editor-edge');
+      },
       mouseover: () => onHover({ from, to }),
       mouseout: () => onHover(null),
       click: (e: L.LeafletMouseEvent) => L.DomEvent.stopPropagation(e),
