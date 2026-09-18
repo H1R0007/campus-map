@@ -7,6 +7,7 @@ import type {
   Dataset,
   MapNode,
   PlaceCategory,
+  PlaceKind,
   Transition,
 } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
@@ -41,6 +42,13 @@ export interface DataSlice {
    * в отмене не участвует.
    */
   aliasCategories: ReadonlyMap<string, PlaceCategory>;
+
+  /**
+   * Каталог видов точек из `place-kinds.json`. Пустой список означает, что
+   * разметчик каталог не трогал: редактор показывает встроенные виды и файла
+   * не создаёт.
+   */
+  placeKinds: PlaceKind[];
 
   /**
    * Метаданные кампуса, из которых был загружен датасет.
@@ -116,6 +124,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   aliases: new Map(),
   aliasTranslations: new Map(),
   aliasCategories: new Map(),
+  placeKinds: [],
   campusMeta: null,
   loadWarnings: [],
   isLoading: true,
@@ -149,6 +158,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.aliasTranslations = new Map(
         dataset.aliases.flatMap((alias) => (alias.translations ? [[alias.id, alias.translations] as const] : []))
       );
+      state.placeKinds = dataset.placeKinds.map((kind) => ({ ...kind }));
       state.aliasCategories = new Map(
         dataset.aliases.flatMap((alias) => (alias.category ? [[alias.id, alias.category] as const] : []))
       );

@@ -150,6 +150,7 @@ describe('Graph: пространство кампуса', () => {
       buildingMetas: [B1],
       nodes: [{ ...node('a', 'b1', 2), x: 3, y: 4 }],
       transitions: [],
+      placeKinds: [],
       aliases: [],
     });
 

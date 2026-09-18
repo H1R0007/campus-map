@@ -18,6 +18,9 @@ export const CAMPUS_GRAPH_PATH = 'campus/graph.json';
 export const TRANSITIONS_PATH = 'transitions.json';
 export const ALIASES_PATH = 'aliases.json';
 
+/** Каталог видов точек: заготовки разметчика, навигатору не нужны. */
+export const PLACE_KINDS_PATH = 'place-kinds.json';
+
 /** ID корпуса, которому принадлежат узлы территории кампуса. */
 export const CAMPUS_BUILDING_ID = 'CAMPUS';
 

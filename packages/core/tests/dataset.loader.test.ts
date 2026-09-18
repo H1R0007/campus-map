@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALIASES_PATH,
+  PLACE_KINDS_PATH,
   CAMPUS_GRAPH_PATH,
   CAMPUS_META_PATH,
   TRANSITIONS_PATH,
@@ -447,5 +448,54 @@ describe('loadDataset: переводы названий', () => {
 
     expect(dataset.aliases[0].translations).toBeUndefined();
     expect(warnings.filter((w) => w.includes('translations'))).toHaveLength(1);
+  });
+});
+
+/**
+ * Каталог видов точек — заготовки редактора (`place-kinds.json`).
+ *
+ * Навигатор его не читает, поэтому отсутствие файла нормально и молчаливо;
+ * а вот битая запись обязана быть названа: разметчик должен понять, почему
+ * его кисть пропала.
+ */
+describe('loadDataset: виды точек', () => {
+  it('без файла список пуст и предупреждения о нём нет', async () => {
+    const { dataset, warnings } = await loadDataset(memorySource(twoBuildingFiles()));
+
+    expect(dataset.placeKinds).toEqual([]);
+    expect(warnings.filter((w) => w.includes(PLACE_KINDS_PATH))).toEqual([]);
+  });
+
+  it('читает виды и приводит их к типам ядра', async () => {
+    const files = twoBuildingFiles();
+    files[PLACE_KINDS_PATH] = {
+      kinds: [
+        { id: 'room', name: 'Помещение', namePattern: '{корпус}-{этаж}{номер}', connect: true },
+        { id: 'stairs', name: 'Лестница', isPortal: true, transition: 'stairs', stack: true, category: 'exit' },
+      ],
+    };
+
+    const { dataset, warnings } = await loadDataset(memorySource(files));
+
+    expect(warnings.filter((w) => w.includes(PLACE_KINDS_PATH))).toEqual([]);
+    expect(dataset.placeKinds).toEqual([
+      { id: 'room', name: 'Помещение', namePattern: '{корпус}-{этаж}{номер}', connect: true },
+      { id: 'stairs', name: 'Лестница', isPortal: true, transition: 'stairs', stack: true, category: 'exit' },
+    ]);
+  });
+
+  it('вид без названия и с неизвестными значениями назван в предупреждениях', async () => {
+    const files = twoBuildingFiles();
+    files[PLACE_KINDS_PATH] = {
+      kinds: [
+        { id: 'broken' },
+        { id: 'weird', name: 'Странный', transition: 'телепорт', category: 'банкомат' },
+      ],
+    };
+
+    const { dataset, warnings } = await loadDataset(memorySource(files));
+
+    expect(dataset.placeKinds).toEqual([{ id: 'weird', name: 'Странный' }]);
+    expect(warnings.filter((w) => w.includes(PLACE_KINDS_PATH))).toHaveLength(3);
   });
 });

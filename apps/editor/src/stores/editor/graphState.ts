@@ -7,6 +7,7 @@ import type {
   MapNode,
   PathResult,
   PlaceCategory,
+  PlaceKind,
   Transition,
 } from '@campus-map/core';
 import type { NeighborSnapshot } from '../historyStore';
@@ -68,6 +69,7 @@ export interface DatasetState {
   aliases: ReadonlyMap<string, string[]>;
   aliasTranslations: ReadonlyMap<string, NonNullable<AliasEntry['translations']>>;
   aliasCategories: ReadonlyMap<string, PlaceCategory>;
+  placeKinds: PlaceKind[];
   campusMeta: CampusMeta | null;
 }
 
@@ -95,6 +97,7 @@ export function datasetFromState(state: DatasetState): Dataset {
     nodes: [...state.nodes.values()].map((node) => ({ ...node, neighbors: [...node.neighbors] })),
     transitions: state.transitions.map((transition) => ({ ...transition })),
     aliases,
+    placeKinds: state.placeKinds.map((kind) => ({ ...kind })),
   };
 }
 

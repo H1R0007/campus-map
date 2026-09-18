@@ -1,5 +1,6 @@
 import type { AliasEntry } from '../types/alias.js';
 import { isPlaceCategory } from '../types/alias.js';
+import type { PlaceKind } from '../types/placeKind.js';
 import type {
   BuildingMeta,
   BuildingPlacement,
@@ -20,6 +21,7 @@ import {
   CAMPUS_GRAPH_PATH,
   CAMPUS_META_PATH,
   ALIASES_PATH,
+  PLACE_KINDS_PATH,
   TRANSITIONS_PATH,
   buildingMetaPath,
   floorGraphPath,
@@ -599,11 +601,12 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
   // дублирующегося id узла зависело бы от того, какой ответ пришёл раньше.
 
   // Волна 1: всё, что определяется списком корпусов.
-  const [rawCampusGraph, rawMetas, rawTransitions, rawAliases] = await Promise.all([
+  const [rawCampusGraph, rawMetas, rawTransitions, rawAliases, rawPlaceKinds] = await Promise.all([
     source.readJson(CAMPUS_GRAPH_PATH),
     Promise.all(campusMeta.buildings.map((entry) => source.readJson(buildingMetaPath(entry.id)))),
     source.readJson(TRANSITIONS_PATH),
     source.readJson(ALIASES_PATH),
+    source.readJson(PLACE_KINDS_PATH),
   ]);
 
   // Метаданные корпусов разбираются сразу: список этажей нужен второй волне.
@@ -755,10 +758,59 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
     }
   }
 
+  // 5. Виды точек — заготовки редактора. Файла нет у большинства датасетов:
+  // редактор покажет встроенные виды, и это не повод для предупреждения.
+  const placeKinds: PlaceKind[] = [];
+  if (rawPlaceKinds !== null) {
+    for (const item of asRecordArray(rawPlaceKinds, 'kinds', PLACE_KINDS_PATH, warnings)) {
+      const kind = normalizePlaceKind(item, warnings);
+      if (kind) placeKinds.push(kind);
+    }
+  }
+
   return {
-    dataset: { campusMeta, buildingMetas, nodes, transitions, aliases },
+    dataset: { campusMeta, buildingMetas, nodes, transitions, aliases, placeKinds },
     warnings,
   };
+}
+
+/**
+ * Вид точки из файла: проверяются только имя и id, остальное подставляется
+ * по умолчанию. Вид без id или названия пропускается с предупреждением —
+ * безымянной кистью работать нельзя.
+ */
+function normalizePlaceKind(raw: Raw, warnings: string[]): PlaceKind | null {
+  const id = asOptionalString(raw.id) ?? '';
+  const name = asOptionalString(raw.name) ?? '';
+  if (id.length === 0 || name.length === 0) {
+    warnings.push(`${PLACE_KINDS_PATH}: вид точки без id или названия пропущен`);
+    return null;
+  }
+
+  const kind: PlaceKind = { id, name };
+  const icon = asOptionalString(raw.icon);
+  if (icon !== undefined) kind.icon = icon;
+  const color = asOptionalString(raw.color);
+  if (color !== undefined) kind.color = color;
+  const namePattern = asOptionalString(raw.namePattern);
+  if (namePattern !== undefined) kind.namePattern = namePattern;
+  if (raw.isPortal === true) kind.isPortal = true;
+  if (raw.stack === true) kind.stack = true;
+  if (raw.connect === true) kind.connect = true;
+
+  const transition = asOptionalString(raw.transition);
+  if (transition !== undefined) {
+    if (isTransitionType(transition)) kind.transition = transition;
+    else warnings.push(`${PLACE_KINDS_PATH}: вид «${name}» — неизвестный тип перехода «${transition}», пропущен`);
+  }
+
+  const category = asOptionalString(raw.category);
+  if (category !== undefined) {
+    if (isPlaceCategory(category)) kind.category = category;
+    else warnings.push(`${PLACE_KINDS_PATH}: вид «${name}» — неизвестный вид места «${category}», пропущен`);
+  }
+
+  return kind;
 }
 
 /**

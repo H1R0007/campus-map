@@ -1,5 +1,5 @@
 import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '@campus-map/core';
-import type { MapNode, PlaceCategory, TransitionType } from '@campus-map/core';
+import type { MapNode, PlaceCategory, PlaceKind, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import type { NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
@@ -60,6 +60,12 @@ export interface EditSlice {
   setNodeAliases: (nodeId: string, names: string[]) => void;
   /** Вид места: туалет, еда, гардероб, выход — или ничего. */
   setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
+
+  /**
+   * Заменяет каталог видов точек целиком: так пишутся и создание вида, и
+   * правка, и удаление, и порядок.
+   */
+  setPlaceKinds: (kinds: PlaceKind[], description: string) => void;
   setNodeComment: (nodeId: string, comment: string) => void;
 
   splitEdge: (fromId: string, toId: string) => string | null;
@@ -399,6 +405,31 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // Пустой список — отсутствие записи, как после отмены и повтора.
       if (next.length > 0) s.aliases.set(nodeId, next);
       else s.aliases.delete(nodeId);
+    });
+  },
+
+  /**
+   * Каталог видов точек.
+   *
+   * Виды — данные разметки: они уходят в `place-kinds.json` рядом с узлами и
+   * названиями, поэтому правка каталога отменяется, как любая другая правка.
+   * Пока каталог пуст, редактор показывает встроенные виды; первая же правка
+   * записывает их целиком — дальше видно, что именно лежит в данных.
+   */
+  setPlaceKinds: (kinds, description) => {
+    const before = get().placeKinds;
+    const after = kinds.map((kind) => ({ ...kind }));
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+
+    useHistoryStore.getState().push({
+      type: 'SET_PLACE_KINDS',
+      description,
+      undoData: { kinds: before.map((kind) => ({ ...kind })) },
+      redoData: { kinds: after.map((kind) => ({ ...kind })) },
+    });
+
+    set((s) => {
+      s.placeKinds = after;
     });
   },
 

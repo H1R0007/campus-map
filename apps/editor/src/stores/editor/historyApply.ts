@@ -38,6 +38,9 @@ export function entryNodes(entry: HistoryEntry): string[] {
     case 'ADD_EDGE':
     case 'REMOVE_EDGE':
       return [entry.redoData.fromId, entry.redoData.toId];
+    case 'SET_PLACE_KINDS':
+      // Каталог видов не привязан к узлам: показывать нечего.
+      return [];
     case 'ADD_TRANSITION':
     case 'REMOVE_TRANSITION':
     case 'UPDATE_TRANSITION':
@@ -131,6 +134,10 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
     }
     case 'SET_CATEGORY': {
       applyCategory(s, entry.undoData.nodeId, entry.undoData.category);
+      break;
+    }
+    case 'SET_PLACE_KINDS': {
+      s.placeKinds = entry.undoData.kinds.map((kind) => ({ ...kind }));
       break;
     }
     case 'BATCH': {
@@ -263,6 +270,10 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
     }
     case 'SET_CATEGORY': {
       applyCategory(s, entry.redoData.nodeId, entry.redoData.category);
+      break;
+    }
+    case 'SET_PLACE_KINDS': {
+      s.placeKinds = entry.redoData.kinds.map((kind) => ({ ...kind }));
       break;
     }
     case 'SET_ALIASES': {

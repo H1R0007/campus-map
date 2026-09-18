@@ -64,6 +64,7 @@ export function fixtureDataset(): Dataset {
       { fromNode: 'campus_entrance_a', toNode: 'a1_entrance', type: 'entrance' },
       { fromNode: 'a1_stairs', toNode: 'a2_stairs', type: 'stairs' },
     ],
+    placeKinds: [],
     aliases: [
       { id: 'campus_gate', names: ['Главный вход'], category: 'exit' },
       { id: 'a1_room101', names: ['А-101', '101'], translations: { en: { names: ['A-101'] } } },
@@ -115,6 +116,7 @@ export function dataSnapshot() {
       .map(([id, names]) => [id, [...names]] as const)
       .sort(([a], [b]) => a.localeCompare(b)),
     categories: [...s.aliasCategories.entries()].sort(([a], [b]) => a.localeCompare(b)),
+    placeKinds: s.placeKinds.map((kind) => ({ ...kind })),
     translations: [...s.aliasTranslations.entries()]
       .map(([id, value]) => [id, JSON.stringify(value)] as const)
       .sort(([a], [b]) => a.localeCompare(b)),

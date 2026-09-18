@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MapNode, PlaceCategory, Transition } from '@campus-map/core';
+import type { MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
 
 /**
  * Контракт истории действий редактора и сам стек отмены.
@@ -94,6 +94,7 @@ export type ActionType =
   | 'UPDATE_TRANSITION'
   | 'SET_ALIASES'
   | 'SET_CATEGORY'
+  | 'SET_PLACE_KINDS'
   | 'BATCH';
 
 /**
@@ -184,6 +185,14 @@ export type HistoryEntry =
       timestamp: number;
       undoData: { nodeId: string; category: PlaceCategory | null };
       redoData: { nodeId: string; category: PlaceCategory | null };
+    }
+  | {
+      /** Каталог видов точек целиком: список короткий, а правки редкие. */
+      type: 'SET_PLACE_KINDS';
+      description: string;
+      timestamp: number;
+      undoData: { kinds: PlaceKind[] };
+      redoData: { kinds: PlaceKind[] };
     }
   | {
       type: 'BATCH';

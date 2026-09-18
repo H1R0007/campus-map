@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../src/stores/editorStore';
 import { useHistoryStore } from '../src/stores/historyStore';
+import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
 import { dataSnapshot, loadFixture, openFloor, store } from './helpers/fixture';
 
 /**
@@ -43,6 +44,17 @@ const cases: Case[] = [
   { name: 'алиасы узлу без алиасов', act: () => store().setNodeAliases('a1_hall', ['Холл']) },
   { name: 'изменить заметку', act: () => store().setNodeComment('a1_room101', 'дверь закрыта после 18:00') },
   { name: 'поставить вид места', act: () => store().setNodeCategory('a1_room101', 'toilet') },
+  {
+    name: 'завести свой вид точки',
+    act: () =>
+      store().setPlaceKinds(
+        [
+          ...BUILT_IN_PLACE_KINDS,
+          { id: 'medpoint', name: 'Медпункт', icon: 'note', namePattern: 'Медпункт', connect: true },
+        ],
+        'Добавлен вид точки: Медпункт'
+      ),
+  },
   { name: 'сменить вид места', act: () => store().setNodeCategory('campus_gate', 'food') },
   { name: 'снять вид места', act: () => store().setNodeCategory('campus_gate', null) },
   { name: 'стереть заметку', act: () => store().setNodeComment('a1_room101', '') },

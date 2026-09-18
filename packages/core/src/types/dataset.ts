@@ -1,6 +1,7 @@
 import type { AliasEntry } from './alias.js';
 import type { BuildingMeta, CampusMeta } from './building.js';
 import type { MapNode } from './node.js';
+import type { PlaceKind } from './placeKind.js';
 import type { Transition } from './transition.js';
 
 /**
@@ -38,6 +39,11 @@ export interface Dataset {
   nodes: MapNode[];
   transitions: Transition[];
   aliases: AliasEntry[];
+  /**
+   * Виды точек — заготовки разметчика (`place-kinds.json`). Навигатор их не
+   * читает; пустой список означает, что редактор покажет свои встроенные.
+   */
+  placeKinds: PlaceKind[];
 }
 
 /**
