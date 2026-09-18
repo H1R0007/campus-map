@@ -25,7 +25,6 @@ export const EditorEdges: React.FC = () => {
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const showEdges = useEditorStore((s) => s.displayFilters.showEdges);
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
-  const activeTool = useEditorStore((s) => s.activeTool);
   const hoveredEdge = useEditorStore((s) => s.hoveredEdge);
   const setHoveredEdge = useEditorStore((s) => s.setHoveredEdge);
 
@@ -63,7 +62,7 @@ export const EditorEdges: React.FC = () => {
               [b.y, b.x],
             ]}
             pathOptions={{
-              color: isHovered ? (activeTool === 'delete' ? '#ef4444' : '#60a5fa') : '#4b5563',
+              color: isHovered ? '#60a5fa' : '#4b5563',
               weight: isHovered ? 7 : 4, // толще для щелчка
               opacity: isHovered ? 0.95 : 0.6,
               className: 'editor-edge',
@@ -72,16 +71,7 @@ export const EditorEdges: React.FC = () => {
               add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-edge', key),
               mouseover: () => setHoveredEdge({ from, to }),
               mouseout: () => setHoveredEdge(null),
-              mousedown: (e) => {
-                if (e.originalEvent.button === 0 && useEditorStore.getState().activeTool === 'delete') {
-                  L.DomEvent.stopPropagation(e);
-                }
-              },
-              click: (e) => {
-                L.DomEvent.stopPropagation(e);
-                const st = useEditorStore.getState();
-                if (st.activeTool === 'delete') st.removeEdge(from, to);
-              },
+              click: (e) => L.DomEvent.stopPropagation(e),
               contextmenu: (e) => {
                 L.DomEvent.stopPropagation(e);
                 e.originalEvent.preventDefault();

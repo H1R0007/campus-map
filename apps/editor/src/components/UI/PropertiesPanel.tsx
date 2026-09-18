@@ -51,7 +51,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
   const setHoveredNode = useEditorStore((s) => s.setHoveredNode);
-  const addBookmark = useEditorStore((s) => s.addBookmark);
 
   // Tool actions
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
@@ -254,7 +253,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             Быстрые действия
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             <button
               onClick={() => updateNode(node.id, { isPortal: !node.isPortal })}
               className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
@@ -265,15 +264,6 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
             >
               <Icon name="star" filled={node.isPortal} />
               Портал
-            </button>
-
-            <button
-              onClick={() => addBookmark(nodeId)}
-              className="px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors hover:opacity-90"
-              style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
-            >
-              <Icon name="bookmark" />
-              В закладки
             </button>
           </div>
 

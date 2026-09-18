@@ -31,29 +31,20 @@ export interface EditorNotice {
   id: number;
 }
 
-export interface Bookmark {
-  nodeId: string;
-  name: string;
-  createdAt: number;
-}
-
 /**
- * Открытые панели, контекстное меню, история поиска и закладки.
+ * Открытые панели, контекстное меню и история поиска.
  */
 export interface PanelSlice {
   diagnosticsOpen: boolean;
   searchOpen: boolean;
-  statisticsOpen: boolean;
   filtersOpen: boolean;
   routeSimulatorOpen: boolean;
   contextMenu: ContextMenuState;
   notice: EditorNotice | null;
   searchHistory: string[];
-  bookmarks: Map<string, Bookmark>;
 
   setDiagnosticsOpen: (open: boolean) => void;
   setSearchOpen: (open: boolean) => void;
-  setStatisticsOpen: (open: boolean) => void;
   setFiltersOpen: (open: boolean) => void;
   setRouteSimulatorOpen: (open: boolean) => void;
 
@@ -66,17 +57,11 @@ export interface PanelSlice {
 
   addToSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
-
-  addBookmark: (nodeId: string, name?: string) => void;
-  removeBookmark: (id: string) => void;
-  renameBookmark: (id: string, name: string) => void;
-  goToBookmark: (id: string) => void;
 }
 
-export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
+export const createPanelSlice: EditorSlice<PanelSlice> = (set) => ({
   diagnosticsOpen: false,
   searchOpen: false,
-  statisticsOpen: false,
   filtersOpen: false,
   routeSimulatorOpen: false,
 
@@ -89,7 +74,6 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
 
   notice: null,
   searchHistory: [],
-  bookmarks: new Map(),
 
   setDiagnosticsOpen: (open) =>
     set((s) => {
@@ -98,10 +82,6 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   setSearchOpen: (open) =>
     set((s) => {
       s.searchOpen = open;
-    }),
-  setStatisticsOpen: (open) =>
-    set((s) => {
-      s.statisticsOpen = open;
     }),
   setFiltersOpen: (open) =>
     set((s) => {
@@ -143,37 +123,4 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     set((s) => {
       s.searchHistory = [];
     }),
-
-  addBookmark: (nodeId, name) => {
-    const node = get().nodes.get(nodeId);
-    if (!node) return;
-
-    const aliases = get().aliases.get(nodeId) || [];
-    const defaultName = aliases[0] || nodeId;
-    const bookmarkId = `bm_${Date.now()}`;
-
-    set((s) => {
-      s.bookmarks.set(bookmarkId, {
-        nodeId,
-        name: name || defaultName,
-        createdAt: Date.now(),
-      });
-    });
-  },
-
-  removeBookmark: (id) =>
-    set((s) => {
-      s.bookmarks.delete(id);
-    }),
-
-  renameBookmark: (id, name) =>
-    set((s) => {
-      const bm = s.bookmarks.get(id);
-      if (bm) bm.name = name;
-    }),
-
-  goToBookmark: (id) => {
-    const bm = get().bookmarks.get(id);
-    if (bm) get().centerOnNode(bm.nodeId);
-  },
 });

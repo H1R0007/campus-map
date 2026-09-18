@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert';
 
 /**
- * Редактор: плавающие панели не перекрывают друг друга, в интерфейсе нет
- * эмодзи, у вкладки есть свой значок.
+ * Редактор: редкие функции убраны, в интерфейсе нет эмодзи, у вкладки есть
+ * свой значок.
  */
 export default {
   app: 'editor',
@@ -22,15 +22,6 @@ export default {
       if (!clicked) throw new Error(`нет кнопки «${label}»`);
       await page.sleep(500);
     };
-    /** Прямоугольник ближайшего блока с рамкой панели, содержащего текст. */
-    const rectOf = (text, selector) =>
-      page.eval(`(() => {
-        const element = [...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => e.textContent.includes(${JSON.stringify(text)}));
-        if (!element) return null;
-        const r = element.getBoundingClientRect();
-        return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
-      })()`);
-    const intersects = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
     await step('у вкладки свой значок, запроса favicon.ico с ошибкой нет', async () => {
       await page.goto(`${base}/`);
@@ -39,17 +30,15 @@ export default {
       assert.ok(await page.eval(`document.querySelector('link[rel="icon"]')?.href.startsWith('data:image/svg+xml')`));
     });
 
-    await step('раскрытые «Фильтры» не закрывают «Закладки», а сдвигают их вниз', async () => {
-      await click('Фильтры');
-      const filters = await rectOf('Подписи алиасов', 'div.w-72');
-      const bookmarksButton = await rectOf('Закладки', 'button');
-      assert.ok(filters && bookmarksButton, 'обе панели на экране');
-      assert.ok(!intersects(filters, bookmarksButton), `перекрытие: ${JSON.stringify({ filters, bookmarksButton })}`);
-
-      await click('Закладки');
-      const bookmarks = await rectOf('Нет закладок', 'div.w-72');
-      assert.ok(bookmarks, 'панель закладок открылась');
-      assert.ok(bookmarks.top >= filters.bottom, 'закладки ниже фильтров');
+    await step('редкого нет: закладок, статистики, «Последних действий», инструмента «Удалить»', async () => {
+      const text = await page.eval('document.body.innerText');
+      for (const gone of ['Закладки', 'Статистика', 'Последние действия']) {
+        assert.ok(!text.includes(gone), `на экране осталось «${gone}»`);
+      }
+      const deleteTool = await page.eval(
+        `[...document.querySelectorAll('button')].some((b) => (b.getAttribute('title') ?? '').startsWith('Удалить (D)'))`
+      );
+      assert.ok(!deleteTool, 'осталась кнопка инструмента «Удалить»');
       await shot('editor-panels');
     });
 

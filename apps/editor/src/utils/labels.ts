@@ -26,3 +26,16 @@ export function nodePlaceLabel(node: Pick<MapNode, 'building' | 'floor'>, buildi
 export function nodeTitle(nodeId: string, aliases: ReadonlyMap<string, readonly string[]>): string {
   return aliases.get(nodeId)?.[0] ?? nodeId;
 }
+
+/** «1 узел», «3 узла», «12 узлов» — для подписей действий и счётчиков. */
+export function nodesCount(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const word =
+    mod10 === 1 && mod100 !== 11
+      ? 'узел'
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? 'узла'
+        : 'узлов';
+  return `${count} ${word}`;
+}

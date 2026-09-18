@@ -131,7 +131,6 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   loadData: (dataset, warnings = [], options = {}) =>
     set((state) => {
       state.nodes = new Map();
-      state.bookmarks = new Map();
       let maxCounter = 0;
 
       for (const node of dataset.nodes) {

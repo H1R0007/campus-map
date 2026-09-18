@@ -90,7 +90,6 @@ export const EditorTransitions: React.FC = () => {
   const showTransitions = useEditorStore((s) => s.displayFilters.showTransitions);
   const hoveredTransition = useEditorStore((s) => s.hoveredTransition);
   const setHoveredTransition = useEditorStore((s) => s.setHoveredTransition);
-  const activeTool = useEditorStore((s) => s.activeTool);
 
   const { lines, markers } = useMemo(() => {
     if (!showTransitions) return NO_TRANSITIONS;
@@ -118,7 +117,7 @@ export const EditorTransitions: React.FC = () => {
               [to.y, to.x],
             ]}
             pathOptions={{
-              color: isHovered ? (activeTool === 'delete' ? '#ef4444' : '#ffffff') : color,
+              color: isHovered ? '#ffffff' : color,
               weight: isHovered ? 6 : 4,
               opacity: isHovered ? 1 : 0.85,
               dashArray: '8 8',
@@ -128,11 +127,7 @@ export const EditorTransitions: React.FC = () => {
               add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-transition', key),
               mouseover: () => setHoveredTransition({ from: t.fromNode, to: t.toNode }),
               mouseout: () => setHoveredTransition(null),
-              click: (e) => {
-                L.DomEvent.stopPropagation(e);
-                const st = useEditorStore.getState();
-                if (st.activeTool === 'delete') st.removeTransition(t.fromNode, t.toNode);
-              },
+              click: (e) => L.DomEvent.stopPropagation(e),
               contextmenu: (e) => {
                 L.DomEvent.stopPropagation(e);
                 const dom = e.originalEvent;

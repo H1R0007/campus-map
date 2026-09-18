@@ -235,10 +235,6 @@ export const EditorNodes: React.FC = () => {
         return;
       }
 
-      case 'delete':
-        st.removeNode(nodeId);
-        return;
-
       default:
         st.selectSingleNode(nodeId);
     }

@@ -33,12 +33,18 @@ export default {
       const empty = await e.emptyMapPoint();
       await e.click(empty.x, empty.y);
       assert.equal((await e.nodeIds()).length, before + 1, 'узел не поставлен');
+      const undoLabel = await page.eval(`document.querySelector('button[aria-label^="Отменить"]')?.getAttribute('aria-label')`);
+      assert.equal(undoLabel, 'Отменить: Добавлен узел', 'кнопка отмены не называет действие');
 
       await ru('я', 'KeyZ', MOD.ctrl);
       assert.equal((await e.nodeIds()).length, before, 'Ctrl+Z в русской раскладке не отменил');
 
       await ru('м', 'KeyV');
       assert.match(await e.status(), /Выбор/);
+
+      // Инструмента «Удалить» больше нет: клавиша D инструмент не меняет.
+      await ru('в', 'KeyD');
+      assert.match(await e.status(), /Выбор/, 'клавиша D всё ещё переключает инструмент');
     });
 
     await step('стрелки двигают узел: по пикселю, с сеткой — по клетке, отмена одна', async () => {

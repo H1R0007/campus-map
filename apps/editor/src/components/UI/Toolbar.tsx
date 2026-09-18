@@ -17,7 +17,6 @@ const tools: { id: EditorTool; icon: IconName | null; label: string; shortcut: s
   { id: 'edge', label: 'Ребро', shortcut: 'E', icon: 'link' },
   { id: 'transition', label: 'Переход', shortcut: 'T', icon: null },
   { id: 'line', label: 'Линия', shortcut: 'L', icon: 'ruler' },
-  { id: 'delete', label: 'Удалить', shortcut: 'D', icon: 'trash' },
 ];
 
 export const Toolbar: React.FC = () => {
@@ -51,6 +50,10 @@ export const Toolbar: React.FC = () => {
   const redo = useEditorStore((s) => s.redo);
   const canUndo = useHistoryStore((s) => s.canUndo());
   const canRedo = useHistoryStore((s) => s.canRedo());
+  // Кнопка называет действие, которое отменит: список «Последних действий»
+  // поверх плана для этого больше не нужен.
+  const undoDescription = useHistoryStore((s) => s.getUndoDescription());
+  const redoDescription = useHistoryStore((s) => s.getRedoDescription());
 
   const [isImporting, setIsImporting] = useState(false);
   const [pendingSave, setPendingSave] = useState<'disk' | 'archive' | null>(null);
@@ -255,7 +258,8 @@ export const Toolbar: React.FC = () => {
               onClick={undo}
               disabled={!canUndo}
               className="px-2 py-2 rounded-lg disabled:opacity-30"
-              title="Отмена (Ctrl+Z)"
+              title={undoDescription ? `Отменить: ${undoDescription} (Ctrl+Z)` : 'Отменять нечего'}
+              aria-label={undoDescription ? `Отменить: ${undoDescription}` : 'Отменить'}
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             >
               <Icon name="undo" />
@@ -264,7 +268,8 @@ export const Toolbar: React.FC = () => {
               onClick={redo}
               disabled={!canRedo}
               className="px-2 py-2 rounded-lg disabled:opacity-30"
-              title="Повтор (Ctrl+Y)"
+              title={redoDescription ? `Повторить: ${redoDescription} (Ctrl+Y)` : 'Повторять нечего'}
+              aria-label={redoDescription ? `Повторить: ${redoDescription}` : 'Повторить'}
               style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
             >
               <Icon name="redo" />

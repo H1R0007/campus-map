@@ -4,6 +4,7 @@ import { useHistoryStore } from '../historyStore';
 import type { NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
+import { TRANSITION_LABELS, nodesCount } from '../../utils/labels';
 import { snapshotNeighbors } from './graphState';
 import type { EditorSlice } from './types';
 
@@ -152,7 +153,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_NODE',
-      description: 'Удален узел',
+      description: 'Удалён узел',
       undoData: {
         node: nodeSnapshot,
         neighborsBefore,
@@ -229,7 +230,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     } else {
       history.push({
         type: 'BATCH',
-        description: `Перемещено ${after.length} узлов`,
+        description: `Перемещено: ${nodesCount(after.length)}`,
         undoData: { kind: 'moveMultiple', positions: before.map((p) => ({ ...p })) },
         redoData: { kind: 'moveMultiple', positions: after.map((p) => ({ ...p })) },
       });
@@ -326,7 +327,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'ADD_TRANSITION',
-      description: `Добавлен переход (${type})`,
+      description: `Добавлен переход: ${TRANSITION_LABELS[type].toLowerCase()}`,
       undoData: { transitions: before },
       redoData: { transitions: next },
     });
@@ -348,7 +349,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_TRANSITION',
-      description: 'Удален переход',
+      description: 'Удалён переход',
       undoData: { transitions: before },
       redoData: { transitions: next },
     });
@@ -524,7 +525,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Удалено ${ids.length} узлов`,
+      description: `Удалено: ${nodesCount(ids.length)}`,
       undoData: {
         kind: 'deleteMultiple',
         nodes: deletedNodes,
@@ -592,7 +593,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Дублировано ${newNodes.length} узлов`,
+      description: `Дублировано: ${nodesCount(newNodes.length)}`,
       undoData: { kind: 'line', nodeIds: newNodes.map((n) => n.id) },
       redoData: { kind: 'line', nodes: newNodes },
     });
@@ -646,7 +647,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     const entry = {
       type: 'BATCH',
-      description: `Перемещено ${after.length} узлов`,
+      description: `Перемещено: ${nodesCount(after.length)}`,
       undoData: continues && last.undoData.kind === 'moveMultiple' ? last.undoData : { kind: 'moveMultiple' as const, positions: before },
       redoData: { kind: 'moveMultiple' as const, positions: after },
     } as const;
@@ -701,7 +702,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Соединено цепочкой ${nodeList.length} узлов`,
+      description: `Соединено цепочкой: ${nodesCount(nodeList.length)}`,
       undoData: { kind: 'chainConnect', neighborsBefore: snapshotNeighbors(nodes, ids) },
       redoData: { kind: 'chainConnect', nodeIds: nodeList.map((n) => n.id) },
     });
@@ -789,7 +790,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Вставлено ${newNodes.length} узлов`,
+      description: `Вставлено: ${nodesCount(newNodes.length)}`,
       undoData: { kind: 'line', nodeIds: newNodes.map((n) => n.id) },
       redoData: { kind: 'line', nodes: newNodes },
     });
@@ -847,7 +848,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Line tool: ${created.length} узлов`,
+      description: `Линия: ${nodesCount(created.length)}`,
       undoData: { kind: 'line', nodeIds: created.map((n) => n.id) },
       redoData: { kind: 'line', nodes: created },
     });

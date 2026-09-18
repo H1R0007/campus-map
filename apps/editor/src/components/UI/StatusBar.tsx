@@ -65,10 +65,6 @@ export const StatusBar: React.FC = () => {
         ? 'Щелчок — конец линии'
         : 'Задайте число узлов в панели и нажмите «Создать»',
     },
-    delete: {
-      name: 'Удаление',
-      hint: 'Щелчок по узлу, ребру или переходу — удалить',
-    },
   };
 
   const currentTool = toolInfo[activeTool] || { name: activeTool, hint: '' };

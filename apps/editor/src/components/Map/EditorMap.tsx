@@ -47,7 +47,6 @@ const TOOL_BY_CODE: Record<string, EditorTool> = {
   KeyE: 'edge',
   KeyT: 'transition',
   KeyL: 'line',
-  KeyD: 'delete',
 };
 
 /** Стрелки: куда сдвигать узлы или карту. */

@@ -9,12 +9,9 @@ import { DiagnosticsPanel } from './components/UI/DiagnosticsPanel';
 import { LineToolPanel } from './components/Tools/LineToolPanel';
 import { SearchPanel } from './components/UI/SearchPanel';
 import { FilterPanel } from './components/UI/FilterPanel';
-import { StatisticsPanel } from './components/UI/StatisticsPanel';
 import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
-import { RecentActions } from './components/UI/RecentActions';
 import { Notice } from './components/UI/Notice';
 import { ContextMenu } from './components/UI/ContextMenu';
-import { BookmarksPanel } from './components/UI/BookmarksPanel';
 import { DraftPrompt } from './components/UI/DraftPrompt';
 import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
@@ -195,19 +192,14 @@ const App: React.FC = () => {
           <div className="flex-1 relative overflow-hidden">
             <EditorMap />
 
-            {/* Фильтры и закладки — одной колонкой справа от кнопок масштаба:
-                раскрытая панель сдвигает следующую вниз. Раньше обе стояли
-                абсолютно, и раскрытые «Фильтры» закрывали кнопку «Закладки». */}
+            {/* Фильтры — колонкой справа от кнопок масштаба. */}
             <div className="absolute top-3 left-16 bottom-3 z-[1600] flex flex-col items-start gap-2 pointer-events-none [&>*]:pointer-events-auto">
               <FilterPanel />
-              <BookmarksPanel />
             </div>
-            <StatisticsPanel />
             <PropertiesPanel />
             <DiagnosticsPanel />
             <LineToolPanel />
             <RouteSimulatorPanel />
-            <RecentActions />
             <Notice />
           </div>
         </div>
