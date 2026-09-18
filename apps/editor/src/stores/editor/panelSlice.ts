@@ -55,6 +55,11 @@ export interface PanelSlice {
   /** Правая колонка (инспектор) свёрнута в полоску. */
   inspectorCollapsed: boolean;
   searchOpen: boolean;
+  /**
+   * Узел, которому просили сразу ввести название (двойной щелчок по узлу).
+   * Карточка узла ставит курсор в поле названия и сбрасывает просьбу.
+   */
+  nameEditNodeId: string | null;
   contextMenu: ContextMenuState;
   notice: EditorNotice | null;
   searchHistory: string[];
@@ -68,6 +73,9 @@ export interface PanelSlice {
   setStructureCollapsed: (collapsed: boolean) => void;
   setInspectorCollapsed: (collapsed: boolean) => void;
   setSearchOpen: (open: boolean) => void;
+  /** Выбрать узел, открыть его карточку и поставить курсор в название. */
+  editNodeName: (nodeId: string) => void;
+  clearNameEdit: () => void;
 
   openContextMenu: (x: number, y: number, target: ContextMenuTarget) => void;
   closeContextMenu: () => void;
@@ -85,6 +93,7 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   structureCollapsed: readLayoutPrefs().structureCollapsed,
   inspectorCollapsed: readLayoutPrefs().inspectorCollapsed,
   searchOpen: false,
+  nameEditNodeId: null,
 
   contextMenu: {
     open: false,
@@ -120,6 +129,19 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   setSearchOpen: (open) =>
     set((s) => {
       s.searchOpen = open;
+    }),
+
+  editNodeName: (nodeId) => {
+    get().selectSingleNode(nodeId);
+    get().setInspectorTab('properties');
+    set((s) => {
+      s.nameEditNodeId = nodeId;
+    });
+  },
+
+  clearNameEdit: () =>
+    set((s) => {
+      s.nameEditNodeId = null;
     }),
 
   openContextMenu: (x, y, target) =>

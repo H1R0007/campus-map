@@ -164,6 +164,16 @@ export function editorHelpers(page, base) {
       await page.sleep(300);
     },
 
+    /** Двойной щелчок левой кнопкой: браузер сам соберёт `dblclick` из двух нажатий. */
+    async dblclick(x, y) {
+      await mouse('mouseMoved', x, y);
+      for (const clickCount of [1, 2]) {
+        await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount });
+        await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount });
+      }
+      await page.sleep(300);
+    },
+
     async drag(x1, y1, x2, y2, { button = 'left', modifiers = 0, steps = 10 } = {}) {
       await mouse('mouseMoved', x1, y1, { modifiers });
       await mouse('mousePressed', x1, y1, { button, modifiers });
@@ -240,7 +250,7 @@ export function editorHelpers(page, base) {
       return point;
     },
 
-    /** Текст раздела карточки свойств по началу заголовка («Алиасы», «Соседи»). */
+    /** Текст раздела карточки свойств по началу заголовка («Названия», «Связи»). */
     panelSection: (heading) =>
       page.eval(`(() => {
         const panel = document.querySelector('[aria-label="Свойства узла"]');

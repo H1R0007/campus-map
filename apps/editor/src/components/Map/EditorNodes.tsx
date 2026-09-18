@@ -405,6 +405,11 @@ export const EditorNodes: React.FC = () => {
                 // слой на него подписан, а иначе — карте, и та сняла бы выбор,
                 // только что поставленный нажатием.
                 click: (e) => L.DomEvent.stopPropagation(e),
+                // Двойной щелчок — сразу к названию узла в карточке.
+                dblclick: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  if (useEditorStore.getState().activeTool === 'select') useEditorStore.getState().editNodeName(node.id);
+                },
                 mouseover: () => setHoveredNode(node.id),
                 mouseout: () => setHoveredNode(null),
                 contextmenu: (e) => onNodeContextMenu(node, e),

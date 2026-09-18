@@ -3,7 +3,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import type { InspectorTab } from '../../stores/editor/panelSlice';
 import { useValidationReport } from '../../hooks/useValidationReport';
 import { Icon } from '../UI/Icon';
-import { PropertiesView } from '../UI/PropertiesPanel';
+import { PropertiesView } from '../UI/PropertiesView';
 import { ProblemsView } from '../UI/ProblemsView';
 import { RouteView } from '../UI/RouteView';
 

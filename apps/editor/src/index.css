@@ -965,3 +965,217 @@ input[type='checkbox'] {
     line-height: 1.45;
     color: var(--editor-text-muted);
 }
+
+/* --- Карточка узла и обзор плана во вкладке «Свойства» --- */
+
+.editor-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-card__header {
+    padding: 4px 4px 8px;
+}
+
+.editor-card__title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.editor-card__title--empty {
+    color: var(--editor-text-muted);
+    font-style: italic;
+}
+
+.editor-card__place {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-card__section {
+    padding: 10px 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-card__heading {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.editor-card__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.editor-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.editor-card__footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px 4px 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-card__details {
+    padding: 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-card__details > summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.editor-card__id {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.editor-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.editor-list__row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 10px;
+}
+
+.editor-list__row:hover {
+    background: var(--editor-hover);
+}
+
+.editor-list__main {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.editor-list__text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-list__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-list__sub {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-list__glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    color: var(--editor-on-accent);
+}
+
+.editor-list__remove {
+    color: var(--editor-danger);
+}
+
+.editor-textarea {
+    width: 100%;
+    min-height: 88px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    background: var(--editor-bg);
+    color: var(--editor-text);
+    font-size: 16px;
+    resize: vertical;
+}
+
+.editor-textarea:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: 1px;
+}
+
+/* Сводка плана: подпись и число в строку. */
+.editor-facts {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.editor-facts dt {
+    color: var(--editor-text-muted);
+}
+
+.editor-facts dd {
+    margin: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.editor-callout {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.editor-callout--warn {
+    border-color: var(--editor-warn);
+}
+
+.editor-callout--ok {
+    border-color: var(--editor-success);
+}
+
+/* Кнопка во всю ширину колонки с текстом в несколько строк. */
+.editor-button--block {
+    width: 100%;
+    padding: 8px 14px;
+    justify-content: flex-start;
+    white-space: normal;
+    text-align: left;
+}

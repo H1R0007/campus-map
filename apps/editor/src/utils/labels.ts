@@ -27,15 +27,18 @@ export function nodeTitle(nodeId: string, aliases: ReadonlyMap<string, readonly 
   return aliases.get(nodeId)?.[0] ?? nodeId;
 }
 
-/** «1 узел», «3 узла», «12 узлов» — для подписей действий и счётчиков. */
-export function nodesCount(count: number): string {
+/**
+ * Слово в форме для числа: `plural(3, ['узел', 'узла', 'узлов'])` — «узла».
+ */
+export function plural(count: number, [one, few, many]: readonly [string, string, string]): string {
   const mod10 = count % 10;
   const mod100 = count % 100;
-  const word =
-    mod10 === 1 && mod100 !== 11
-      ? 'узел'
-      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
-        ? 'узла'
-        : 'узлов';
-  return `${count} ${word}`;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+/** «1 узел», «3 узла», «12 узлов» — для подписей действий и счётчиков. */
+export function nodesCount(count: number): string {
+  return `${count} ${plural(count, ['узел', 'узла', 'узлов'])}`;
 }
