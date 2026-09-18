@@ -12,6 +12,7 @@ import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
 import { ChainPreview } from './ChainPreview';
+import { SnapPreview } from './SnapPreview';
 import { LineToolPreview } from './LineToolPreview';
 import { SelectionBox } from './SelectionBox';
 import { GridOverlay } from './GridOverlay';
@@ -331,7 +332,8 @@ const MapEventHandler: React.FC = () => {
       if (st.activeTool === 'node') {
         // Щелчок ставит точку выбранного вида: вид сам даёт название, цепляет
         // к ближайшей точке и, если нужно, повторяет себя на всех этажах.
-        st.placeKindNode(x, y);
+        // Alt — поставить ровно там, куда щёлкнули, без выравнивания.
+        st.placeKindNode(x, y, { align: !dom.altKey });
         return;
       }
 
@@ -450,6 +452,7 @@ export const EditorMap: React.FC = () => {
       <EditorTransitions />
       <RouteOverlay />
       <ChainPreview />
+      <SnapPreview />
       <LineToolPreview />
       <SelectionBox />
       <EditorNodes />

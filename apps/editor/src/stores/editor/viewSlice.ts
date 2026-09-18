@@ -26,6 +26,11 @@ export interface DisplayFilters {
 }
 
 export interface GridSettings {
+  /**
+   * Выравнивать новую точку по соседним точкам плана. Сетка для этого не
+   * годится: двери стоят там, где начерчены, а не в узлах клеток.
+   */
+  alignToNeighbours: boolean;
   enabled: boolean;
   size: number;
   snap: boolean;
@@ -84,6 +89,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   },
 
   gridSettings: {
+    alignToNeighbours: true,
     enabled: false,
     size: 20,
     snap: true,

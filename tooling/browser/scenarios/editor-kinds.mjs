@@ -188,6 +188,33 @@ export default {
       assert.deepEqual(await e.nodeIds(), before, 'отмена не убрала линию по точке за раз');
     });
 
+    await step('новая точка встаёт в один ряд с соседней, Alt ставит как есть', async () => {
+      await e.key('Escape', { keyCode: 27 });
+      const anchor = await e.nodePoint('a1_room101');
+      await e.click(anchor.x, anchor.y);
+      const anchorX = Number(await e.panelValue('Координата X'));
+
+      // Коридор: у него нет шаблона названия, поле ввода не перехватит фокус.
+      await e.key('1', { code: 'Digit1' });
+      await e.click(anchor.x + 6, anchor.y + 90);
+      assert.equal(
+        Number(await e.panelValue('Координата X')),
+        anchorX,
+        'точка не выровнялась по соседней, хотя целились почти в один ряд'
+      );
+
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.key('Escape', { keyCode: 27 });
+      await e.click(anchor.x + 6, anchor.y + 90, { modifiers: MOD.alt });
+      assert.notEqual(
+        Number(await e.panelValue('Координата X')),
+        anchorX,
+        'Alt должен ставить точку ровно туда, куда щёлкнули'
+      );
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.key('Escape', { keyCode: 27 });
+    });
+
     await step('отмена возвращает каталог видов как было', async () => {
       await e.key('z', { modifiers: MOD.ctrl });
       const kinds = await palette();

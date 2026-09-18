@@ -84,8 +84,14 @@ export const DisplayOptions: React.FC = () => {
 
       <section className="editor-section" aria-labelledby="grid-title">
         <h2 id="grid-title" className="editor-section__title">
-          Сетка
+          Точность
         </h2>
+        <Check
+          label="Выравнивать по соседним точкам"
+          hint="новая точка встаёт в один ряд с соседней; Alt при щелчке — без выравнивания"
+          checked={gridSettings.alignToNeighbours}
+          onChange={(v) => setGridSettings({ alignToNeighbours: v })}
+        />
         <Check label="Включить сетку" checked={gridSettings.enabled} onChange={(v) => setGridSettings({ enabled: v })} />
         {gridSettings.enabled && (
           <>

@@ -6,8 +6,12 @@ import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
 import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
 import { kindNameTemplate, visibleKinds } from '../../utils/placeKinds';
+import { snapToNeighbours } from '../../utils/snapping';
+import type { SnapResult } from '../../utils/snapping';
+import { useCursorStore } from '../cursorStore';
+import { floorNodesOf } from './dataSlice';
 import { snapshotNeighbors } from './graphState';
-import type { EditorSlice } from './types';
+import type { EditorSlice, EditorStore } from './types';
 
 /** Сдвиг вставки на том же плане, пиксели: копия не ложится точно на оригинал. */
 const PASTE_OFFSET = 20;
@@ -62,7 +66,7 @@ export interface EditSlice {
    * Ставит точку выбранного вида: название, связь, точка перехода, вид места
    * и, если вид так велит, точки на всех этажах разом.
    */
-  placeKindNode: (x: number, y: number) => string;
+  placeKindNode: (x: number, y: number, options?: { align?: boolean }) => string;
   setNodeAliases: (nodeId: string, names: string[]) => void;
   /** Вид места: туалет, еда, гардероб, выход — или ничего. */
   setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
@@ -89,6 +93,28 @@ export interface EditSlice {
   lineConfirm: () => void;
 
   autoFix: () => AutoFixReport;
+}
+
+/**
+ * Точка с учётом выравнивания по соседям на плане.
+ *
+ * Считается там же, где ставится точка: подсказка на карте и сама
+ * постановка обязаны совпадать до пикселя, иначе точка встанет не туда, куда
+ * показывала линия выравнивания.
+ */
+export function alignToPlan(
+  state: Pick<EditorStore, 'nodes' | 'currentBuilding' | 'currentFloor' | 'displayFilters' | 'gridSettings'>,
+  x: number,
+  y: number,
+  enabled = true
+): SnapResult {
+  if (!enabled || !state.gridSettings.alignToNeighbours) {
+    return { x, y, alignedX: null, alignedY: null };
+  }
+
+  const scale = 2 ** (useCursorStore.getState().zoom ?? 0);
+  const planNodes = floorNodesOf(state.nodes, state.currentBuilding, state.currentFloor, state.displayFilters.showPortals);
+  return snapToNeighbours(planNodes, x, y, scale);
 }
 
 /**
@@ -431,15 +457,16 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
    * @returns id поставленной точки на открытом плане и название, которое
    *          осталось дописать (шаблон с `{номер}`), либо `null`
    */
-  placeKindNode: (x, y) => {
+  placeKindNode: (x, y, options = {}) => {
     const st = get();
     const kind = visibleKinds(st.placeKinds).find((item) => item.id === st.activeKindId);
     if (!kind) return st.addNode(x, y);
 
     const building = st.currentBuilding;
     const floor = st.currentFloor;
-    const snappedX = Math.round(st.snapToGrid(x));
-    const snappedY = Math.round(st.snapToGrid(y));
+    const aligned = alignToPlan(st, x, y, options.align !== false);
+    const snappedX = Math.round(st.snapToGrid(aligned.x));
+    const snappedY = Math.round(st.snapToGrid(aligned.y));
 
     const transitionsBefore = st.transitions.map((transition) => ({ ...transition }));
 
