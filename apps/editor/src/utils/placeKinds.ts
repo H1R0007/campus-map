@@ -13,7 +13,7 @@ import type { PlaceKind } from '@campus-map/core';
  * место, куда встанет курсор.
  */
 export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
-  { id: 'corridor', name: 'Коридор', icon: 'move', color: 'muted', connect: true },
+  { id: 'corridor', name: 'Коридор', icon: 'dot', color: 'muted', connect: true },
   {
     id: 'room',
     name: 'Помещение',
@@ -36,7 +36,6 @@ export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
   {
     id: 'stairs',
     name: 'Лестница',
-    icon: 'stairs',
     color: 'portal',
     namePattern: 'Лестница',
     isPortal: true,
@@ -47,7 +46,6 @@ export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
   {
     id: 'lift',
     name: 'Лифт',
-    icon: 'lift',
     color: 'portal',
     namePattern: 'Лифт',
     isPortal: true,
@@ -58,7 +56,6 @@ export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
   {
     id: 'entrance',
     name: 'Вход',
-    icon: 'entrance',
     color: 'portal',
     namePattern: 'Вход',
     isPortal: true,

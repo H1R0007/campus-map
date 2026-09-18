@@ -21,12 +21,19 @@ export interface LineToolState {
  */
 export interface ToolSlice {
   activeTool: EditorTool;
+  /**
+   * Выбранный вид точки — «кисть» инструмента «Узел»: щелчки по карте ставят
+   * точки этого вида подряд. Хранится по id: каталог видов правится, и
+   * ссылка на исчезнувший вид просто перестаёт быть выбранной.
+   */
+  activeKindId: string;
   transitionType: TransitionType;
   edgeStartNodeId: string | null;
   transitionStartNodeId: string | null;
   lineTool: LineToolState;
 
   setActiveTool: (tool: EditorTool) => void;
+  setActiveKind: (kindId: string) => void;
   setTransitionType: (type: TransitionType) => void;
   setEdgeStartNode: (nodeId: string | null) => void;
   setTransitionStartNode: (nodeId: string | null) => void;
@@ -40,6 +47,7 @@ export interface ToolSlice {
 
 export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
   activeTool: 'select',
+  activeKindId: 'room',
   transitionType: 'entrance',
   edgeStartNodeId: null,
   transitionStartNodeId: null,
@@ -50,6 +58,11 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
     count: 8,
     autoConnect: true,
   },
+
+  setActiveKind: (kindId) =>
+    set((s) => {
+      s.activeKindId = kindId;
+    }),
 
   setActiveTool: (tool) =>
     set((state) => {

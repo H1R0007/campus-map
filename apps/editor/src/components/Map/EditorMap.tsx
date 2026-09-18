@@ -7,6 +7,7 @@ import { useCursorStore } from '../../stores/cursorStore';
 import type { EditorStore, EditorTool } from '../../stores/editorStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
+import { visibleKinds } from '../../utils/placeKinds';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -104,7 +105,13 @@ const KeyboardHandler: React.FC = () => {
       // Открытое меню и окна управляются своими клавишами: стрелки выбирают
       // пункт, а не двигают узлы, Delete не удаляет выделение за спиной у
       // меню, Escape закрывает окно, а не снимает выбор.
-      if (st.contextMenu.open || st.helpOpen || st.searchOpen || target?.closest?.('[role="menu"], [role="dialog"]')) {
+      if (
+        st.contextMenu.open ||
+        st.helpOpen ||
+        st.searchOpen ||
+        st.kindsOpen ||
+        target?.closest?.('[role="menu"], [role="dialog"]')
+      ) {
         return;
       }
 
@@ -219,6 +226,19 @@ const KeyboardHandler: React.FC = () => {
       if (code === 'PageUp' || code === 'PageDown') {
         e.preventDefault();
         stepFloor(st, code === 'PageUp' ? 1 : -1);
+        return;
+      }
+
+      // Цифра выбирает вид точки и сразу берёт инструмент, которым его ставят:
+      // рука не уходит с карты к строке над ней.
+      const digit = /^Digit([1-8])$/.exec(code);
+      if (digit) {
+        const kind = visibleKinds(st.placeKinds)[Number(digit[1]) - 1];
+        if (kind) {
+          e.preventDefault();
+          st.setActiveKind(kind.id);
+          st.setActiveTool('node');
+        }
         return;
       }
 

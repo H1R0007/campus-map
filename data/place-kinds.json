@@ -3,7 +3,7 @@
     {
       "id": "corridor",
       "name": "Коридор",
-      "icon": "move",
+      "icon": "dot",
       "color": "muted",
       "connect": true
     },
@@ -45,7 +45,6 @@
     {
       "id": "stairs",
       "name": "Лестница",
-      "icon": "stairs",
       "color": "portal",
       "namePattern": "Лестница",
       "isPortal": true,
@@ -56,7 +55,6 @@
     {
       "id": "lift",
       "name": "Лифт",
-      "icon": "lift",
       "color": "portal",
       "namePattern": "Лифт",
       "isPortal": true,
@@ -67,7 +65,6 @@
     {
       "id": "entrance",
       "name": "Вход",
-      "icon": "entrance",
       "color": "portal",
       "namePattern": "Вход",
       "isPortal": true,

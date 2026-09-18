@@ -57,6 +57,8 @@ export interface PanelSlice {
   searchOpen: boolean;
   /** Открыта справка по мыши и клавишам. */
   helpOpen: boolean;
+  /** Открыто окно со всеми видами точек. */
+  kindsOpen: boolean;
   /**
    * Узел, которому просили сразу ввести название (двойной щелчок по узлу).
    * Карточка узла ставит курсор в поле названия и сбрасывает просьбу.
@@ -76,6 +78,7 @@ export interface PanelSlice {
   setInspectorCollapsed: (collapsed: boolean) => void;
   setSearchOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
+  setKindsOpen: (open: boolean) => void;
   /** Выбрать узел, открыть его карточку и поставить курсор в название. */
   editNodeName: (nodeId: string) => void;
   clearNameEdit: () => void;
@@ -97,6 +100,7 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   inspectorCollapsed: readLayoutPrefs().inspectorCollapsed,
   searchOpen: false,
   helpOpen: false,
+  kindsOpen: false,
   nameEditNodeId: null,
 
   contextMenu: {
@@ -138,6 +142,11 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   setHelpOpen: (open) =>
     set((s) => {
       s.helpOpen = open;
+    }),
+
+  setKindsOpen: (open) =>
+    set((s) => {
+      s.kindsOpen = open;
     }),
 
   editNodeName: (nodeId) => {

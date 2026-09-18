@@ -6,6 +6,8 @@ import { useEditorStore } from '../../stores/editorStore';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 import { Icon } from '../UI/Icon';
 import { TOOLS } from './tools';
+import { KindPalette } from './KindPalette';
+import { visibleKinds } from '../../utils/placeKinds';
 
 /** Короткие подписи типов на кнопках строки: инструмент уже называется «Переход». */
 const CHIP_LABELS: Record<TransitionType, string> = {
@@ -33,7 +35,7 @@ export const ToolOptions: React.FC = () => {
         {name}
       </span>
       {activeTool === 'select' && <SelectOptions />}
-      {activeTool === 'node' && <Hint text="Щелчок по карте ставит узел." />}
+      {activeTool === 'node' && <NodeOptions />}
       {activeTool === 'edge' && <EdgeOptions />}
       {activeTool === 'transition' && <TransitionOptions />}
       {activeTool === 'line' && <LineOptions />}
@@ -121,6 +123,25 @@ const SelectOptions: React.FC = () => {
           <span className="editor-toolbar__label">Удалить</span>
         </button>
       </div>
+    </>
+  );
+};
+
+const NodeOptions: React.FC = () => {
+  const placeKinds = useEditorStore((s) => s.placeKinds);
+  const activeKindId = useEditorStore((s) => s.activeKindId);
+  const kind = visibleKinds(placeKinds).find((item) => item.id === activeKindId);
+
+  return (
+    <>
+      <Hint
+        text={
+          kind
+            ? `Щелчок по карте ставит точку вида «${kind.name}». Вид меняется цифрой.`
+            : 'Щелчок по карте ставит точку. Выберите вид точки.'
+        }
+      />
+      <KindPalette />
     </>
   );
 };
