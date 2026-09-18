@@ -60,6 +60,23 @@ describe('вставка на открытый план', () => {
   });
 });
 
+describe('открытие корпуса', () => {
+  it('открывается этаж входа', () => {
+    store().setCurrentBuilding('building_a');
+    expect(store().currentFloor).toBe(1);
+  });
+
+  it('без этажа входа — нижний надземный, а не первый в списке', () => {
+    useEditorStore.setState((s) => {
+      const meta = s.buildingMetas.get('building_a')!;
+      delete meta.entranceFloor;
+      meta.floors.unshift({ floor: -1 });
+    });
+    store().setCurrentBuilding('building_a');
+    expect(store().currentFloor).toBe(1);
+  });
+});
+
 describe('сдвиг стрелками', () => {
   it('двигает ровно на шаг и не притягивает к сетке', () => {
     store().setGridSettings({ enabled: true, snap: true, size: 20 });

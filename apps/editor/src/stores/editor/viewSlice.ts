@@ -1,5 +1,19 @@
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
+import type { BuildingMeta } from '@campus-map/core';
 import type { EditorSlice } from './types';
+
+/**
+ * Этаж, который открывается при выборе корпуса: этаж входа из данных, без
+ * него — нижний надземный, как в навигаторе. Первый этаж списка в
+ * `meta.json` для этого не годится: подвал в списке часто идёт первым.
+ */
+export function openingFloorOf(meta: BuildingMeta | undefined): number | null {
+  if (!meta || meta.floors.length === 0) return null;
+  if (meta.entranceFloor !== undefined) return meta.entranceFloor;
+
+  const floors = meta.floors.map((floor) => floor.floor).sort((a, b) => a - b);
+  return floors.find((floor) => floor >= 1) ?? floors[floors.length - 1];
+}
 
 export interface DisplayFilters {
   showPortals: boolean;
@@ -79,12 +93,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   setCurrentBuilding: (buildingId) =>
     set((state) => {
       state.currentBuilding = buildingId;
-      if (buildingId) {
-        const meta = state.buildingMetas.get(buildingId);
-        state.currentFloor = meta?.floors[0]?.floor ?? 1;
-      } else {
-        state.currentFloor = null;
-      }
+      state.currentFloor = buildingId ? (openingFloorOf(state.buildingMetas.get(buildingId)) ?? 1) : null;
       state.selectedNodeIds = new Set();
       // Начатое ребро и линия живут в пределах плана, а начатый переход —
       // наоборот: второй его конец почти всегда на другом этаже или в другом
