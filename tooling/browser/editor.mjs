@@ -80,7 +80,7 @@ export function editorHelpers(page, base) {
       await page.sleep(400);
     },
 
-    /** Открывает план этажа корпуса через «Слои». */
+    /** Открывает план этажа корпуса через «Структуру». */
     async openFloor(building, floor) {
       await helpers.press(building);
       await helpers.press(`Этаж ${floor}`);
@@ -93,9 +93,10 @@ export function editorHelpers(page, base) {
 
     /**
      * Центр узла в окне; проверяет, что узел не закрыт панелью: щелчок в эту
-     * точку придётся именно на него.
+     * точку придётся именно на него. `allowCovered` — только положение, когда
+     * узел нарочно закрыт, например открытым меню.
      */
-    async nodePoint(id) {
+    async nodePoint(id, { allowCovered = false } = {}) {
       const point = await page.eval(`(() => {
         const path = document.querySelector('path[data-node-id=${JSON.stringify(id)}]');
         if (!path) return null;
@@ -105,7 +106,7 @@ export function editorHelpers(page, base) {
         return { x, y, top: document.elementFromPoint(x, y) === path, cover: (${DESCRIBE})(document.elementFromPoint(x, y)) };
       })()`);
       assert.ok(point, `узла ${id} нет на плане`);
-      assert.ok(point.top, `узел ${id} закрыт: ${point.cover}`);
+      assert.ok(allowCovered || point.top, `узел ${id} закрыт: ${point.cover}`);
       return point;
     },
 
@@ -163,6 +164,16 @@ export function editorHelpers(page, base) {
       await page.sleep(300);
     },
 
+    /** Двойной щелчок левой кнопкой: браузер сам соберёт `dblclick` из двух нажатий. */
+    async dblclick(x, y) {
+      await mouse('mouseMoved', x, y);
+      for (const clickCount of [1, 2]) {
+        await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount });
+        await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount });
+      }
+      await page.sleep(300);
+    },
+
     async drag(x1, y1, x2, y2, { button = 'left', modifiers = 0, steps = 10 } = {}) {
       await mouse('mouseMoved', x1, y1, { modifiers });
       await mouse('mousePressed', x1, y1, { button, modifiers });
@@ -180,10 +191,12 @@ export function editorHelpers(page, base) {
 
     /**
      * Клавиша с модификаторами. `code` — физическая клавиша: в русской
-     * раскладке `key` у неё другой («я» вместо «z»).
+     * раскладке `key` у неё другой («я» вместо «z»). `text` — символ клавиши,
+     * если он нужен браузеру: Enter без символа перевода строки не нажимает
+     * кнопку в фокусе.
      */
-    async key(key, { code, modifiers = 0, keyCode } = {}) {
-      const text = key.length === 1 && !(modifiers & (MOD.ctrl | MOD.meta | MOD.alt)) ? key : undefined;
+    async key(key, { code, modifiers = 0, keyCode, text: typed } = {}) {
+      const text = typed ?? (key.length === 1 && !(modifiers & (MOD.ctrl | MOD.meta | MOD.alt)) ? key : undefined);
       const common = {
         key,
         code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),
@@ -224,7 +237,7 @@ export function editorHelpers(page, base) {
      */
     async panelPoint(selector) {
       const point = await page.eval(`(() => {
-        const panel = document.querySelector('aside[aria-label="Свойства узла"]');
+        const panel = document.querySelector('[aria-label="Свойства узла"]');
         const el = panel?.querySelector(${JSON.stringify(selector)});
         if (!el) return null;
         el.scrollIntoView({ block: 'center' });
@@ -239,10 +252,10 @@ export function editorHelpers(page, base) {
       return point;
     },
 
-    /** Текст раздела карточки свойств по началу заголовка («Алиасы», «Соседи»). */
+    /** Текст раздела карточки свойств по началу заголовка («Названия», «Связи»). */
     panelSection: (heading) =>
       page.eval(`(() => {
-        const panel = document.querySelector('aside[aria-label="Свойства узла"]');
+        const panel = document.querySelector('[aria-label="Свойства узла"]');
         const section = [...(panel?.querySelectorAll('section') ?? [])].find((s) => s.textContent.trim().startsWith(${JSON.stringify(heading)}));
         return section ? section.textContent.replace(/\\s+/g, ' ').trim() : null;
       })()`),
@@ -255,9 +268,9 @@ export function editorHelpers(page, base) {
 
     /** Значение поля карточки свойств по подписи для диктора. */
     panelValue: (label) =>
-      page.eval(`document.querySelector('aside[aria-label="Свойства узла"] [aria-label=${JSON.stringify(label)}]')?.value ?? null`),
+      page.eval(`document.querySelector('[aria-label="Свойства узла"] [aria-label=${JSON.stringify(label)}]')?.value ?? null`),
 
-    /** Включает или выключает переключатель в панели «Фильтры» по подписи. */
+    /** Включает или выключает флажок по подписи: «Показывать на карте», «Сетка», вкладка «Маршрут». */
     async toggleFilter(label) {
       const ok = await page.eval(`(() => {
         const box = [...document.querySelectorAll('label')].find((l) => l.textContent.includes(${JSON.stringify(label)}))?.querySelector('input');
@@ -280,6 +293,21 @@ export function editorHelpers(page, base) {
     transitionKeys: () =>
       page.eval(`[...document.querySelectorAll('[data-transition]')].map((el) => el.dataset.transition)`),
 
+    /** Название выбранного инструмента — в строке над картой. */
+    tool: () => page.eval(`document.querySelector('[data-tool-name]')?.textContent.trim() ?? ''`),
+
+    /** Текст строки над картой: инструмент, подсказка, параметры. */
+    toolbar: () => page.eval(`document.querySelector('[aria-label="Параметры инструмента"]')?.textContent ?? ''`),
+
+    /** Прямоугольник элемента в окне или `null`. */
+    rect: (selector) =>
+      page.eval(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+      })()`),
+
     /** Текст строки состояния. */
     status: () => page.eval(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent ?? ''`),
 
@@ -294,7 +322,7 @@ export function editorHelpers(page, base) {
 
     /** id узла в карточке свойств или `null`, если карточки нет. */
     propertiesNodeId: () =>
-      page.eval(`document.querySelector('aside[aria-label="Свойства узла"]')?.getAttribute('data-node-id') ?? null`),
+      page.eval(`document.querySelector('[aria-label="Свойства узла"]')?.getAttribute('data-node-id') ?? null`),
   };
 
   return helpers;

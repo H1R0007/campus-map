@@ -1,132 +1,60 @@
-import React from 'react';
+import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
+import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useHistoryStore } from '../../stores/historyStore';
-import { Icon } from './Icon';
-import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
+import { useCursorStore } from '../../stores/cursorStore';
+import { nodesCount } from '../../utils/labels';
 
+/**
+ * Строка состояния: где мы, что выбрано, где курсор и сохранено ли.
+ *
+ * Что делает инструмент, подсказывает строка над картой (`ToolOptions`);
+ * здесь — только состояние.
+ */
 export const StatusBar: React.FC = () => {
-  const currentBuilding = useEditorStore((state) => state.currentBuilding);
-  const currentFloor = useEditorStore((state) => state.currentFloor);
-  const buildingMetas = useEditorStore((state) => state.buildingMetas);
-  const nodes = useEditorStore((state) => state.nodes);
-  const transitions = useEditorStore((state) => state.transitions);
-  const selectedNodeIds = useEditorStore((state) => state.selectedNodeIds);
-  const hasUnsavedChanges = useUnsavedChanges();
-  const activeTool = useEditorStore((state) => state.activeTool);
-  const edgeStartNodeId = useEditorStore((state) => state.edgeStartNodeId);
-  const transitionStartNodeId = useEditorStore((state) => state.transitionStartNodeId);
-  const transitionType = useEditorStore((state) => state.transitionType);
-  const aliases = useEditorStore((state) => state.aliases);
-  const lineTool = useEditorStore((state) => state.lineTool);
+  const currentBuilding = useEditorStore((s) => s.currentBuilding);
+  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
+  const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
+  const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
+  const selectedCount = useEditorStore((s) => s.selectedNodeIds.size);
+  const unsaved = useUnsavedChanges();
+  const editCount = useHistoryStore((s) => s.currentIndex + 1);
+  const point = useCursorStore((s) => s.point);
+  const zoom = useCursorStore((s) => s.zoom);
 
-  // Начатый переход переживает смену этажа, поэтому подсказка называет, от
-  // какого узла и с какого плана он строится.
-  const transitionStart = transitionStartNodeId ? nodes.get(transitionStartNodeId) : undefined;
-  const transitionStartLabel = transitionStart
-    ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(transitionStart.id, aliases)}» (${nodePlaceLabel(transitionStart, buildingMetas)})`
-    : '';
+  const planNodes = useMemo(
+    () => floorNodesOf(nodes, currentBuilding, currentFloor, showPortals).length,
+    [nodes, currentBuilding, currentFloor, showPortals]
+  );
 
-  const historyEntries = useHistoryStore((state) => state.entries);
-  const historyIndex = useHistoryStore((state) => state.currentIndex);
-
-  const currentMeta = currentBuilding ? buildingMetas.get(currentBuilding) : null;
-  const locationText = currentBuilding
-    ? `${currentMeta?.name ?? currentBuilding} / Этаж ${currentFloor}`
-    : 'Кампус';
-
-  const toolInfo: Record<string, { name: string; hint: string }> = {
-    select: {
-      name: 'Выбор',
-      hint:
-        'Щелчок — выбрать узел · перетащить — сдвинуть · Shift+щелчок — добавить к выбору · ' +
-        'Shift+протянуть — рамка · правая кнопка — меню',
-    },
-    node: {
-      name: 'Узел',
-      hint: 'Щелчок по карте — поставить узел',
-    },
-    edge: {
-      name: 'Ребро',
-      hint: edgeStartNodeId
-        ? 'Щелчок по второму узлу — соединить · Esc — отмена'
-        : 'Щелчок по первому узлу ребра',
-    },
-    transition: {
-      name: 'Переход',
-      hint: transitionStartNodeId
-        ? `${transitionStartLabel} · щелчок по второму узлу — создать · этаж можно переключить · Esc — отмена`
-        : `${TRANSITION_LABELS[transitionType]}: щелчок по первому узлу`,
-    },
-    line: {
-      name: 'Линия',
-      hint: !lineTool.start
-        ? 'Щелчок — начало линии'
-        : !lineTool.end
-        ? 'Щелчок — конец линии'
-        : 'Задайте число узлов в панели и нажмите «Создать»',
-    },
-    delete: {
-      name: 'Удаление',
-      hint: 'Щелчок по узлу, ребру или переходу — удалить',
-    },
-  };
-
-  const currentTool = toolInfo[activeTool] || { name: activeTool, hint: '' };
+  const place = currentBuilding
+    ? `${buildingMetas.get(currentBuilding)?.name ?? currentBuilding} / Этаж ${currentFloor}`
+    : 'Территория кампуса';
 
   return (
-    <footer
-      aria-label="Строка состояния"
-      className="h-9 flex items-center justify-between px-4 text-xs select-none"
-      style={{ backgroundColor: 'var(--editor-panel)', borderTop: '1px solid var(--editor-border)' }}
-    >
-      {/* Left */}
-      <div className="flex items-center gap-4">
-        <span style={{ color: 'var(--editor-text-muted)' }}>
-          <Icon name="pin" size={12} className="inline-block mr-1 align-middle" />
-          <span className="text-white" data-status-place>
-            {locationText}
-          </span>
+    <footer aria-label="Строка состояния" className="editor-statusbar">
+      <span className="editor-statusbar__place" data-status-place>
+        {place}
+      </span>
+      <span>На плане: {nodesCount(planNodes)}</span>
+      {selectedCount > 0 && <span>Выбрано: {selectedCount}</span>}
+
+      <span className="editor-statusbar__spacer" />
+
+      <span className="editor-statusbar__coords" title="Точка плана под курсором, пиксели плана">
+        {point ? `x ${point.x} · y ${point.y}` : 'курсор вне карты'}
+      </span>
+      {zoom !== null && (
+        <span title="Масштаб: сколько точек экрана приходится на пиксель плана">
+          Масштаб {Math.round(2 ** zoom * 100)}%
         </span>
-
-        <span style={{ color: 'var(--editor-text-muted)' }}>
-          {nodes.size} узлов • {transitions.length} переходов
-        </span>
-
-        {selectedNodeIds.size > 0 && (
-          <span style={{ color: 'var(--editor-highlight)' }}>
-            ✓ Выбрано: {selectedNodeIds.size}
-            {selectedNodeIds.size > 1 && ' (Del удалить, ↑↓←→ двигать)'}
-          </span>
-        )}
-      </div>
-
-      {/* Center */}
-      <div className="flex items-center gap-2 max-w-[40%]">
-        <span className="px-2 py-0.5 rounded font-medium whitespace-nowrap" style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}>
-          {currentTool.name}
-        </span>
-        <span className="truncate" style={{ color: 'var(--editor-text-muted)' }} title={currentTool.hint}>
-          {currentTool.hint}
-        </span>
-      </div>
-
-      {/* Right */}
-      <div className="flex items-center gap-3">
-        <span style={{ color: 'var(--editor-text-muted)' }}>Ctrl+F поиск</span>
-        <span style={{ color: 'var(--editor-text-muted)' }}>{historyIndex + 1}/{historyEntries.length}</span>
-
-        {hasUnsavedChanges ? (
-          <span className="flex items-center gap-1.5" style={{ color: '#fbbf24' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-            Изменено
-          </span>
-        ) : (
-          <span className="flex items-center gap-1.5" style={{ color: '#22c55e' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            Сохранено
-          </span>
-        )}
-      </div>
+      )}
+      <span title="Сколько правок можно отменить">Правок: {editCount}</span>
+      <span className={`editor-statusbar__state${unsaved ? ' editor-statusbar__state--unsaved' : ''}`}>
+        <span className="editor-statusbar__dot" aria-hidden="true" />
+        {unsaved ? 'Изменено, не сохранено' : 'Сохранено'}
+      </span>
     </footer>
   );
 };

@@ -216,6 +216,15 @@ describe('отмена показывает, где случилась прав�
     expect(store().notice?.text).toContain('Отменено');
   });
 
+  it('кнопка отмены называет действие словами', () => {
+    store().addTransition('a1_room101', 'a2_room201', 'lift');
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Добавлен переход: лифт');
+
+    select('a1_hall', 'a1_room101', 'a1_stairs');
+    store().moveSelectedBy(5, 0);
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Перемещено: 3 узла');
+  });
+
   it('правку на открытом плане план не переключает', () => {
     openFloor(1);
     store().updateNode('a1_hall', { isPortal: true });

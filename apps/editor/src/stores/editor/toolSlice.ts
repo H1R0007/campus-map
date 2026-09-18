@@ -1,7 +1,7 @@
 import type { TransitionType } from '@campus-map/core';
 import type { EditorSlice } from './types';
 
-export type EditorTool = 'select' | 'node' | 'edge' | 'transition' | 'delete' | 'line';
+export type EditorTool = 'select' | 'node' | 'edge' | 'transition' | 'line';
 
 export interface LinePoint {
   x: number;

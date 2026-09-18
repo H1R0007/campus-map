@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Polyline, useMap } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
+import { mapPalette } from '../../utils/themeColor';
 
 export const GridOverlay: React.FC = () => {
+  const palette = mapPalette();
   const map = useMap();
   const grid = useEditorStore((s) => s.gridSettings);
 
@@ -61,7 +63,7 @@ export const GridOverlay: React.FC = () => {
         <Polyline
           key={`grid-v-${i}`}
           positions={positions}
-          pathOptions={{ color: 'rgba(255,255,255,0.12)', weight: 1, opacity: 1 }}
+          pathOptions={{ color: palette.grid, weight: 1, opacity: 1 }}
           interactive={false}
         />
       ))}
@@ -69,7 +71,7 @@ export const GridOverlay: React.FC = () => {
         <Polyline
           key={`grid-h-${i}`}
           positions={positions}
-          pathOptions={{ color: 'rgba(255,255,255,0.12)', weight: 1, opacity: 1 }}
+          pathOptions={{ color: palette.grid, weight: 1, opacity: 1 }}
           interactive={false}
         />
       ))}

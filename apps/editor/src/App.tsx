@@ -1,21 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { createHttpDatasetSource, loadDataset } from '@campus-map/core';
 import { EditorMap } from './components/Map/EditorMap';
-import { Toolbar } from './components/UI/Toolbar';
-import { LayersPanel } from './components/UI/LayersPanel';
+import { TopBar } from './components/Layout/TopBar';
+import { StructurePanel } from './components/Layout/StructurePanel';
+import { ToolRail } from './components/Layout/ToolRail';
+import { ToolOptions } from './components/Layout/ToolOptions';
+import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
-import { PropertiesPanel } from './components/UI/PropertiesPanel';
-import { DiagnosticsPanel } from './components/UI/DiagnosticsPanel';
-import { LineToolPanel } from './components/Tools/LineToolPanel';
 import { SearchPanel } from './components/UI/SearchPanel';
-import { FilterPanel } from './components/UI/FilterPanel';
-import { StatisticsPanel } from './components/UI/StatisticsPanel';
-import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
-import { RecentActions } from './components/UI/RecentActions';
 import { Notice } from './components/UI/Notice';
 import { ContextMenu } from './components/UI/ContextMenu';
-import { BookmarksPanel } from './components/UI/BookmarksPanel';
 import { DraftPrompt } from './components/UI/DraftPrompt';
+import { HelpDialog } from './components/UI/HelpDialog';
 import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
 
@@ -45,19 +41,14 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          className="h-full w-full flex items-center justify-center p-6"
-          style={{ backgroundColor: 'var(--editor-bg)' }}
-        >
-          <div className="max-w-md text-center">
-            <h1 className="text-white font-semibold text-lg">Произошла ошибка</h1>
-            <p className="mt-2 text-sm" style={{ color: 'var(--editor-text-muted)' }}>
-              {this.state.error?.message || 'Неизвестная ошибка'}
-            </p>
+        <div className="editor-splash">
+          <div className="editor-splash__box">
+            <h1 className="editor-splash__title">Произошла ошибка</h1>
+            <p className="editor-splash__text">{this.state.error?.message || 'Неизвестная ошибка'}</p>
             <button
+              type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 rounded-lg text-white"
-              style={{ backgroundColor: 'var(--editor-highlight)' }}
+              className="editor-button editor-button--primary mt-4"
             >
               Перезагрузить
             </button>
@@ -139,11 +130,8 @@ const App: React.FC = () => {
 
   if (isLoading && !error) {
     return (
-      <div
-        className="h-full w-full flex items-center justify-center"
-        style={{ backgroundColor: 'var(--editor-bg)' }}
-      >
-        <div className="text-center">
+      <div className="editor-splash">
+        <div className="editor-splash__box">
           {/* `borderTopColor` задаётся явно: иначе inline-`borderColor`
               перекрывает утилиту `border-t-transparent`, и индикатор
               выглядит сплошным кольцом, а не вращающейся дугой. */}
@@ -154,7 +142,7 @@ const App: React.FC = () => {
               borderTopColor: 'transparent',
             }}
           />
-          <p style={{ color: 'var(--editor-text-muted)' }}>Загрузка редактора…</p>
+          <p className="editor-splash__text">Загрузка редактора…</p>
         </div>
       </div>
     );
@@ -162,19 +150,14 @@ const App: React.FC = () => {
 
   if (error) {
     return (
-      <div
-        className="h-full w-full flex items-center justify-center p-6"
-        style={{ backgroundColor: 'var(--editor-bg)' }}
-      >
-        <div className="max-w-md text-center">
-          <h1 className="text-white font-semibold text-lg">Ошибка загрузки</h1>
-          <p className="mt-2 text-sm whitespace-pre-wrap" style={{ color: 'var(--editor-text-muted)' }}>
-            {error}
-          </p>
+      <div className="editor-splash">
+        <div className="editor-splash__box">
+          <h1 className="editor-splash__title">Ошибка загрузки</h1>
+          <p className="editor-splash__text editor-splash__text--pre">{error}</p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 rounded-lg text-white"
-            style={{ backgroundColor: 'var(--editor-highlight)' }}
+            className="editor-button editor-button--primary mt-4"
           >
             Перезагрузить
           </button>
@@ -185,36 +168,27 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div
-        className="h-full w-full flex flex-col"
-        style={{ backgroundColor: 'var(--editor-bg)' }}
-      >
-        <Toolbar />
-        <div className="flex-1 flex overflow-hidden">
-          <LayersPanel />
-          <div className="flex-1 relative overflow-hidden">
-            <EditorMap />
-
-            {/* Фильтры и закладки — одной колонкой справа от кнопок масштаба:
-                раскрытая панель сдвигает следующую вниз. Раньше обе стояли
-                абсолютно, и раскрытые «Фильтры» закрывали кнопку «Закладки». */}
-            <div className="absolute top-3 left-16 bottom-3 z-[1600] flex flex-col items-start gap-2 pointer-events-none [&>*]:pointer-events-auto">
-              <FilterPanel />
-              <BookmarksPanel />
+      {/* Карта в середине, всё остальное — в закреплённых колонках вокруг:
+          ни одна панель не лежит поверх плана (запись 39). */}
+      <div className="editor-shell">
+        <TopBar />
+        <div className="editor-body">
+          <StructurePanel />
+          <ToolRail />
+          <main className="editor-workspace" aria-label="Карта">
+            <ToolOptions />
+            <div className="editor-map-area">
+              <EditorMap />
+              <Notice />
             </div>
-            <StatisticsPanel />
-            <PropertiesPanel />
-            <DiagnosticsPanel />
-            <LineToolPanel />
-            <RouteSimulatorPanel />
-            <RecentActions />
-            <Notice />
-          </div>
+          </main>
+          <Inspector />
         </div>
         <StatusBar />
 
         <SearchPanel />
         <ContextMenu />
+        <HelpDialog />
         <DraftPrompt />
       </div>
     </ErrorBoundary>
