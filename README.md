@@ -847,6 +847,7 @@ node tooling/smoke-test.mjs --app viewer --mode prod --base /campus/
 | Цвета редактора и карты | токены в `apps/editor/src/index.css`, чтение значением — `utils/themeColor.ts` |
 | Действия редактора и отмена | срезы стора `apps/editor/src/stores/editor/`, сборка — `editorStore.ts`; запись истории — `historyStore.ts`, её применение — `editor/historyApply.ts` |
 | Сохранение: файлы датасета, запись в `data/`, архив, черновик | `apps/editor/src/utils/datasetFiles.ts`, `diskStore.ts`, `exportData.ts`, `draftStorage.ts`, срез `stores/editor/storageSlice.ts`; запись на диск — `tooling/vite-plugin-campus-data.mjs` (`writable`) |
+| Виды точек (заготовки разметчика) | `data/place-kinds.json`, тип — `packages/core/src/types/placeKind.ts`, встроенный набор — `apps/editor/src/utils/placeKinds.ts` |
 | Импорт датасета из архива | `apps/editor/src/utils/importZip.ts` |
 | Проверка данных для вкладки «Проверка» | `apps/editor/src/utils/validateData.ts`, автоисправление — `autoFix.ts`, отчёт для интерфейса — `hooks/useValidationReport.ts` |
 | Раздача данных, сборка, PWA, базовый путь развёртывания | `tooling/`, `apps/*/vite.config.ts` |

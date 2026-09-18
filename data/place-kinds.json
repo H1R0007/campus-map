@@ -1,0 +1,79 @@
+{
+  "kinds": [
+    {
+      "id": "corridor",
+      "name": "Коридор",
+      "icon": "move",
+      "color": "muted",
+      "connect": true
+    },
+    {
+      "id": "room",
+      "name": "Помещение",
+      "icon": "door",
+      "color": "node",
+      "namePattern": "{корпус}-{этаж}{номер}",
+      "connect": true
+    },
+    {
+      "id": "toilet",
+      "name": "Туалет",
+      "icon": "toilet",
+      "color": "place",
+      "namePattern": "Туалет",
+      "connect": true,
+      "category": "toilet"
+    },
+    {
+      "id": "food",
+      "name": "Столовая",
+      "icon": "food",
+      "color": "place",
+      "namePattern": "Столовая",
+      "connect": true,
+      "category": "food"
+    },
+    {
+      "id": "cloakroom",
+      "name": "Гардероб",
+      "icon": "cloakroom",
+      "color": "place",
+      "namePattern": "Гардероб",
+      "connect": true,
+      "category": "cloakroom"
+    },
+    {
+      "id": "stairs",
+      "name": "Лестница",
+      "icon": "stairs",
+      "color": "portal",
+      "namePattern": "Лестница",
+      "isPortal": true,
+      "transition": "stairs",
+      "stack": true,
+      "connect": true
+    },
+    {
+      "id": "lift",
+      "name": "Лифт",
+      "icon": "lift",
+      "color": "portal",
+      "namePattern": "Лифт",
+      "isPortal": true,
+      "transition": "lift",
+      "stack": true,
+      "connect": true
+    },
+    {
+      "id": "entrance",
+      "name": "Вход",
+      "icon": "entrance",
+      "color": "portal",
+      "namePattern": "Вход",
+      "isPortal": true,
+      "transition": "entrance",
+      "connect": true,
+      "category": "exit"
+    }
+  ]
+}
