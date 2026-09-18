@@ -26,6 +26,7 @@ export const TopBar: React.FC = () => {
   const loadData = useEditorStore((s) => s.loadData);
   const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
   const setInspectorTab = useEditorStore((s) => s.setInspectorTab);
+  const setHelpOpen = useEditorStore((s) => s.setHelpOpen);
 
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
@@ -157,6 +158,16 @@ export const TopBar: React.FC = () => {
         >
           <Icon name="search" />
           Поиск
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="editor-icon-button"
+          aria-label="Справка: мышь и клавиши"
+          title="Справка: мышь и клавиши (F1)"
+        >
+          <Icon name="help" size={20} />
         </button>
 
         <div className="editor-topbar__group" role="group" aria-label="Файлы">

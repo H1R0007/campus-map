@@ -11,6 +11,7 @@ import { SearchPanel } from './components/UI/SearchPanel';
 import { Notice } from './components/UI/Notice';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
+import { HelpDialog } from './components/UI/HelpDialog';
 import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
 
@@ -200,6 +201,7 @@ const App: React.FC = () => {
 
         <SearchPanel />
         <ContextMenu />
+        <HelpDialog />
         <DraftPrompt />
       </div>
     </ErrorBoundary>

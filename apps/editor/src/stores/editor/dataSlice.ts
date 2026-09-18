@@ -12,6 +12,7 @@ import type {
 import { useHistoryStore } from '../historyStore';
 import { buildGraphFromState } from './graphState';
 import { initialRouteSimulation } from './routeSlice';
+import { searchNodeHits } from '../../utils/nodeSearch';
 import type { EditorSlice } from './types';
 
 /**
@@ -248,45 +249,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   isGraphConnected: () => findConnectedComponents(buildGraphFromState(get())),
 
   searchNodes: (query) => {
-    const { nodes, aliases } = get();
-    const q = query.toLowerCase().trim();
-    if (!q) return [];
-
-    const results: MapNode[] = [];
-
-    for (const [id, node] of nodes) {
-      if (id.toLowerCase().includes(q)) {
-        results.push(node);
-        continue;
-      }
-
-      const nodeAliases = aliases.get(id) || [];
-      if (nodeAliases.some((a) => a.toLowerCase().includes(q))) {
-        results.push(node);
-        continue;
-      }
-
-      const cleanQ = q.replace(/[()]/g, '').trim();
-      const coordMatch = cleanQ.match(/^(\d+)\s*[,\s]\s*(\d+)$/);
-      if (coordMatch) {
-        const searchX = parseInt(coordMatch[1], 10);
-        const searchY = parseInt(coordMatch[2], 10);
-        const tolerance = 30;
-        if (Math.abs(node.x - searchX) < tolerance && Math.abs(node.y - searchY) < tolerance) {
-          results.push(node);
-          continue;
-        }
-      }
-    }
-
-    results.sort((a, b) => {
-      const aExact = a.id.toLowerCase() === q;
-      const bExact = b.id.toLowerCase() === q;
-      if (aExact && !bExact) return -1;
-      if (!aExact && bExact) return 1;
-      return 0;
-    });
-
-    return results.slice(0, 50);
+    const { nodes, aliases, aliasTranslations } = get();
+    return searchNodeHits(query, nodes, aliases, aliasTranslations).map((hit) => hit.node);
   },
 });

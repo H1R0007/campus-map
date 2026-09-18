@@ -191,10 +191,12 @@ export function editorHelpers(page, base) {
 
     /**
      * Клавиша с модификаторами. `code` — физическая клавиша: в русской
-     * раскладке `key` у неё другой («я» вместо «z»).
+     * раскладке `key` у неё другой («я» вместо «z»). `text` — символ клавиши,
+     * если он нужен браузеру: Enter без символа перевода строки не нажимает
+     * кнопку в фокусе.
      */
-    async key(key, { code, modifiers = 0, keyCode } = {}) {
-      const text = key.length === 1 && !(modifiers & (MOD.ctrl | MOD.meta | MOD.alt)) ? key : undefined;
+    async key(key, { code, modifiers = 0, keyCode, text: typed } = {}) {
+      const text = typed ?? (key.length === 1 && !(modifiers & (MOD.ctrl | MOD.meta | MOD.alt)) ? key : undefined);
       const common = {
         key,
         code: code ?? (key.length === 1 ? `Key${key.toUpperCase()}` : key),

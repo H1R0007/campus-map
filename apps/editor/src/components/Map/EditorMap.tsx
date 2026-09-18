@@ -101,9 +101,12 @@ const KeyboardHandler: React.FC = () => {
       const target = e.target as HTMLElement | null;
       const st = useEditorStore.getState();
 
-      // Открытое меню управляется своими клавишами: стрелки выбирают пункт, а
-      // не двигают узлы, Delete не удаляет выделение за спиной у меню.
-      if (st.contextMenu.open || target?.closest?.('[role="menu"]')) return;
+      // Открытое меню и окна управляются своими клавишами: стрелки выбирают
+      // пункт, а не двигают узлы, Delete не удаляет выделение за спиной у
+      // меню, Escape закрывает окно, а не снимает выбор.
+      if (st.contextMenu.open || st.helpOpen || st.searchOpen || target?.closest?.('[role="menu"], [role="dialog"]')) {
+        return;
+      }
 
       const isInput =
         target?.tagName === 'INPUT' ||
@@ -119,6 +122,12 @@ const KeyboardHandler: React.FC = () => {
         (ARROW_STEPS[code] || code === 'Home' || code === 'End') &&
         target?.closest?.('[role="tablist"], [role="listbox"], [role="radiogroup"]')
       ) {
+        return;
+      }
+
+      if (code === 'F1' || (e.key === '?' && !isInput)) {
+        e.preventDefault();
+        st.setHelpOpen(true);
         return;
       }
 
