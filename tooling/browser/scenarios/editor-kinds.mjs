@@ -215,6 +215,35 @@ export default {
       await e.key('Escape', { keyCode: 27 });
     });
 
+    await step('Shift+щелчок связывает новую точку с предыдущей — точка внутри кабинета', async () => {
+      await e.key('3', { code: 'Digit3' });
+      const before = await e.nodeIds();
+      const door = await e.emptyMapPoint(150);
+      await e.click(door.x, door.y);
+      const doorId = (await e.nodeIds()).filter((id) => !before.includes(id))[0];
+
+      // Вторая точка ставится вплотную к чужой точке плана: Shift обязан
+      // связать её с дверью, а не с тем, что ближе.
+      const neighbour = await e.nodePoint('a1_corridor_3');
+      await e.click(neighbour.x + 18, neighbour.y + 18, { modifiers: MOD.shift });
+      const inside = (await e.nodeIds()).filter((id) => !before.includes(id) && id !== doorId)[0];
+      assert.ok(inside, 'вторая точка не поставлена');
+
+      const links = await page.eval(`[...document.querySelectorAll('path[data-edge]')].map((p) => p.dataset.edge)`);
+      assert.ok(
+        links.some((key) => key.includes(inside) && key.includes(doorId)),
+        'вторая точка связана не с предыдущей поставленной'
+      );
+      assert.ok(
+        !links.some((key) => key.includes(inside) && key.includes('a1_corridor_3')),
+        'вторая точка прилипла к ближайшей точке вместо предыдущей'
+      );
+
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.key('z', { modifiers: MOD.ctrl });
+      assert.deepEqual(await e.nodeIds(), before);
+    });
+
     await step('калька: соседний этаж виден бледно и не ловит щелчки', async () => {
       const ghosts = () => page.eval(`document.querySelectorAll('.editor-ghost-node').length`);
       assert.equal(await ghosts(), 0, 'калька включена без спроса');

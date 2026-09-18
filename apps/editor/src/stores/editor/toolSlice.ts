@@ -32,6 +32,11 @@ export interface ToolSlice {
    * соединится с ней. `null` — линия не начата.
    */
   chainLastNodeId: string | null;
+  /**
+   * Последняя поставленная точка любого вида: с ней связывает Shift+щелчок.
+   * Так в большом кабинете ставят вторую точку внутри, связанную с дверью.
+   */
+  lastPlacedNodeId: string | null;
   transitionType: TransitionType;
   edgeStartNodeId: string | null;
   transitionStartNodeId: string | null;
@@ -56,6 +61,7 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
   activeTool: 'select',
   activeKindId: 'room',
   chainLastNodeId: null,
+  lastPlacedNodeId: null,
   transitionType: 'entrance',
   edgeStartNodeId: null,
   transitionStartNodeId: null,

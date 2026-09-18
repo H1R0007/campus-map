@@ -334,7 +334,7 @@ const MapEventHandler: React.FC = () => {
         // Щелчок ставит точку выбранного вида: вид сам даёт название, цепляет
         // к ближайшей точке и, если нужно, повторяет себя на всех этажах.
         // Alt — поставить ровно там, куда щёлкнули, без выравнивания.
-        st.placeKindNode(x, y, { align: !dom.altKey });
+        st.placeKindNode(x, y, { align: !dom.altKey, linkToLast: dom.shiftKey });
         return;
       }
 

@@ -66,7 +66,7 @@ export interface EditSlice {
    * Ставит точку выбранного вида: название, связь, точка перехода, вид места
    * и, если вид так велит, точки на всех этажах разом.
    */
-  placeKindNode: (x: number, y: number, options?: { align?: boolean }) => string;
+  placeKindNode: (x: number, y: number, options?: { align?: boolean; linkToLast?: boolean }) => string;
   setNodeAliases: (nodeId: string, names: string[]) => void;
   /** Вид места: туалет, еда, гардероб, выход — или ничего. */
   setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
@@ -511,7 +511,9 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // У ведущего вида (коридор) следующая точка цепляется к предыдущей
       // точке линии: иначе она прилипала бы к ближайшей двери и коридор
       // получался бы зигзагом.
-      const chainFrom = kind.chain ? st.chainLastNodeId : null;
+      // Shift+щелчок связывает с последней поставленной точкой: так в
+      // большом кабинете ставят вторую точку внутри, связанную с дверью.
+      const chainFrom = options.linkToLast ? st.lastPlacedNodeId : kind.chain ? st.chainLastNodeId : null;
       if (chainFrom !== null && st.nodes.has(chainFrom)) {
         links.push({ nodeId: id, nearestId: chainFrom });
       } else if (kind.connect) {
@@ -552,6 +554,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       s.selectedNodeIds = new Set([created[0].id]);
       // Линия продолжится от этой точки, пока вид ведущий.
       s.chainLastNodeId = kind.chain ? created[0].id : null;
+      s.lastPlacedNodeId = created[0].id;
     });
 
     const after = get();
