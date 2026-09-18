@@ -11,6 +11,7 @@ import { visibleKinds } from '../../utils/placeKinds';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
+import { ChainPreview } from './ChainPreview';
 import { LineToolPreview } from './LineToolPreview';
 import { SelectionBox } from './SelectionBox';
 import { GridOverlay } from './GridOverlay';
@@ -199,10 +200,17 @@ const KeyboardHandler: React.FC = () => {
         return;
       }
 
+      if (code === 'Enter' && st.chainLastNodeId !== null) {
+        e.preventDefault();
+        st.endChain();
+        return;
+      }
+
       if (code === 'Escape') {
         st.clearSelection();
         st.setEdgeStartNode(null);
         st.setTransitionStartNode(null);
+        st.endChain();
         st.lineReset();
         st.cancelSelectionBox();
         st.hideNotice();
@@ -441,6 +449,7 @@ export const EditorMap: React.FC = () => {
       <EditorEdges />
       <EditorTransitions />
       <RouteOverlay />
+      <ChainPreview />
       <LineToolPreview />
       <SelectionBox />
       <EditorNodes />

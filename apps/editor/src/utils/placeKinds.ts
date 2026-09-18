@@ -13,7 +13,7 @@ import type { PlaceKind } from '@campus-map/core';
  * место, куда встанет курсор.
  */
 export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
-  { id: 'corridor', name: 'Коридор', icon: 'dot', color: 'muted', connect: true },
+  { id: 'corridor', name: 'Коридор', icon: 'dot', color: 'muted', connect: true, chain: true },
   {
     id: 'room',
     name: 'Помещение',

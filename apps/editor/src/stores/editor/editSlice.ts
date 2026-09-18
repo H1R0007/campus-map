@@ -480,7 +480,14 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
       // К чему цеплять, решается по тому, что на плане уже есть: новые точки
       // стопки друг другу не соседи — они на разных этажах.
-      if (kind.connect) {
+      //
+      // У ведущего вида (коридор) следующая точка цепляется к предыдущей
+      // точке линии: иначе она прилипала бы к ближайшей двери и коридор
+      // получался бы зигзагом.
+      const chainFrom = kind.chain ? st.chainLastNodeId : null;
+      if (chainFrom !== null && st.nodes.has(chainFrom)) {
+        links.push({ nodeId: id, nearestId: chainFrom });
+      } else if (kind.connect) {
         const nearest = nearestNodeOnPlan(st.nodes, node);
         if (nearest) links.push({ nodeId: id, nearestId: nearest.id });
       }
@@ -516,6 +523,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       for (const alias of aliases) s.aliases.set(alias.id, [...alias.names]);
       for (const { id, category } of categories) s.aliasCategories.set(id, category);
       s.selectedNodeIds = new Set([created[0].id]);
+      // Линия продолжится от этой точки, пока вид ведущий.
+      s.chainLastNodeId = kind.chain ? created[0].id : null;
     });
 
     const after = get();

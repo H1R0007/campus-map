@@ -27,6 +27,11 @@ export interface ToolSlice {
    * ссылка на исчезнувший вид просто перестаёт быть выбранной.
    */
   activeKindId: string;
+  /**
+   * Последняя точка начатой линии: следующая точка ведущего вида
+   * соединится с ней. `null` — линия не начата.
+   */
+  chainLastNodeId: string | null;
   transitionType: TransitionType;
   edgeStartNodeId: string | null;
   transitionStartNodeId: string | null;
@@ -34,6 +39,8 @@ export interface ToolSlice {
 
   setActiveTool: (tool: EditorTool) => void;
   setActiveKind: (kindId: string) => void;
+  /** Закончить начатую линию: следующая точка начнёт новую. */
+  endChain: () => void;
   setTransitionType: (type: TransitionType) => void;
   setEdgeStartNode: (nodeId: string | null) => void;
   setTransitionStartNode: (nodeId: string | null) => void;
@@ -48,6 +55,7 @@ export interface ToolSlice {
 export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
   activeTool: 'select',
   activeKindId: 'room',
+  chainLastNodeId: null,
   transitionType: 'entrance',
   edgeStartNodeId: null,
   transitionStartNodeId: null,
@@ -62,6 +70,14 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
   setActiveKind: (kindId) =>
     set((s) => {
       s.activeKindId = kindId;
+      // Смена вида заканчивает начатую линию: коридор не должен цепляться к
+      // двери, поставленной другой кистью.
+      s.chainLastNodeId = null;
+    }),
+
+  endChain: () =>
+    set((s) => {
+      s.chainLastNodeId = null;
     }),
 
   setActiveTool: (tool) =>
@@ -69,6 +85,7 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
       state.activeTool = tool;
       state.edgeStartNodeId = null;
       state.transitionStartNodeId = null;
+      state.chainLastNodeId = null;
       if (tool !== 'line') {
         state.lineTool.start = null;
         state.lineTool.end = null;

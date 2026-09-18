@@ -213,6 +213,7 @@ export function datasetFiles(dataset: Dataset): Map<string, string> {
               transition: kind.transition,
               stack: kind.stack,
               connect: kind.connect,
+              chain: kind.chain,
               category: kind.category,
             }) satisfies EveryField<PlaceKind>
         ),

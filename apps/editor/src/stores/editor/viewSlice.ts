@@ -100,6 +100,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       // корпусе. Прежде смена плана сбрасывала начало, и лестницу между
       // этажами нельзя было создать щелчками вовсе.
       state.edgeStartNodeId = null;
+      state.chainLastNodeId = null;
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;
@@ -112,6 +113,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       state.currentFloor = floor;
       state.selectedNodeIds = new Set();
       state.edgeStartNodeId = null;
+      state.chainLastNodeId = null;
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;

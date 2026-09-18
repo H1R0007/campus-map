@@ -5,7 +5,8 @@
       "name": "Коридор",
       "icon": "dot",
       "color": "muted",
-      "connect": true
+      "connect": true,
+      "chain": true
     },
     {
       "id": "room",

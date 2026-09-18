@@ -149,6 +149,45 @@ export default {
       assert.equal(await edits(), editsBefore, 'одна отмена должна убрать всю стопку');
     });
 
+    await step('кисть «Коридор» ведёт линию: каждая точка связана с предыдущей', async () => {
+      await e.key('1', { code: 'Digit1' });
+      assert.equal(await activeKind(), 'Коридор');
+
+      const before = await e.nodeIds();
+      const start = await e.emptyMapPoint(150);
+      const step = 60;
+      await e.click(start.x, start.y);
+      await e.click(start.x + step, start.y);
+
+      // Третья точка ставится вплотную к чужой точке плана: линия обязана
+      // продолжиться от предыдущей точки, а не прилипнуть к соседней.
+      const neighbour = await e.nodePoint('a1_corridor_3');
+      await e.click(neighbour.x + 18, neighbour.y + 18);
+
+      const added = (await e.nodeIds()).filter((id) => !before.includes(id));
+      assert.equal(added.length, 3, 'поставлены не все точки линии');
+
+      const links = await page.eval(`[...document.querySelectorAll('path[data-edge]')].map((p) => p.dataset.edge)`);
+      const between = (a, b) => links.some((key) => key.includes(a) && key.includes(b));
+      assert.ok(between(added[0], added[1]), 'вторая точка не связана с первой');
+      assert.ok(between(added[1], added[2]), 'третья точка не продолжила линию');
+      assert.ok(!between(added[2], 'a1_corridor_3'), 'третья точка прилипла к чужой точке вместо линии');
+
+      // Пока линия ведётся, строка над картой так и говорит.
+      assert.match(await e.toolbar(), /Ведём линию/, 'редактор не показывает, что линия ведётся');
+
+      // Enter заканчивает линию: следующая точка начинает новую.
+      await e.key('Enter', { keyCode: 13 });
+      assert.doesNotMatch(await e.toolbar(), /Ведём линию/, 'Enter не закончил линию');
+      await e.click(start.x + 3 * step, start.y - 60);
+      const afterEnter = (await e.nodeIds()).filter((id) => !before.includes(id) && !added.includes(id));
+      assert.equal(afterEnter.length, 1);
+
+      await shot('editor-kinds-chain');
+      for (let i = 0; i < 4; i++) await e.key('z', { modifiers: MOD.ctrl });
+      assert.deepEqual(await e.nodeIds(), before, 'отмена не убрала линию по точке за раз');
+    });
+
     await step('отмена возвращает каталог видов как было', async () => {
       await e.key('z', { modifiers: MOD.ctrl });
       const kinds = await palette();

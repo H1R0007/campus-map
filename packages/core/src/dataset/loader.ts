@@ -797,6 +797,7 @@ function normalizePlaceKind(raw: Raw, warnings: string[]): PlaceKind | null {
   if (raw.isPortal === true) kind.isPortal = true;
   if (raw.stack === true) kind.stack = true;
   if (raw.connect === true) kind.connect = true;
+  if (raw.chain === true) kind.chain = true;
 
   const transition = asOptionalString(raw.transition);
   if (transition !== undefined) {

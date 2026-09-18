@@ -130,17 +130,20 @@ const SelectOptions: React.FC = () => {
 const NodeOptions: React.FC = () => {
   const placeKinds = useEditorStore((s) => s.placeKinds);
   const activeKindId = useEditorStore((s) => s.activeKindId);
+  const chainLastNodeId = useEditorStore((s) => s.chainLastNodeId);
   const kind = visibleKinds(placeKinds).find((item) => item.id === activeKindId);
+
+  const hint = !kind
+    ? 'Щелчок по карте ставит точку. Выберите вид точки.'
+    : kind.chain
+      ? chainLastNodeId
+        ? `Ведём линию «${kind.name}»: каждый щелчок — точка и связь с предыдущей. Enter или Esc — закончить.`
+        : `Щелчки ведут линию «${kind.name}»: каждая точка соединяется с предыдущей. Вид меняется цифрой.`
+      : `Щелчок по карте ставит точку вида «${kind.name}». Вид меняется цифрой.`;
 
   return (
     <>
-      <Hint
-        text={
-          kind
-            ? `Щелчок по карте ставит точку вида «${kind.name}». Вид меняется цифрой.`
-            : 'Щелчок по карте ставит точку. Выберите вид точки.'
-        }
-      />
+      <Hint text={hint} />
       <KindPalette />
     </>
   );
