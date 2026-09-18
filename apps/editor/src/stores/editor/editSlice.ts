@@ -1,10 +1,10 @@
 import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '@campus-map/core';
-import type { MapNode, TransitionType } from '@campus-map/core';
+import type { MapNode, PlaceCategory, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import type { NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
-import { TRANSITION_LABELS, nodesCount } from '../../utils/labels';
+import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount } from '../../utils/labels';
 import { snapshotNeighbors } from './graphState';
 import type { EditorSlice } from './types';
 
@@ -58,6 +58,8 @@ export interface EditSlice {
   removeTransition: (fromId: string, toId: string) => void;
   updateTransitionType: (fromId: string, toId: string, type: TransitionType) => void;
   setNodeAliases: (nodeId: string, names: string[]) => void;
+  /** Вид места: туалет, еда, гардероб, выход — или ничего. */
+  setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
   setNodeComment: (nodeId: string, comment: string) => void;
 
   splitEdge: (fromId: string, toId: string) => string | null;
@@ -397,6 +399,32 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // Пустой список — отсутствие записи, как после отмены и повтора.
       if (next.length > 0) s.aliases.set(nodeId, next);
       else s.aliases.delete(nodeId);
+    });
+  },
+
+  /**
+   * Вид места — то, по чему навигатор показывает быстрые кнопки «ближайший
+   * туалет», «где поесть» и значок на карточке места.
+   *
+   * Хранится в записи названий (`aliases.json`), и ядро признаёт вид только у
+   * места с названием. Редактор до сих пор умел лишь сохранять то, что
+   * вписано в файл руками: размеченный в редакторе туалет быстрая кнопка
+   * навигатора не находила.
+   */
+  setNodeCategory: (nodeId, category) => {
+    const previous = get().aliasCategories.get(nodeId) ?? null;
+    if (previous === category) return;
+
+    useHistoryStore.getState().push({
+      type: 'SET_CATEGORY',
+      description: category === null ? 'Снят вид места' : `Вид места: ${PLACE_CATEGORY_LABELS[category].toLowerCase()}`,
+      undoData: { nodeId, category: previous },
+      redoData: { nodeId, category },
+    });
+
+    set((s) => {
+      if (category === null) s.aliasCategories.delete(nodeId);
+      else s.aliasCategories.set(nodeId, category);
     });
   },
 

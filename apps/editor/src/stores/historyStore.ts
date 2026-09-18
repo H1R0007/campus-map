@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MapNode, Transition } from '@campus-map/core';
+import type { MapNode, PlaceCategory, Transition } from '@campus-map/core';
 
 /**
  * Контракт истории действий редактора и сам стек отмены.
@@ -93,6 +93,7 @@ export type ActionType =
   | 'REMOVE_TRANSITION'
   | 'UPDATE_TRANSITION'
   | 'SET_ALIASES'
+  | 'SET_CATEGORY'
   | 'BATCH';
 
 /**
@@ -176,6 +177,13 @@ export type HistoryEntry =
       timestamp: number;
       undoData: { nodeId: string; names: string[] };
       redoData: { nodeId: string; names: string[] };
+    }
+  | {
+      type: 'SET_CATEGORY';
+      description: string;
+      timestamp: number;
+      undoData: { nodeId: string; category: PlaceCategory | null };
+      redoData: { nodeId: string; category: PlaceCategory | null };
     }
   | {
       type: 'BATCH';

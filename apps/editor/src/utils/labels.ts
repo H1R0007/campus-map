@@ -1,5 +1,5 @@
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
-import type { BuildingMeta, MapNode, TransitionType } from '@campus-map/core';
+import type { BuildingMeta, MapNode, PlaceCategory, TransitionType } from '@campus-map/core';
 
 /**
  * Подписи редактора для типов переходов.
@@ -13,6 +13,17 @@ export const TRANSITION_LABELS: Record<TransitionType, string> = {
   stairs: 'Лестница',
   lift: 'Лифт',
   bridge: 'Переход между корпусами',
+};
+
+/**
+ * Виды мест, по которым навигатор показывает быстрые кнопки «ближайший
+ * туалет» и «где поесть». Набор задан ядром (`PLACE_CATEGORIES`).
+ */
+export const PLACE_CATEGORY_LABELS: Record<PlaceCategory, string> = {
+  toilet: 'Туалет',
+  food: 'Еда',
+  cloakroom: 'Гардероб',
+  exit: 'Выход',
 };
 
 /** Где лежит узел, словами: «Корпус А, этаж 2» или «Территория». */

@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CAMPUS_BUILDING_ID, TRANSITION_TYPES, distance } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, PLACE_CATEGORIES, TRANSITION_TYPES, distance } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
 import { PlanOverview } from './PlanOverview';
-import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
+import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 
 /** Сколько ближайших узлов предлагать для быстрого соединения. */
 const CONNECT_CANDIDATES = 6;
@@ -98,8 +98,10 @@ const NodeCard: React.FC<{ nodeId: string; onClose: () => void }> = ({ nodeId, o
 
       <section className="editor-card__section" aria-labelledby="card-kind">
         <h3 id="card-kind" className="editor-card__heading">
-          Вид точки
+          Вид места
         </h3>
+        <PlaceKind nodeId={nodeId} named={aliases.length > 0} />
+
         <label className="editor-check">
           <input
             type="checkbox"
@@ -137,6 +139,50 @@ const NodeCard: React.FC<{ nodeId: string; onClose: () => void }> = ({ nodeId, o
 };
 
 /** Названия узла: первое — главное, остальные — как ещё ищут это место. */
+/**
+ * Вид места: туалет, еда, гардероб, выход.
+ *
+ * По нему навигатор показывает быстрые кнопки «ближайший туалет» и «где
+ * поесть» и значок на карточке места. Ядро признаёт вид только у места с
+ * названием, поэтому у безымянной точки вместо кнопок — объяснение.
+ */
+const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named }) => {
+  const category = useEditorStore((s) => s.aliasCategories.get(nodeId) ?? null);
+  const setNodeCategory = useEditorStore((s) => s.setNodeCategory);
+
+  if (!named) {
+    return (
+      <p className="editor-section__hint">
+        Вид ставится у места с названием: по нему навигатор ведёт «к ближайшему туалету» и показывает значок.
+      </p>
+    );
+  }
+
+  return (
+    <div className="editor-card__actions" role="group" aria-label="Вид места">
+      {PLACE_CATEGORIES.map((kind) => (
+        <button
+          key={kind}
+          type="button"
+          className="editor-chip"
+          aria-pressed={category === kind}
+          onClick={() => setNodeCategory(nodeId, category === kind ? null : kind)}
+        >
+          {PLACE_CATEGORY_LABELS[kind]}
+        </button>
+      ))}
+      <button
+        type="button"
+        className="editor-chip"
+        aria-pressed={category === null}
+        onClick={() => setNodeCategory(nodeId, null)}
+      >
+        Обычное место
+      </button>
+    </div>
+  );
+};
+
 const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId, aliases }) => {
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
   const nameEditNodeId = useEditorStore((s) => s.nameEditNodeId);

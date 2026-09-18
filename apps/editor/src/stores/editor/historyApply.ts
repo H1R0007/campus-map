@@ -1,5 +1,5 @@
 import type { Draft } from 'immer';
-import type { Transition } from '@campus-map/core';
+import type { PlaceCategory, Transition } from '@campus-map/core';
 import type { HistoryEntry } from '../historyStore';
 import { applyNeighborsSnapshot } from './graphState';
 import type { EditorStore } from './types';
@@ -33,6 +33,7 @@ export function entryNodes(entry: HistoryEntry): string[] {
     case 'MOVE_NODE':
     case 'UPDATE_NODE':
     case 'SET_ALIASES':
+    case 'SET_CATEGORY':
       return [entry.undoData.nodeId];
     case 'ADD_EDGE':
     case 'REMOVE_EDGE':
@@ -70,6 +71,12 @@ export function entryNodes(entry: HistoryEntry): string[] {
  */
 
 type State = Draft<EditorStore>;
+
+/** Ставит или снимает вид места; пустой вид — отсутствие записи. */
+function applyCategory(s: State, nodeId: string, category: PlaceCategory | null): void {
+  if (category === null) s.aliasCategories.delete(nodeId);
+  else s.aliasCategories.set(nodeId, category);
+}
 
 export function applyUndo(s: State, entry: HistoryEntry): void {
   switch (entry.type) {
@@ -120,6 +127,10 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
       const { nodeId, names } = entry.undoData;
       if (names.length > 0) s.aliases.set(nodeId, [...names]);
       else s.aliases.delete(nodeId);
+      break;
+    }
+    case 'SET_CATEGORY': {
+      applyCategory(s, entry.undoData.nodeId, entry.undoData.category);
       break;
     }
     case 'BATCH': {
@@ -248,6 +259,10 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
     case 'REMOVE_TRANSITION':
     case 'UPDATE_TRANSITION': {
       s.transitions = [...entry.redoData.transitions];
+      break;
+    }
+    case 'SET_CATEGORY': {
+      applyCategory(s, entry.redoData.nodeId, entry.redoData.category);
       break;
     }
     case 'SET_ALIASES': {
