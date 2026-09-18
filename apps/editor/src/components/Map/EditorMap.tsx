@@ -145,6 +145,15 @@ const KeyboardHandler: React.FC = () => {
         return;
       }
 
+      // Сохранение — отовсюду, в том числе из поля названия: у Ctrl+S в поле
+      // ввода своего смысла нет, а курсор уводить ради сохранения незачем.
+      if (ctrl && code === 'KeyS') {
+        e.preventDefault();
+        e.stopPropagation();
+        st.requestSave();
+        return;
+      }
+
       if (isInput) return;
 
       if (ctrl) {
@@ -177,11 +186,6 @@ const KeyboardHandler: React.FC = () => {
             e.preventDefault();
             e.stopPropagation();
             st.paste();
-            return;
-          case 'KeyS':
-            e.preventDefault();
-            e.stopPropagation();
-            st.requestSave();
             return;
           default:
             // Остальные сочетания с Ctrl принадлежат браузеру.
@@ -317,7 +321,9 @@ const MapEventHandler: React.FC = () => {
       const { lng: x, lat: y } = e.latlng;
 
       if (st.activeTool === 'node') {
-        st.addNode(x, y);
+        // Щелчок ставит точку выбранного вида: вид сам даёт название, цепляет
+        // к ближайшей точке и, если нужно, повторяет себя на всех этажах.
+        st.placeKindNode(x, y);
         return;
       }
 

@@ -34,7 +34,8 @@ export default {
       await e.click(empty.x, empty.y);
       assert.equal((await e.nodeIds()).length, before + 1, 'узел не поставлен');
       const undoLabel = await page.eval(`document.querySelector('button[aria-label^="Отменить"]')?.getAttribute('aria-label')`);
-      assert.equal(undoLabel, 'Отменить: Добавлен узел', 'кнопка отмены не называет действие');
+      // Инструмент «Узел» ставит точку выбранного вида: по умолчанию «Помещение».
+      assert.equal(undoLabel, 'Отменить: Помещение', 'кнопка отмены не называет действие');
 
       await ru('я', 'KeyZ', MOD.ctrl);
       assert.equal((await e.nodeIds()).length, before, 'Ctrl+Z в русской раскладке не отменил');

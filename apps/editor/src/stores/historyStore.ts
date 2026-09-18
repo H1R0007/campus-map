@@ -64,6 +64,13 @@ export type BatchUndoPayload =
       fromId: string;
       toId: string;
       neighborsBefore: NeighborSnapshot;
+    }
+  | {
+      /** Точка (или стопка точек), поставленная кистью вида. */
+      kind: 'placeKind';
+      nodeIds: string[];
+      neighborsBefore: NeighborSnapshot;
+      transitionsBefore: Transition[];
     };
 
 /** Нагрузки повтора для составных действий. */
@@ -79,7 +86,16 @@ export type BatchRedoPayload =
       fixedTransitions: Transition[];
       fixedCoordinates: Record<string, { x: number; y: number }>;
     }
-  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string };
+  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string }
+  | {
+      kind: 'placeKind';
+      nodes: MapNode[];
+      neighbors: NeighborSnapshot;
+      transitions: Transition[];
+      /** Названия и виды мест, которые подставил вид точки. */
+      aliases: AliasSnapshot[];
+      categories: { id: string; category: PlaceCategory }[];
+    };
 
 /** Тип действия, по которому ветвится применение отмены и повтора. */
 export type ActionType =

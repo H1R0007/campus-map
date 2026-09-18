@@ -60,10 +60,16 @@ export interface PanelSlice {
   /** Открыто окно со всеми видами точек. */
   kindsOpen: boolean;
   /**
-   * Узел, которому просили сразу ввести название (двойной щелчок по узлу).
-   * Карточка узла ставит курсор в поле названия и сбрасывает просьбу.
+   * Узел, которому просили сразу ввести название (двойной щелчок по узлу или
+   * точка, поставленная кистью). Карточка узла ставит курсор в поле названия
+   * и сбрасывает просьбу.
    */
   nameEditNodeId: string | null;
+  /**
+   * Начало названия, которое уже подставил вид точки («А-3»): человеку
+   * остаётся дописать номер.
+   */
+  nameEditDraft: string;
   contextMenu: ContextMenuState;
   notice: EditorNotice | null;
   searchHistory: string[];
@@ -79,8 +85,11 @@ export interface PanelSlice {
   setSearchOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
   setKindsOpen: (open: boolean) => void;
-  /** Выбрать узел, открыть его карточку и поставить курсор в название. */
-  editNodeName: (nodeId: string) => void;
+  /**
+   * Выбрать узел, открыть его карточку и поставить курсор в название.
+   * `draft` — начало названия из шаблона вида точки.
+   */
+  editNodeName: (nodeId: string, draft?: string) => void;
   clearNameEdit: () => void;
 
   openContextMenu: (x: number, y: number, target: ContextMenuTarget) => void;
@@ -102,6 +111,7 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   helpOpen: false,
   kindsOpen: false,
   nameEditNodeId: null,
+  nameEditDraft: '',
 
   contextMenu: {
     open: false,
@@ -149,17 +159,19 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
       s.kindsOpen = open;
     }),
 
-  editNodeName: (nodeId) => {
+  editNodeName: (nodeId, draft = '') => {
     get().selectSingleNode(nodeId);
     get().setInspectorTab('properties');
     set((s) => {
       s.nameEditNodeId = nodeId;
+      s.nameEditDraft = draft;
     });
   },
 
   clearNameEdit: () =>
     set((s) => {
       s.nameEditNodeId = null;
+      s.nameEditDraft = '';
     }),
 
   openContextMenu: (x, y, target) =>

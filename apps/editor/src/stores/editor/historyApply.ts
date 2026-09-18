@@ -48,6 +48,7 @@ export function entryNodes(entry: HistoryEntry): string[] {
     case 'BATCH':
       switch (entry.undoData.kind) {
         case 'line':
+        case 'placeKind':
           return entry.undoData.nodeIds;
         case 'deleteMultiple':
           return entry.undoData.nodes.map((node) => node.id);
@@ -198,6 +199,20 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
           }
           break;
         }
+        case 'placeKind': {
+          for (const [, node] of s.nodes) {
+            node.neighbors = node.neighbors.filter((id) => !u.nodeIds.includes(id));
+          }
+          for (const id of u.nodeIds) {
+            s.nodes.delete(id);
+            s.aliases.delete(id);
+            s.aliasCategories.delete(id);
+          }
+          applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
+          s.transitions = [...u.transitionsBefore];
+          s.selectedNodeIds = new Set();
+          break;
+        }
         case 'splitEdge': {
           s.nodes.delete(u.newNodeId);
           applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
@@ -346,6 +361,16 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
             }
           }
           s.transitions = [...r.fixedTransitions];
+          break;
+        }
+        case 'placeKind': {
+          for (const node of r.nodes) {
+            s.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
+          }
+          applyNeighborsSnapshot(s.nodes, r.neighbors);
+          s.transitions = [...r.transitions];
+          for (const alias of r.aliases) s.aliases.set(alias.id, [...alias.names]);
+          for (const { id, category } of r.categories) s.aliasCategories.set(id, category);
           break;
         }
         case 'splitEdge': {

@@ -186,6 +186,7 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
 const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId, aliases }) => {
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
   const nameEditNodeId = useEditorStore((s) => s.nameEditNodeId);
+  const nameEditDraft = useEditorStore((s) => s.nameEditDraft);
   const clearNameEdit = useEditorStore((s) => s.clearNameEdit);
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -193,6 +194,8 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
   const [newName, setNewName] = useState('');
   const editRef = useRef<HTMLInputElement>(null);
   const newRef = useRef<HTMLInputElement>(null);
+  /** Что подставил вид точки: пока в поле ровно это, набирать ещё нечего. */
+  const draftRef = useRef('');
 
   useEffect(() => {
     if (editingIndex !== null) {
@@ -210,7 +213,12 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
       setEditingIndex(0);
       setEditingValue(aliases[0]);
     } else {
+      // Начало названия из шаблона вида уже подставлено: курсор в конец,
+      // человеку остаётся дописать номер.
+      draftRef.current = nameEditDraft;
+      if (nameEditDraft.length > 0) setNewName(nameEditDraft);
       newRef.current?.focus();
+      window.setTimeout(() => newRef.current?.setSelectionRange(nameEditDraft.length, nameEditDraft.length), 0);
     }
     // Реагируем только на просьбу, а не на каждую правку названий.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,6 +303,16 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') addName();
+            // Курсор оказался здесь сразу после того, как точку поставили
+            // кистью. Пока ничего не набрано, Ctrl+Z означает «убрать
+            // поставленное», а не «отменить набор» — набирать ещё нечего.
+            // Клавиша читается по физической (`code`): в русской раскладке
+            // Ctrl+Z приходит как «я».
+            if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && newName === draftRef.current) {
+              e.preventDefault();
+              e.currentTarget.blur();
+              useEditorStore.getState().undo();
+            }
           }}
           placeholder={aliases.length === 0 ? 'Например: А-101' : 'Ещё одно название'}
           aria-label="Новое название"
