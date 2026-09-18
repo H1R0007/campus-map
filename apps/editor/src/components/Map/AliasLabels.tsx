@@ -77,9 +77,12 @@ export const AliasLabels: React.FC = () => {
   }, [showAliasLabels, allNodes, currentBuilding, currentFloor, showPortals, aliases]);
 
   // Расстояния считаются по узлам, которые перестали двигаться: обход O(n²)
-  // на каждом кадре перетаскивания стоил бы кадра.
+  // на каждом кадре перетаскивания стоил бы кадра. Пока «затихшего» списка
+  // ещё нет (подписи только что включили), считаем по нынешнему: иначе
+  // подписи на миг появлялись бы там, где им тесно, и тут же гасли.
   const quietNamed = useQuiet(named, QUIET_MS);
-  const spacing = useMemo(() => medianSpacing(quietNamed.map((item) => item.node)), [quietNamed]);
+  const source = quietNamed.length === 0 ? named : quietNamed;
+  const spacing = useMemo(() => medianSpacing(source.map((item) => item.node)), [source]);
 
   const labelled = spacing * scale < MIN_LABEL_GAP ? [] : named;
 
