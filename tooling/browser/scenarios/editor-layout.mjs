@@ -105,6 +105,40 @@ export default {
       await page.sleep(400);
     });
 
+    await step('названия узлов на карте появляются, только когда не слипаются', async () => {
+      const labels = () => page.eval(`document.querySelectorAll('.alias-label').length`);
+      // Подписи появляются не в тот же миг: Leaflet доигрывает приближение, и
+      // только по его окончании слой подписей узнаёт новый масштаб.
+      const zoom = async (direction) => {
+        await page.eval(`document.querySelector('.leaflet-control-zoom-${direction}').click()`);
+        await page.sleep(800);
+      };
+
+      await e.toggleFilter('Названия узлов');
+      assert.ok((await labels()) > 0, 'подписи не появились на открытом плане');
+
+      // Дальше «плана целиком» карта не отдаляется, поэтому окно поуже: так
+      // у плана появляется запас для отдаления, как на маленьком экране.
+      await page.viewport(900, 640, 1);
+      await page.sleep(400);
+      const counts = [];
+      for (let i = 0; i < 5 && (await labels()) > 0; i++) {
+        await zoom('out');
+        counts.push(await labels());
+      }
+      assert.equal(await labels(), 0, `на отдалённом плане подписи слиплись бы в полосу: ${JSON.stringify(counts)}`);
+
+      const back = [];
+      for (let i = 0; i < 5 && (await labels()) === 0; i++) {
+        await zoom('in');
+        back.push(await labels());
+      }
+      assert.ok((await labels()) > 0, `подписи не вернулись при приближении: ${JSON.stringify({ counts, back })}`);
+      await e.toggleFilter('Названия узлов');
+      await page.viewport(1600, 900, 1);
+      await page.sleep(400);
+    });
+
     await step('свёрнутые колонки отдают место карте, и план подгоняется по новому месту', async () => {
       const before = await e.rect('.leaflet-container');
       await e.press('Свернуть структуру');

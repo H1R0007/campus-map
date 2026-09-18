@@ -1,6 +1,7 @@
-import { useDeferredValue, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { BuildingMeta, MapNode, Transition } from '@campus-map/core';
 import { useEditorStore } from '../stores/editorStore';
+import { useQuiet } from './useQuiet';
 import { validateDataset } from '../utils/validateData';
 import type { ValidationResult } from '../utils/validateData';
 
@@ -29,16 +30,16 @@ function validateOnce(
   return report;
 }
 
+/** Сколько ждать тишины в правках, прежде чем проверять данные, мс. */
+const QUIET_MS = 500;
+
 /**
- * Отчёт проверки данных, который обновляется вслед за правками.
- *
- * Данные берутся отложенно (`useDeferredValue`): перетаскивание узла меняет их
- * каждый кадр, и проверка всего датасета на каждом кадре отнимала бы время у
- * самой карты. Отчёт догоняет правку, как только браузер свободен.
+ * Отчёт проверки данных, который обновляется вслед за правками — с паузой,
+ * чтобы не отнимать кадры у карты во время перетаскивания.
  */
 export function useValidationReport(): ValidationResult {
-  const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
-  const transitions = useDeferredValue(useEditorStore((s) => s.transitions));
+  const nodes = useQuiet(useEditorStore((s) => s.nodes), QUIET_MS);
+  const transitions = useQuiet(useEditorStore((s) => s.transitions), QUIET_MS);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   return useMemo(() => validateOnce(nodes, transitions, buildingMetas), [nodes, transitions, buildingMetas]);
 }

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { floorNodesOf } from '../../stores/editor/dataSlice';
 
 /**
  * Что показывать на карте: подписи, точки переходов, связи, подсветка
@@ -14,9 +15,21 @@ export const DisplayOptions: React.FC = () => {
   const gridSettings = useEditorStore((s) => s.gridSettings);
   const setGridSettings = useEditorStore((s) => s.setGridSettings);
 
-  const orphanCount = useEditorStore((s) => s.getOrphanNodes().length);
-  const noAliasCount = useEditorStore((s) => s.getNodesWithoutAlias().length);
-  const errorCount = useEditorStore((s) => s.getNodesWithErrors().length);
+  // Счётчики считаются от самих данных и догоняют перетаскивание: через
+  // стор это были три обхода плана на каждое движение мыши.
+  const allNodes = useDeferredValue(useEditorStore((s) => s.nodes));
+  const aliases = useDeferredValue(useEditorStore((s) => s.aliases));
+  const currentBuilding = useEditorStore((s) => s.currentBuilding);
+  const currentFloor = useEditorStore((s) => s.currentFloor);
+
+  const { orphanCount, noAliasCount, errorCount } = useMemo(() => {
+    const planNodes = floorNodesOf(allNodes, currentBuilding, currentFloor, displayFilters.showPortals);
+    return {
+      orphanCount: planNodes.filter((n) => n.neighbors.length === 0).length,
+      noAliasCount: planNodes.filter((n) => (aliases.get(n.id)?.length ?? 0) === 0).length,
+      errorCount: planNodes.filter((n) => n.neighbors.some((id) => !allNodes.has(id))).length,
+    };
+  }, [allNodes, aliases, currentBuilding, currentFloor, displayFilters.showPortals]);
 
   return (
     <>
@@ -26,6 +39,7 @@ export const DisplayOptions: React.FC = () => {
         </h2>
         <Check
           label="Названия узлов"
+          hint="видны, когда план приближен"
           checked={displayFilters.showAliasLabels}
           onChange={(v) => setDisplayFilters({ showAliasLabels: v })}
         />

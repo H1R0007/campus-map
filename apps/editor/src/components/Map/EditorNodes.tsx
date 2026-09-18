@@ -370,52 +370,18 @@ export const EditorNodes: React.FC = () => {
         const weight = isSelected || isHovered || isEdgeStart || isTransitionStart ? 3 : 2;
 
         return (
-          <React.Fragment key={node.id}>
-            {extraStroke && (
-              <CircleMarker
-                center={[node.y, node.x]}
-                radius={radius + 4}
-                interactive={false}
-                pathOptions={{
-                  color: extraStroke,
-                  fillColor: 'transparent',
-                  fillOpacity: 0,
-                  weight: 2,
-                  dashArray: '4 4',
-                }}
-              />
-            )}
-
-            <CircleMarker
-              center={[node.y, node.x]}
-              radius={radius}
-              bubblingMouseEvents={false}
-              pathOptions={{
-                fillColor,
-                color: strokeColor,
-                fillOpacity: 0.9,
-                weight,
-                className: 'editor-node',
-              }}
-              eventHandlers={{
-                // Метка для сценариев в браузере и отладки: какой узел под этим кружком.
-                add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-node-id', node.id),
-                mousedown: (e) => onNodeMouseDown(node, e),
-                // Щелчок по узлу — узлу. Leaflet отдаёт событие слою, только если
-                // слой на него подписан, а иначе — карте, и та сняла бы выбор,
-                // только что поставленный нажатием.
-                click: (e) => L.DomEvent.stopPropagation(e),
-                // Двойной щелчок — сразу к названию узла в карточке.
-                dblclick: (e) => {
-                  L.DomEvent.stopPropagation(e);
-                  if (useEditorStore.getState().activeTool === 'select') useEditorStore.getState().editNodeName(node.id);
-                },
-                mouseover: () => setHoveredNode(node.id),
-                mouseout: () => setHoveredNode(null),
-                contextmenu: (e) => onNodeContextMenu(node, e),
-              }}
-            />
-          </React.Fragment>
+          <NodeMarker
+            key={node.id}
+            node={node}
+            fill={fillColor}
+            stroke={strokeColor}
+            radius={radius}
+            weight={weight}
+            problemStroke={extraStroke}
+            onMouseDown={onNodeMouseDown}
+            onContextMenu={onNodeContextMenu}
+            onHover={setHoveredNode}
+          />
         );
       })}
 
@@ -438,3 +404,76 @@ export const EditorNodes: React.FC = () => {
     </>
   );
 };
+
+interface NodeMarkerProps {
+  node: MapNode;
+  fill: string;
+  stroke: string;
+  radius: number;
+  weight: number;
+  /** Пунктирная обводка подсветки проблем или `null`. */
+  problemStroke: string | null;
+  onMouseDown: (node: MapNode, e: L.LeafletMouseEvent) => void;
+  onContextMenu: (node: MapNode, e: L.LeafletMouseEvent) => void;
+  onHover: (nodeId: string | null) => void;
+}
+
+/**
+ * Один узел на карте.
+ *
+ * Вынесен и запоминается (`React.memo`): на этаже бывает больше двухсот узлов,
+ * а наведение мыши и перетаскивание меняют вид одного-двух. Раньше каждое
+ * движение мыши перебирало и обновляло все узлы этажа — наведение занимало
+ * около 33 мс, шаг перетаскивания около 48 мс, и работа шла рывками.
+ */
+const NodeMarker = React.memo(function NodeMarker({
+  node,
+  fill,
+  stroke,
+  radius,
+  weight,
+  problemStroke,
+  onMouseDown,
+  onContextMenu,
+  onHover,
+}: NodeMarkerProps) {
+  const center = useMemo((): [number, number] => [node.y, node.x], [node.y, node.x]);
+
+  const handlers = useMemo(
+    () => ({
+      // Метка для сценариев в браузере и отладки: какой узел под этим кружком.
+      add: (e: L.LeafletEvent) => (e.target as L.Path).getElement()?.setAttribute('data-node-id', node.id),
+      mousedown: (e: L.LeafletMouseEvent) => onMouseDown(node, e),
+      // Щелчок по узлу — узлу. Leaflet отдаёт событие слою, только если слой на
+      // него подписан, а иначе — карте, и та сняла бы выбор, только что
+      // поставленный нажатием.
+      click: (e: L.LeafletMouseEvent) => L.DomEvent.stopPropagation(e),
+      // Двойной щелчок — сразу к названию узла в карточке.
+      dblclick: (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        if (useEditorStore.getState().activeTool === 'select') useEditorStore.getState().editNodeName(node.id);
+      },
+      mouseover: () => onHover(node.id),
+      mouseout: () => onHover(null),
+      contextmenu: (e: L.LeafletMouseEvent) => onContextMenu(node, e),
+    }),
+    [node, onMouseDown, onContextMenu, onHover]
+  );
+
+  const pathOptions = useMemo(
+    () => ({ fillColor: fill, color: stroke, fillOpacity: 0.9, weight, className: 'editor-node' }),
+    [fill, stroke, weight]
+  );
+
+  const problemOptions = useMemo(
+    () => ({ color: problemStroke ?? '', fillColor: 'transparent', fillOpacity: 0, weight: 2, dashArray: '4 4' }),
+    [problemStroke]
+  );
+
+  return (
+    <>
+      {problemStroke && <CircleMarker center={center} radius={radius + 4} interactive={false} pathOptions={problemOptions} />}
+      <CircleMarker center={center} radius={radius} bubblingMouseEvents={false} pathOptions={pathOptions} eventHandlers={handlers} />
+    </>
+  );
+});

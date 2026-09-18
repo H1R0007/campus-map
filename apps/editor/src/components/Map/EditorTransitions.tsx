@@ -19,7 +19,7 @@ const NO_TRANSITIONS: FloorTransitions = { lines: [], markers: [] };
  * внутри контейнера карты, и событие, отданное дальше, карта приняла бы за
  * нажатие на пустое место (снятие выбора, меню карты).
  */
-const TargetRow: React.FC<{ target: TransitionTarget; hereId: string }> = ({ target, hereId }) => {
+const TargetRow = React.memo(function TargetRow({ target, hereId }: { target: TransitionTarget; hereId: string }) {
   const ref = useRef<HTMLButtonElement>(null);
   const { transition, label } = target;
   const otherId = transition.fromNode === hereId ? transition.toNode : transition.fromNode;
@@ -70,7 +70,7 @@ const TargetRow: React.FC<{ target: TransitionTarget; hereId: string }> = ({ tar
       {label}
     </button>
   );
-};
+});
 
 /**
  * Переходы на текущем плане.
@@ -108,63 +108,127 @@ export const EditorTransitions: React.FC = () => {
         if (!from || !to) return null;
 
         const key = edgeKey(t.fromNode, t.toNode);
-        const isHovered = hoveredKey === key;
-        const color = TRANSITION_COLORS[t.type];
+        const hovered = hoveredKey === key;
 
         return (
-          <Polyline
-            key={`transition-${key}-${t.type}`}
-            positions={[
-              [from.y, from.x],
-              [to.y, to.x],
-            ]}
-            pathOptions={{
-              color: isHovered ? palette.lineHover : color,
-              weight: isHovered ? 6 : 4,
-              opacity: isHovered ? 1 : 0.85,
-              dashArray: '8 8',
-              className: 'editor-transition',
-            }}
-            eventHandlers={{
-              add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-transition', key),
-              mouseover: () => setHoveredTransition({ from: t.fromNode, to: t.toNode }),
-              mouseout: () => setHoveredTransition(null),
-              click: (e) => L.DomEvent.stopPropagation(e),
-              contextmenu: (e) => {
-                L.DomEvent.stopPropagation(e);
-                const dom = e.originalEvent;
-                dom.preventDefault();
-                useEditorStore
-                  .getState()
-                  .openContextMenu(dom.clientX, dom.clientY, { kind: 'transition', from: t.fromNode, to: t.toNode });
-              },
-            }}
+          <TransitionLine
+            key={`${key}-${t.type}`}
+            transitionKey={key}
+            fromId={t.fromNode}
+            toId={t.toNode}
+            ax={from.x}
+            ay={from.y}
+            bx={to.x}
+            by={to.y}
+            hovered={hovered}
+            color={hovered ? palette.lineHover : TRANSITION_COLORS[t.type]}
+            onHover={setHoveredTransition}
           />
         );
       })}
 
       {markers.map(({ node, targets }) => (
-        <CircleMarker
-          key={`transition-marker-${node.id}`}
-          center={[node.y, node.x]}
-          radius={0}
-          interactive={false}
-          pathOptions={{ opacity: 0, fillOpacity: 0 }}
-        >
-          {/* Под узлом: над ним — подпись алиаса. */}
-          <Tooltip permanent interactive direction="bottom" offset={[0, 10]} className="transition-target-tooltip">
-            <div className="transition-targets">
-              {targets.map((target) => (
-                <TargetRow
-                  key={`${target.transition.fromNode}-${target.transition.toNode}-${target.transition.type}`}
-                  target={target}
-                  hereId={node.id}
-                />
-              ))}
-            </div>
-          </Tooltip>
-        </CircleMarker>
+        <TransitionMarker key={node.id} nodeId={node.id} x={node.x} y={node.y} targets={targets} />
       ))}
     </>
   );
 };
+
+interface TransitionLineProps {
+  transitionKey: string;
+  fromId: string;
+  toId: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  hovered: boolean;
+  color: string;
+  onHover: (pair: { from: string; to: string } | null) => void;
+}
+
+/** Одна линия перехода в пределах плана; запоминается по концам и наведению. */
+const TransitionLine = React.memo(function TransitionLine({
+  transitionKey,
+  fromId,
+  toId,
+  ax,
+  ay,
+  bx,
+  by,
+  hovered,
+  color,
+  onHover,
+}: TransitionLineProps) {
+  const positions = useMemo((): [number, number][] => [
+    [ay, ax],
+    [by, bx],
+  ], [ax, ay, bx, by]);
+
+  const pathOptions = useMemo(
+    () => ({
+      color,
+      weight: hovered ? 6 : 4,
+      opacity: hovered ? 1 : 0.85,
+      dashArray: '8 8',
+      className: 'editor-transition',
+    }),
+    [color, hovered]
+  );
+
+  const handlers = useMemo(
+    () => ({
+      add: (e: L.LeafletEvent) => (e.target as L.Path).getElement()?.setAttribute('data-transition', transitionKey),
+      mouseover: () => onHover({ from: fromId, to: toId }),
+      mouseout: () => onHover(null),
+      click: (e: L.LeafletMouseEvent) => L.DomEvent.stopPropagation(e),
+      contextmenu: (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        const dom = e.originalEvent;
+        dom.preventDefault();
+        useEditorStore.getState().openContextMenu(dom.clientX, dom.clientY, { kind: 'transition', from: fromId, to: toId });
+      },
+    }),
+    [transitionKey, fromId, toId, onHover]
+  );
+
+  return <Polyline positions={positions} pathOptions={pathOptions} eventHandlers={handlers} />;
+});
+
+/**
+ * Отметки переходов под узлом.
+ *
+ * Запоминается: подсказка Leaflet пересчитывает своё положение при каждом
+ * обновлении слоя, и на большом этаже перетаскивание одного узла двигало
+ * подсказки всех переходов плана.
+ */
+const TransitionMarker = React.memo(function TransitionMarker({
+  nodeId,
+  x,
+  y,
+  targets,
+}: {
+  nodeId: string;
+  x: number;
+  y: number;
+  targets: TransitionTarget[];
+}) {
+  const center = useMemo((): [number, number] => [y, x], [x, y]);
+
+  return (
+    <CircleMarker center={center} radius={0} interactive={false} pathOptions={{ opacity: 0, fillOpacity: 0 }}>
+      {/* Под узлом: над ним — подпись названия. */}
+      <Tooltip permanent interactive direction="bottom" offset={[0, 10]} className="transition-target-tooltip">
+        <div className="transition-targets">
+          {targets.map((target) => (
+            <TargetRow
+              key={`${target.transition.fromNode}-${target.transition.toNode}-${target.transition.type}`}
+              target={target}
+              hereId={nodeId}
+            />
+          ))}
+        </div>
+      </Tooltip>
+    </CircleMarker>
+  );
+});

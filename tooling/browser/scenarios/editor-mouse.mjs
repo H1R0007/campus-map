@@ -72,6 +72,34 @@ export default {
       assert.equal(await e.selectedCount(), 0);
     });
 
+    await step('перетаскивание перерисовывает только свой узел и его связи', async () => {
+      // Leaflet переписывает у пути атрибут «d», когда слой обновился. До
+      // разделения слоёв на запоминаемые части каждый кадр перетаскивания
+      // трогал все узлы и связи этажа: на большом этаже это роняло
+      // перетаскивание вдвое ниже плавного.
+      const paths = await page.eval(`document.querySelectorAll('.leaflet-overlay-pane path').length`);
+      assert.ok(paths > 20, `на плане слишком мало путей для замера: ${paths}`);
+      await page.eval(`(() => {
+        window.__touched = new Set();
+        window.__obs?.disconnect();
+        window.__obs = new MutationObserver((records) => {
+          for (const r of records) if (r.type === 'attributes') window.__touched.add(r.target);
+        });
+        window.__obs.observe(document.querySelector('.leaflet-overlay-pane'), {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['d', 'points'],
+        });
+      })()`);
+
+      const room = await e.nodePoint('a1_room101');
+      await e.drag(room.x, room.y, room.x + 30, room.y + 18);
+      const touched = await page.eval(`(() => { const n = window.__touched.size; window.__obs.disconnect(); return n; })()`);
+      assert.ok(touched > 0, 'перетаскивание ничего не перерисовало — замер не сработал');
+      assert.ok(touched <= 8, `перерисовано путей: ${touched} из ${paths} — двигали один узел`);
+      await e.key('z', { modifiers: MOD.ctrl });
+    });
+
     await step('меню ребра: одно меню, пункт срабатывает', async () => {
       const nodesBefore = (await e.nodeIds()).length;
       const edge = await e.linePoint('path[data-edge="a1_corridor_10|a1_corridor_9"]');
