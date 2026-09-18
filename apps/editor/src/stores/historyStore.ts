@@ -111,6 +111,7 @@ export type ActionType =
   | 'SET_ALIASES'
   | 'SET_CATEGORY'
   | 'SET_PLACE_KINDS'
+  | 'RENAME_NODE'
   | 'BATCH';
 
 /**
@@ -201,6 +202,14 @@ export type HistoryEntry =
       timestamp: number;
       undoData: { nodeId: string; category: PlaceCategory | null };
       redoData: { nodeId: string; category: PlaceCategory | null };
+    }
+  | {
+      /** Новый id точки: ссылки на неё чинятся по всему датасету. */
+      type: 'RENAME_NODE';
+      description: string;
+      timestamp: number;
+      undoData: { from: string; to: string };
+      redoData: { from: string; to: string };
     }
   | {
       /** Каталог видов точек целиком: список короткий, а правки редкие. */

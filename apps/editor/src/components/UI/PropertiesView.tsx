@@ -7,6 +7,7 @@ import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
 import { PlanOverview } from './PlanOverview';
 import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
+import { nodeIdProblem } from '../../utils/nodeIds';
 
 /** Сколько ближайших узлов предлагать для быстрого соединения. */
 const CONNECT_CANDIDATES = 6;
@@ -611,8 +612,11 @@ const ServiceSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const nodeX = useEditorStore((s) => s.nodes.get(nodeId)?.x);
   const nodeY = useEditorStore((s) => s.nodes.get(nodeId)?.y);
   const updateNode = useEditorStore((s) => s.updateNode);
+  const renameNode = useEditorStore((s) => s.renameNode);
   const [xText, setXText] = useState('');
   const [yText, setYText] = useState('');
+  const [idText, setIdText] = useState(nodeId);
+  const [idProblem, setIdProblem] = useState<string | null>(null);
 
   // Координаты читаются как примитивы: иначе эффект перезапускался бы на
   // любое изменение узла и сбрасывал несохранённый ввод.
@@ -622,6 +626,11 @@ const ServiceSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
     setYText(String(nodeY));
   }, [nodeX, nodeY]);
 
+  useEffect(() => {
+    setIdText(nodeId);
+    setIdProblem(null);
+  }, [nodeId]);
+
   if (nodeX === undefined || nodeY === undefined) return null;
 
   const commit = () => {
@@ -630,11 +639,53 @@ const ServiceSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
     if (x !== nodeX || y !== nodeY) updateNode(nodeId, { x, y });
   };
 
+  // Занятость id спрашивается у стора напрямую, без подписки: подписка на
+  // список точек перерисовывала бы карточку на каждый кадр перетаскивания.
+  const changeId = (value: string) => {
+    setIdText(value);
+    setIdProblem(nodeIdProblem(value, (id) => useEditorStore.getState().nodes.has(id), nodeId));
+  };
+
+  const commitId = () => {
+    if (idText.trim() === nodeId) {
+      setIdText(nodeId);
+      setIdProblem(null);
+      return;
+    }
+    if (idProblem !== null) return;
+    renameNode(nodeId, idText);
+  };
+
   return (
     <details className="editor-card__details">
       <summary>Служебное: положение и id</summary>
-      <p className="editor-section__hint">
-        id: <span className="editor-card__id">{nodeId}</span>
+      <label className="editor-card__field">
+        <span className="editor-section__hint">id точки в данных</span>
+        <input
+          aria-label="id точки"
+          aria-invalid={idProblem !== null}
+          aria-describedby={idProblem === null ? undefined : `node-id-problem-${nodeId}`}
+          value={idText}
+          spellCheck={false}
+          autoCapitalize="off"
+          onChange={(e) => changeId(e.target.value)}
+          onBlur={commitId}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitId();
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              setIdText(nodeId);
+              setIdProblem(null);
+            }
+          }}
+          className="editor-input editor-input--id"
+        />
+      </label>
+      <p
+        className={idProblem === null ? 'editor-section__hint' : 'editor-section__hint editor-section__hint--problem'}
+        id={`node-id-problem-${nodeId}`}
+      >
+        {idProblem ?? 'По id точку находят в файлах данных. Переименование чинит связи, переходы и названия.'}
       </p>
       <div className="editor-card__row">
         <label className="flex-1">

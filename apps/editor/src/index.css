@@ -1088,6 +1088,19 @@ input[type='checkbox'] {
     cursor: pointer;
 }
 
+.editor-card__field {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.editor-section__hint--problem {
+    color: var(--editor-danger);
+}
+
+.editor-input--id {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
 .editor-card__id {
     font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
     font-size: 13px;

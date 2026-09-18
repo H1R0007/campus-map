@@ -68,7 +68,6 @@ export interface DataSlice {
   loadWarnings: string[];
 
   isLoading: boolean;
-  nodeIdCounter: number;
 
   /**
    * Принимает датасет.
@@ -128,7 +127,6 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   campusMeta: null,
   loadWarnings: [],
   isLoading: true,
-  nodeIdCounter: 1,
 
   /**
    * Принимает нормализованный датасет из ядра.
@@ -141,15 +139,10 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   loadData: (dataset, warnings = [], options = {}) =>
     set((state) => {
       state.nodes = new Map();
-      let maxCounter = 0;
-
       for (const node of dataset.nodes) {
         state.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
-        const match = node.id.match(/_node_(\d+)$/);
-        if (match) maxCounter = Math.max(maxCounter, Number.parseInt(match[1], 10));
       }
 
-      state.nodeIdCounter = maxCounter + 1;
       state.transitions = [...dataset.transitions];
       state.buildingMetas = new Map();
       for (const meta of dataset.buildingMetas) state.buildingMetas.set(meta.id, meta);

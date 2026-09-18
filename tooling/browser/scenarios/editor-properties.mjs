@@ -90,6 +90,51 @@ export default {
       assert.equal(layout.serviceOpen, false, 'положение и id должны быть свёрнуты');
     });
 
+    await step('переименование id переносит на новый id связи, переход и выбор', async () => {
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs');
+
+      const summary = await e.panelPoint('details > summary');
+      await e.click(summary.x, summary.y);
+
+      /** Пишет в поле id вместо прежнего значения. */
+      const setId = async (value) => {
+        const field = await e.panelPoint('input[aria-label="id точки"]');
+        await e.click(field.x, field.y);
+        await page.eval('document.activeElement.setSelectionRange(0, document.activeElement.value.length)');
+        await e.type(value);
+      };
+      const problem = () =>
+        page.eval(`document.querySelector('[aria-label="Свойства узла"] .editor-section__hint--problem')?.textContent.trim() ?? ''`);
+
+      // Занятый id не принимается и объясняет, что не так.
+      await setId('a1_hall');
+      assert.match(await problem(), /занят/, 'редактор не сказал, что id занят');
+      await e.key('Enter');
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs', 'точка переименована в чужой id');
+
+      await setId('a1_stairs_west');
+      assert.equal(await problem(), '', 'свободный id показан как проблемный');
+      await e.key('Enter');
+
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs_west', 'карточка осталась на старом id');
+      const ids = await e.nodeIds();
+      assert.ok(ids.includes('a1_stairs_west'), 'точки с новым id нет на карте');
+      assert.ok(!ids.includes('a1_stairs'), 'старый id остался на карте');
+      assert.match(await e.panelSection('Связи'), /Связи \(1\)/, 'переименование потеряло связь');
+      assert.match(await e.panelSection('Переходы'), /Переходы \(1\)/, 'переименование потеряло переход');
+
+      const links = await page.eval(`[...document.querySelectorAll('path[data-edge]')].map((p) => p.dataset.edge)`);
+      assert.ok(
+        links.some((key) => key.includes('a1_stairs_west')),
+        `связь на карте ведёт на несуществующий id: ${JSON.stringify(links.filter((k) => k.includes('stairs')))}`
+      );
+
+      await page.eval('document.activeElement?.blur()');
+      await e.key('z', { modifiers: 2 });
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs', 'отмена не вернула прежний id');
+      assert.ok((await e.nodeIds()).includes('a1_stairs'));
+    });
+
     await step('двойной щелчок по узлу без названия — сразу ввод названия', async () => {
       const corridor = await e.nodePoint('a1_corridor_3');
       await e.dblclick(corridor.x, corridor.y);

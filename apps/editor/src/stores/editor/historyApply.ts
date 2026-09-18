@@ -41,6 +41,8 @@ export function entryNodes(entry: HistoryEntry): string[] {
     case 'SET_PLACE_KINDS':
       // Каталог видов не привязан к узлам: показывать нечего.
       return [];
+    case 'RENAME_NODE':
+      return [entry.redoData.to];
     case 'ADD_TRANSITION':
     case 'REMOVE_TRANSITION':
     case 'UPDATE_TRANSITION':
@@ -75,6 +77,59 @@ export function entryNodes(entry: HistoryEntry): string[] {
  */
 
 type State = Draft<EditorStore>;
+
+/**
+ * Меняет id точки во всех местах, где на него ссылаются.
+ *
+ * Ссылки на точку живут в четырёх местах: сама точка, соседи других точек,
+ * переходы и записи названий с видом места. Пропущенное место означало бы
+ * висячую ссылку — маршрут молча теряет ребро.
+ */
+export function renameNodeEverywhere(s: State, from: string, to: string): void {
+  const node = s.nodes.get(from);
+  if (!node || from === to || s.nodes.has(to)) return;
+
+  // Порядок точек сохраняется: от него зависит содержимое graph.json.
+  const entries = [...s.nodes.entries()].map(([id, item]) => [id === from ? to : id, item] as const);
+  s.nodes.clear();
+  for (const [id, item] of entries) {
+    item.id = id === to ? to : item.id;
+    item.neighbors = item.neighbors.map((neighbour) => (neighbour === from ? to : neighbour));
+    s.nodes.set(id, item);
+  }
+
+  s.transitions = s.transitions.map((transition) => ({
+    ...transition,
+    fromNode: transition.fromNode === from ? to : transition.fromNode,
+    toNode: transition.toNode === from ? to : transition.toNode,
+  }));
+
+  const names = s.aliases.get(from);
+  if (names) {
+    s.aliases.delete(from);
+    s.aliases.set(to, names);
+  }
+
+  const category = s.aliasCategories.get(from);
+  if (category) {
+    s.aliasCategories.delete(from);
+    s.aliasCategories.set(to, category);
+  }
+
+  const translations = s.aliasTranslations.get(from);
+  if (translations) {
+    s.aliasTranslations.delete(from);
+    s.aliasTranslations.set(to, translations);
+  }
+
+  if (s.selectedNodeIds.has(from)) {
+    s.selectedNodeIds.delete(from);
+    s.selectedNodeIds.add(to);
+  }
+  if (s.hoveredNodeId === from) s.hoveredNodeId = to;
+  if (s.chainLastNodeId === from) s.chainLastNodeId = to;
+  if (s.lastPlacedNodeId === from) s.lastPlacedNodeId = to;
+}
 
 /** Ставит или снимает вид места; пустой вид — отсутствие записи. */
 function applyCategory(s: State, nodeId: string, category: PlaceCategory | null): void {
@@ -139,6 +194,10 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
     }
     case 'SET_PLACE_KINDS': {
       s.placeKinds = entry.undoData.kinds.map((kind) => ({ ...kind }));
+      break;
+    }
+    case 'RENAME_NODE': {
+      renameNodeEverywhere(s, entry.undoData.to, entry.undoData.from);
       break;
     }
     case 'BATCH': {
@@ -289,6 +348,10 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
     }
     case 'SET_PLACE_KINDS': {
       s.placeKinds = entry.redoData.kinds.map((kind) => ({ ...kind }));
+      break;
+    }
+    case 'RENAME_NODE': {
+      renameNodeEverywhere(s, entry.redoData.from, entry.redoData.to);
       break;
     }
     case 'SET_ALIASES': {

@@ -6,12 +6,20 @@ import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
 import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
 import { kindNameTemplate, visibleKinds } from '../../utils/placeKinds';
+import { nodeIdForKind, nodeIdProblem, planPrefix, rebaseNodeId, uniqueNodeId } from '../../utils/nodeIds';
 import { snapToNeighbours } from '../../utils/snapping';
 import type { SnapResult } from '../../utils/snapping';
 import { useCursorStore } from '../cursorStore';
 import { floorNodesOf } from './dataSlice';
 import { snapshotNeighbors } from './graphState';
+import { renameNodeEverywhere } from './historyApply';
 import type { EditorSlice, EditorStore } from './types';
+
+/** План, на котором окажется точка: у территории оба поля `null`. */
+interface PlanRef {
+  building: string | null;
+  floor: number | null;
+}
 
 /** Сдвиг вставки на том же плане, пиксели: копия не ложится точно на оригинал. */
 const PASTE_OFFSET = 20;
@@ -37,7 +45,7 @@ export interface ClipboardData {
 export interface EditSlice {
   clipboard: ClipboardData | null;
 
-  generateNodeId: () => string;
+  generateNodeId: (kind?: PlaceKind | null) => string;
   addNode: (x: number, y: number) => string;
   removeNode: (nodeId: string) => void;
   moveNode: (nodeId: string, x: number, y: number) => void;
@@ -50,6 +58,13 @@ export interface EditSlice {
    */
   commitNodePositions: (before: readonly NodePosition[], after: readonly NodePosition[]) => void;
   updateNode: (nodeId: string, updates: Partial<MapNode>) => void;
+  /**
+   * Меняет id точки, чиня ссылки на неё: связи, переходы, названия, вид места.
+   *
+   * @returns `true`, если переименование прошло; `false`, если новый id не
+   *          годится — вызывающая сторона показывает причину человеку.
+   */
+  renameNode: (nodeId: string, nextId: string) => boolean;
   addEdge: (fromId: string, toId: string) => void;
   removeEdge: (fromId: string, toId: string) => void;
   /**
@@ -139,18 +154,32 @@ function nearestNodeOnPlan(nodes: Map<string, MapNode>, node: MapNode): MapNode 
   return best;
 }
 
+/**
+ * Раздаёт id новым точкам набора.
+ *
+ * Пока набор не положен в состояние, `nodes` о нём не знает, поэтому занятость
+ * проверяется и по уже выданным id: иначе две копии подряд получили бы один id
+ * и вторая затёрла бы первую.
+ */
+function idMinter(nodes: Map<string, MapNode>) {
+  const used = new Set<string>();
+  /** `source` — точка, с которой снята копия, или `null` у точки без прошлого. */
+  return (source: Pick<MapNode, 'id' | 'building' | 'floor'> | null, to: PlanRef): string => {
+    const toPrefix = planPrefix(to.building, to.floor);
+    const base =
+      source === null ? `${toPrefix}_node` : rebaseNodeId(source.id, planPrefix(source.building, source.floor), toPrefix);
+    const id = uniqueNodeId(base, (candidate) => nodes.has(candidate) || used.has(candidate));
+    used.add(id);
+    return id;
+  };
+}
+
 export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
   clipboard: null,
 
-  generateNodeId: () => {
+  generateNodeId: (kind = null) => {
     const st = get();
-    const building = st.currentBuilding ?? 'campus';
-    const floor = st.currentFloor ?? 0;
-    const counter = st.nodeIdCounter;
-    set((s) => {
-      s.nodeIdCounter = counter + 1;
-    });
-    return `${building.toLowerCase()}_${floor}_node_${counter}`;
+    return nodeIdForKind(kind, st.currentBuilding, st.currentFloor, (id) => st.nodes.has(id));
   },
 
   addNode: (x, y) => {
@@ -325,6 +354,26 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
+  renameNode: (nodeId, nextId) => {
+    const st = get();
+    const to = nextId.trim();
+    if (!st.nodes.has(nodeId) || to === nodeId) return false;
+    if (nodeIdProblem(to, (id) => st.nodes.has(id), nodeId) !== null) return false;
+
+    useHistoryStore.getState().push({
+      type: 'RENAME_NODE',
+      description: `id точки: ${nodeId} → ${to}`,
+      undoData: { from: nodeId, to },
+      redoData: { from: nodeId, to },
+    });
+
+    set((s) => {
+      renameNodeEverywhere(s, nodeId, to);
+    });
+
+    return true;
+  },
+
   addEdge: (fromId, toId) => {
     if (fromId === toId) return;
     const st = get();
@@ -485,8 +534,10 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     const links: { nodeId: string; nearestId: string }[] = [];
 
+    const usedIds = new Set<string>();
     for (const planFloor of floors) {
-      const id = get().generateNodeId();
+      const id = nodeIdForKind(kind, building, planFloor, (candidate) => st.nodes.has(candidate) || usedIds.has(candidate));
+      usedIds.add(id);
       const node: MapNode = {
         id,
         x: snappedX,
@@ -714,8 +765,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     }
 
     const { building, floor } = fromNode;
-    const counter = st.nodeIdCounter;
-    const newId = `${building.toLowerCase()}_${floor}_node_${counter}`;
+    const newId = nodeIdForKind(null, building, floor, (id) => st.nodes.has(id));
 
     const newNode: MapNode = {
       id: newId,
@@ -741,8 +791,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
 
     set((s) => {
-      s.nodeIdCounter = counter + 1;
-
       const from = s.nodes.get(fromId)!;
       const to = s.nodes.get(toId)!;
       from.neighbors = from.neighbors.filter((n) => n !== toId);
@@ -810,7 +858,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
   },
 
   duplicateSelected: () => {
-    const { selectedNodeIds, nodes, currentBuilding, currentFloor } = get();
+    const { selectedNodeIds, nodes } = get();
     if (selectedNodeIds.size === 0) return;
 
     const ids = Array.from(selectedNodeIds);
@@ -819,15 +867,13 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const oldToNew = new Map<string, string>();
     const newNodes: MapNode[] = [];
 
-    let counter = get().nodeIdCounter;
-    const building = currentBuilding ?? 'campus';
-    const floor = currentFloor ?? 0;
+    const mint = idMinter(nodes);
 
     for (const id of ids) {
       const node = nodes.get(id);
       if (!node) continue;
 
-      const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
+      const newId = mint(node, node);
       oldToNew.set(id, newId);
 
       newNodes.push({
@@ -859,7 +905,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
 
     set((s) => {
-      s.nodeIdCounter = counter;
       for (const n of newNodes) {
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
@@ -1022,10 +1067,10 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const oldToNew = new Map<string, string>();
     const newNodes: MapNode[] = [];
 
-    let counter = get().nodeIdCounter;
+    const mint = idMinter(get().nodes);
 
     for (const node of clipboard.nodes) {
-      const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
+      const newId = mint(node, { building, floor });
       oldToNew.set(node.id, newId);
 
       newNodes.push({
@@ -1056,7 +1101,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
 
     set((s) => {
-      s.nodeIdCounter = counter;
       for (const n of newNodes) {
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
@@ -1075,8 +1119,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     const building = st.currentBuilding ?? CAMPUS_BUILDING_ID;
     const floor = st.currentFloor ?? CAMPUS_FLOOR;
-    const currentCounter = st.nodeIdCounter;
-    const buildingLower = building.toLowerCase();
+    const mint = idMinter(st.nodes);
 
     const created: MapNode[] = [];
     for (let i = 0; i < count; i++) {
@@ -1089,7 +1132,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       }
 
       created.push({
-        id: `${buildingLower}_${floor}_node_${currentCounter + i}`,
+        id: mint(null, { building, floor }),
         x,
         y,
         building,
@@ -1114,7 +1157,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
 
     set((s) => {
-      s.nodeIdCounter = currentCounter + count;
       for (const n of created) {
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
