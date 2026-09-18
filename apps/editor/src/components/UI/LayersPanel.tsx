@@ -45,10 +45,7 @@ export const LayersPanel: React.FC = () => {
             <div key={building.id} className="mt-1">
               {/* Заголовок корпуса */}
               <button
-                onClick={() => {
-                  setCurrentBuilding(building.id);
-                  setCurrentFloor(building.floors[0]?.floor ?? 1);
-                }}
+                onClick={() => setCurrentBuilding(building.id)}
                 className={`
                   w-full px-3 py-2 rounded-lg text-left text-sm
                   flex items-center gap-2 transition-colors

@@ -55,17 +55,12 @@ export type BatchUndoPayload =
       kind: 'autofix';
       neighborsBefore: NeighborSnapshot;
       transitionsBefore: Transition[];
+      /** Узлы с исправленными координатами — где они стояли до исправления. */
+      positionsBefore: NodePosition[];
     }
   | {
       kind: 'splitEdge';
       newNodeId: string;
-      fromId: string;
-      toId: string;
-      neighborsBefore: NeighborSnapshot;
-    }
-  | {
-      kind: 'subdivideEdge';
-      nodeIds: string[];
       fromId: string;
       toId: string;
       neighborsBefore: NeighborSnapshot;
@@ -82,9 +77,9 @@ export type BatchRedoPayload =
       kind: 'autofix';
       fixedNodesNeighbors: NeighborSnapshot;
       fixedTransitions: Transition[];
+      fixedCoordinates: Record<string, { x: number; y: number }>;
     }
-  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string }
-  | { kind: 'subdivideEdge'; nodes: MapNode[]; fromId: string; toId: string };
+  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string };
 
 /** Тип действия, по которому ветвится применение отмены и повтора. */
 export type ActionType =
@@ -96,6 +91,7 @@ export type ActionType =
   | 'REMOVE_EDGE'
   | 'ADD_TRANSITION'
   | 'REMOVE_TRANSITION'
+  | 'UPDATE_TRANSITION'
   | 'SET_ALIASES'
   | 'BATCH';
 
@@ -168,6 +164,13 @@ export type HistoryEntry =
       redoData: { transitions: Transition[] };
     }
   | {
+      type: 'UPDATE_TRANSITION';
+      description: string;
+      timestamp: number;
+      undoData: { transitions: Transition[] };
+      redoData: { transitions: Transition[] };
+    }
+  | {
       type: 'SET_ALIASES';
       description: string;
       timestamp: number;
@@ -193,15 +196,39 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 /** Запись истории без метки времени — её проставляет `push`. */
 export type HistoryEntryInput = DistributiveOmit<HistoryEntry, 'timestamp'>;
 
+/**
+ * Запись в стеке: с номером, который больше ни у одной записи не повторится.
+ *
+ * По номеру записи, на которой стоит история, редактор понимает, то же ли
+ * это состояние данных, что было сохранено. Позиции в стеке для этого мало:
+ * после отмены и новой правки позиция та же, а данные другие.
+ */
+export type StoredEntry = HistoryEntry & { id: number };
+
 interface HistoryState {
-  entries: HistoryEntry[];
+  entries: StoredEntry[];
   currentIndex: number;
   maxEntries: number;
+  /** Номер для следующей записи. */
+  nextId: number;
 
   push: (entry: HistoryEntryInput) => void;
+  /**
+   * Заменяет последнюю запись новой.
+   *
+   * Нужна, чтобы подряд идущие однотипные действия были одной записью:
+   * пять нажатий стрелки — один шаг отмены, а не пять.
+   */
+  replaceLast: (entry: HistoryEntryInput) => void;
   undo: () => HistoryEntry | null;
   redo: () => HistoryEntry | null;
   clear: () => void;
+
+  /**
+   * Номер записи, на которой стоит история; 0 — исходные данные без правок.
+   * Одинаковый номер означает одинаковое состояние данных.
+   */
+  stateId: () => number;
 
   canUndo: () => boolean;
   canRedo: () => boolean;
@@ -213,6 +240,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   entries: [],
   currentIndex: -1,
   maxEntries: 200,
+  nextId: 1,
 
   push: (entry) =>
     set((state) => {
@@ -220,7 +248,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       // отменено, поэтому хвост за текущей позицией отбрасывается.
       const newEntries = state.entries.slice(0, state.currentIndex + 1);
 
-      newEntries.push({ ...entry, timestamp: Date.now() } as HistoryEntry);
+      newEntries.push({ ...entry, timestamp: Date.now(), id: state.nextId } as StoredEntry);
 
       while (newEntries.length > state.maxEntries) {
         newEntries.shift();
@@ -229,7 +257,17 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       return {
         entries: newEntries,
         currentIndex: newEntries.length - 1,
+        nextId: state.nextId + 1,
       };
+    }),
+
+  replaceLast: (entry) =>
+    set((state) => {
+      if (state.currentIndex < 0) return state;
+      const entries = state.entries.slice(0, state.currentIndex + 1);
+      // Новый номер: данные после слияния другие, чем были у прежней записи.
+      entries[state.currentIndex] = { ...entry, timestamp: Date.now(), id: state.nextId } as StoredEntry;
+      return { entries, currentIndex: state.currentIndex, nextId: state.nextId + 1 };
     }),
 
   undo: () => {
@@ -251,6 +289,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   clear: () => set({ entries: [], currentIndex: -1 }),
+
+  stateId: () => {
+    const { entries, currentIndex } = get();
+    return currentIndex >= 0 ? entries[currentIndex].id : 0;
+  },
 
   canUndo: () => get().currentIndex >= 0,
   canRedo: () => get().currentIndex < get().entries.length - 1,

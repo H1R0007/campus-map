@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { TRANSITION_TYPES, transitionTypeLabel } from '@campus-map/core';
+import React, { useEffect, useRef, useState } from 'react';
+import { TRANSITION_TYPES } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
-import { useEditorStore, EditorTool } from '../../stores/editorStore';
+import { useEditorStore, useUnsavedChanges, EditorTool } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
 import { validateDataset } from '../../utils/validateData';
+import { TRANSITION_LABELS } from '../../utils/labels';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
@@ -27,7 +28,13 @@ export const Toolbar: React.FC = () => {
   const transitionType = useEditorStore((s) => s.transitionType);
   const setTransitionType = useEditorStore((s) => s.setTransitionType);
 
-  const exportToZip = useEditorStore((s) => s.exportToZip);
+  const saveToDisk = useEditorStore((s) => s.saveToDisk);
+  const exportArchive = useEditorStore((s) => s.exportArchive);
+  const diskSaveAvailable = useEditorStore((s) => s.diskSaveAvailable);
+  const diskDataDir = useEditorStore((s) => s.diskDataDir);
+  const saving = useEditorStore((s) => s.saving);
+  const saveRequest = useEditorStore((s) => s.saveRequest);
+  const unsaved = useUnsavedChanges();
   const loadData = useEditorStore((s) => s.loadData);
   const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
 
@@ -45,9 +52,8 @@ export const Toolbar: React.FC = () => {
   const canUndo = useHistoryStore((s) => s.canUndo());
   const canRedo = useHistoryStore((s) => s.canRedo());
 
-  const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [validationOpen, setValidationOpen] = useState(false);
+  const [pendingSave, setPendingSave] = useState<'disk' | 'archive' | null>(null);
   const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
     errors: [],
     warnings: [],
@@ -56,7 +62,14 @@ export const Toolbar: React.FC = () => {
   const hasSelection = selectedNodeIds.size > 0;
   const multiSelection = selectedNodeIds.size > 1;
 
-  const handleExport = async (force = false) => {
+  /**
+   * Сохраняет разметку: в каталог данных или архивом.
+   *
+   * Перед сохранением данные проверяются, и если есть ошибки или
+   * предупреждения — редактор показывает их и спрашивает, сохранять ли всё
+   * равно. Молча записать битые данные хуже, чем задержать сохранение.
+   */
+  const handleSave = async (target: 'disk' | 'archive', force = false) => {
     const st = useEditorStore.getState();
     const result = validateDataset({
       nodes: st.nodes,
@@ -66,18 +79,22 @@ export const Toolbar: React.FC = () => {
     setValidation(result);
 
     if (!force && (result.errors.length > 0 || result.warnings.length > 0)) {
-      setValidationOpen(true);
+      setPendingSave(target);
       return;
     }
 
-    setValidationOpen(false);
-    setIsExporting(true);
-    try {
-      await exportToZip();
-    } finally {
-      setIsExporting(false);
-    }
+    setPendingSave(null);
+    if (target === 'disk') await saveToDisk();
+    else await exportArchive();
   };
+
+  // Ctrl+S: клавиша просит сохранить, проверка данных — здесь же.
+  useEffect(() => {
+    if (saveRequest === 0) return;
+    void handleSave(diskSaveAvailable ? 'disk' : 'archive');
+    // Реагируем только на новую просьбу, а не на каждое изменение панели.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveRequest]);
 
   const handleImportFile = async (file: File) => {
     setIsImporting(true);
@@ -142,7 +159,7 @@ export const Toolbar: React.FC = () => {
                     }}
                   >
                     <TransitionGlyph type={tp} size={14} />
-                    <span>{transitionTypeLabel(tp)}</span>
+                    <span>{TRANSITION_LABELS[tp]}</span>
                   </button>
                 );
               })}
@@ -269,6 +286,7 @@ export const Toolbar: React.FC = () => {
             onClick={() => fileRef.current?.click()}
             disabled={isImporting}
             className="px-3 py-2 rounded-lg text-sm"
+            title="Открыть архив с данными"
             style={{
               backgroundColor: 'var(--editor-accent)',
               color: 'white',
@@ -276,48 +294,64 @@ export const Toolbar: React.FC = () => {
             }}
           >
             <span className="inline-flex items-center gap-2">
-              <Icon name={isImporting ? 'refresh' : 'download'} className={isImporting ? 'animate-spin' : undefined} />
-              Импорт
+              <Icon name={isImporting ? 'refresh' : 'upload'} className={isImporting ? 'animate-spin' : undefined} />
+              Открыть архив
             </span>
           </button>
 
           <button
-            onClick={() => handleExport(false)}
-            disabled={isExporting}
-            className="px-3 py-2 rounded-lg text-sm font-medium"
+            onClick={() => handleSave('archive')}
+            disabled={saving}
+            className="px-3 py-2 rounded-lg text-sm"
+            title="Скачать архив с данными"
             style={{
-              backgroundColor: 'var(--editor-highlight)',
+              backgroundColor: diskSaveAvailable ? 'var(--editor-accent)' : 'var(--editor-highlight)',
               color: 'white',
-              opacity: isExporting ? 0.6 : 1,
+              opacity: saving ? 0.6 : 1,
             }}
           >
             <span className="inline-flex items-center gap-2">
-              <Icon name={isExporting ? 'refresh' : 'upload'} className={isExporting ? 'animate-spin' : undefined} />
-              Экспорт
+              <Icon name={saving ? 'refresh' : 'download'} className={saving ? 'animate-spin' : undefined} />
+              Скачать архив
             </span>
           </button>
+
+          {diskSaveAvailable && (
+            <button
+              onClick={() => handleSave('disk')}
+              disabled={saving || !unsaved}
+              className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              title={`Сохранить в ${diskDataDir ?? 'data/'} (Ctrl+S)`}
+              style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Icon name={saving ? 'refresh' : 'checkCircle'} className={saving ? 'animate-spin' : undefined} />
+                Сохранить
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
       <ConfirmDialog
-        open={validationOpen}
-        onClose={() => setValidationOpen(false)}
-        title="Проверка перед экспортом"
+        open={pendingSave !== null}
+        onClose={() => setPendingSave(null)}
+        title="Проверка перед сохранением"
         footer={
           <>
             <button
-              onClick={() => setValidationOpen(false)}
+              onClick={() => setPendingSave(null)}
               className="px-4 py-2 rounded-lg text-sm"
               style={{ color: 'var(--editor-text-muted)' }}
             >
               Отмена
             </button>
             <button
-              onClick={() => handleExport(true)}
+              onClick={() => pendingSave && handleSave(pendingSave, true)}
               className="px-4 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: 'var(--editor-highlight)', color: 'white' }}
             >
-              Экспортировать
+              {pendingSave === 'disk' ? 'Сохранить всё равно' : 'Скачать всё равно'}
             </button>
           </>
         }

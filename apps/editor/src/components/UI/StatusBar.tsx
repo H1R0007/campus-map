@@ -1,7 +1,8 @@
 import React from 'react';
-import { useEditorStore } from '../../stores/editorStore';
+import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { Icon } from './Icon';
+import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
 
 export const StatusBar: React.FC = () => {
   const currentBuilding = useEditorStore((state) => state.currentBuilding);
@@ -10,11 +11,20 @@ export const StatusBar: React.FC = () => {
   const nodes = useEditorStore((state) => state.nodes);
   const transitions = useEditorStore((state) => state.transitions);
   const selectedNodeIds = useEditorStore((state) => state.selectedNodeIds);
-  const hasUnsavedChanges = useEditorStore((state) => state.hasUnsavedChanges);
+  const hasUnsavedChanges = useUnsavedChanges();
   const activeTool = useEditorStore((state) => state.activeTool);
   const edgeStartNodeId = useEditorStore((state) => state.edgeStartNodeId);
   const transitionStartNodeId = useEditorStore((state) => state.transitionStartNodeId);
+  const transitionType = useEditorStore((state) => state.transitionType);
+  const aliases = useEditorStore((state) => state.aliases);
   const lineTool = useEditorStore((state) => state.lineTool);
+
+  // Начатый переход переживает смену этажа, поэтому подсказка называет, от
+  // какого узла и с какого плана он строится.
+  const transitionStart = transitionStartNodeId ? nodes.get(transitionStartNodeId) : undefined;
+  const transitionStartLabel = transitionStart
+    ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(transitionStart.id, aliases)}» (${nodePlaceLabel(transitionStart, buildingMetas)})`
+    : '';
 
   const historyEntries = useHistoryStore((state) => state.entries);
   const historyIndex = useHistoryStore((state) => state.currentIndex);
@@ -27,42 +37,45 @@ export const StatusBar: React.FC = () => {
   const toolInfo: Record<string, { name: string; hint: string }> = {
     select: {
       name: 'Выбор',
-      hint: 'ЛКМ — инфо | Shift+ЛКМ — мультивыбор | ПКМ — редактировать/drag | Ctrl+ПКМ — область'
+      hint:
+        'Щелчок — выбрать узел · перетащить — сдвинуть · Shift+щелчок — добавить к выбору · ' +
+        'Shift+протянуть — рамка · правая кнопка — меню',
     },
     node: {
       name: 'Узел',
-      hint: 'ЛКМ — создать узел'
+      hint: 'Щелчок по карте — поставить узел',
     },
     edge: {
       name: 'Ребро',
       hint: edgeStartNodeId
-        ? 'ЛКМ по второму узлу — создать связь | Esc — отмена'
-        : 'ЛКМ — выбрать первый узел'
+        ? 'Щелчок по второму узлу — соединить · Esc — отмена'
+        : 'Щелчок по первому узлу ребра',
     },
     transition: {
       name: 'Переход',
       hint: transitionStartNodeId
-        ? 'ЛКМ по второму узлу — создать переход | Esc — отмена'
-        : 'ЛКМ — выбрать первый узел'
+        ? `${transitionStartLabel} · щелчок по второму узлу — создать · этаж можно переключить · Esc — отмена`
+        : `${TRANSITION_LABELS[transitionType]}: щелчок по первому узлу`,
     },
     line: {
       name: 'Линия',
       hint: !lineTool.start
-        ? 'ЛКМ — начальная точка'
+        ? 'Щелчок — начало линии'
         : !lineTool.end
-        ? 'ЛКМ — конечная точка'
-        : '✓ Настройте в панели справа'
+        ? 'Щелчок — конец линии'
+        : 'Задайте число узлов в панели и нажмите «Создать»',
     },
     delete: {
       name: 'Удаление',
-      hint: 'ЛКМ — удалить узел/ребро'
+      hint: 'Щелчок по узлу, ребру или переходу — удалить',
     },
   };
 
   const currentTool = toolInfo[activeTool] || { name: activeTool, hint: '' };
 
   return (
-    <div
+    <footer
+      aria-label="Строка состояния"
       className="h-9 flex items-center justify-between px-4 text-xs select-none"
       style={{ backgroundColor: 'var(--editor-panel)', borderTop: '1px solid var(--editor-border)' }}
     >
@@ -70,7 +83,9 @@ export const StatusBar: React.FC = () => {
       <div className="flex items-center gap-4">
         <span style={{ color: 'var(--editor-text-muted)' }}>
           <Icon name="pin" size={12} className="inline-block mr-1 align-middle" />
-          <span className="text-white">{locationText}</span>
+          <span className="text-white" data-status-place>
+            {locationText}
+          </span>
         </span>
 
         <span style={{ color: 'var(--editor-text-muted)' }}>
@@ -112,6 +127,6 @@ export const StatusBar: React.FC = () => {
           </span>
         )}
       </div>
-    </div>
+    </footer>
   );
 };

@@ -1,80 +1,89 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { TRANSITION_COLORS } from '@campus-map/mapkit';
+import type { MapNode } from '@campus-map/core';
 import { selectedRoute, useEditorStore } from '../../stores/editorStore';
+import { floorNodesOf } from '../../stores/editor/dataSlice';
+import type { NodePosition } from '../../stores/historyStore';
+import { suppressNextMapClick } from '../../utils/clickGuard';
+import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { themeColor } from '../../utils/themeColor';
-import { Icon } from '../UI/Icon';
 
-type DragCandidate = {
-  nodeId: string;
-  startClientX: number;
-  startClientY: number;
-  startNodeX: number;
-  startNodeY: number;
-  dragging: boolean;
-};
-
+/** С какого сдвига курсора, в пикселях экрана, нажатие становится перетаскиванием. */
 const DRAG_THRESHOLD = 4;
 
+interface DragState {
+  anchorId: string;
+  startClientX: number;
+  startClientY: number;
+  /** Точка плана под курсором в момент нажатия. */
+  startPlan: L.LatLng;
+  /** Узлы, которые едут вместе, и где они стояли. */
+  before: NodePosition[];
+  dragging: boolean;
+  /** Последние поставленные позиции — они и попадут в историю. */
+  last: NodePosition[] | null;
+  frame: number | null;
+  pendingEvent: MouseEvent | null;
+}
+
+/**
+ * Узлы текущего плана.
+ *
+ * Мышь — как в графических редакторах:
+ * - щелчок по узлу выбирает его, выбор держится, пока не выбран другой узел
+ *   или не нажат пустой участок карты;
+ * - перетаскивание узла двигает его, а если он в выделении — всё выделение;
+ * - Shift или Ctrl со щелчком добавляют узел к выделению или убирают из него;
+ * - правая кнопка открывает меню узла (или выделения).
+ *
+ * Прежде выбор и перетаскивание были на правой кнопке, а левая показывала
+ * подсказку, которая гасла через 1,8 секунды, — со стороны это выглядело как
+ * карточка узла, исчезающая сама по себе.
+ */
 export const EditorNodes: React.FC = () => {
   const map = useMap();
-  const dragCandidateRef = useRef<DragCandidate | null>(null);
-  const [quickInfoNodeId, setQuickInfoNodeId] = useState<string | null>(null);
+  const dragRef = useRef<DragState | null>(null);
 
   // Акцент темы значением: атрибуты SVG, которые ставит Leaflet, `var()` не понимают.
   const highlightColor = useMemo(() => themeColor('--editor-highlight'), []);
 
-  const nodes = useEditorStore((s) => s.getNodesForCurrentFloor());
+  const allNodes = useEditorStore((s) => s.nodes);
+  const currentBuilding = useEditorStore((s) => s.currentBuilding);
+  const currentFloor = useEditorStore((s) => s.currentFloor);
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
   const hoveredNodeId = useEditorStore((s) => s.hoveredNodeId);
+  const aliases = useEditorStore((s) => s.aliases);
 
-  const activeTool = useEditorStore((s) => s.activeTool);
   const edgeStartNodeId = useEditorStore((s) => s.edgeStartNodeId);
   const transitionStartNodeId = useEditorStore((s) => s.transitionStartNodeId);
   const transitionType = useEditorStore((s) => s.transitionType);
   const displayFilters = useEditorStore((s) => s.displayFilters);
-
-  // route pick mode
-  const routePickMode = useEditorStore((s) => s.routePickMode);
-  const routeSimulatorOpen = useEditorStore((s) => s.routeSimulatorOpen);
-  const routePickTarget = useEditorStore((s) => s.routePickTarget);
-  const pickRouteNode = useEditorStore((s) => s.pickRouteNode);
-
   const route = useEditorStore((s) => s.routeSimulation);
 
-  const toggleSelectNode = useEditorStore((s) => s.toggleSelectNode);
-  const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
-  const clearSelection = useEditorStore((s) => s.clearSelection);
-
   const setHoveredNode = useEditorStore((s) => s.setHoveredNode);
-  const setEdgeStartNode = useEditorStore((s) => s.setEdgeStartNode);
-  const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
 
-  const addEdge = useEditorStore((s) => s.addEdge);
-  const addTransition = useEditorStore((s) => s.addTransition);
-  const removeNode = useEditorStore((s) => s.removeNode);
+  const nodes = useMemo(
+    () => floorNodesOf(allNodes, currentBuilding, currentFloor, displayFilters.showPortals),
+    [allNodes, currentBuilding, currentFloor, displayFilters.showPortals]
+  );
 
-  const getNode = useEditorStore((s) => s.getNode);
-  const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
-  const moveNode = useEditorStore((s) => s.moveNode);
-  const commitMoveNode = useEditorStore((s) => s.commitMoveNode);
-
-  const getOrphanNodes = useEditorStore((s) => s.getOrphanNodes);
-  const getNodesWithoutAlias = useEditorStore((s) => s.getNodesWithoutAlias);
-  const getNodesWithErrors = useEditorStore((s) => s.getNodesWithErrors);
-
+  // Подсветка проблем считается от самих данных. Прежде наборы зависели только
+  // от неизменных функций стора и не обновлялись после правок.
+  const { highlightOrphans, highlightNoAlias, highlightErrors } = displayFilters;
   const orphanIds = useMemo(
-    () => (displayFilters.highlightOrphans ? new Set(getOrphanNodes().map((n) => n.id)) : new Set<string>()),
-    [displayFilters.highlightOrphans, getOrphanNodes]
+    () => new Set(highlightOrphans ? nodes.filter((n) => n.neighbors.length === 0).map((n) => n.id) : []),
+    [highlightOrphans, nodes]
   );
   const noAliasIds = useMemo(
-    () => (displayFilters.highlightNoAlias ? new Set(getNodesWithoutAlias().map((n) => n.id)) : new Set<string>()),
-    [displayFilters.highlightNoAlias, getNodesWithoutAlias]
+    () => new Set(highlightNoAlias ? nodes.filter((n) => !(aliases.get(n.id)?.length ?? 0)).map((n) => n.id) : []),
+    [highlightNoAlias, nodes, aliases]
   );
   const errorIds = useMemo(
-    () => (displayFilters.highlightErrors ? new Set(getNodesWithErrors().map((n) => n.id)) : new Set<string>()),
-    [displayFilters.highlightErrors, getNodesWithErrors]
+    () =>
+      new Set(highlightErrors ? nodes.filter((n) => n.neighbors.some((nb) => !allNodes.has(nb))).map((n) => n.id) : []),
+    [highlightErrors, nodes, allNodes]
   );
 
   // Узлы выбранного маршрута — для подсветки. Зависимости — сами маршруты и
@@ -82,239 +91,229 @@ export const EditorNodes: React.FC = () => {
   const simulatedRoutes = route.routes;
   const selectedPathIndex = route.selectedPathIndex;
   const routePath = useMemo(
-    () => selectedRoute({ routes: simulatedRoutes, selectedPathIndex })?.path ?? [],
+    () => new Set(selectedRoute({ routes: simulatedRoutes, selectedPathIndex })?.path ?? []),
     [simulatedRoutes, selectedPathIndex]
   );
 
-  const finishDrag = useCallback(() => {
-    dragCandidateRef.current = null;
-    try {
-      map.dragging.enable();
-    } catch {
-      // Карта могла быть уже размонтирована (смена этажа во время
-      // перетаскивания). Панорамирование в таком случае нечего включать.
-    }
-  }, [map]);
+  /** Позиции узлов под курсором для текущего кадра перетаскивания. */
+  const applyDragFrame = useCallback(
+    (drag: DragState, ev: MouseEvent) => {
+      const st = useEditorStore.getState();
+      const plan = map.mouseEventToLatLng(ev);
+      const anchor = drag.before.find((p) => p.nodeId === drag.anchorId) ?? drag.before[0];
 
-  const handleNodeActivateNonSelect = useCallback(
-    (nodeId: string) => {
+      // Сетка притягивает узел под курсором; остальные едут на тот же сдвиг и
+      // сохраняют взаимное расположение.
+      const rawX = anchor.x + (plan.lng - drag.startPlan.lng);
+      const rawY = anchor.y + (plan.lat - drag.startPlan.lat);
+      const dx = st.snapToGrid(rawX) - anchor.x;
+      const dy = st.snapToGrid(rawY) - anchor.y;
+
+      const next = drag.before.map((p) => ({ nodeId: p.nodeId, x: Math.round(p.x + dx), y: Math.round(p.y + dy) }));
+      drag.last = next;
+      st.setNodePositions(next);
+    },
+    [map]
+  );
+
+  const finishDrag = useCallback(
+    (mode: 'commit' | 'revert') => {
+      const drag = dragRef.current;
+      dragRef.current = null;
+      if (!drag) return;
+
+      if (drag.frame !== null) cancelAnimationFrame(drag.frame);
+      const st = useEditorStore.getState();
+
+      if (drag.dragging && drag.last) {
+        if (mode === 'commit') {
+          st.commitNodePositions(drag.before, drag.last);
+        } else {
+          st.setNodePositions(drag.before);
+        }
+        suppressNextMapClick();
+      }
+
       try {
-        switch (activeTool) {
-          case 'edge':
-            if (!edgeStartNodeId) setEdgeStartNode(nodeId);
-            else if (edgeStartNodeId !== nodeId) {
-              addEdge(edgeStartNodeId, nodeId);
-              setEdgeStartNode(null);
-            }
-            return;
-
-          case 'transition':
-            if (!transitionStartNodeId) setTransitionStartNode(nodeId);
-            else if (transitionStartNodeId !== nodeId) {
-              addTransition(transitionStartNodeId, nodeId, transitionType);
-              setTransitionStartNode(null);
-            }
-            return;
-
-          case 'delete':
-            removeNode(nodeId);
-            clearSelection();
-            return;
-
-          case 'node':
-          case 'line':
-          default:
-            selectSingleNode(nodeId);
-            return;
-        }
-      } catch (err) {
-        console.error('handleNodeActivateNonSelect error:', err);
+        map.dragging.enable();
+      } catch {
+        // Карта могла быть уже размонтирована (смена плана во время
+        // перетаскивания) — включать нечего.
       }
     },
-    [
-      activeTool,
-      edgeStartNodeId,
-      transitionStartNodeId,
-      transitionType,
-      setEdgeStartNode,
-      setTransitionStartNode,
-      addEdge,
-      addTransition,
-      removeNode,
-      clearSelection,
-      selectSingleNode,
-    ]
+    [map]
   );
 
-  const stopDom = (dom: MouseEvent) => {
-    dom.preventDefault();
-    dom.stopPropagation();
-    L.DomEvent.stop(dom);
-  };
-
-  const onMarkerMouseDown = useCallback(
-    (nodeId: string, e: L.LeafletMouseEvent) => {
-      const dom = e.originalEvent as MouseEvent;
-
-      // Ctrl+ПКМ — не перехватываем на узле, чтобы selection box работал даже если старт на точке
-      if (activeTool === 'select' && dom.button === 2 && dom.ctrlKey) {
-        return;
-      }
-
-      // === SELECT TOOL ===
-      if (activeTool === 'select') {
-        // Shift+ЛКМ — мультивыделение (без открытия свойств)
-        if (dom.button === 0 && dom.shiftKey) {
-          stopDom(dom);
-          toggleSelectNode(nodeId, true);
-          return;
-        }
-
-        // ЛКМ — quick info, не блокируем pan
-        if (dom.button === 0 && !dom.shiftKey) {
-          setQuickInfoNodeId(nodeId);
-          window.setTimeout(() => setQuickInfoNodeId(null), 1800);
-          return;
-        }
-
-        // ПКМ — либо pick mode, либо обычные свойства/drag
-        if (dom.button === 2) {
-          stopDom(dom);
-
-          // pick mode for route panel
-          if (routePickMode && routeSimulatorOpen) {
-            const picked = pickRouteNode(nodeId);
-            if (picked) return;
-          }
-
-          const n = getNode(nodeId);
-          if (!n) return;
-
-          // открываем свойства
-          selectSingleNode(nodeId);
-
-          // готовим drag
-          dragCandidateRef.current = {
-            nodeId,
-            startClientX: dom.clientX,
-            startClientY: dom.clientY,
-            startNodeX: n.x,
-            startNodeY: n.y,
-            dragging: false,
-          };
-          return;
-        }
-
-        return;
-      }
-
-      // === OTHER TOOLS ===
-      if (dom.button === 0) {
-        stopDom(dom);
-        handleNodeActivateNonSelect(nodeId);
-      }
-
-      if (dom.button === 2) {
-        stopDom(dom);
-      }
-    },
-    [
-      activeTool,
-      toggleSelectNode,
-      routePickMode,
-      routeSimulatorOpen,
-      pickRouteNode,
-      getNode,
-      selectSingleNode,
-      handleNodeActivateNonSelect,
-    ]
-  );
-
-  // drag (ПКМ удержание на точке при select)
   useEffect(() => {
-    const container = map.getContainer();
-
     const onMouseMove = (ev: MouseEvent) => {
-      const c = dragCandidateRef.current;
-      if (!c) return;
+      const drag = dragRef.current;
+      if (!drag) return;
 
-      const dx = ev.clientX - c.startClientX;
-      const dy = ev.clientY - c.startClientY;
-
-      if (!c.dragging && Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
-        c.dragging = true;
-        try {
-          map.dragging.disable();
-        } catch {
-          // То же, что в finishDrag: отсутствие карты не должно прерывать
-          // обработку перетаскивания узла.
-        }
+      if (!drag.dragging) {
+        const moved = Math.hypot(ev.clientX - drag.startClientX, ev.clientY - drag.startClientY);
+        if (moved < DRAG_THRESHOLD) return;
+        drag.dragging = true;
       }
 
-      if (!c.dragging) return;
-
-      const rect = container.getBoundingClientRect();
-      const point = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
-      const latlng = map.containerPointToLatLng(point);
-
-      moveNode(c.nodeId, latlng.lng, latlng.lat);
+      // Не чаще кадра: каждое движение перерисовывает слой узлов.
+      drag.pendingEvent = ev;
+      if (drag.frame === null) {
+        drag.frame = requestAnimationFrame(() => {
+          drag.frame = null;
+          if (dragRef.current === drag && drag.pendingEvent) applyDragFrame(drag, drag.pendingEvent);
+        });
+      }
     };
 
     const onMouseUp = (ev: MouseEvent) => {
-      const c = dragCandidateRef.current;
-      if (!c) return;
-      if (ev.button !== 2) return;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      try {
-        if (c.dragging) {
-          const n = getNode(c.nodeId);
-          if (n) commitMoveNode(c.nodeId, c.startNodeX, c.startNodeY, n.x, n.y);
-        }
-      } finally {
-        finishDrag();
-      }
-    };
-
-    const onBlur = () => {
-      if (dragCandidateRef.current) finishDrag();
+      const drag = dragRef.current;
+      if (!drag || ev.button !== 0) return;
+      // Последнее положение курсора — до записи в историю.
+      if (drag.dragging) applyDragFrame(drag, ev);
+      finishDrag('commit');
     };
 
     const onKeyDown = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        setQuickInfoNodeId(null);
-        if (dragCandidateRef.current) {
-          const c = dragCandidateRef.current;
-          if (c.dragging) moveNode(c.nodeId, c.startNodeX, c.startNodeY);
-          finishDrag();
-        }
+      if (ev.key === 'Escape' && dragRef.current) {
+        ev.stopPropagation();
+        finishDrag('revert');
       }
     };
 
+    const onBlur = () => finishDrag('commit');
+
     window.addEventListener('mousemove', onMouseMove, true);
     window.addEventListener('mouseup', onMouseUp, true);
+    window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('blur', onBlur);
-    window.addEventListener('keydown', onKeyDown);
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove, true);
       window.removeEventListener('mouseup', onMouseUp, true);
+      window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('blur', onBlur);
-      window.removeEventListener('keydown', onKeyDown);
+      finishDrag('commit');
     };
-  }, [map, moveNode, getNode, commitMoveNode, finishDrag]);
+  }, [applyDragFrame, finishDrag]);
 
-  useEffect(() => {
-    return () => {
-      dragCandidateRef.current = null;
-    };
+  /** Действие инструмента, отличного от «Выбора», по узлу. */
+  const activateWithTool = useCallback((nodeId: string) => {
+    const st = useEditorStore.getState();
+    switch (st.activeTool) {
+      case 'edge':
+        if (!st.edgeStartNodeId) st.setEdgeStartNode(nodeId);
+        else if (st.edgeStartNodeId !== nodeId) {
+          st.addEdge(st.edgeStartNodeId, nodeId);
+          st.setEdgeStartNode(null);
+        }
+        return;
+
+      case 'transition': {
+        const type = st.transitionType;
+        const startId = st.transitionStartNodeId;
+
+        if (!startId) {
+          st.setTransitionStartNode(nodeId);
+          st.showNotice(
+            `${TRANSITION_LABELS[type]} от «${nodeTitle(nodeId, st.aliases)}». Выберите второй узел — этаж или корпус можно переключить.`
+          );
+          return;
+        }
+        if (startId === nodeId) return;
+
+        const result = st.addTransition(startId, nodeId, type);
+        if (result === 'created') {
+          st.setTransitionStartNode(null);
+          st.showNotice(
+            `${TRANSITION_LABELS[type]}: «${nodeTitle(startId, st.aliases)}» — «${nodeTitle(nodeId, st.aliases)}»`
+          );
+        } else if (result === 'samePlan') {
+          st.showNotice('Оба узла на одном плане: между ними нужна связь (ребро), а не переход.', 'warn');
+        } else if (result === 'exists') {
+          st.showNotice('Переход между этими узлами уже есть.', 'warn');
+        }
+        return;
+      }
+
+      case 'delete':
+        st.removeNode(nodeId);
+        return;
+
+      default:
+        st.selectSingleNode(nodeId);
+    }
   }, []);
 
-  useEffect(() => {
-    setQuickInfoNodeId(null);
-  }, [activeTool]);
+  const onNodeMouseDown = useCallback(
+    (node: MapNode, e: L.LeafletMouseEvent) => {
+      const dom = e.originalEvent;
+      // Карте событие не отдаётся: иначе нажатие на узел считалось бы
+      // нажатием на пустое место (рамка выделения, снятие выбора).
+      L.DomEvent.stopPropagation(e);
+      if (dom.button !== 0) return;
+      dom.preventDefault();
+
+      const st = useEditorStore.getState();
+
+      if (st.activeTool !== 'select') {
+        activateWithTool(node.id);
+        return;
+      }
+
+      // Симулятор маршрута ждёт точку — щелчок выбирает её.
+      if (st.routeSimulatorOpen && st.routePickMode && st.pickRouteNode(node.id)) return;
+
+      if (dom.shiftKey || dom.ctrlKey || dom.metaKey) {
+        st.toggleSelectNode(node.id, true);
+        return;
+      }
+
+      if (!st.selectedNodeIds.has(node.id)) st.selectSingleNode(node.id);
+
+      // Перетаскивание: едет выделение, если узел в нём, иначе сам узел.
+      const ids = useEditorStore.getState().selectedNodeIds;
+      const before: NodePosition[] = [];
+      for (const id of ids) {
+        const n = st.nodes.get(id);
+        if (n) before.push({ nodeId: id, x: n.x, y: n.y });
+      }
+
+      // Перетаскивание карты выключается до того, как его обработчик увидит
+      // это нажатие: он подписан на контейнер после обработчика слоёв.
+      map.dragging.disable();
+      dragRef.current = {
+        anchorId: node.id,
+        startClientX: dom.clientX,
+        startClientY: dom.clientY,
+        startPlan: map.mouseEventToLatLng(dom),
+        before,
+        dragging: false,
+        last: null,
+        frame: null,
+        pendingEvent: null,
+      };
+    },
+    [map, activateWithTool]
+  );
+
+  const onNodeContextMenu = useCallback((node: MapNode, e: L.LeafletMouseEvent) => {
+    const dom = e.originalEvent;
+    L.DomEvent.stopPropagation(e);
+    dom.preventDefault();
+
+    const st = useEditorStore.getState();
+    const selection = st.selectedNodeIds;
+
+    if (selection.size > 1 && selection.has(node.id)) {
+      st.openContextMenu(dom.clientX, dom.clientY, { kind: 'selection', nodeIds: [...selection] });
+      return;
+    }
+
+    st.selectSingleNode(node.id);
+    st.openContextMenu(dom.clientX, dom.clientY, { kind: 'node', nodeId: node.id });
+  }, []);
+
+  const hoveredNode = hoveredNodeId ? nodes.find((n) => n.id === hoveredNodeId) : undefined;
 
   return (
     <>
@@ -323,17 +322,10 @@ export const EditorNodes: React.FC = () => {
         const isHovered = hoveredNodeId === node.id;
         const isEdgeStart = edgeStartNodeId === node.id;
         const isTransitionStart = transitionStartNodeId === node.id;
-        const showQuickInfo = quickInfoNodeId === node.id && activeTool === 'select';
 
-        // route highlighting (selected path)
         const isRouteFrom = route.fromNodeId === node.id;
         const isRouteTo = route.toNodeId === node.id;
-        const isInRoute = routePath.includes(node.id);
-
-        // diagnostics highlighting
-        const isOrphan = orphanIds.has(node.id);
-        const hasNoAlias = noAliasIds.has(node.id);
-        const hasError = errorIds.has(node.id);
+        const isInRoute = routePath.has(node.id);
 
         let fillColor = '#6366f1';
         let strokeColor = '#4f46e5';
@@ -342,7 +334,6 @@ export const EditorNodes: React.FC = () => {
           fillColor = '#f59e0b';
           strokeColor = '#d97706';
         }
-
         if (isEdgeStart) {
           fillColor = '#22c55e';
           strokeColor = '#16a34a';
@@ -353,8 +344,6 @@ export const EditorNodes: React.FC = () => {
           fillColor = TRANSITION_COLORS[transitionType];
           strokeColor = highlightColor;
         }
-
-        // route
         if (isInRoute) {
           fillColor = '#8b5cf6';
           strokeColor = '#7c3aed';
@@ -367,36 +356,26 @@ export const EditorNodes: React.FC = () => {
           fillColor = '#ef4444';
           strokeColor = '#dc2626';
         }
-
         if (isSelected) {
           fillColor = highlightColor;
           strokeColor = '#dc2626';
         }
 
         let extraStroke: string | null = null;
-        if (hasError) extraStroke = '#ef4444';
-        else if (isOrphan) extraStroke = '#f97316';
-        else if (hasNoAlias) extraStroke = '#eab308';
+        if (errorIds.has(node.id)) extraStroke = '#ef4444';
+        else if (orphanIds.has(node.id)) extraStroke = '#f97316';
+        else if (noAliasIds.has(node.id)) extraStroke = '#eab308';
 
         const radius = isHovered || isSelected ? 10 : 8;
         const weight = isSelected || isHovered || isEdgeStart || isTransitionStart ? 3 : 2;
 
-        const aliases = getNodeAliases(node.id);
-
-        const routePickHint =
-          routePickMode && routeSimulatorOpen
-            ? routePickTarget === 'from' || !route.fromNodeId
-              ? 'ПКМ — выбрать как СТАРТ'
-              : 'ПКМ — выбрать как ФИНИШ'
-            : null;
-
         return (
           <React.Fragment key={node.id}>
-            {/* extra ring */}
             {extraStroke && (
               <CircleMarker
                 center={[node.y, node.x]}
                 radius={radius + 4}
+                interactive={false}
                 pathOptions={{
                   color: extraStroke,
                   fillColor: 'transparent',
@@ -416,66 +395,41 @@ export const EditorNodes: React.FC = () => {
                 color: strokeColor,
                 fillOpacity: 0.9,
                 weight,
+                className: 'editor-node',
               }}
               eventHandlers={{
-                mousedown: (e) => onMarkerMouseDown(node.id, e),
+                // Метка для сценариев в браузере и отладки: какой узел под этим кружком.
+                add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-node-id', node.id),
+                mousedown: (e) => onNodeMouseDown(node, e),
+                // Щелчок по узлу — узлу. Leaflet отдаёт событие слою, только если
+                // слой на него подписан, а иначе — карте, и та сняла бы выбор,
+                // только что поставленный нажатием.
+                click: (e) => L.DomEvent.stopPropagation(e),
                 mouseover: () => setHoveredNode(node.id),
                 mouseout: () => setHoveredNode(null),
-                contextmenu: (e) => {
-                  const dom = e.originalEvent as MouseEvent;
-                  dom.preventDefault();
-                  dom.stopPropagation();
-                },
+                contextmenu: (e) => onNodeContextMenu(node, e),
               }}
-            >
-              {showQuickInfo && (
-                <Tooltip permanent direction="top" offset={[0, -10]} className="quick-info-tooltip">
-                  <div
-                    style={{
-                      padding: '8px 12px',
-                      backgroundColor: '#1e1e2e',
-                      border: '1px solid #3b3b4f',
-                      borderRadius: '8px',
-                      color: 'white',
-                      fontSize: '12px',
-                      minWidth: '170px',
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                      {node.isPortal && <Icon name="star" size={11} filled className="inline-block mr-1 align-middle" />}
-                      {aliases[0] || node.id}
-                    </div>
-                    <div style={{ color: '#a0a0b0', fontSize: 10 }}>
-                      {node.building} / этаж {node.floor}
-                    </div>
-                    <div style={{ color: '#a0a0b0', fontSize: 10 }}>
-                      ({node.x}, {node.y}) • {node.neighbors.length} связей
-                    </div>
-
-                    {hasNoAlias && <div style={{ color: '#eab308', fontSize: 10, marginTop: 4 }}><Icon name="warning" size={10} className="inline-block mr-1 align-middle" />Нет алиаса</div>}
-                    {isOrphan && <div style={{ color: '#f97316', fontSize: 10, marginTop: 2 }}><Icon name="warning" size={10} className="inline-block mr-1 align-middle" />Нет связей</div>}
-                    {hasError && <div style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}><Icon name="warning" size={10} className="inline-block mr-1 align-middle" />Ошибка neighbors</div>}
-
-                    {routePickHint && <div style={{ color: '#60a5fa', fontSize: 10, marginTop: 4 }}><Icon name="map" size={10} className="inline-block mr-1 align-middle" />{routePickHint}</div>}
-
-                    <div
-                      style={{
-                        color: '#6b7280',
-                        fontSize: 9,
-                        marginTop: 6,
-                        borderTop: '1px solid #3b3b4f',
-                        paddingTop: 4,
-                      }}
-                    >
-                      Shift+ЛКМ — мультивыбор • ПКМ — свойства/drag
-                    </div>
-                  </div>
-                </Tooltip>
-              )}
-            </CircleMarker>
+            />
           </React.Fragment>
         );
       })}
+
+      {hoveredNode && (
+        <CircleMarker
+          key={`hover-${hoveredNode.id}`}
+          center={[hoveredNode.y, hoveredNode.x]}
+          radius={0}
+          interactive={false}
+          pathOptions={{ opacity: 0, fillOpacity: 0 }}
+        >
+          <Tooltip permanent direction="top" offset={[0, -12]} className="node-hover-tooltip">
+            <div className="node-hover-label">
+              <span className="node-hover-label__name">{aliases.get(hoveredNode.id)?.[0] ?? 'Без названия'}</span>
+              <span className="node-hover-label__id">{hoveredNode.id}</span>
+            </div>
+          </Tooltip>
+        </CircleMarker>
+      )}
     </>
   );
 };

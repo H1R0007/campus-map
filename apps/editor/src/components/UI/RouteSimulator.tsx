@@ -18,9 +18,9 @@ function formatRouteTime(seconds: number): string {
 }
 
 /**
- * Toggle:
- * - routePickMode=true  => ПКМ на карте выбирает from/to
- * - routePickMode=false => ПКМ работает как обычно (свойства/drag), выбор только через поиск
+ * Переключатель выбора точек:
+ * - включён — щелчок по узлу на карте задаёт начало или конец маршрута;
+ * - выключен — щелчок выбирает узел как обычно, точки задаются поиском.
  */
 const PickModeToggle: React.FC<{
   enabled: boolean;
@@ -32,7 +32,7 @@ const PickModeToggle: React.FC<{
       style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}
     >
       <div className="text-xs" style={{ color: enabled ? 'white' : 'var(--editor-text-muted)' }}>
-        ПКМ на карте
+        Щелчок по карте
       </div>
 
       <button
@@ -40,7 +40,7 @@ const PickModeToggle: React.FC<{
         onClick={() => onChange(!enabled)}
         className="relative w-12 h-6 rounded-full transition-colors"
         style={{ backgroundColor: enabled ? '#22c55e' : 'var(--editor-accent)' }}
-        title={enabled ? 'Включено: ПКМ по точке выбирает старт/финиш' : 'Выключено: выбор только через поиск'}
+        title={enabled ? 'Включено: щелчок по узлу выбирает начало или конец' : 'Выключено: точки — только через поиск'}
       >
         <div
           className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow"
@@ -73,6 +73,10 @@ export const RouteSimulatorPanel: React.FC = () => {
 
   const animationSpeed = useEditorStore((s) => s.routeSimulation.animationSpeed);
   const setRouteAnimationSpeed = useEditorStore((s) => s.setRouteAnimationSpeed);
+  const playing = useEditorStore((s) => s.routeSimulation.playing);
+  const setRoutePlaying = useEditorStore((s) => s.setRoutePlaying);
+  const follow = useEditorStore((s) => s.routeSimulation.follow);
+  const setRouteFollow = useEditorStore((s) => s.setRouteFollow);
 
   const searchNodes = useEditorStore((s) => s.searchNodes);
   const getNode = useEditorStore((s) => s.getNode);
@@ -279,8 +283,8 @@ export const RouteSimulatorPanel: React.FC = () => {
               style={{ backgroundColor: 'rgba(96, 165, 250, 0.12)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
             >
               {routePickTarget === 'from' || !route.fromNodeId
-                ? 'ПКМ по точке — выбрать СТАРТ'
-                : 'ПКМ по точке — выбрать ФИНИШ'}
+                ? 'Щелчок по узлу — начало маршрута'
+                : 'Щелчок по узлу — конец маршрута'}
             </div>
           )}
         </div>
@@ -306,7 +310,7 @@ export const RouteSimulatorPanel: React.FC = () => {
               setFromQuery(e.target.value);
               if (route.fromNodeId) setRouteSimulation({ fromNodeId: null });
             }}
-            placeholder="Поиск или ПКМ на карте…"
+            placeholder="Поиск или щелчок по узлу…"
             className="mt-1 w-full px-3 py-2 rounded-lg text-sm disabled:opacity-70"
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)', color: 'white' }}
           />
@@ -355,7 +359,7 @@ export const RouteSimulatorPanel: React.FC = () => {
               setToQuery(e.target.value);
               if (route.toNodeId) setRouteSimulation({ toNodeId: null });
             }}
-            placeholder="Поиск или ПКМ на карте…"
+            placeholder="Поиск или щелчок по узлу…"
             className="mt-1 w-full px-3 py-2 rounded-lg text-sm disabled:opacity-70"
             style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)', color: 'white' }}
           />
@@ -424,8 +428,10 @@ export const RouteSimulatorPanel: React.FC = () => {
               </div>
 
               {pathInfo?.multiLevel && (
-                <div className="mt-2 text-xs" style={{ color: '#fbbf24' }}>
-                  <Icon name="warning" size={12} className="inline-block mr-1 align-middle" />Путь проходит через разные корпуса/этажи (переключение вида будет автоматическим).
+                <div className="mt-2 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
+                  <Icon name="warning" size={12} className="inline-block mr-1 align-middle" />
+                  Путь идёт через разные этажи или корпуса. Участки на других планах не видны;
+                  чтобы карта шла за меткой, включите «Вести карту за меткой».
                 </div>
               )}
 
@@ -461,11 +467,35 @@ export const RouteSimulatorPanel: React.FC = () => {
               )}
             </div>
 
-            {/* speed */}
+            {/* Движение метки по маршруту */}
             <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoutePlaying(!playing)}
+                  className="px-3 py-2 rounded-lg text-sm"
+                  style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
+                >
+                  {playing ? 'Пауза' : 'Продолжить'}
+                </button>
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={follow}
+                    onChange={(event) => setRouteFollow(event.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span style={{ color: follow ? 'white' : 'var(--editor-text-muted)' }}>Вести карту за меткой</span>
+                </label>
+              </div>
+              <p className="mt-2 text-xs" style={{ color: 'var(--editor-text-muted)' }}>
+                Метка идёт по маршруту, пока панель открыта. С «вести карту» редактор сам открывает
+                план, по которому метка идёт сейчас; любое переключение плана вручную это выключает.
+              </p>
+
+              <div className="flex items-center justify-between mt-3 mb-2">
                 <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                  <span className="inline-flex items-center gap-1.5"><Icon name="clock" size={12} />Скорость анимации</span>
+                  <span className="inline-flex items-center gap-1.5"><Icon name="clock" size={12} />Скорость движения метки</span>
                 </div>
                 <div className="text-xs font-mono" style={{ color: 'white' }}>
                   {animationSpeed} ms
@@ -490,7 +520,7 @@ export const RouteSimulatorPanel: React.FC = () => {
             {/* nodes list */}
             <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--editor-bg)', border: '1px solid var(--editor-border)' }}>
               <div className="px-3 py-2 text-xs font-medium" style={{ borderBottom: '1px solid var(--editor-border)', color: 'var(--editor-text-muted)' }}>
-                Точки (клик — перейти без изменения zoom)
+                Точки маршрута — щелчок открывает план точки
               </div>
               <div className="max-h-56 overflow-y-auto">
                 {currentPath.map((id, idx) => {
@@ -529,10 +559,9 @@ export const RouteSimulatorPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* hint */}
             {routePickMode && (
               <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                Подсказка: при активном режиме выбора ПКМ по узлу будет выбирать старт/финиш вместо открытия свойств.
+                Пока включён выбор точек, щелчок по узлу задаёт точку маршрута, а не выбирает узел.
               </div>
             )}
           </div>
@@ -543,16 +572,17 @@ export const RouteSimulatorPanel: React.FC = () => {
 };
 
 /**
- * Overlay: рисует путь и двигает маркер.
- * Важно:
- * - использует выбранный путь selectedPathIndex
- * - учитывает animationSpeed из store
- * - автоматически переключает корпус/этаж на каждом шаге (navigateToNode)
+ * Линия маршрута и метка, идущая по нему.
+ *
+ * Метка движется, только пока открыта панель симулятора: прежде она шла
+ * всегда и на каждом шаге переключала план — работать на другом этаже было
+ * невозможно даже со скрытой панелью. План она открывает сама только с
+ * включённым «вести карту за меткой».
  */
 export const RouteOverlay: React.FC = () => {
   const route = useEditorStore((s) => s.routeSimulation);
   const getNode = useEditorStore((s) => s.getNode);
-  const navigateToNode = useEditorStore((s) => s.navigateToNode);
+  const simulatorOpen = useEditorStore((s) => s.routeSimulatorOpen);
 
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
@@ -571,32 +601,26 @@ export const RouteOverlay: React.FC = () => {
     [simulatedRoutes, selectedPathIndex]
   );
 
-  // step timer
+  // Шаг метки по маршруту.
   useEffect(() => {
-    if (!route.active || path.length < 2) return;
+    if (!simulatorOpen || !route.active || !route.playing || path.length < 2) return;
 
-    const t = window.setInterval(() => {
+    const timer = window.setInterval(() => {
+      const state = useEditorStore.getState();
+      const nodes = selectedRoute(state.routeSimulation)?.path ?? [];
+      if (!state.routeSimulation.active || nodes.length < 2) return;
+
+      const next = (state.routeSimulation.animationIndex + 1) % nodes.length;
       useEditorStore.setState((s) => {
-        const p = selectedRoute(s.routeSimulation)?.path ?? [];
-
-        if (!s.routeSimulation.active || p.length < 2) return;
-
-        const next = (s.routeSimulation.animationIndex + 1) % p.length;
         s.routeSimulation.animationIndex = next;
-
-        const nodeId = p[next];
-        if (nodeId) {
-          // переключаем корпус/этаж под анимацию
-          // (без изменения зума: просто вид)
-          setTimeout(() => {
-            navigateToNode(nodeId);
-          }, 0);
-        }
       });
+
+      // План под меткой открывается, только если об этом попросили.
+      if (state.routeSimulation.follow && nodes[next]) state.navigateToNode(nodes[next]);
     }, route.animationSpeed);
 
-    return () => window.clearInterval(t);
-  }, [route.active, route.animationSpeed, route.selectedPathIndex, path.length, navigateToNode]);
+    return () => window.clearInterval(timer);
+  }, [simulatorOpen, route.active, route.playing, route.animationSpeed, route.selectedPathIndex, path.length]);
 
   if (!route.active || path.length === 0) return null;
 

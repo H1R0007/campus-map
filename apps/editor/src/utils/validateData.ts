@@ -1,5 +1,5 @@
 import type { BuildingMeta, MapNode, Transition } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, edgeKey } from '@campus-map/core';
 
 export interface ValidationResult {
   errors: string[];
@@ -33,21 +33,31 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
   // Соседи должны существовать: иначе маршрутизатор теряет ребро молча.
   for (const [id, node] of nodes) {
     for (const neighbor of node.neighbors) {
-      if (!nodes.has(neighbor)) {
+      if (neighbor === id) {
+        errors.push(`Узел «${id}» указан соседом самому себе`);
+      } else if (!nodes.has(neighbor)) {
         errors.push(`Узел «${id}» ссылается на несуществующего соседа «${neighbor}»`);
       }
     }
+
+    // Повтор соседа ничего не ломает в маршруте, но это след ручной правки
+    // файла, и автоисправление его убирает.
+    if (new Set(node.neighbors).size !== node.neighbors.length) {
+      warnings.push(`У узла «${id}» один и тот же сосед указан несколько раз`);
+    }
   }
 
-  // Асимметрия допустима (одностороннее движение), но почти всегда случайна.
+  // Односторонних проходов в кампусе нет (решение владельца, запись 38): связь
+  // без обратной — ошибка разметки, и маршрут в одну сторону найдётся, а в
+  // другую нет.
   for (const [id, node] of nodes) {
     for (const neighbor of node.neighbors) {
       const other = nodes.get(neighbor);
-      if (!other) continue;
+      if (!other || neighbor === id) continue;
 
       if (!other.neighbors.includes(id)) {
-        warnings.push(
-          `Ребро не симметрично: «${id}» → «${neighbor}» есть, обратного «${neighbor}» → «${id}» нет`
+        errors.push(
+          `Связь только в одну сторону: «${id}» → «${neighbor}» есть, обратной «${neighbor}» → «${id}» нет`
         );
       }
     }
@@ -61,6 +71,33 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
     if (!nodes.has(transition.toNode)) {
       errors.push(`Переход ссылается на несуществующий конечный узел «${transition.toNode}»`);
     }
+  }
+
+  // Переход связывает планы. Оба конца на одном плане — это связь (ребро), а
+  // переход между ними навигатор провёл бы «сквозь этаж».
+  for (const transition of transitions) {
+    const from = nodes.get(transition.fromNode);
+    const to = nodes.get(transition.toNode);
+    if (!from || !to) continue;
+
+    if (from.building === to.building && from.floor === to.floor) {
+      warnings.push(
+        `Переход «${transition.fromNode}» — «${transition.toNode}» соединяет узлы одного плана: ` +
+          `между ними нужна связь, а не переход`
+      );
+    }
+  }
+
+  // Второй переход между теми же узлами: маршрут пойдёт по любому из них, а
+  // разметчик правит только один и не понимает, почему ничего не изменилось.
+  const seenTransitions = new Set<string>();
+  for (const transition of transitions) {
+    const key = edgeKey(transition.fromNode, transition.toNode);
+    if (seenTransitions.has(key)) {
+      warnings.push(`Между «${transition.fromNode}» и «${transition.toNode}» больше одного перехода`);
+      continue;
+    }
+    seenTransitions.add(key);
   }
 
   // Принадлежность узла корпусу и этажу должна подтверждаться meta.json.

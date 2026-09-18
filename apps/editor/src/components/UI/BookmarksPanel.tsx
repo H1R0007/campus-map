@@ -71,6 +71,8 @@ export const BookmarksPanel: React.FC = () => {
           onClick={() => setIsOpen(false)}
           className="p-1 rounded hover:bg-white/10"
           style={{ color: 'var(--editor-text-muted)' }}
+          aria-label="Закрыть закладки"
+          title="Закрыть закладки"
         >
           ✕
         </button>

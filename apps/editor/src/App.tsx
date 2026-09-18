@@ -12,10 +12,11 @@ import { FilterPanel } from './components/UI/FilterPanel';
 import { StatisticsPanel } from './components/UI/StatisticsPanel';
 import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
 import { RecentActions } from './components/UI/RecentActions';
+import { Notice } from './components/UI/Notice';
 import { ContextMenu } from './components/UI/ContextMenu';
-import { EdgeContextMenu } from './components/UI/EdgeContextMenu';
 import { BookmarksPanel } from './components/UI/BookmarksPanel';
-import { useEditorStore } from './stores/editorStore';
+import { DraftPrompt } from './components/UI/DraftPrompt';
+import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
 
 /**
@@ -68,10 +69,35 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+/**
+ * Предупреждение браузера при закрытии вкладки с несохранёнными правками.
+ *
+ * Разметка сотен узлов — часы работы, а закрытая вкладка стирала их без
+ * вопроса. Сам текст выбирает браузер, страница только говорит, что уходить
+ * рано; несохранённое при этом остаётся в черновике.
+ */
+function useUnloadGuard(): void {
+  const unsaved = useUnsavedChanges();
+
+  useEffect(() => {
+    if (!unsaved) return;
+
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [unsaved]);
+}
+
 const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const isLoading = useEditorStore((s) => s.isLoading);
   const loadData = useEditorStore((s) => s.loadData);
+  const initStorage = useEditorStore((s) => s.initStorage);
+  useUnloadGuard();
 
   useEffect(() => {
     // StrictMode монтирует эффект дважды; без флага отмены второй запуск
@@ -89,7 +115,11 @@ const App: React.FC = () => {
           createHttpDatasetSource({ baseUrl: DATA_BASE_URL })
         );
 
-        if (!cancelled) loadData(dataset, warnings);
+        if (cancelled) return;
+        loadData(dataset, warnings);
+        // Манифест каталога данных и черновик — после загрузки: черновик
+        // предлагается поверх уже открытых данных.
+        await initStorage();
       } catch (cause) {
         console.error('Ошибка загрузки датасета:', cause);
         if (!cancelled) {
@@ -105,7 +135,7 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [loadData]);
+  }, [loadData, initStorage]);
 
   if (isLoading && !error) {
     return (
@@ -178,13 +208,14 @@ const App: React.FC = () => {
             <LineToolPanel />
             <RouteSimulatorPanel />
             <RecentActions />
+            <Notice />
           </div>
         </div>
         <StatusBar />
 
         <SearchPanel />
         <ContextMenu />
-        <EdgeContextMenu />
+        <DraftPrompt />
       </div>
     </ErrorBoundary>
   );

@@ -26,6 +26,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * загрузки ресурсов — копятся в `page.problems`: шаг сценария обязан
  * закончиться без них.
  *
+ * Окна браузера (`alert`, `confirm`, предупреждение об уходе со страницы)
+ * принимаются сразу и копятся в `page.dialogs`: иначе переход по адресу ждал
+ * бы ответа вечно. Сценарий проверяет по этому списку, что предупреждение
+ * вообще появилось.
+ *
  * @param {string} debugUrl адрес отладки браузера: `http://127.0.0.1:<порт>`
  */
 export async function openPage(debugUrl) {
@@ -41,6 +46,7 @@ export async function openPage(debugUrl) {
   const pending = new Map();
   const listeners = new Set();
   const problems = [];
+  const dialogs = [];
 
   socket.onmessage = (event) => {
     const message = JSON.parse(event.data);
@@ -64,6 +70,10 @@ export async function openPage(debugUrl) {
     if (message.method === 'Log.entryAdded' && message.params.entry.level === 'error') {
       problems.push(`журнал: ${message.params.entry.text} ${message.params.entry.url ?? ''}`.trim());
     }
+    if (message.method === 'Page.javascriptDialogOpening') {
+      dialogs.push(message.params.type);
+      send('Page.handleJavaScriptDialog', { accept: true });
+    }
 
     for (const listener of listeners) listener(message);
   };
@@ -84,6 +94,8 @@ export async function openPage(debugUrl) {
 
   const page = {
     problems,
+    /** Типы окон браузера, показанных страницей: `beforeunload`, `alert`, `confirm`. */
+    dialogs,
     send,
     sleep,
 

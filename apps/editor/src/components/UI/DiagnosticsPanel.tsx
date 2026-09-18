@@ -3,6 +3,7 @@ import { createCampusProjection } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { Icon } from './Icon';
 import { validateDataset } from '../../utils/validateData';
+import { autoFixSummary } from '../../utils/autoFix';
 
 export const DiagnosticsPanel: React.FC = () => {
   const open = useEditorStore((s) => s.diagnosticsOpen);
@@ -45,24 +46,12 @@ export const DiagnosticsPanel: React.FC = () => {
   }, [nodes, transitions, buildingMetas]);
 
   const handleAutoFix = () => {
-    try {
-      const r = autoFix();
-      const message =
-        `Auto-fix выполнен:\n` +
-        `• Удалено битых neighbors: ${r.removedMissingNeighbors}\n` +
-        `• Добавлено симметричных рёбер: ${r.addedSymmetricEdges}\n` +
-        `• Удалено битых transitions: ${r.removedInvalidTransitions}\n` +
-        `• Удалено дублей transitions: ${r.removedDuplicateTransitions}`;
-
-      setLastFixReport(message);
-
-      if (r.removedMissingNeighbors + r.addedSymmetricEdges + r.removedInvalidTransitions + r.removedDuplicateTransitions === 0) {
-        setLastFixReport('Проблем для исправления не найдено!');
-      }
-    } catch (err) {
-      console.error('AutoFix error:', err);
-      setLastFixReport('Ошибка при выполнении auto-fix');
-    }
+    const lines = autoFixSummary(autoFix());
+    setLastFixReport(
+      lines.length === 0
+        ? 'Исправлять нечего: того, что умеет чинить редактор, в данных нет.'
+        : `Исправлено (можно отменить Ctrl+Z):\n${lines.map((line) => `• ${line.text}: ${line.count}`).join('\n')}`
+    );
   };
 
   if (!open) {
@@ -116,6 +105,8 @@ export const DiagnosticsPanel: React.FC = () => {
           onClick={() => setOpen(false)}
           className="p-2 rounded-xl hover:bg-white/10 transition-colors"
           style={{ color: 'var(--editor-text-muted)' }}
+          aria-label="Закрыть диагностику"
+          title="Закрыть диагностику"
         >
           ✕
         </button>
@@ -180,7 +171,7 @@ export const DiagnosticsPanel: React.FC = () => {
             color: 'white',
           }}
         >
-          <span className="inline-flex items-center gap-2"><Icon name="zap" />Auto-fix (можно отменить Ctrl+Z)</span>
+          <span className="inline-flex items-center gap-2"><Icon name="zap" />Исправить что можно</span>
         </button>
 
         {/* Last fix report */}
