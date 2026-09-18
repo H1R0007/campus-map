@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { createHttpDatasetSource, loadDataset } from '@campus-map/core';
 import { EditorMap } from './components/Map/EditorMap';
-import { Toolbar } from './components/UI/Toolbar';
-import { LayersPanel } from './components/UI/LayersPanel';
+import { TopBar } from './components/Layout/TopBar';
+import { StructurePanel } from './components/Layout/StructurePanel';
+import { ToolRail } from './components/Layout/ToolRail';
+import { ToolOptions } from './components/Layout/ToolOptions';
+import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
-import { PropertiesPanel } from './components/UI/PropertiesPanel';
-import { DiagnosticsPanel } from './components/UI/DiagnosticsPanel';
-import { LineToolPanel } from './components/Tools/LineToolPanel';
 import { SearchPanel } from './components/UI/SearchPanel';
-import { FilterPanel } from './components/UI/FilterPanel';
-import { RouteSimulatorPanel } from './components/UI/RouteSimulator';
 import { Notice } from './components/UI/Notice';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
@@ -182,26 +180,21 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div
-        className="h-full w-full flex flex-col"
-        style={{ backgroundColor: 'var(--editor-bg)' }}
-      >
-        <Toolbar />
-        <div className="flex-1 flex overflow-hidden">
-          <LayersPanel />
-          <div className="flex-1 relative overflow-hidden">
-            <EditorMap />
-
-            {/* Фильтры — колонкой справа от кнопок масштаба. */}
-            <div className="absolute top-3 left-16 bottom-3 z-[1600] flex flex-col items-start gap-2 pointer-events-none [&>*]:pointer-events-auto">
-              <FilterPanel />
+      {/* Карта в середине, всё остальное — в закреплённых колонках вокруг:
+          ни одна панель не лежит поверх плана (запись 39). */}
+      <div className="editor-shell">
+        <TopBar />
+        <div className="editor-body">
+          <StructurePanel />
+          <ToolRail />
+          <main className="editor-workspace" aria-label="Карта">
+            <ToolOptions />
+            <div className="editor-map-area">
+              <EditorMap />
+              <Notice />
             </div>
-            <PropertiesPanel />
-            <DiagnosticsPanel />
-            <LineToolPanel />
-            <RouteSimulatorPanel />
-            <Notice />
-          </div>
+          </main>
+          <Inspector />
         </div>
         <StatusBar />
 

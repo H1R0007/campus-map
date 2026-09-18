@@ -2,16 +2,15 @@ import React, { useMemo, useState } from 'react';
 import { createCampusProjection } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { Icon } from './Icon';
-import { validateDataset } from '../../utils/validateData';
+import { useValidationReport } from '../../hooks/useValidationReport';
 import { autoFixSummary } from '../../utils/autoFix';
 
-export const DiagnosticsPanel: React.FC = () => {
-  const open = useEditorStore((s) => s.diagnosticsOpen);
-  const setOpen = useEditorStore((s) => s.setDiagnosticsOpen);
+/**
+ * Вкладка «Проверка» инспектора: ошибки и предупреждения в данных,
+ * автоисправление и замечания к загруженным файлам.
+ */
+export const ProblemsView: React.FC = () => {
   const autoFix = useEditorStore((s) => s.autoFix);
-
-  const nodes = useEditorStore((s) => s.nodes);
-  const transitions = useEditorStore((s) => s.transitions);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
 
   /**
@@ -41,9 +40,7 @@ export const DiagnosticsPanel: React.FC = () => {
 
   const [lastFixReport, setLastFixReport] = useState<string | null>(null);
 
-  const report = useMemo(() => {
-    return validateDataset({ nodes, transitions, buildingMetas });
-  }, [nodes, transitions, buildingMetas]);
+  const report = useValidationReport();
 
   const handleAutoFix = () => {
     const lines = autoFixSummary(autoFix());
@@ -54,65 +51,8 @@ export const DiagnosticsPanel: React.FC = () => {
     );
   };
 
-  if (!open) {
-    const warningCount = report.warnings.length + loadWarnings.length;
-    const hasIssues = report.errors.length > 0 || warningCount > 0;
-
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="absolute left-3 bottom-10 z-[1600] px-3 py-2 rounded-xl text-sm font-medium shadow-lg transition-colors hover:opacity-90"
-        style={{
-          backgroundColor: hasIssues
-            ? (report.errors.length > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)')
-            : 'var(--editor-panel)',
-          border: '1px solid var(--editor-border)',
-          color: 'white',
-        }}
-        title="Диагностика данных"
-      >
-        <span className="inline-flex items-center gap-2 align-middle"><Icon name="search" />Диагностика</span>
-        {hasIssues && (
-          <span
-            className="ml-2 px-1.5 py-0.5 rounded text-xs font-bold"
-            style={{
-              backgroundColor: report.errors.length > 0 ? '#ef4444' : '#f59e0b',
-              color: 'white',
-            }}
-          >
-            {report.errors.length > 0 ? report.errors.length : warningCount}
-          </span>
-        )}
-      </button>
-    );
-  }
-
   return (
-    <div
-      className="absolute left-3 bottom-10 w-[420px] max-h-[60%] z-[1600] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-      style={{
-        backgroundColor: 'var(--editor-panel)',
-        border: '1px solid var(--editor-border)',
-      }}
-    >
-      {/* Header */}
-      <div
-        className="px-4 py-3 flex items-center justify-between"
-        style={{ borderBottom: '1px solid var(--editor-border)' }}
-      >
-        <div className="text-white font-semibold flex items-center gap-2"><Icon name="search" />Диагностика</div>
-        <button
-          onClick={() => setOpen(false)}
-          className="p-2 rounded-xl hover:bg-white/10 transition-colors"
-          style={{ color: 'var(--editor-text-muted)' }}
-          aria-label="Закрыть диагностику"
-          title="Закрыть диагностику"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div className="p-4 space-y-3 overflow-y-auto">
+    <div className="space-y-3">
         {/* Summary */}
         <div className="flex gap-2">
           <div
@@ -269,7 +209,6 @@ export const DiagnosticsPanel: React.FC = () => {
             <div className="text-sm text-white">Данные в порядке!</div>
           </div>
         )}
-      </div>
     </div>
   );
 };

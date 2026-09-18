@@ -5,7 +5,7 @@ import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
-import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
+import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 
 /** Сколько ближайших узлов предлагать для быстрого соединения. */
 const CONNECT_CANDIDATES = 8;
@@ -13,16 +13,34 @@ const CONNECT_CANDIDATES = 8;
 /** Пустой список названий одной ссылкой: новая ссылка обновляла бы панель зря. */
 const NO_ALIASES: string[] = [];
 
-export const PropertiesPanel: React.FC = () => {
+/**
+ * Вкладка «Свойства» инспектора: карточка выбранного узла, а без выбора —
+ * подсказка, что сюда попадёт.
+ */
+export const PropertiesView: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
   const clearSelection = useEditorStore((s) => s.clearSelection);
 
   const selectedIds = Array.from(selectedNodeIds);
-  const nodeId = selectedIds.length === 1 ? selectedIds[0] : null;
 
-  if (!nodeId) return null;
+  if (selectedIds.length === 1) {
+    return <PropertiesPanelInner nodeId={selectedIds[0]} onClose={clearSelection} />;
+  }
 
-  return <PropertiesPanelInner nodeId={nodeId} onClose={clearSelection} />;
+  if (selectedIds.length > 1) {
+    return (
+      <p className="editor-empty">
+        Выбрано: {nodesCount(selectedIds.length)}. Действия с ними — в строке над картой и в меню правой кнопки;
+        стрелки сдвигают все выбранные узлы.
+      </p>
+    );
+  }
+
+  return (
+    <p className="editor-empty">
+      Ничего не выбрано. Щёлкните по узлу на карте — здесь появятся его названия, связи и переходы.
+    </p>
+  );
 };
 
 /**
@@ -193,14 +211,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
   if (!node) return null;
 
   return (
-    <aside
+    <section
       aria-label="Свойства узла"
       data-node-id={node.id}
-      className="absolute top-3 right-3 bottom-10 w-[380px] z-[1600] flex flex-col rounded-2xl shadow-2xl overflow-hidden"
-      style={{
-        backgroundColor: 'var(--editor-panel)',
-        border: '1px solid var(--editor-border)',
-      }}
+      className="flex flex-col -m-3"
     >
       {/* Header */}
       <div
@@ -215,7 +229,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
                 className="px-2 py-0.5 rounded text-xs font-medium"
                 style={{ backgroundColor: '#f59e0b', color: 'white' }}
               >
-                Портал
+                Точка перехода
               </span>
             )}
           </div>
@@ -227,19 +241,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="p-2 rounded-xl hover:bg-white/10 transition-colors"
-          style={{ color: 'var(--editor-text-muted)' }}
-          aria-label="Закрыть свойства узла"
-          title="Закрыть свойства узла (Escape)"
-        >
-          ✕
-        </button>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="p-4 space-y-4">
 
         {/* Quick Actions */}
         <section
@@ -263,7 +268,7 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
               }}
             >
               <Icon name="star" filled={node.isPortal} />
-              Портал
+              Точка перехода
             </button>
           </div>
 
@@ -714,10 +719,10 @@ const PropertiesPanelInner: React.FC<{ nodeId: string; onClose: () => void }> = 
           className="px-4 py-2.5 rounded-xl text-sm transition-colors hover:bg-white/10"
           style={{ backgroundColor: 'var(--editor-accent)', color: 'white' }}
         >
-          Скрыть
+          Снять выбор
         </button>
       </div>
-    </aside>
+    </section>
   );
 };
 

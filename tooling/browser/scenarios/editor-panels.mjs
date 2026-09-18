@@ -25,7 +25,7 @@ export default {
 
     await step('у вкладки свой значок, запроса favicon.ico с ошибкой нет', async () => {
       await page.goto(`${base}/`);
-      await page.waitFor(`document.body.innerText.includes('Слои') && document.querySelectorAll('.leaflet-overlay-pane path').length > 0`, 20_000);
+      await page.waitFor(`document.body.innerText.includes('Структура') && document.querySelectorAll('.leaflet-overlay-pane path').length > 0`, 20_000);
       await page.sleep(500);
       assert.ok(await page.eval(`document.querySelector('link[rel="icon"]')?.href.startsWith('data:image/svg+xml')`));
     });
@@ -43,7 +43,7 @@ export default {
     });
 
     await step('в панелях нет эмодзи', async () => {
-      await click('Диагностика');
+      await click('Проверка');
       await click('Маршрут');
       await click('Корпус А');
       await click('Этаж 1');

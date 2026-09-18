@@ -44,7 +44,7 @@ export default {
       await shot('editor-route');
     });
 
-    await step('метка идёт по маршруту, пока панель открыта', async () => {
+    await step('метка идёт по маршруту, пока открыта вкладка «Маршрут»', async () => {
       const first = await marker();
       assert.ok(first.at, 'метки маршрута нет');
       await page.sleep(1200);
@@ -52,14 +52,14 @@ export default {
       assert.notEqual(second.at, first.at, 'метка стоит на месте');
     });
 
-    await step('со скрытой панелью метка стоит, а линия остаётся', async () => {
-      await e.press('Скрыть (маршрут останется)');
+    await step('на другой вкладке метка стоит, а линия остаётся', async () => {
+      await e.press('Свойства');
       await page.sleep(300);
       const first = await marker();
-      assert.ok(first.line, 'линия маршрута пропала вместе с панелью');
+      assert.ok(first.line, 'линия маршрута пропала вместе с вкладкой');
       await page.sleep(1800);
       const second = await marker();
-      assert.equal(second.at, first.at, 'метка идёт при скрытой панели');
+      assert.equal(second.at, first.at, 'метка идёт, хотя вкладка маршрута закрыта');
       assert.ok(second.line);
     });
 

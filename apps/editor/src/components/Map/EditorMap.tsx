@@ -3,6 +3,7 @@ import { useMap, useMapEvents } from 'react-leaflet';
 import { DEFAULT_INSETS, PixelMap, fitPaddingOf, flyToBounds, useMapFrame } from '@campus-map/mapkit';
 import { campusMapUrl, floorMapUrl, planFormatOf } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { useCursorStore } from '../../stores/cursorStore';
 import type { EditorStore, EditorTool } from '../../stores/editorStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
@@ -12,7 +13,7 @@ import { EditorTransitions } from './EditorTransitions';
 import { LineToolPreview } from './LineToolPreview';
 import { SelectionBox } from './SelectionBox';
 import { GridOverlay } from './GridOverlay';
-import { RouteOverlay } from '../UI/RouteSimulator';
+import { RouteOverlay } from './RouteOverlay';
 import { AliasLabels } from './AliasLabels';
 
 const CameraController: React.FC = () => {
@@ -105,9 +106,21 @@ const KeyboardHandler: React.FC = () => {
       if (st.contextMenu.open || target?.closest?.('[role="menu"]')) return;
 
       const isInput =
-        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable === true;
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT' ||
+        target?.isContentEditable === true;
       const ctrl = e.ctrlKey || e.metaKey;
       const { code } = e;
+
+      // Стрелки во вкладках инспектора и списках переключают их, а не
+      // двигают выбранный узел за спиной у человека.
+      if (
+        (ARROW_STEPS[code] || code === 'Home' || code === 'End') &&
+        target?.closest?.('[role="tablist"], [role="listbox"], [role="radiogroup"]')
+      ) {
+        return;
+      }
 
       if (ctrl && code === 'KeyF') {
         e.preventDefault();
@@ -305,7 +318,12 @@ const MapEventHandler: React.FC = () => {
 
     mousemove: (e) => {
       if (boxRef.current) useEditorStore.getState().updateSelectionBox(e.latlng.lng, e.latlng.lat);
+      useCursorStore.getState().setPoint({ x: Math.round(e.latlng.lng), y: Math.round(e.latlng.lat) });
     },
+
+    mouseout: () => useCursorStore.getState().setPoint(null),
+
+    zoomend: () => useCursorStore.getState().setZoom(map.getZoom()),
 
     contextmenu: (e) => {
       const dom = e.originalEvent;
@@ -317,6 +335,26 @@ const MapEventHandler: React.FC = () => {
       });
     },
   });
+
+  return null;
+};
+
+/**
+ * Карта подстраивается под размер своего места на экране.
+ *
+ * Leaflet сам следит только за размером окна, а место карты меняется и без
+ * него: свернули колонку структуры или инспектора — карта шире. Без
+ * пересчёта щелчки попадали бы не в те точки плана.
+ */
+const MapResizeWatcher: React.FC = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    useCursorStore.getState().setZoom(map.getZoom());
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
 
   return null;
 };
@@ -360,6 +398,7 @@ export const EditorMap: React.FC = () => {
       overlayOpacity={0.6}
     >
       <CameraController />
+      <MapResizeWatcher />
       <KeyboardHandler />
 
       {/* overlays order */}

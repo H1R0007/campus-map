@@ -273,7 +273,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'ADD_EDGE',
-      description: 'Добавлено ребро',
+      description: 'Добавлена связь',
       // `neighborsBefore` уже содержит оба узла как ключи, поэтому
       // отдельный список id был бы избыточным дублем в каждой записи.
       undoData: { neighborsBefore: snapshotNeighbors(st.nodes, [fromId, toId]) },
@@ -294,7 +294,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_EDGE',
-      description: 'Удалено ребро',
+      description: 'Удалена связь',
       undoData: { neighborsBefore: snapshotNeighbors(st.nodes, [fromId, toId]) },
       redoData: { fromId, toId },
     });
@@ -469,7 +469,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: 'Разделено ребро',
+      description: 'Узел вставлен в связь',
       undoData: {
         kind: 'splitEdge',
         newNodeId: newId,

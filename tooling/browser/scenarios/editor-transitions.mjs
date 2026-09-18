@@ -23,7 +23,12 @@ export default {
     const click = async (label) => {
       const clicked = await page.eval(`(() => {
         const label = ${JSON.stringify(label)};
-        const button = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === label || b.getAttribute('title') === label);
+        const buttons = [...document.querySelectorAll('button')];
+        // Точное совпадение, иначе — начало подписи: у корпуса и этажа в
+        // структуре после названия идёт число узлов.
+        const button =
+          buttons.find((b) => b.textContent.trim() === label || b.getAttribute('title') === label) ??
+          buttons.find((b) => b.textContent.trim().startsWith(label));
         if (!button) return false;
         button.click();
         return true;
@@ -38,7 +43,7 @@ export default {
 
     await step('кампус и этаж 2: отметки планов назначения, пунктиров через план нет', async () => {
       await page.goto(`${base}/`);
-      await page.waitFor(`document.body.innerText.includes('Слои') && document.querySelectorAll('.leaflet-overlay-pane path').length > 0`, 20_000);
+      await page.waitFor(`document.body.innerText.includes('Структура') && document.querySelectorAll('.leaflet-overlay-pane path').length > 0`, 20_000);
       await page.sleep(800);
       assert.ok((await targets()).includes('Корпус А, этаж 1'));
       assert.equal(await dashedLines(), 0);
@@ -52,7 +57,6 @@ export default {
     });
 
     await step('фильтр «Переходы» прячет отметки', async () => {
-      await click('Фильтры');
       const toggle = `[...document.querySelectorAll('label')].find((l) => l.textContent.includes('Переходы')).querySelector('input')`;
       await page.eval(`${toggle}.click()`);
       await page.sleep(400);
@@ -88,7 +92,7 @@ export default {
 
       await e.press('Этаж 2');
       assert.match(await e.status(), /Этаж 2/);
-      assert.match(await e.status(), /А-104/, 'после смены этажа начатый переход не потерялся');
+      assert.match(await e.toolbar(), /А-104/, 'после смены этажа начатый переход не потерялся');
 
       const finish = await e.nodePoint('a2_room204');
       await e.click(finish.x, finish.y);

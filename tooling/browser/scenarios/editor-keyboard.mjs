@@ -28,7 +28,7 @@ export default {
       const before = (await e.nodeIds()).length;
 
       await ru('т', 'KeyN');
-      assert.match(await e.status(), /Узел/, 'клавиша инструмента не сработала в русской раскладке');
+      assert.equal(await e.tool(), 'Узел', 'клавиша инструмента не сработала в русской раскладке');
 
       const empty = await e.emptyMapPoint();
       await e.click(empty.x, empty.y);
@@ -40,11 +40,11 @@ export default {
       assert.equal((await e.nodeIds()).length, before, 'Ctrl+Z в русской раскладке не отменил');
 
       await ru('м', 'KeyV');
-      assert.match(await e.status(), /Выбор/);
+      assert.equal(await e.tool(), 'Выбор');
 
       // Инструмента «Удалить» больше нет: клавиша D инструмент не меняет.
       await ru('в', 'KeyD');
-      assert.match(await e.status(), /Выбор/, 'клавиша D всё ещё переключает инструмент');
+      assert.equal(await e.tool(), 'Выбор', 'клавиша D всё ещё переключает инструмент');
     });
 
     await step('стрелки двигают узел: по пикселю, с сеткой — по клетке, отмена одна', async () => {
@@ -58,9 +58,7 @@ export default {
       await e.key('z', { modifiers: MOD.ctrl });
       assert.equal(Number(await e.panelValue('Координата X')), startX, 'три нажатия — одна отмена');
 
-      await e.press('Фильтры');
       await e.toggleFilter('Включить сетку');
-      await e.press('Закрыть фильтры');
 
       const room2 = await e.nodePoint('a1_room101');
       await e.click(room2.x, room2.y);
@@ -70,9 +68,7 @@ export default {
       await e.key('z', { modifiers: MOD.ctrl });
       assert.equal(Number(await e.panelValue('Координата X')), startX);
 
-      await e.press('Фильтры');
       await e.toggleFilter('Включить сетку');
-      await e.press('Закрыть фильтры');
     });
 
     await step('без выделения стрелки двигают карту', async () => {

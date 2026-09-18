@@ -29,6 +29,12 @@
     /* Подложка подписей на карте: читается и на светлом плане, и на тёмном фоне. */
     --editor-label-bg: rgba(0, 0, 0, 0.78);
     --editor-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    /* Состояния: предупреждение, успех, ошибка (заливка значков и счётчиков). */
+    --editor-warn: #fbbf24;
+    --editor-success: #22c55e;
+    --editor-error: #ef4444;
+    /* Полоса выбранной вкладки и рамка поля в фокусе. */
+    --editor-focus: #e94560;
 }
 
 *,
@@ -421,5 +427,541 @@ input[type='checkbox'] {
 .context-menu__shortcut {
     font-family: inherit;
     font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+/* --- Раскладка: колонки по бокам карты вместо панелей поверх неё --- */
+
+.editor-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--editor-bg);
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 56px;
+    padding: 6px 12px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-topbar__title {
+    margin-right: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.editor-topbar__group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.editor-topbar__spacer {
+    flex: 1;
+}
+
+.editor-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.editor-sidebar,
+.editor-inspector {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--editor-panel);
+}
+
+.editor-sidebar {
+    width: 248px;
+    border-right: 1px solid var(--editor-border);
+}
+
+.editor-inspector {
+    width: 360px;
+    border-left: 1px solid var(--editor-border);
+}
+
+/* На экране ноутбука колонки уже: карте нужно хотя бы две трети ширины. */
+@media (max-width: 1440px) {
+    .editor-sidebar {
+        width: 216px;
+    }
+
+    .editor-inspector {
+        width: 320px;
+    }
+}
+
+/* Свёрнутая колонка — полоска с одной кнопкой «развернуть». */
+.editor-sidebar--collapsed,
+.editor-inspector--collapsed {
+    width: 52px;
+    align-items: center;
+    padding-top: 4px;
+}
+
+.editor-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 52px;
+    padding: 4px 4px 4px 16px;
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-column-header__title {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.editor-column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.editor-rail {
+    flex: none;
+    width: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 6px;
+    overflow-y: auto;
+    background: var(--editor-panel);
+    border-right: 1px solid var(--editor-border);
+}
+
+.editor-rail__tool {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    min-height: 56px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 12px;
+    line-height: 1.1;
+    cursor: pointer;
+}
+
+.editor-rail__tool:hover {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-rail__tool[aria-pressed='true'] {
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.editor-workspace {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/*
+ * Строка над картой: что делает инструмент и его параметры.
+ *
+ * Высота постоянная и строка не переносится: иначе выбор узла, добавляющий
+ * кнопки действий, сдвигал бы карту вниз, и следующий щелчок попадал бы не
+ * туда. Не хватает места — подсказка обрезается, у кнопок остаются значки.
+ */
+.editor-toolbar {
+    container-type: inline-size;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 56px;
+    padding: 0 12px;
+    background: var(--editor-accent);
+    border-bottom: 1px solid var(--editor-border);
+    overflow: hidden;
+}
+
+.editor-toolbar__tool {
+    flex: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.editor-toolbar__hint {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--editor-text-muted);
+}
+
+.editor-toolbar__options {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: 6px;
+}
+
+@container (max-width: 860px) {
+    .editor-toolbar__label {
+        display: none;
+    }
+}
+
+.editor-map-area {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.editor-statusbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    min-height: 32px;
+    padding: 4px 12px;
+    background: var(--editor-panel);
+    border-top: 1px solid var(--editor-border);
+    color: var(--editor-text-muted);
+    font-size: 13px;
+    user-select: none;
+}
+
+.editor-statusbar__place {
+    color: var(--editor-text);
+    font-weight: 500;
+}
+
+.editor-statusbar__spacer {
+    flex: 1;
+}
+
+.editor-statusbar__coords {
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-statusbar__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--editor-success);
+}
+
+.editor-statusbar__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
+.editor-statusbar__state--unsaved {
+    color: var(--editor-warn);
+}
+
+/* --- Структура: территория, корпуса, этажи --- */
+
+.editor-tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.editor-tree__floors {
+    list-style: none;
+    margin: 0 0 4px;
+    padding: 0 0 0 20px;
+}
+
+.editor-tree__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.editor-tree__item:hover {
+    background: var(--editor-hover);
+}
+
+.editor-tree__item[aria-current='true'] {
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.editor-tree__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-tree__count {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-tree__item[aria-current='true'] .editor-tree__count {
+    color: inherit;
+}
+
+/* --- Общие элементы колонок --- */
+
+.editor-section {
+    padding: 8px 8px 12px;
+}
+
+.editor-section + .editor-section {
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-section__title {
+    margin: 4px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.editor-section__hint {
+    margin: 0 0 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--editor-text-muted);
+}
+
+.editor-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.editor-check:hover {
+    background: var(--editor-hover);
+}
+
+.editor-check input {
+    width: 18px;
+    height: 18px;
+    flex: none;
+}
+
+.editor-check__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-check__hint {
+    display: block;
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+.editor-check__count {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    background: var(--editor-bg);
+    color: var(--editor-text);
+    font-size: 16px;
+}
+
+.editor-input:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: 1px;
+}
+
+.editor-input--narrow {
+    width: 88px;
+}
+
+.editor-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    cursor: pointer;
+}
+
+.editor-icon-button:hover:not(:disabled) {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-icon-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.editor-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.editor-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.editor-button--accent {
+    background: var(--editor-accent);
+    border-color: var(--editor-border);
+    color: var(--editor-text);
+}
+
+.editor-button--accent:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+.editor-button--danger {
+    background: transparent;
+    border-color: var(--editor-border);
+    color: var(--editor-danger);
+}
+
+.editor-button--danger:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+.editor-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--editor-on-accent);
+    background: var(--editor-text-muted);
+}
+
+.editor-badge--error {
+    background: var(--editor-error);
+}
+
+.editor-badge--warn {
+    background: var(--editor-warn);
+    color: var(--editor-bg);
+}
+
+/* Кнопка-переключатель типа перехода: цвет типа задаётся переменной --chip. */
+.editor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--chip, var(--editor-border));
+    background: transparent;
+    color: var(--editor-text);
+    cursor: pointer;
+}
+
+.editor-chip[aria-pressed='true'] {
+    background: var(--chip, var(--editor-highlight));
+    color: var(--editor-on-accent);
+}
+
+/* --- Вкладки инспектора --- */
+
+.editor-tabs {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 52px;
+    padding: 0 6px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-tab:hover {
+    color: var(--editor-text);
+    background: var(--editor-hover);
+}
+
+.editor-tab[aria-selected='true'] {
+    color: var(--editor-text);
+    font-weight: 600;
+    border-bottom-color: var(--editor-focus);
+}
+
+.editor-tabpanel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.editor-empty {
+    padding: 12px 4px;
+    font-size: 14px;
+    line-height: 1.45;
     color: var(--editor-text-muted);
 }
