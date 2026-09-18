@@ -26,13 +26,21 @@ describe('validateDataset', () => {
     expect(errors[0]).toContain('ghost');
   });
 
-  it('несимметричное ребро — предупреждение', () => {
+  it('связь только в одну сторону — ошибка: односторонних проходов нет', () => {
     const p = params();
     p.nodes.get('a1_room101')!.neighbors.push('a1_stairs');
     const { errors, warnings } = validateDataset(p);
-    expect(errors).toEqual([]);
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('a1_room101');
+    expect(warnings).toEqual([]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('a1_room101');
+  });
+
+  it('узел — сосед самому себе: ошибка; повтор соседа — предупреждение', () => {
+    const p = params();
+    p.nodes.get('a1_hall')!.neighbors.push('a1_hall', 'a1_stairs');
+    const { errors, warnings } = validateDataset(p);
+    expect(errors).toEqual(['Узел «a1_hall» указан соседом самому себе']);
+    expect(warnings).toEqual(['У узла «a1_hall» один и тот же сосед указан несколько раз']);
   });
 
   it('переход к несуществующему узлу — ошибка по каждому концу', () => {

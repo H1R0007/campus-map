@@ -118,6 +118,20 @@ const cases: Case[] = [
       store().autoFix();
     },
   },
+  {
+    name: 'автоисправление повторов и координат',
+    setup: () => {
+      // Прежде эти исправления считались, но не применялись: применение смотрело
+      // только на четыре счётчика из девяти.
+      useEditorStore.setState((s) => {
+        s.nodes.get('a1_hall')!.neighbors.push('a1_stairs');
+        s.nodes.get('a1_room101')!.y = Number.POSITIVE_INFINITY;
+      });
+    },
+    act: () => {
+      store().autoFix();
+    },
+  },
 ];
 
 describe('отмена и повтор', () => {

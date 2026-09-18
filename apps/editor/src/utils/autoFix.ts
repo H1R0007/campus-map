@@ -1,6 +1,12 @@
 import { edgeKey } from '@campus-map/core';
 import type { MapNode, Transition } from '@campus-map/core';
 
+/** Что именно исправлено — строкой для человека. */
+export interface AutoFixLine {
+  text: string;
+  count: number;
+}
+
 export type AutoFixReport = {
   // Соседи
   removedMissingNeighbors: number;
@@ -48,13 +54,38 @@ const DEFAULT_OPTIONS: Required<AutoFixOptions> = {
   fixTransitions: true,
 };
 
+/**
+ * Перечень исправлений словами: только то, что действительно сделано.
+ *
+ * Панель диагностики показывала список с нулями и английскими словами
+ * («Удалено битых neighbors: 0»), по которому нельзя было понять, что
+ * изменилось в данных.
+ */
+export function autoFixSummary(report: AutoFixReport): AutoFixLine[] {
+  const lines: [string, number][] = [
+    ['Убрано ссылок на несуществующие узлы', report.removedMissingNeighbors],
+    ['Убрано ссылок узла на самого себя', report.removedSelfReferences],
+    ['Убрано повторов в связях', report.removedDuplicateNeighbors],
+    ['Достроено обратных связей', report.addedSymmetricEdges],
+    ['Убрано переходов к несуществующим узлам', report.removedInvalidTransitions],
+    ['Убрано переходов узла в самого себя', report.removedSelfTransitions],
+    ['Убрано повторных переходов', report.removedDuplicateTransitions],
+    ['Исправлено координат', report.fixedNodeCoordinates],
+    ['Удалено узлов без связей', report.removedOrphanNodes],
+  ];
+
+  return lines.filter(([, count]) => count > 0).map(([text, count]) => ({ text, count }));
+}
+
 export function autoFixDataset(params: {
-  nodes: Map<string, MapNode>;
-  transitions: Transition[];
+  nodes: ReadonlyMap<string, MapNode>;
+  transitions: readonly Transition[];
   options?: AutoFixOptions;
 }): {
   fixedNodesNeighbors: Map<string, string[]>;
   fixedTransitions: Transition[];
+  /** Узлы с исправленными координатами: id → новое место. */
+  fixedCoordinates: Map<string, { x: number; y: number }>;
   removedNodeIds: string[];
   report: AutoFixReport;
 } {
@@ -76,26 +107,18 @@ export function autoFixDataset(params: {
 
   const removedNodeIds: string[] = [];
   const newNeighbors = new Map<string, string[]>();
+  const fixedCoordinates = new Map<string, { x: number; y: number }>();
 
   // === ЭТАП 1: Исправляем координаты ===
+  // Узлы не меняются на месте: данные редактора неизменяемы, и запись в них
+  // из чистой функции падала бы. Новые координаты возвращаются отдельно.
   if (options.fixCoordinates) {
     for (const node of nodes.values()) {
-      let fixed = false;
-      let x = node.x;
-      let y = node.y;
+      const x = Number.isFinite(node.x) ? node.x : 0;
+      const y = Number.isFinite(node.y) ? node.y : 0;
 
-      if (!Number.isFinite(x)) {
-        x = 0;
-        fixed = true;
-      }
-      if (!Number.isFinite(y)) {
-        y = 0;
-        fixed = true;
-      }
-
-      if (fixed) {
-        node.x = x;
-        node.y = y;
+      if (x !== node.x || y !== node.y) {
+        fixedCoordinates.set(node.id, { x, y });
         report.fixedNodeCoordinates++;
       }
     }
@@ -152,7 +175,7 @@ export function autoFixDataset(params: {
   }
 
   // === ЭТАП 4: Исправляем transitions ===
-  let fixedTransitions = [...transitions];
+  let fixedTransitions: Transition[] = [...transitions];
 
   if (options.fixTransitions) {
     const seenTransitions = new Set<string>();
@@ -225,6 +248,7 @@ export function autoFixDataset(params: {
   return {
     fixedNodesNeighbors: newNeighbors,
     fixedTransitions,
+    fixedCoordinates,
     removedNodeIds,
     report,
   };

@@ -56,7 +56,7 @@ export function entryNodes(entry: HistoryEntry): string[] {
         case 'splitEdge':
           return [entry.undoData.newNodeId, entry.undoData.fromId, entry.undoData.toId];
         case 'autofix':
-          return [];
+          return entry.undoData.positionsBefore.map((position) => position.nodeId);
       }
   }
 }
@@ -171,6 +171,13 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
         case 'autofix': {
           applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
           s.transitions = [...u.transitionsBefore];
+          for (const position of u.positionsBefore) {
+            const node = s.nodes.get(position.nodeId);
+            if (node) {
+              node.x = position.x;
+              node.y = position.y;
+            }
+          }
           break;
         }
         case 'splitEdge': {
@@ -304,6 +311,13 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
           for (const [id, neighbors] of Object.entries(r.fixedNodesNeighbors)) {
             const node = s.nodes.get(id);
             if (node) node.neighbors = [...neighbors];
+          }
+          for (const [id, position] of Object.entries(r.fixedCoordinates)) {
+            const node = s.nodes.get(id);
+            if (node) {
+              node.x = position.x;
+              node.y = position.y;
+            }
           }
           s.transitions = [...r.fixedTransitions];
           break;

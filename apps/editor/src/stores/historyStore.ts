@@ -55,6 +55,8 @@ export type BatchUndoPayload =
       kind: 'autofix';
       neighborsBefore: NeighborSnapshot;
       transitionsBefore: Transition[];
+      /** Узлы с исправленными координатами — где они стояли до исправления. */
+      positionsBefore: NodePosition[];
     }
   | {
       kind: 'splitEdge';
@@ -75,6 +77,7 @@ export type BatchRedoPayload =
       kind: 'autofix';
       fixedNodesNeighbors: NeighborSnapshot;
       fixedTransitions: Transition[];
+      fixedCoordinates: Record<string, { x: number; y: number }>;
     }
   | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string };
 

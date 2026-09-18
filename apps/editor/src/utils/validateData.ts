@@ -33,21 +33,31 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
   // Соседи должны существовать: иначе маршрутизатор теряет ребро молча.
   for (const [id, node] of nodes) {
     for (const neighbor of node.neighbors) {
-      if (!nodes.has(neighbor)) {
+      if (neighbor === id) {
+        errors.push(`Узел «${id}» указан соседом самому себе`);
+      } else if (!nodes.has(neighbor)) {
         errors.push(`Узел «${id}» ссылается на несуществующего соседа «${neighbor}»`);
       }
     }
+
+    // Повтор соседа ничего не ломает в маршруте, но это след ручной правки
+    // файла, и автоисправление его убирает.
+    if (new Set(node.neighbors).size !== node.neighbors.length) {
+      warnings.push(`У узла «${id}» один и тот же сосед указан несколько раз`);
+    }
   }
 
-  // Асимметрия допустима (одностороннее движение), но почти всегда случайна.
+  // Односторонних проходов в кампусе нет (решение владельца, запись 38): связь
+  // без обратной — ошибка разметки, и маршрут в одну сторону найдётся, а в
+  // другую нет.
   for (const [id, node] of nodes) {
     for (const neighbor of node.neighbors) {
       const other = nodes.get(neighbor);
-      if (!other) continue;
+      if (!other || neighbor === id) continue;
 
       if (!other.neighbors.includes(id)) {
-        warnings.push(
-          `Ребро не симметрично: «${id}» → «${neighbor}» есть, обратного «${neighbor}» → «${id}» нет`
+        errors.push(
+          `Связь только в одну сторону: «${id}» → «${neighbor}» есть, обратной «${neighbor}» → «${id}» нет`
         );
       }
     }

@@ -871,26 +871,28 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     }
     const transitionsBefore = [...st.transitions];
 
-    const { fixedNodesNeighbors, fixedTransitions, report } = autoFixDataset({
+    const { fixedNodesNeighbors, fixedTransitions, fixedCoordinates, report } = autoFixDataset({
       nodes: st.nodes,
       transitions: st.transitions,
     });
 
-    const hasChanges =
-      report.removedMissingNeighbors > 0 ||
-      report.addedSymmetricEdges > 0 ||
-      report.removedInvalidTransitions > 0 ||
-      report.removedDuplicateTransitions > 0;
+    // Записей об исправлениях может быть больше, чем обрабатывает применение:
+    // считается общее число, иначе часть найденного чинилась бы «на словах».
+    if (report.totalFixes > 0) {
+      const positionsBefore: NodePosition[] = [...fixedCoordinates.keys()].flatMap((id) => {
+        const node = st.nodes.get(id);
+        return node ? [{ nodeId: id, x: node.x, y: node.y }] : [];
+      });
 
-    if (hasChanges) {
       useHistoryStore.getState().push({
         type: 'BATCH',
-        description: 'Auto-fix',
-        undoData: { kind: 'autofix', neighborsBefore, transitionsBefore },
+        description: 'Исправление данных',
+        undoData: { kind: 'autofix', neighborsBefore, transitionsBefore, positionsBefore },
         redoData: {
           kind: 'autofix',
           fixedNodesNeighbors: Object.fromEntries(fixedNodesNeighbors),
           fixedTransitions,
+          fixedCoordinates: Object.fromEntries(fixedCoordinates),
         },
       });
 
@@ -898,6 +900,13 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         for (const [id, neighbors] of fixedNodesNeighbors) {
           const node = s.nodes.get(id);
           if (node) node.neighbors = neighbors;
+        }
+        for (const [id, position] of fixedCoordinates) {
+          const node = s.nodes.get(id);
+          if (node) {
+            node.x = position.x;
+            node.y = position.y;
+          }
         }
         s.transitions = fixedTransitions;
       });

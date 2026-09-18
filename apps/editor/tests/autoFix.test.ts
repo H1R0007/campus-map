@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MapNode, Transition } from '@campus-map/core';
-import { autoFixDataset } from '../src/utils/autoFix';
+import { autoFixDataset, autoFixSummary } from '../src/utils/autoFix';
 import { fixtureDataset } from './helpers/fixture';
 
 function params() {
@@ -52,6 +52,26 @@ describe('autoFixDataset', () => {
     expect(report.removedInvalidTransitions).toBe(1);
     expect(report.removedSelfTransitions).toBe(1);
     expect(report.removedDuplicateTransitions).toBe(1);
+  });
+
+  it('битые координаты возвращает отдельно, не трогая узлы', () => {
+    const p = params();
+    const broken = { ...p.nodes.get('a1_hall')!, x: Number.NaN };
+    p.nodes.set('a1_hall', Object.freeze(broken));
+    const { fixedCoordinates, report } = autoFixDataset(p);
+    expect(fixedCoordinates.get('a1_hall')).toEqual({ x: 0, y: 120 });
+    expect(report.fixedNodeCoordinates).toBe(1);
+    expect(Number.isNaN(p.nodes.get('a1_hall')!.x)).toBe(true);
+  });
+
+  it('перечень исправлений — только то, что сделано', () => {
+    const p = params();
+    p.nodes.get('a1_hall')!.neighbors.push('ghost', 'a1_stairs');
+    const lines = autoFixSummary(autoFixDataset(p).report);
+    expect(lines).toEqual([
+      { text: 'Убрано ссылок на несуществующие узлы', count: 1 },
+      { text: 'Убрано повторов в связях', count: 1 },
+    ]);
   });
 
   it('узлы без связей по умолчанию не удаляет', () => {
