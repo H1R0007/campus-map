@@ -11,6 +11,9 @@ import type { PlaceKind } from '@campus-map/core';
  *
  * `{корпус}` и `{этаж}` в шаблоне названия подставляет редактор, `{номер}` —
  * место, куда встанет курсор.
+ *
+ * Лестницы, лифты и входы сюда не входят: это переходы, их ставит инструмент
+ * «Переход».
  */
 export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
   { id: 'corridor', name: 'Коридор', icon: 'dot', color: 'muted', connect: true, chain: true },
@@ -31,36 +34,6 @@ export const BUILT_IN_PLACE_KINDS: readonly PlaceKind[] = [
     color: 'place',
     namePattern: 'Гардероб',
     category: 'cloakroom',
-    connect: true,
-  },
-  {
-    id: 'stairs',
-    name: 'Лестница',
-    color: 'portal',
-    namePattern: 'Лестница',
-    isPortal: true,
-    transition: 'stairs',
-    stack: true,
-    connect: true,
-  },
-  {
-    id: 'lift',
-    name: 'Лифт',
-    color: 'portal',
-    namePattern: 'Лифт',
-    isPortal: true,
-    transition: 'lift',
-    stack: true,
-    connect: true,
-  },
-  {
-    id: 'entrance',
-    name: 'Вход',
-    color: 'portal',
-    namePattern: 'Вход',
-    isPortal: true,
-    transition: 'entrance',
-    category: 'exit',
     connect: true,
   },
 ];

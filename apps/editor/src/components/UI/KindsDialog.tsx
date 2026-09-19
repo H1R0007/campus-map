@@ -1,16 +1,43 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { PLACE_CATEGORIES, TRANSITION_TYPES } from '@campus-map/core';
-import type { PlaceCategory, PlaceKind, TransitionType } from '@campus-map/core';
+import type { PlaceKind } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { visibleKinds } from '../../utils/placeKinds';
-import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS } from '../../utils/labels';
+import { PLACE_CATEGORY_LABELS } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 
 /** Значки, из которых разметчик выбирает вид: те же, что редактор умеет рисовать. */
-const KIND_ICONS: IconName[] = ['dot', 'door', 'toilet', 'food', 'cloakroom', 'star', 'pin', 'note', 'building', 'layers'];
+const KIND_ICONS: { icon: IconName; label: string }[] = [
+  { icon: 'pin', label: 'Метка' },
+  { icon: 'door', label: 'Дверь' },
+  { icon: 'toilet', label: 'Туалет' },
+  { icon: 'food', label: 'Еда' },
+  { icon: 'cloakroom', label: 'Гардероб' },
+  { icon: 'star', label: 'Звезда' },
+  { icon: 'note', label: 'Заметка' },
+  { icon: 'building', label: 'Здание' },
+  { icon: 'layers', label: 'Слои' },
+  { icon: 'dot', label: 'Точка' },
+];
+
+/** Как называть поставленные точки — три понятных выбора вместо шаблона со скобками. */
+type Naming = 'kind' | 'room' | 'none';
+
+/** Номер помещения: начало «А-1» подставит редактор, номер допишет человек. */
+const ROOM_PATTERN = '{корпус}-{этаж}{номер}';
+
+function namingOf(kind: PlaceKind): Naming {
+  if (!kind.namePattern) return 'none';
+  return kind.namePattern.includes('{номер}') ? 'room' : 'kind';
+}
+
+function patternFor(naming: Naming, name: string): string | undefined {
+  if (naming === 'kind') return name;
+  if (naming === 'room') return ROOM_PATTERN;
+  return undefined;
+}
 
 /** Пустой вид: с него начинается создание. */
 const emptyKind = (): PlaceKind => ({ id: '', name: '', icon: 'pin', connect: true });
@@ -56,6 +83,7 @@ export const KindsDialog: React.FC = () => {
 
   const [draft, setDraft] = useState<PlaceKind | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [naming, setNaming] = useState<Naming>('kind');
 
   if (!open) return null;
 
@@ -65,7 +93,12 @@ export const KindsDialog: React.FC = () => {
     if (!draft || draft.name.trim().length === 0) return;
     const name = draft.name.trim();
     const taken = kinds.filter((kind) => kind.id !== editingId).map((kind) => kind.id);
-    const kind: PlaceKind = { ...draft, name, id: editingId ?? kindIdOf(name, taken) };
+    const kind: PlaceKind = {
+      ...draft,
+      name,
+      id: editingId ?? kindIdOf(name, taken),
+      namePattern: patternFor(naming, name),
+    };
 
     const next = editingId
       ? kinds.map((item) => (item.id === editingId ? kind : item))
@@ -152,6 +185,7 @@ export const KindsDialog: React.FC = () => {
                   onClick={() => {
                     setDraft({ ...kind });
                     setEditingId(kind.id);
+                    setNaming(namingOf(kind));
                   }}
                   aria-label={`Изменить вид «${kind.name}»`}
                 >
@@ -178,6 +212,7 @@ export const KindsDialog: React.FC = () => {
               onClick={() => {
                 setDraft(emptyKind());
                 setEditingId(null);
+                setNaming('kind');
               }}
             >
               <Icon name="plus" />
@@ -186,8 +221,10 @@ export const KindsDialog: React.FC = () => {
           ) : (
             <KindForm
               draft={draft}
+              naming={naming}
               editing={editingId !== null}
               onChange={setDraft}
+              onNaming={setNaming}
               onCancel={() => {
                 setDraft(null);
                 setEditingId(null);
@@ -204,63 +241,100 @@ export const KindsDialog: React.FC = () => {
 /** Что вид делает — одной строкой, словами. */
 function kindSummary(kind: PlaceKind): string {
   const parts: string[] = [];
-  if (kind.namePattern) parts.push(`название «${kind.namePattern}»`);
-  if (kind.transition) parts.push(`переход: ${TRANSITION_LABELS[kind.transition].toLowerCase()}`);
-  if (kind.stack) parts.push('сразу на всех этажах');
+  const naming = namingOf(kind);
+  if (naming === 'kind') parts.push(`точка называется «${kind.namePattern}»`);
+  if (naming === 'room') parts.push('номер помещения: «А-1…» и ваш номер');
+  if (kind.chain) parts.push('ведёт линию');
   if (kind.connect) parts.push('цепляется к ближайшей точке');
-  if (kind.category) parts.push(`вид места: ${PLACE_CATEGORY_LABELS[kind.category].toLowerCase()}`);
-  return parts.length > 0 ? parts.join(' · ') : 'обычная точка';
+  if (kind.category) parts.push(`в навигаторе: ${PLACE_CATEGORY_LABELS[kind.category].toLowerCase()}`);
+  return parts.length > 0 ? parts.join(' · ') : 'точка без названия';
 }
+
+/** Один из выборов «какое название получит точка». */
+const NamingChoice: React.FC<{
+  value: Naming;
+  current: Naming;
+  onChoose: (naming: Naming) => void;
+  title: string;
+  hint: string;
+}> = ({ value, current, onChoose, title, hint }) => (
+  <label className="editor-check">
+    <input type="radio" name="kind-naming" checked={current === value} onChange={() => onChoose(value)} />
+    <span className="editor-check__text">
+      {title}
+      <span className="editor-check__hint">{hint}</span>
+    </span>
+  </label>
+);
 
 const KindForm: React.FC<{
   draft: PlaceKind;
+  naming: Naming;
   editing: boolean;
   onChange: (kind: PlaceKind) => void;
+  onNaming: (naming: Naming) => void;
   onCancel: () => void;
   onSave: () => void;
-}> = ({ draft, editing, onChange, onCancel, onSave }) => (
+}> = ({ draft, naming, editing, onChange, onNaming, onCancel, onSave }) => (
   <section className="editor-card__section" aria-label={editing ? 'Изменить вид точки' : 'Создать вид точки'}>
     <h3 className="editor-card__heading">{editing ? 'Изменить вид' : 'Новый вид'}</h3>
 
-    <div className="editor-card__row">
+    <label className="editor-card__field">
+      <span className="editor-section__hint">Название вида</span>
       <input
         value={draft.name}
         onChange={(e) => onChange({ ...draft, name: e.target.value })}
-        placeholder="Например: Лаборатория"
+        placeholder="Например: Медпункт"
         aria-label="Название вида"
         className="editor-input"
       />
-      <label className="editor-check">
-        <span className="editor-check__text">Значок</span>
-        <select
-          value={draft.icon ?? 'pin'}
-          onChange={(e) => onChange({ ...draft, icon: e.target.value })}
-          aria-label="Значок вида"
-          className="editor-input editor-input--narrow"
-        >
-          {KIND_ICONS.map((icon) => (
-            <option key={icon} value={icon}>
-              {icon}
-            </option>
-          ))}
-        </select>
-      </label>
+    </label>
+
+    <div className="editor-card__field">
+      <span className="editor-section__hint" id="kind-icon-label">
+        Значок
+      </span>
+      <div className="editor-icon-grid" role="group" aria-labelledby="kind-icon-label">
+        {KIND_ICONS.map(({ icon, label }) => (
+          <button
+            key={icon}
+            type="button"
+            className="editor-icon-choice"
+            aria-pressed={(draft.icon ?? 'pin') === icon}
+            aria-label={label}
+            title={label}
+            onClick={() => onChange({ ...draft, icon })}
+          >
+            <Icon name={icon} size={20} />
+          </button>
+        ))}
+      </div>
     </div>
 
-    <label className="editor-check">
-      <span className="editor-check__text">
-        Шаблон названия
-        <span className="editor-check__hint">
-          {'{корпус}'} и {'{этаж}'} подставит редактор, {'{номер}'} наберёте вы. Пусто — без названия
-        </span>
-      </span>
-      <input
-        value={draft.namePattern ?? ''}
-        onChange={(e) => onChange({ ...draft, namePattern: e.target.value || undefined })}
-        aria-label="Шаблон названия"
-        className="editor-input editor-input--narrow"
+    <fieldset className="editor-fieldset">
+      <legend className="editor-section__hint">Какое название получит поставленная точка</legend>
+      <NamingChoice
+        value="kind"
+        current={naming}
+        onChoose={onNaming}
+        title="Как у вида"
+        hint={`каждая точка сразу называется «${draft.name.trim() || 'Медпункт'}»`}
       />
-    </label>
+      <NamingChoice
+        value="room"
+        current={naming}
+        onChoose={onNaming}
+        title="Номер помещения"
+        hint="в поле названия уже «А-1», останется дописать номер: «А-107»"
+      />
+      <NamingChoice
+        value="none"
+        current={naming}
+        onChoose={onNaming}
+        title="Без названия"
+        hint="как у коридора: точка нужна только для маршрута"
+      />
+    </fieldset>
 
     <label className="editor-check">
       <input
@@ -268,77 +342,10 @@ const KindForm: React.FC<{
         checked={draft.connect === true}
         onChange={(e) => onChange({ ...draft, connect: e.target.checked || undefined })}
       />
-      <span className="editor-check__text">Соединять с ближайшей точкой плана</span>
-    </label>
-
-    <label className="editor-check">
-      <input
-        type="checkbox"
-        checked={draft.isPortal === true}
-        onChange={(e) =>
-          onChange({
-            ...draft,
-            isPortal: e.target.checked || undefined,
-            transition: e.target.checked ? (draft.transition ?? 'stairs') : undefined,
-            stack: e.target.checked ? draft.stack : undefined,
-          })
-        }
-      />
       <span className="editor-check__text">
-        Точка перехода
-        <span className="editor-check__hint">лестница, лифт, вход — навигатор рисует её значком</span>
+        Соединять с ближайшей точкой плана
+        <span className="editor-check__hint">точка сразу связана с коридором — отдельно щёлкать «Связь» не нужно</span>
       </span>
-    </label>
-
-    {draft.isPortal && (
-      <>
-        <label className="editor-check">
-          <span className="editor-check__text">Тип перехода</span>
-          <select
-            value={draft.transition ?? 'stairs'}
-            onChange={(e) => onChange({ ...draft, transition: e.target.value as TransitionType })}
-            aria-label="Тип перехода"
-            className="editor-input editor-input--narrow"
-          >
-            {TRANSITION_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {TRANSITION_LABELS[type]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="editor-check">
-          <input
-            type="checkbox"
-            checked={draft.stack === true}
-            onChange={(e) => onChange({ ...draft, stack: e.target.checked || undefined })}
-          />
-          <span className="editor-check__text">
-            Ставить сразу на всех этажах корпуса
-            <span className="editor-check__hint">и связывать этажи переходами — для лестниц и лифтов</span>
-          </span>
-        </label>
-      </>
-    )}
-
-    <label className="editor-check">
-      <span className="editor-check__text">
-        Вид места для навигатора
-        <span className="editor-check__hint">по нему работают кнопки «ближайший туалет» и «где поесть»</span>
-      </span>
-      <select
-        value={draft.category ?? ''}
-        onChange={(e) => onChange({ ...draft, category: (e.target.value || undefined) as PlaceCategory | undefined })}
-        aria-label="Вид места для навигатора"
-        className="editor-input editor-input--narrow"
-      >
-        <option value="">нет</option>
-        {PLACE_CATEGORIES.map((category) => (
-          <option key={category} value={category}>
-            {PLACE_CATEGORY_LABELS[category]}
-          </option>
-        ))}
-      </select>
     </label>
 
     <div className="editor-card__actions">

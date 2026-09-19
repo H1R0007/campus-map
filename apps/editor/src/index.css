@@ -943,6 +943,44 @@ input[type='checkbox'] {
     color: var(--editor-bg);
 }
 
+/* Выбор значка вида: сетка кнопок 44×44, выбранная — цветом акцента. */
+.editor-icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.editor-icon-choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    background: transparent;
+    color: var(--editor-text);
+    cursor: pointer;
+}
+
+.editor-icon-choice:hover {
+    background: var(--editor-hover);
+}
+
+.editor-icon-choice[aria-pressed='true'] {
+    background: var(--editor-highlight);
+    border-color: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+/* Группа выборов без рамки: подпись — обычная подсказка раздела. */
+.editor-fieldset {
+    min-width: 0;
+    margin: 0 0 8px;
+    padding: 0;
+    border: 0;
+}
+
 /* Кнопка-переключатель типа перехода: цвет типа задаётся переменной --chip. */
 .editor-chip {
     display: inline-flex;

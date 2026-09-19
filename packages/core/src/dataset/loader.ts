@@ -794,16 +794,8 @@ function normalizePlaceKind(raw: Raw, warnings: string[]): PlaceKind | null {
   if (color !== undefined) kind.color = color;
   const namePattern = asOptionalString(raw.namePattern);
   if (namePattern !== undefined) kind.namePattern = namePattern;
-  if (raw.isPortal === true) kind.isPortal = true;
-  if (raw.stack === true) kind.stack = true;
   if (raw.connect === true) kind.connect = true;
   if (raw.chain === true) kind.chain = true;
-
-  const transition = asOptionalString(raw.transition);
-  if (transition !== undefined) {
-    if (isTransitionType(transition)) kind.transition = transition;
-    else warnings.push(`${PLACE_KINDS_PATH}: вид «${name}» — неизвестный тип перехода «${transition}», пропущен`);
-  }
 
   const category = asOptionalString(raw.category);
   if (category !== undefined) {

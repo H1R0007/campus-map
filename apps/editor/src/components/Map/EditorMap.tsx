@@ -8,6 +8,7 @@ import type { EditorStore, EditorTool } from '../../stores/editorStore';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { visibleKinds } from '../../utils/placeKinds';
+import { TRANSITION_LABELS } from '../../utils/labels';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -342,6 +343,20 @@ const MapEventHandler: React.FC = () => {
         // к ближайшей точке и, если нужно, повторяет себя на всех этажах.
         // Alt — поставить ровно там, куда щёлкнули, без выравнивания.
         st.placeKindNode(x, y, { align: !dom.altKey, linkToLast: dom.shiftKey });
+        return;
+      }
+
+      if (st.activeTool === 'transition') {
+        // Щелчок по пустому месту: лестница или лифт сразу на всех этажах
+        // корпуса, связанные переходами. Начатый вручную переход щелчок по
+        // пустому месту не трогает: он ждёт вторую точку.
+        if (st.transitionStartNodeId !== null) return;
+        const placed = st.placeTransitionStack(x, y, { align: !dom.altKey, linkToLast: dom.shiftKey });
+        if (placed === null) {
+          st.showNotice(
+            `${TRANSITION_LABELS[st.transitionType]} ставится вручную: щёлкните точку на одном плане, затем точку на другом.`
+          );
+        }
         return;
       }
 

@@ -373,6 +373,12 @@ const useKind = (kindId: string) => {
   store().setActiveKind(kindId);
 };
 
+/** Инструмент «Переход» с выбранным типом: щелчок по пустому месту — стопка. */
+const pickTransition = (type: 'stairs' | 'lift' | 'entrance' | 'bridge') => {
+  store().setActiveTool('transition');
+  store().setTransitionType(type);
+};
+
 describe('удалённая точка уносит название, перевод и вид места', () => {
   it('отмена удаления возвращает вид места, даже если id успела занять новая точка', () => {
     openFloor(1);
@@ -401,8 +407,8 @@ describe('удалённая точка уносит название, пере�
 describe('щелчок кистью связывает точки только в пределах плана', () => {
   it('у стопки выбрана и возвращена точка открытого этажа', () => {
     openFloor(2);
-    useKind('stairs');
-    const id = store().placeKindNode(350, 180);
+    pickTransition('stairs');
+    const id = store().placeTransitionStack(350, 180)!;
 
     expect(planOf(id)).toBe('building_a:2');
     expect([...store().selectedNodeIds]).toEqual([id]);
@@ -423,8 +429,8 @@ describe('щелчок кистью связывает точки только �
     openFloor(1);
     useKind('corridor');
     const corridor = store().placeKindNode(380, 190);
-    store().setActiveKind('stairs');
-    const stairs = store().placeKindNode(390, 180, { linkToLast: true });
+    pickTransition('stairs');
+    const stairs = store().placeTransitionStack(390, 180, { linkToLast: true })!;
 
     expect(crossPlanLinks()).toEqual([]);
     expect(store().nodes.get(stairs)?.neighbors).toContain(corridor);
@@ -435,9 +441,9 @@ describe('щелчок кистью связывает точки только �
       s.buildingMetas.set('building_b', { id: 'building_b', name: 'Корпус Б', floors: [] });
     });
     useEditorStore.setState({ currentBuilding: 'building_b', currentFloor: 1 });
-    useKind('stairs');
+    pickTransition('stairs');
 
-    const id = store().placeKindNode(50, 50);
+    const id = store().placeTransitionStack(50, 50)!;
     expect(planOf(id)).toBe('building_b:1');
   });
 });
@@ -539,5 +545,51 @@ describe('призрак точки показывает, куда она вст
     const node = store().nodes.get(id)!;
 
     expect({ x: node.x, y: node.y }).toEqual({ x: ghost.x, y: ghost.y });
+  });
+});
+
+describe('«Узел» ставит места, «Переход» — лестницы и лифты', () => {
+  it('среди видов точек нет переходов', () => {
+    const ids = BUILT_IN_PLACE_KINDS.map((kind) => kind.id);
+    expect(ids).toEqual(['corridor', 'room', 'toilet', 'food', 'cloakroom']);
+  });
+
+  it('щелчок «Переходом» по пустому месту ставит лестницу на всех этажах, связанных переходами', () => {
+    openFloor(1);
+    pickTransition('stairs');
+    const entries = useHistoryStore.getState().entries.length;
+    const transitionsBefore = store().transitions.length;
+
+    const id = store().placeTransitionStack(360, 150)!;
+
+    const stack = [...store().nodes.values()].filter((node) => node.x === 360 && node.y === 150);
+    expect(stack.map((node) => node.floor).sort()).toEqual([1, 2]);
+    expect(stack.every((node) => node.isPortal)).toBe(true);
+    expect(planOf(id)).toBe('building_a:1');
+    expect(store().transitions).toHaveLength(transitionsBefore + 1);
+    expect(store().transitions.at(-1)?.type).toBe('stairs');
+    expect(useHistoryStore.getState().entries).toHaveLength(entries + 1);
+    // Точкам перехода имя не нужно: навигатор рисует их значком.
+    expect(stack.every((node) => !store().aliases.has(node.id))).toBe(true);
+  });
+
+  it('вход и переход между корпусами стопкой не ставятся — только вручную', () => {
+    openFloor(1);
+    const count = store().nodes.size;
+    for (const type of ['entrance', 'bridge'] as const) {
+      pickTransition(type);
+      expect(store().placeTransitionStack(360, 150)).toBeNull();
+    }
+    expect(store().nodes.size).toBe(count);
+  });
+
+  it('стопка лифта отменяется одним Ctrl+Z целиком', () => {
+    openFloor(2);
+    pickTransition('lift');
+    const before = dataSnapshot();
+    store().placeTransitionStack(360, 150);
+    store().undo();
+
+    expect(dataSnapshot()).toEqual(before);
   });
 });

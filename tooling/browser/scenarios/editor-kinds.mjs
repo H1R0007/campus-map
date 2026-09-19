@@ -33,6 +33,11 @@ export default {
       await e.press('Узел (N)');
       const kinds = await palette();
       assert.ok(kinds.includes('Коридор') && kinds.includes('Помещение'), `в палитре: ${JSON.stringify(kinds)}`);
+      // Лестница, лифт и вход — переходы: их ставит инструмент «Переход».
+      assert.ok(
+        !kinds.some((name) => /Лестница|Лифт|Вход/.test(name)),
+        `переходы попали в кисти мест: ${JSON.stringify(kinds)}`
+      );
       await shot('editor-kinds');
 
       await e.key('1', { code: 'Digit1' });
@@ -55,8 +60,31 @@ export default {
       );
 
       await e.press('Создать вид');
+      const form = await page.eval(`(() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        return {
+          text: dialog.textContent,
+          icons: dialog.querySelectorAll('[aria-labelledby="kind-icon-label"] button').length,
+          inputs: [...dialog.querySelectorAll('input:not([type]), input[type="text"]')].map((input) => ({
+            label: input.getAttribute('aria-label'),
+            width: input.getBoundingClientRect().width,
+          })),
+        };
+      })()`);
+      assert.ok(!/перехода|Шаблон названия|\{номер\}/.test(form.text), 'в окне видов остались переходы или шаблон со скобками');
+      assert.ok(form.icons >= 8, `значков на выбор: ${form.icons}`);
+      for (const input of form.inputs) {
+        assert.ok(input.width >= 200, `поле «${input.label}» сжато до ${Math.round(input.width)} px`);
+      }
+
       await page.eval(`document.querySelector('[aria-label="Название вида"]').focus()`);
       await e.type('Лаборатория');
+      await e.press('Звезда');
+      assert.equal(
+        await page.eval(`document.querySelector('[aria-labelledby="kind-icon-label"] [aria-pressed="true"]')?.getAttribute('aria-label')`),
+        'Звезда',
+        'значок не выбран'
+      );
       await e.press('Добавить вид');
       await shot('editor-kinds-new');
 
@@ -64,6 +92,14 @@ export default {
       const kinds = await palette();
       assert.ok(kinds.includes('Лаборатория'), `нового вида нет в палитре: ${JSON.stringify(kinds)}`);
       assert.equal(await activeKind(), 'Лаборатория', 'созданный вид сразу не выбран');
+
+      // «Как у вида»: поставленная точка сразу называется видом.
+      const before = await e.nodeIds();
+      const empty = await e.emptyMapPoint();
+      await e.click(empty.x, empty.y);
+      assert.match(await e.panelSection('Названия'), /Лаборатория/, 'точка нового вида осталась без названия');
+      await e.key('z', { modifiers: MOD.ctrl });
+      assert.deepEqual(await e.nodeIds(), before);
     });
 
     await step('щелчок кистью «Туалет» ставит точку с названием, связью и видом места', async () => {
@@ -144,9 +180,10 @@ export default {
       await e.key('Escape', { keyCode: 27 });
     });
 
-    await step('кисть «Лестница» ставит точки на всех этажах и связывает их переходами', async () => {
-      await e.key('6', { code: 'Digit6' });
-      assert.equal(await activeKind(), 'Лестница');
+    await step('«Переход»: щелчок по пустому месту ставит лестницу на всех этажах, связанных переходами', async () => {
+      await e.press('Переход (T)');
+      await e.press('Лестница');
+      assert.match(await e.toolbar(), /сразу на всех этажах/, 'подсказка не говорит, что делает щелчок по пустому месту');
 
       // Что было на соседнем этаже до щелчка: с ним и сравним стопку.
       await e.key('PageUp');
@@ -179,6 +216,14 @@ export default {
       await e.key('PageDown');
       assert.deepEqual(await e.nodeIds(), before);
       assert.equal(await edits(), editsBefore, 'одна отмена должна убрать всю стопку');
+
+      // Вход ставится только вручную: щелчок по пустому месту объясняет как.
+      await e.press('Вход');
+      const empty2 = await e.emptyMapPoint(120);
+      await e.click(empty2.x, empty2.y);
+      assert.deepEqual(await e.nodeIds(), before, 'вход поставлен стопкой, хотя его ставят вручную');
+      assert.match(await e.notice(), /вручную/);
+      await e.press('Узел (N)');
     });
 
     await step('кисть «Коридор» ведёт линию: каждая точка связана с предыдущей', async () => {

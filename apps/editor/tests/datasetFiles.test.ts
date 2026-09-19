@@ -103,7 +103,7 @@ describe('круг «сохранить → открыть»', () => {
       category: 'exit',
     });
     // Встроенные виды тоже уходят в файл: дальше видно, что лежит в данных.
-    expect(dataset.placeKinds.map((kind) => kind.id)).toContain('stairs');
+    expect(dataset.placeKinds.map((kind) => kind.id)).toContain('toilet');
   });
 
   it('названия удалённых узлов не сохраняются', async () => {

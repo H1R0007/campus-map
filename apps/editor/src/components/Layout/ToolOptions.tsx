@@ -2,6 +2,7 @@ import React from 'react';
 import { TRANSITION_TYPES } from '@campus-map/core';
 import type { TransitionType } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
+import { STACK_TRANSITIONS } from '../../stores/editor/editSlice';
 import { useEditorStore } from '../../stores/editorStore';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 import { Icon } from '../UI/Icon';
@@ -175,7 +176,9 @@ const TransitionOptions: React.FC = () => {
   // какого узла и с какого плана он строится.
   const hint = start
     ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(start.id, aliases)}» (${nodePlaceLabel(start, buildingMetas)}): откройте другой этаж и щёлкните второй узел. Esc — отмена.`
-    : 'Щелчок по первому узлу, смена этажа, щелчок по второму.';
+    : STACK_TRANSITIONS.includes(transitionType)
+      ? 'Щелчок по пустому месту — сразу на всех этажах корпуса. По точке — вручную: точка, смена этажа, вторая точка.'
+      : 'Щелчок по точке, смена плана, щелчок по второй точке.';
 
   return (
     <>
