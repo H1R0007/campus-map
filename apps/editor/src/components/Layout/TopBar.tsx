@@ -54,6 +54,7 @@ export const TopBar: React.FC = () => {
    * равно. Молча записать битые данные хуже, чем задержать сохранение.
    */
   const handleSave = async (target: 'disk' | 'archive', force = false) => {
+    useEditorStore.getState().closeSession();
     const st = useEditorStore.getState();
     const result = validateDataset({
       nodes: st.nodes,

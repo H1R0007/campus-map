@@ -43,7 +43,7 @@ const cases: Case[] = [
       store().commitMoveNode('a1_hall', 100, 120, 130, 140);
     },
   },
-  { name: 'изменить признак перехода', act: () => store().updateNode('a1_hall', { isPortal: true }) },
+  { name: 'изменить положение из карточки', act: () => store().updateNode('a1_hall', { x: 130, y: 140 }) },
   { name: 'добавить ребро', act: () => store().addEdge('a1_entrance', 'a1_room101') },
   { name: 'удалить ребро', act: () => store().removeEdge('a1_hall', 'a1_stairs') },
   { name: 'добавить переход', act: () => store().addTransition('a1_room101', 'a2_room201', 'lift') },
@@ -105,7 +105,6 @@ const cases: Case[] = [
     act: () => store().duplicateSelected(),
   },
   { name: 'сдвинуть выделенные', setup: () => select('a1_hall', 'a1_room101'), act: () => store().moveSelectedBy(5, -3) },
-  { name: 'сделать выделенные порталами', setup: () => select('a1_hall', 'a1_room101'), act: () => store().setSelectedPortal(true) },
   {
     name: 'соединить выделенные цепочкой',
     setup: () => select('a1_entrance', 'a1_room101', 'a1_stairs'),
@@ -252,7 +251,7 @@ describe('отмена показывает, где случилась прав�
 
   it('правку на открытом плане план не переключает', () => {
     openFloor(1);
-    store().updateNode('a1_hall', { isPortal: true });
+    store().updateNode('a1_hall', { x: 130 });
     store().undo();
     expect(store().currentFloor).toBe(1);
   });
@@ -591,5 +590,166 @@ describe('«Узел» ставит места, «Переход» — лест�
     store().undo();
 
     expect(dataSnapshot()).toEqual(before);
+  });
+});
+
+/**
+ * «Точка перехода» — следствие переходов: ставить и снимать её руками не
+ * нужно, и разойтись с переходами она не может.
+ */
+describe('отметка «точка перехода» ставится по переходам', () => {
+  const portal = (id: string) => store().nodes.get(id)?.isPortal;
+
+  it('новый переход делает оба конца точками перехода, удаление — снимает', () => {
+    expect(portal('a1_room101')).toBe(false);
+    expect(portal('a2_room201')).toBe(false);
+
+    store().addTransition('a1_room101', 'a2_room201', 'lift');
+    expect(portal('a1_room101')).toBe(true);
+    expect(portal('a2_room201')).toBe(true);
+
+    store().removeTransition('a1_room101', 'a2_room201');
+    expect(portal('a1_room101')).toBe(false);
+    expect(portal('a2_room201')).toBe(false);
+  });
+
+  it('удаление точки снимает отметку с другого конца её перехода, отмена возвращает', () => {
+    expect(portal('a2_stairs')).toBe(true);
+    store().removeNode('a1_stairs');
+    expect(portal('a2_stairs')).toBe(false);
+
+    store().undo();
+    expect(portal('a2_stairs')).toBe(true);
+    expect(portal('a1_stairs')).toBe(true);
+  });
+
+  it('отмена перехода снимает отметку, повтор ставит', () => {
+    store().addTransition('a1_room101', 'a2_room201', 'lift');
+    store().undo();
+    expect(portal('a1_room101')).toBe(false);
+    store().redo();
+    expect(portal('a1_room101')).toBe(true);
+  });
+
+  it('копия точки перехода — обычная точка: переходы не копируются', () => {
+    openFloor(1);
+    select('a1_stairs');
+    store().duplicateSelected();
+
+    const copy = [...store().selectedNodeIds][0];
+    expect(copy).not.toBe('a1_stairs');
+    expect(portal(copy)).toBe(false);
+  });
+
+  it('расхождение в загруженных данных исправляется и называется', () => {
+    const dataset = fixtureDataset();
+    dataset.nodes = dataset.nodes.map((node) =>
+      node.id === 'a1_hall' ? { ...node, isPortal: true } : node.id === 'a1_stairs' ? { ...node, isPortal: false } : node
+    );
+    loadFixture(dataset);
+
+    expect(portal('a1_hall')).toBe(false);
+    expect(portal('a1_stairs')).toBe(true);
+    expect(store().loadWarnings.some((warning) => warning.includes('точка перехода'))).toBe(true);
+  });
+
+  it('согласованные данные загружаются без предупреждения', () => {
+    expect(store().loadWarnings.some((warning) => warning.includes('точка перехода'))).toBe(false);
+  });
+});
+
+/**
+ * Правка панели — одна запись истории. Владелец: «передумал несколько раз —
+ * и каждое передумывание приходится отменять отдельно».
+ */
+describe('правки из карточки точки — одной записью', () => {
+  const inCard = (fn: () => void) => store().runInSession('card:a1_room101', 'Точка «А-101»', fn);
+  const entryCount = () => useHistoryStore.getState().entries.length;
+
+  it('несколько правок — одна запись, одна отмена возвращает всё, повтор — всё', () => {
+    const before = dataSnapshot();
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeCategory('a1_room101', 'food'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().closeSession();
+
+    expect(entryCount()).toBe(entries + 1);
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Точка «А-101»');
+
+    const after = dataSnapshot();
+    store().undo();
+    expect(dataSnapshot()).toEqual(before);
+    store().redo();
+    expect(dataSnapshot()).toEqual(after);
+  });
+
+  it('галочку поставили и сняли — записи в истории нет', () => {
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeCategory('a1_room101', null));
+    store().closeSession();
+
+    expect(entryCount()).toBe(entries);
+  });
+
+  it('Ctrl+Z при открытой правке отменяет её целиком', () => {
+    const before = dataSnapshot();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().undo();
+
+    expect(dataSnapshot()).toEqual(before);
+  });
+
+  it('«Отменить изменения» возвращает всё и не оставляет записей', () => {
+    const before = dataSnapshot();
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeAliases('a1_room101', ['А-101', '101', 'Лаборатория']));
+    store().revertSession();
+
+    expect(dataSnapshot()).toEqual(before);
+    expect(entryCount()).toBe(entries);
+    expect(useHistoryStore.getState().canRedo()).toBe(false);
+  });
+
+  it('действие не из карточки закрывает её правку и пишется отдельной записью', () => {
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().addEdge('a1_entrance', 'a1_room101');
+
+    expect(entryCount()).toBe(entries + 2);
+    store().undo();
+    expect(store().nodes.get('a1_entrance')?.neighbors).not.toContain('a1_room101');
+    expect(store().aliasCategories.get('a1_room101')).toBe('toilet');
+  });
+
+  it('одна правка из карточки — обычная запись, не группа', () => {
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    store().closeSession();
+
+    const { entries, currentIndex } = useHistoryStore.getState();
+    expect(entries[currentIndex].type).toBe('SET_CATEGORY');
+  });
+
+  it('правка другой панели сначала применяет правку карточки', () => {
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().runInSession('kinds', 'Виды точек', () =>
+      store().setPlaceKinds([...BUILT_IN_PLACE_KINDS, { id: 'medpoint', name: 'Медпункт' }], 'Свой вид')
+    );
+    store().closeSession();
+
+    expect(entryCount()).toBe(entries + 2);
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Свой вид');
   });
 });

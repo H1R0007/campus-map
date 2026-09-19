@@ -1,7 +1,7 @@
 import type { Draft } from 'immer';
 import type { PlaceCategory, Transition } from '@campus-map/core';
 import type { AliasSnapshot, HistoryEntry } from '../historyStore';
-import { applyNeighborsSnapshot } from './graphState';
+import { applyNeighborsSnapshot, syncPortals } from './graphState';
 import type { EditorStore } from './types';
 
 /** Ключ перехода со всеми полями: по нему видно, что именно изменилось. */
@@ -43,6 +43,8 @@ export function entryNodes(entry: HistoryEntry): string[] {
       return [];
     case 'RENAME_NODE':
       return [entry.redoData.to];
+    case 'GROUP':
+      return [...new Set(entry.redoData.entries.flatMap(entryNodes))];
     case 'ADD_TRANSITION':
     case 'REMOVE_TRANSITION':
     case 'UPDATE_TRANSITION':
@@ -56,8 +58,6 @@ export function entryNodes(entry: HistoryEntry): string[] {
           return entry.undoData.nodes.map((node) => node.id);
         case 'moveMultiple':
           return entry.undoData.positions.map((position) => position.nodeId);
-        case 'setPortal':
-          return entry.undoData.changes.map((change) => change.nodeId);
         case 'chainConnect':
           return Object.keys(entry.undoData.neighborsBefore);
         case 'splitEdge':
@@ -174,7 +174,22 @@ function applyCategory(s: State, nodeId: string, category: PlaceCategory | null)
   else s.aliasCategories.set(nodeId, category);
 }
 
+/**
+ * Отмена записи. Отметка «точка перехода» после неё пересчитывается по
+ * переходам: она следствие переходов, а не часть записи.
+ */
 export function applyUndo(s: State, entry: HistoryEntry): void {
+  applyUndoEntry(s, entry);
+  syncPortals(s);
+}
+
+/** Повтор записи; отметка «точка перехода» — как при отмене. */
+export function applyRedo(s: State, entry: HistoryEntry): void {
+  applyRedoEntry(s, entry);
+  syncPortals(s);
+}
+
+function applyUndoEntry(s: State, entry: HistoryEntry): void {
   switch (entry.type) {
     case 'ADD_NODE': {
       const { nodeId } = entry.undoData;
@@ -235,6 +250,10 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
       renameNodeEverywhere(s, entry.undoData.to, entry.undoData.from);
       break;
     }
+    case 'GROUP': {
+      for (const part of [...entry.undoData.entries].reverse()) applyUndoEntry(s, part);
+      break;
+    }
     case 'BATCH': {
       const u = entry.undoData;
       switch (u.kind) {
@@ -265,13 +284,6 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
               n.x = pos.x;
               n.y = pos.y;
             }
-          }
-          break;
-        }
-        case 'setPortal': {
-          for (const change of u.changes) {
-            const n = s.nodes.get(change.nodeId);
-            if (n) n.isPortal = change.isPortal;
           }
           break;
         }
@@ -319,7 +331,7 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
   }
 }
 
-export function applyRedo(s: State, entry: HistoryEntry): void {
+function applyRedoEntry(s: State, entry: HistoryEntry): void {
   switch (entry.type) {
     case 'ADD_NODE': {
       const { node } = entry.redoData;
@@ -388,6 +400,10 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
       renameNodeEverywhere(s, entry.redoData.from, entry.redoData.to);
       break;
     }
+    case 'GROUP': {
+      for (const part of entry.redoData.entries) applyRedoEntry(s, part);
+      break;
+    }
     case 'SET_ALIASES': {
       const { nodeId, names } = entry.redoData;
       if (names.length > 0) s.aliases.set(nodeId, [...names]);
@@ -424,13 +440,6 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
               n.x = pos.x;
               n.y = pos.y;
             }
-          }
-          break;
-        }
-        case 'setPortal': {
-          for (const id of r.nodeIds) {
-            const n = s.nodes.get(id);
-            if (n) n.isPortal = r.isPortal;
           }
           break;
         }

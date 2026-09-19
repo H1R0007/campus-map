@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import type { PlaceKind } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { useHistoryStore } from '../../stores/historyStore';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { visibleKinds } from '../../utils/placeKinds';
 import { PLACE_CATEGORY_LABELS } from '../../utils/labels';
@@ -39,6 +40,9 @@ function patternFor(naming: Naming, name: string): string | undefined {
   return undefined;
 }
 
+/** Ключ правки окна: всё, что сделано в окне до его закрытия, — одна запись. */
+const KINDS_SESSION = 'kinds';
+
 /** Пустой вид: с него начинается создание. */
 const emptyKind = (): PlaceKind => ({ id: '', name: '', icon: 'pin', connect: true });
 
@@ -76,9 +80,19 @@ export const KindsDialog: React.FC = () => {
   const placeKinds = useEditorStore((s) => s.placeKinds);
   const setPlaceKinds = useEditorStore((s) => s.setPlaceKinds);
   const setActiveKind = useEditorStore((s) => s.setActiveKind);
+  const runInSession = useEditorStore((s) => s.runInSession);
+  const pending = useHistoryStore(
+    (s) => s.session !== null && s.session.key === KINDS_SESSION && s.currentIndex > s.session.startIndex
+  );
 
   const dialogRef = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setKindsOpen(false), [setKindsOpen]);
+  // Закрытое окно применяет свою правку: всё сделанное в нём — одна запись.
+  const close = useCallback(() => {
+    if (useHistoryStore.getState().session?.key === KINDS_SESSION) useEditorStore.getState().closeSession();
+    setKindsOpen(false);
+  }, [setKindsOpen]);
+  const setKinds = (kinds: PlaceKind[], description: string) =>
+    runInSession(KINDS_SESSION, 'Виды точек', () => setPlaceKinds(kinds, description));
   useDialogFocus(open, dialogRef, close);
 
   const [draft, setDraft] = useState<PlaceKind | null>(null);
@@ -103,14 +117,14 @@ export const KindsDialog: React.FC = () => {
     const next = editingId
       ? kinds.map((item) => (item.id === editingId ? kind : item))
       : [...kinds, kind];
-    setPlaceKinds(next, editingId ? `Изменён вид точки: ${name}` : `Добавлен вид точки: ${name}`);
+    setKinds(next, editingId ? `Изменён вид точки: ${name}` : `Добавлен вид точки: ${name}`);
     setActiveKind(kind.id);
     setDraft(null);
     setEditingId(null);
   };
 
   const remove = (kind: PlaceKind) => {
-    setPlaceKinds(
+    setKinds(
       kinds.filter((item) => item.id !== kind.id),
       `Удалён вид точки: ${kind.name}`
     );
@@ -122,7 +136,7 @@ export const KindsDialog: React.FC = () => {
     const swap = index + direction;
     if (swap < 0 || swap >= next.length) return;
     [next[index], next[swap]] = [next[swap], next[index]];
-    setPlaceKinds(next, `Порядок видов: ${kind.name}`);
+    setKinds(next, `Порядок видов: ${kind.name}`);
   };
 
   return (
@@ -204,6 +218,25 @@ export const KindsDialog: React.FC = () => {
               </li>
             ))}
           </ul>
+
+          {pending && (
+            <div className="editor-card__session" role="group" aria-label="Изменения видов">
+              <p className="editor-section__hint">Всё, что сделано в этом окне, — одна правка: отмена вернёт её разом.</p>
+              <div className="editor-card__actions">
+                <button type="button" className="editor-button editor-button--primary" onClick={close}>
+                  <Icon name="checkCircle" />
+                  Готово
+                </button>
+                <button
+                  type="button"
+                  className="editor-button editor-button--ghost"
+                  onClick={() => useEditorStore.getState().revertSession()}
+                >
+                  Отменить изменения
+                </button>
+              </div>
+            </div>
+          )}
 
           {draft === null ? (
             <button

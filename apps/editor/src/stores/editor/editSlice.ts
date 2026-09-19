@@ -11,7 +11,7 @@ import { snapToNeighbours } from '../../utils/snapping';
 import type { SnapResult } from '../../utils/snapping';
 import { useCursorStore } from '../cursorStore';
 import { floorNodesOf } from './dataSlice';
-import { snapshotNeighbors } from './graphState';
+import { snapshotNeighbors, syncPortals } from './graphState';
 import { forgetPlace, renameNodeEverywhere, snapshotPlace } from './historyApply';
 import type { EditorSlice, EditorStore } from './types';
 
@@ -106,7 +106,6 @@ export interface EditSlice {
   deleteSelected: () => void;
   duplicateSelected: () => void;
   moveSelectedBy: (dx: number, dy: number) => void;
-  setSelectedPortal: (isPortal: boolean) => void;
   connectSelectedChain: () => void;
 
   copySelected: () => void;
@@ -324,6 +323,7 @@ function commitPlacement(set: StoreSet, get: StoreGet, spec: PlacementSpec): str
     }
 
     s.transitions = [...s.transitions, ...newTransitions];
+    syncPortals(s);
     for (const alias of aliases) s.aliases.set(alias.id, [...alias.names]);
     for (const { id, category } of categories) s.aliasCategories.set(id, category);
     s.selectedNodeIds = new Set([primary.id]);
@@ -451,6 +451,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       s.transitions = s.transitions.filter((t) => t.fromNode !== nodeId && t.toNode !== nodeId);
       s.nodes.delete(nodeId);
       forgetPlace(s, nodeId);
+      syncPortals(s);
       s.selectedNodeIds.delete(nodeId);
       s.edgeStartNodeId = null;
       s.transitionStartNodeId = null;
@@ -635,6 +636,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
+      syncPortals(s);
     });
 
     return 'created';
@@ -657,6 +659,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
+      syncPortals(s);
     });
   },
 
@@ -679,6 +682,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
+      syncPortals(s);
     });
   },
 
@@ -971,6 +975,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         n.neighbors = n.neighbors.filter((nb) => !ids.includes(nb));
       }
       s.transitions = s.transitions.filter((t) => !ids.includes(t.fromNode) && !ids.includes(t.toNode));
+      syncPortals(s);
       s.selectedNodeIds = new Set();
     });
   },
@@ -1000,7 +1005,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         y: node.y + offset,
         building: node.building,
         floor: node.floor,
-        isPortal: node.isPortal,
+        // Переходы не копируются, поэтому и точкой перехода копия не будет.
+        isPortal: false,
         neighbors: [],
       });
     }
@@ -1089,31 +1095,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
-  setSelectedPortal: (isPortal) => {
-    const { selectedNodeIds, nodes } = get();
-    if (selectedNodeIds.size === 0) return;
 
-    const ids = Array.from(selectedNodeIds);
-    const before: { nodeId: string; isPortal: boolean }[] = [];
-    for (const id of ids) {
-      const node = nodes.get(id);
-      if (node) before.push({ nodeId: id, isPortal: node.isPortal });
-    }
-
-    useHistoryStore.getState().push({
-      type: 'BATCH',
-      description: 'Изменён флаг портала',
-      undoData: { kind: 'setPortal', changes: before },
-      redoData: { kind: 'setPortal', nodeIds: ids, isPortal },
-    });
-
-    set((s) => {
-      for (const id of ids) {
-        const node = s.nodes.get(id);
-        if (node) node.isPortal = isPortal;
-      }
-    });
-  },
 
   connectSelectedChain: () => {
     const { selectedNodeIds, nodes } = get();
@@ -1197,7 +1179,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         y: node.y + shiftY,
         building,
         floor,
-        isPortal: node.isPortal,
+        // Переходы не копируются, поэтому и точкой перехода копия не будет.
+        isPortal: false,
         neighbors: [],
       });
     }
@@ -1330,6 +1313,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
           }
         }
         s.transitions = fixedTransitions;
+        syncPortals(s);
       });
     }
 

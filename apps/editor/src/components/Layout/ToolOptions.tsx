@@ -58,7 +58,6 @@ const SelectOptions: React.FC = () => {
   const copySelected = useEditorStore((s) => s.copySelected);
   const paste = useEditorStore((s) => s.paste);
   const connectSelectedChain = useEditorStore((s) => s.connectSelectedChain);
-  const setSelectedPortal = useEditorStore((s) => s.setSelectedPortal);
 
   const pasteButton = clipboard && (
     <button type="button" className="editor-button editor-button--accent" onClick={() => paste()} title="Вставить (Ctrl+V)" aria-label="Вставить">
@@ -91,16 +90,6 @@ const SelectOptions: React.FC = () => {
             >
               <Icon name="link" />
               <span className="editor-toolbar__label">Соединить цепочкой</span>
-            </button>
-            <button
-              type="button"
-              className="editor-button editor-button--accent"
-              onClick={() => setSelectedPortal(true)}
-              title="Отметить выбранные как точки переходов: лестницы, лифты, входы"
-              aria-label="Отметить как точки переходов"
-            >
-              <Icon name="star" />
-              <span className="editor-toolbar__label">Точки переходов</span>
             </button>
           </>
         )}

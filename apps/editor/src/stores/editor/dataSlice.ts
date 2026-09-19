@@ -11,9 +11,10 @@ import type {
   Transition,
 } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
-import { buildGraphFromState } from './graphState';
+import { buildGraphFromState, syncPortals } from './graphState';
 import { initialRouteSimulation } from './routeSlice';
 import { searchNodeHits } from '../../utils/nodeSearch';
+import { nodesCount } from '../../utils/labels';
 import type { EditorSlice } from './types';
 
 /**
@@ -159,6 +160,12 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       );
       state.campusMeta = dataset.campusMeta;
       state.loadWarnings = [...warnings];
+      const fixedPortals = syncPortals(state);
+      if (fixedPortals > 0) {
+        state.loadWarnings.push(
+          `Отметка «точка перехода» не совпадала с переходами у ${nodesCount(fixedPortals)} — исправлено: теперь она ставится по переходам сама`
+        );
+      }
       state.selectedNodeIds = new Set();
       state.edgeStartNodeId = null;
       state.transitionStartNodeId = null;

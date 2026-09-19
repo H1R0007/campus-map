@@ -174,6 +174,57 @@ export default {
       assert.equal(await e.propertiesNodeId(), 'a1_room102', 'Esc в поле названия снял выбор');
     });
 
+    await step('правки в карточке — одной записью: «Применить», одна отмена, «Отменить изменения»', async () => {
+      // Владелец: передумал несколько раз — и каждое передумывание приходилось
+      // отменять отдельно. Теперь правки карточки копятся в одну запись.
+      const room = await e.nodePoint('a1_room102');
+      await e.click(room.x, room.y);
+      assert.equal(await e.propertiesNodeId(), 'a1_room102');
+
+      const edits = async () => Number((await e.status()).match(/Правок: (\d+)/)?.[1] ?? -1);
+      const pressedKind = () =>
+        page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim() ?? null`);
+      const bar = () => page.eval(`Boolean(document.querySelector('[aria-label="Изменения точки"]'))`);
+      const chip = async (label) => {
+        const point = await page.eval(`(() => {
+          const button = [...document.querySelectorAll('[aria-label="Вид места"] button')].find((b) => b.textContent.trim() === ${JSON.stringify(label)});
+          button.scrollIntoView({ block: 'center' });
+          const r = button.getBoundingClientRect();
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        })()`);
+        await e.click(point.x, point.y);
+      };
+
+      const editsBefore = await edits();
+      const kindBefore = await pressedKind();
+      assert.equal(await bar(), false, 'полоса изменений видна до правок');
+
+      // Передумал: туалет, еда, снова как было — записи нет вовсе.
+      await chip('Туалет');
+      assert.equal(await bar(), true, 'полоса изменений не появилась');
+      await chip('Еда');
+      await chip(kindBefore);
+      await e.press('Применить');
+      assert.equal(await edits(), editsBefore, 'правка «туда и обратно» попала в историю');
+
+      // Две правки — одна запись, одна отмена возвращает обе.
+      await chip('Туалет');
+      await chip('Гардероб');
+      await e.press('Применить');
+      assert.equal(await edits(), editsBefore + 1, 'правки карточки — не одна запись');
+      assert.equal(await bar(), false, 'полоса осталась после «Применить»');
+      await e.key('z', { modifiers: 2 });
+      assert.equal(await pressedKind(), kindBefore, 'одна отмена не вернула обе правки');
+      assert.equal(await edits(), editsBefore);
+
+      // «Отменить изменения» возвращает всё без записи в истории.
+      await chip('Еда');
+      await e.press('Отменить изменения');
+      assert.equal(await pressedKind(), kindBefore, '«Отменить изменения» не вернуло вид места');
+      assert.equal(await edits(), editsBefore, '«Отменить изменения» оставило запись');
+      assert.equal(await bar(), false);
+    });
+
     await step('без выбора — обзор плана: сводка и распавшийся план', async () => {
       const overview = () =>
         page.eval(`document.querySelector('[aria-label="Обзор плана"]')?.textContent.replace(/\\s+/g, ' ') ?? ''`);

@@ -1117,13 +1117,47 @@ input[type='checkbox'] {
     border-top: 1px solid var(--editor-border);
 }
 
+/* У заголовка с display: flex браузер не рисует треугольник раскрытия:
+   без своей стрелки блок выглядит простой надписью, и что он раскрывается,
+   не догадаться. */
 .editor-card__details > summary {
     display: flex;
     align-items: center;
+    gap: 6px;
     min-height: 44px;
+    padding: 0 4px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    list-style: none;
+}
+
+.editor-card__details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.editor-card__details > summary:hover {
+    background: var(--editor-hover);
+}
+
+.editor-card__chevron {
+    flex: none;
+    transition: transform 0.15s ease;
+}
+
+.editor-card__details[open] > summary .editor-card__chevron {
+    transform: rotate(90deg);
+}
+
+/* Полоса «изменения точки»: прилипает к низу колонки, пока правки не применены. */
+.editor-card__session {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding: 8px;
+    border-top: 1px solid var(--editor-highlight);
+    background: var(--editor-panel);
 }
 
 .editor-card__field {

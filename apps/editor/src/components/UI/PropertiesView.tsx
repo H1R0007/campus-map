@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { CAMPUS_BUILDING_ID, PLACE_CATEGORIES, TRANSITION_TYPES, distance } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { useHistoryStore } from '../../stores/historyStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
 import { PlanOverview } from './PlanOverview';
@@ -14,6 +15,14 @@ const CONNECT_CANDIDATES = 6;
 
 /** Пустой список названий одной ссылкой: новая ссылка обновляла бы карточку зря. */
 const NO_ALIASES: string[] = [];
+
+/**
+ * Правка из карточки: всё, что человек меняет в карточке точки, — одна запись
+ * истории. Передумал несколько раз — отмена возвращает всё разом; в итоге
+ * ничего не изменилось — записи нет вовсе.
+ */
+const CardEdit = React.createContext<(fn: () => void) => void>((fn) => fn());
+const useCardEdit = () => useContext(CardEdit);
 
 /**
  * Ключ карточки точки: новый при выборе другой точки, прежний — при
@@ -49,7 +58,14 @@ export const PropertiesView: React.FC = () => {
   const cardKey = useCardKey(selectedIds.length === 1 ? selectedIds[0] : null);
 
   if (selectedIds.length === 1) {
-    return <NodeCard key={cardKey ?? selectedIds[0]} nodeId={selectedIds[0]} onClose={clearSelection} />;
+    return (
+      <NodeCard
+        key={cardKey ?? selectedIds[0]}
+        cardKey={cardKey ?? selectedIds[0]}
+        nodeId={selectedIds[0]}
+        onClose={clearSelection}
+      />
+    );
   }
 
   if (selectedIds.length > 1) {
@@ -91,72 +107,116 @@ export const PropertiesView: React.FC = () => {
  * правки, и следующее действие в карточке шло по нему — добавленное
  * название молча исчезало.
  */
-const NodeCard: React.FC<{ nodeId: string; onClose: () => void }> = ({ nodeId, onClose }) => {
+const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void }> = ({ nodeId, cardKey, onClose }) => {
   const node = useEditorStore((s) => s.nodes.get(nodeId));
   const allAliases = useEditorStore((s) => s.aliases);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const removeNode = useEditorStore((s) => s.removeNode);
-  const updateNode = useEditorStore((s) => s.updateNode);
+  const runInSession = useEditorStore((s) => s.runInSession);
 
   const aliases = allAliases.get(nodeId) ?? NO_ALIASES;
+  const sessionKey = `card:${cardKey}`;
+  const title = aliases[0] ?? nodeId;
+  const edit = useCallback(
+    (fn: () => void) => runInSession(sessionKey, `Точка «${title}»`, fn),
+    [runInSession, sessionKey, title]
+  );
+
+  // Карточка закрылась — её правка применяется: из набранного ничего не
+  // теряется, а в истории остаётся одна запись.
+  useEffect(
+    () => () => {
+      if (useHistoryStore.getState().session?.key === sessionKey) useEditorStore.getState().closeSession();
+    },
+    [sessionKey]
+  );
 
   if (!node) return null;
 
   return (
-    <section aria-label="Свойства узла" data-node-id={node.id} className="editor-card">
-      <header className="editor-card__header">
-        <h2 className={`editor-card__title${aliases.length === 0 ? ' editor-card__title--empty' : ''}`}>
-          {aliases[0] ?? 'Без названия'}
-        </h2>
-        <p className="editor-card__place">
-          {nodePlaceLabel(node, buildingMetas)}
-          {node.isPortal && ' · точка перехода'}
-        </p>
-      </header>
+    <CardEdit.Provider value={edit}>
+      <section aria-label="Свойства узла" data-node-id={node.id} className="editor-card">
+        <header className="editor-card__header">
+          <h2 className={`editor-card__title${aliases.length === 0 ? ' editor-card__title--empty' : ''}`}>
+            {aliases[0] ?? 'Без названия'}
+          </h2>
+          <p className="editor-card__place">
+            {nodePlaceLabel(node, buildingMetas)}
+            {node.isPortal && ' · точка перехода'}
+          </p>
+        </header>
 
-      <NamesSection nodeId={nodeId} aliases={aliases} />
-      <LinksSection nodeId={nodeId} />
-      <TransitionsSection nodeId={nodeId} />
+        <NamesSection nodeId={nodeId} aliases={aliases} />
+        <LinksSection nodeId={nodeId} />
+        <TransitionsSection nodeId={nodeId} />
 
-      <section className="editor-card__section" aria-labelledby="card-kind">
-        <h3 id="card-kind" className="editor-card__heading">
-          Вид места
-        </h3>
-        <PlaceKind nodeId={nodeId} named={aliases.length > 0} />
+        <section className="editor-card__section" aria-labelledby="card-kind">
+          <h3 id="card-kind" className="editor-card__heading">
+            Вид места
+          </h3>
+          <PlaceKind nodeId={nodeId} named={aliases.length > 0} />
+        </section>
 
-        <label className="editor-check">
-          <input
-            type="checkbox"
-            checked={node.isPortal}
-            onChange={(e) => updateNode(node.id, { isPortal: e.target.checked })}
-          />
-          <span className="editor-check__text">
-            Точка перехода
-            <span className="editor-check__hint">лестница, лифт или вход — навигатор рисует её значком</span>
-          </span>
-        </label>
+        <CommentSection nodeId={nodeId} />
+        <ServiceSection nodeId={nodeId} />
+
+        <CardSessionBar sessionKey={sessionKey} />
+
+        <footer className="editor-card__footer">
+          <button
+            type="button"
+            className="editor-button editor-button--danger flex-1"
+            onClick={() => {
+              removeNode(node.id);
+              onClose();
+            }}
+          >
+            <Icon name="trash" />
+            Удалить узел
+          </button>
+          <button type="button" className="editor-button editor-button--ghost" onClick={onClose} title="Снять выбор (Esc)">
+            Снять выбор
+          </button>
+        </footer>
       </section>
+    </CardEdit.Provider>
+  );
+};
 
-      <CommentSection nodeId={nodeId} />
-      <ServiceSection nodeId={nodeId} />
+/**
+ * Полоса «изменения точки» внизу карточки: правки копятся в одну запись, и
+ * ими можно распорядиться разом — применить или вернуть всё как было.
+ */
+const CardSessionBar: React.FC<{ sessionKey: string }> = ({ sessionKey }) => {
+  const pending = useHistoryStore(
+    (s) => s.session !== null && s.session.key === sessionKey && s.currentIndex > s.session.startIndex
+  );
+  const closeSession = useEditorStore((s) => s.closeSession);
+  const revertSession = useEditorStore((s) => s.revertSession);
+  const showNotice = useEditorStore((s) => s.showNotice);
 
-      <footer className="editor-card__footer">
+  if (!pending) return null;
+
+  return (
+    <div className="editor-card__session" role="group" aria-label="Изменения точки">
+      <p className="editor-section__hint">Изменения точки — одной правкой: отмена вернёт их все разом.</p>
+      <div className="editor-card__actions">
         <button
           type="button"
-          className="editor-button editor-button--danger flex-1"
+          className="editor-button editor-button--primary"
           onClick={() => {
-            removeNode(node.id);
-            onClose();
+            closeSession();
+            showNotice('Изменения точки применены');
           }}
         >
-          <Icon name="trash" />
-          Удалить узел
+          <Icon name="checkCircle" />
+          Применить
         </button>
-        <button type="button" className="editor-button editor-button--ghost" onClick={onClose} title="Снять выбор (Esc)">
-          Снять выбор
+        <button type="button" className="editor-button editor-button--ghost" onClick={revertSession}>
+          Отменить изменения
         </button>
-      </footer>
-    </section>
+      </div>
+    </div>
   );
 };
 
@@ -171,6 +231,7 @@ const NodeCard: React.FC<{ nodeId: string; onClose: () => void }> = ({ nodeId, o
 const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named }) => {
   const category = useEditorStore((s) => s.aliasCategories.get(nodeId) ?? null);
   const setNodeCategory = useEditorStore((s) => s.setNodeCategory);
+  const edit = useCardEdit();
 
   if (!named) {
     return (
@@ -188,7 +249,7 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
           type="button"
           className="editor-chip"
           aria-pressed={category === kind}
-          onClick={() => setNodeCategory(nodeId, category === kind ? null : kind)}
+          onClick={() => edit(() => setNodeCategory(nodeId, category === kind ? null : kind))}
         >
           {PLACE_CATEGORY_LABELS[kind]}
         </button>
@@ -197,7 +258,7 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
         type="button"
         className="editor-chip"
         aria-pressed={category === null}
-        onClick={() => setNodeCategory(nodeId, null)}
+        onClick={() => edit(() => setNodeCategory(nodeId, null))}
       >
         Обычное место
       </button>
@@ -210,6 +271,7 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
   const nameEditNodeId = useEditorStore((s) => s.nameEditNodeId);
   const nameEditDraft = useEditorStore((s) => s.nameEditDraft);
   const clearNameEdit = useEditorStore((s) => s.clearNameEdit);
+  const edit = useCardEdit();
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
@@ -252,7 +314,7 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
     if (value && value !== aliases[editingIndex]) {
       const next = [...aliases];
       next[editingIndex] = value;
-      setNodeAliases(nodeId, next);
+      edit(() => setNodeAliases(nodeId, next));
     }
     setEditingIndex(null);
   };
@@ -260,7 +322,7 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
   const addName = () => {
     const value = newName.trim();
     if (!value || aliases.includes(value)) return;
-    setNodeAliases(nodeId, [...aliases, value]);
+    edit(() => setNodeAliases(nodeId, [...aliases, value]));
     setNewName('');
   };
 
@@ -317,7 +379,7 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
             <button
               type="button"
               className="editor-icon-button editor-list__remove"
-              onClick={() => setNodeAliases(nodeId, aliases.filter((_, i) => i !== index))}
+              onClick={() => edit(() => setNodeAliases(nodeId, aliases.filter((_, i) => i !== index)))}
               aria-label={`Удалить название «${alias}»`}
               title="Удалить название"
             >
@@ -371,6 +433,7 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const addEdge = useEditorStore((s) => s.addEdge);
   const removeEdge = useEditorStore((s) => s.removeEdge);
+  const edit = useCardEdit();
   const selectSingleNode = useEditorStore((s) => s.selectSingleNode);
   const setHoveredNode = useEditorStore((s) => s.setHoveredNode);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
@@ -413,7 +476,7 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
             <button
               type="button"
               className="editor-icon-button editor-list__remove"
-              onClick={() => removeEdge(node.id, id)}
+              onClick={() => edit(() => removeEdge(node.id, id))}
               aria-label={`Удалить связь с «${nodeTitle(id, allAliases)}»`}
               title="Удалить связь"
             >
@@ -461,7 +524,7 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
                 type="button"
                 className="editor-list__main"
                 onClick={() => {
-                  addEdge(node.id, candidate.id);
+                  edit(() => addEdge(node.id, candidate.id));
                   setShowNearest(false);
                 }}
                 title={`Соединить с ${candidate.id}`}
@@ -486,6 +549,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const allAliases = useEditorStore((s) => s.aliases);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const removeTransition = useEditorStore((s) => s.removeTransition);
+  const edit = useCardEdit();
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
   const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
@@ -538,7 +602,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
               <button
                 type="button"
                 className="editor-icon-button editor-list__remove"
-                onClick={() => removeTransition(t.fromNode, t.toNode)}
+                onClick={() => edit(() => removeTransition(t.fromNode, t.toNode))}
                 aria-label={`Удалить переход: ${TRANSITION_LABELS[t.type]} к «${nodeTitle(otherId, allAliases)}»`}
                 title="Удалить переход"
               >
@@ -584,6 +648,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
 const CommentSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const comment = useEditorStore((s) => s.nodes.get(nodeId)?.comment ?? '');
   const setNodeComment = useEditorStore((s) => s.setNodeComment);
+  const edit = useCardEdit();
 
   // Черновик заметки: правка уходит в стор (и в историю отмены) только по
   // завершению, а не на каждое нажатие клавиши.
@@ -598,8 +663,8 @@ const CommentSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
 
   const commit = useCallback(() => {
     focused.current = false;
-    if (draft !== comment) setNodeComment(nodeId, draft);
-  }, [comment, draft, nodeId, setNodeComment]);
+    if (draft !== comment) edit(() => setNodeComment(nodeId, draft));
+  }, [comment, draft, edit, nodeId, setNodeComment]);
 
   return (
     <section className="editor-card__section" aria-labelledby="card-comment">
@@ -644,6 +709,7 @@ const ServiceSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const nodeY = useEditorStore((s) => s.nodes.get(nodeId)?.y);
   const updateNode = useEditorStore((s) => s.updateNode);
   const renameNode = useEditorStore((s) => s.renameNode);
+  const edit = useCardEdit();
   const [xText, setXText] = useState('');
   const [yText, setYText] = useState('');
   const [idText, setIdText] = useState(nodeId);
@@ -667,7 +733,7 @@ const ServiceSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const commit = () => {
     const x = Number.isFinite(Number(xText)) ? Math.round(Number(xText)) : nodeX;
     const y = Number.isFinite(Number(yText)) ? Math.round(Number(yText)) : nodeY;
-    if (x !== nodeX || y !== nodeY) updateNode(nodeId, { x, y });
+    if (x !== nodeX || y !== nodeY) edit(() => updateNode(nodeId, { x, y }));
   };
 
   // Занятость id спрашивается у стора напрямую, без подписки: подписка на
@@ -684,12 +750,15 @@ const ServiceSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
       return;
     }
     if (idProblem !== null) return;
-    renameNode(nodeId, idText);
+    edit(() => renameNode(nodeId, idText));
   };
 
   return (
     <details className="editor-card__details">
-      <summary>Служебное: положение и id</summary>
+      <summary>
+        <Icon name="chevronRight" className="editor-card__chevron" />
+        Служебное: положение и id
+      </summary>
       <label className="editor-card__field">
         <span className="editor-section__hint">id точки в данных</span>
         <input
