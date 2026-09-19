@@ -956,6 +956,74 @@ input[type='checkbox'] {
     mask-size: contain;
 }
 
+/* Окно видов: выбор значка открывается поверх него. */
+.editor-dialog--kinds {
+    position: relative;
+}
+
+/* Окошко выбора значка — поверх окна видов, в его границах. */
+.editor-icon-picker {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px;
+    border-radius: 16px;
+    background: var(--editor-panel);
+}
+
+.editor-icon-picker__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.editor-icon-picker__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.editor-icon-picker__title {
+    margin: 12px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.editor-icon-picker__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid var(--editor-border);
+    padding-top: 8px;
+}
+
+.editor-icon-picker__footer .editor-section__hint {
+    flex: 1 1 240px;
+    margin: 0;
+}
+
+/* Кнопка «Выбрать значок…» с самим значком. */
+.editor-icon-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Подтверждение удаления вида — строкой под ним, во всю ширину. */
+.editor-dialog--kinds .editor-list__row {
+    flex-wrap: wrap;
+}
+
+.editor-list__confirm {
+    flex-basis: 100%;
+    padding: 8px 4px 4px;
+}
+
 /* Выбор значка вида: сетка кнопок 44×44, выбранная — цветом акцента. */
 .editor-icon-grid {
     display: flex;
@@ -1176,6 +1244,11 @@ input[type='checkbox'] {
 .editor-card__field {
     display: block;
     margin-bottom: 8px;
+}
+
+.editor-card__field > .editor-section__hint {
+    display: block;
+    margin-bottom: 4px;
 }
 
 .editor-section__hint--problem {

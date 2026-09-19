@@ -1,4 +1,7 @@
 import { strict as assert } from 'node:assert';
+import { writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { MOD, editorHelpers } from '../editor.mjs';
 
 /**
@@ -64,7 +67,6 @@ export default {
         const dialog = document.querySelector('[role="dialog"]');
         return {
           text: dialog.textContent,
-          icons: dialog.querySelectorAll('[aria-labelledby="kind-icon-label"] button').length,
           inputs: [...dialog.querySelectorAll('input:not([type]), input[type="text"]')].map((input) => ({
             label: input.getAttribute('aria-label'),
             width: input.getBoundingClientRect().width,
@@ -72,18 +74,52 @@ export default {
         };
       })()`);
       assert.ok(!/перехода|Шаблон названия|\{номер\}/.test(form.text), 'в окне видов остались переходы или шаблон со скобками');
-      assert.ok(form.icons >= 8, `значков на выбор: ${form.icons}`);
       for (const input of form.inputs) {
         assert.ok(input.width >= 200, `поле «${input.label}» сжато до ${Math.round(input.width)} px`);
       }
 
       await page.eval(`document.querySelector('[aria-label="Название вида"]').focus()`);
       await e.type('Лаборатория');
-      await e.press('Звезда');
+      await page.eval(`document.querySelector('[aria-label="Название по-английски"]').focus()`);
+      await e.type('Laboratory');
+
+      // Значок — из библиотеки, поиском по-русски.
+      await e.press('Выбрать значок…');
+      await page.waitFor(`document.querySelectorAll('.editor-icon-picker .editor-icon-choice').length > 50`, 15000);
+      await page.eval(`document.querySelector('[aria-label="Найти значок"]').focus()`);
+      await e.type('лаборатория');
+      const found = await page.eval(
+        `[...document.querySelectorAll('.editor-icon-picker .editor-icon-choice')].map((b) => b.getAttribute('aria-label'))`
+      );
+      assert.ok(found.includes('Лаборатория'), `поиск значков по-русски: ${JSON.stringify(found)}`);
+      await page.eval(`document.querySelector('.editor-icon-picker [aria-label="Лаборатория"]').click()`);
+      await page.sleep(300);
+      assert.equal(await page.eval(`Boolean(document.querySelector('.editor-icon-picker'))`), false, 'выбор значка не закрылся');
+      const chosen = () => page.eval(`document.querySelector('.editor-icon-pick .editor-kind-icon')?.style.maskImage ?? ''`);
+      assert.match(await chosen(), /data:image\/svg\+xml/, 'значок вида не выбран');
+
+      // Свой значок: SVG очищается от всего, что может выполняться.
+      const svgPath = path.join(os.tmpdir(), `campus-custom-icon-${process.pid}.svg`);
+      writeFileSync(
+        svgPath,
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" onload="alert(1)"><script>alert(2)</script><circle id="custom-mark" cx="12" cy="12" r="9"/></svg>'
+      );
+      await e.press('Сменить значок…');
+      await page.waitFor(`!!document.querySelector('.editor-icon-picker')`);
+      const { root } = await page.send('DOM.getDocument', { depth: 0 });
+      const { nodeId } = await page.send('DOM.querySelector', { nodeId: root.nodeId, selector: 'input[aria-label="Файл своего значка"]' });
+      await page.send('DOM.setFileInputFiles', { nodeId, files: [svgPath] });
+      await page.waitFor(`!document.querySelector('.editor-icon-picker')`, 5000);
+      const custom = decodeURIComponent(await chosen());
+      assert.ok(custom.includes('custom-mark'), 'свой значок не встал');
+      assert.ok(!/script|onload|alert/.test(custom), `в своём значке осталось исполняемое: ${custom.slice(0, 200)}`);
+
+      await page.eval(`document.querySelector('[aria-label="Слова для поиска"]').focus()`);
+      await e.type('лаба, lab');
       assert.equal(
-        await page.eval(`document.querySelector('[aria-labelledby="kind-icon-label"] [aria-pressed="true"]')?.getAttribute('aria-label')`),
-        'Звезда',
-        'значок не выбран'
+        await page.eval(`[...document.querySelectorAll('[role="dialog"] label')].find((l) => l.textContent.includes('Место для быстрого поиска'))?.querySelector('input')?.checked`),
+        true,
+        'новый вид — не место быстрого поиска'
       );
       await e.press('Добавить вид');
       await shot('editor-kinds-new');
@@ -92,6 +128,17 @@ export default {
       const kinds = await palette();
       assert.ok(kinds.includes('Лаборатория'), `нового вида нет в палитре: ${JSON.stringify(kinds)}`);
       assert.equal(await activeKind(), 'Лаборатория', 'созданный вид сразу не выбран');
+
+      // Всё, что задано в окне, сохранилось у вида: откроем его заново.
+      await e.press('Все виды…');
+      await e.press('Изменить вид «Лаборатория»');
+      const saved = await page.eval(`({
+        en: document.querySelector('[aria-label="Название по-английски"]')?.value,
+        terms: document.querySelector('[aria-label="Слова для поиска"]')?.value,
+      })`);
+      assert.deepEqual(saved, { en: 'Laboratory', terms: 'лаба, lab' }, 'английское название или слова поиска не сохранились');
+      await e.press('Отмена');
+      await e.key('Escape', { keyCode: 27 });
 
       // «Как у вида»: поставленная точка сразу называется видом.
       const before = await e.nodeIds();
@@ -387,6 +434,61 @@ export default {
       await e.toggleFilter('Соседний этаж бледно');
       await page.sleep(300);
       assert.equal(await ghosts(), 0, 'калька осталась после выключения');
+    });
+
+    await step('удаление вида, у которого есть точки, — только после предупреждения', async () => {
+      // Владелец: удаление с предупреждением — «это ОЧЕНЬ важно».
+      await e.press('Узел (N)');
+      await page.eval(`[...document.querySelectorAll('[aria-label="Вид точки"] button')].find((b) => b.textContent.trim() === 'Лаборатория').click()`);
+      assert.equal(await activeKind(), 'Лаборатория');
+      const before = await e.nodeIds();
+      const empty = await e.emptyMapPoint();
+      await e.click(empty.x, empty.y);
+      const lab = (await e.nodeIds()).find((id) => !before.includes(id));
+      assert.ok(lab, 'точка вида не поставлена');
+      await page.eval('document.activeElement?.blur()');
+
+      const kindsInDialog = () =>
+        page.eval(`[...document.querySelectorAll('[aria-label="Виды точек"] .editor-list__name')].map((n) => n.textContent.trim())`);
+      await e.press('Все виды…');
+      await e.press('Удалить вид «Лаборатория»');
+      const warning = await page.eval(`document.querySelector('.editor-list__confirm')?.textContent ?? ''`);
+      assert.match(warning, /У 1 точки вид «Лаборатория»/, `нет предупреждения: ${warning}`);
+      assert.ok((await kindsInDialog()).includes('Лаборатория'), 'вид удалён до подтверждения');
+
+      await e.press('Не удалять');
+      assert.ok((await kindsInDialog()).includes('Лаборатория'), '«Не удалять» удалило вид');
+
+      await e.press('Удалить вид «Лаборатория»');
+      await e.press('Удалить вид');
+      assert.ok(!(await kindsInDialog()).includes('Лаборатория'), 'вид не удалён после подтверждения');
+      await e.key('Escape', { keyCode: 27 });
+
+      // Место осталось без вида: навигатор его «Лабораторией» больше не найдёт.
+      await e.press('Выбор (V)');
+      const point = await e.nodePoint(lab);
+      await e.click(point.x, point.y);
+      assert.equal(
+        await page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim()`),
+        'Обычное место',
+        'у места остался вид, которого больше нет'
+      );
+
+      // Одна отмена возвращает и вид, и его место.
+      await e.key('Escape', { keyCode: 27 });
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.press('Узел (N)');
+      assert.ok((await palette()).includes('Лаборатория'), 'отмена не вернула вид');
+      await e.press('Выбор (V)');
+      await e.click(point.x, point.y);
+      assert.equal(
+        await page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim()`),
+        'Лаборатория',
+        'отмена не вернула вид места у точки'
+      );
+      await e.key('Escape', { keyCode: 27 });
+      await e.key('z', { modifiers: MOD.ctrl });
+      assert.deepEqual(await e.nodeIds(), before);
     });
 
     await step('отмена возвращает каталог видов как было', async () => {

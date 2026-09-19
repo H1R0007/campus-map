@@ -4,23 +4,10 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { visibleKinds } from '../../utils/placeKinds';
+import { plural } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { Icon } from './Icon';
-import type { IconName } from './Icon';
-
-/** Значки, из которых разметчик выбирает вид: те же, что редактор умеет рисовать. */
-const KIND_ICONS: { icon: IconName; label: string }[] = [
-  { icon: 'pin', label: 'Метка' },
-  { icon: 'door', label: 'Дверь' },
-  { icon: 'toilet', label: 'Туалет' },
-  { icon: 'food', label: 'Еда' },
-  { icon: 'cloakroom', label: 'Гардероб' },
-  { icon: 'star', label: 'Звезда' },
-  { icon: 'note', label: 'Заметка' },
-  { icon: 'building', label: 'Здание' },
-  { icon: 'layers', label: 'Слои' },
-  { icon: 'dot', label: 'Точка' },
-];
+import { IconPicker } from './IconPicker';
 
 /** Как называть поставленные точки — три понятных выбора вместо шаблона со скобками. */
 type Naming = 'kind' | 'room' | 'none';
@@ -42,8 +29,17 @@ function patternFor(naming: Naming, name: string): string | undefined {
 /** Ключ правки окна: всё, что сделано в окне до его закрытия, — одна запись. */
 const KINDS_SESSION = 'kinds';
 
-/** Пустой вид: с него начинается создание. */
-const emptyKind = (): PlaceKind => ({ id: '', name: '', icon: 'pin', connect: true });
+/**
+ * Пустой вид: с него начинается создание. Новый вид — сразу место быстрого
+ * поиска с кнопкой в навигаторе: вид заводят, чтобы его находили.
+ */
+const emptyKind = (): PlaceKind => ({ id: '', name: '', place: true, quick: true, connect: true });
+
+/** Слова поиска из поля ввода: через запятую, без пустых и повторов. */
+function termsFromText(text: string): string[] | undefined {
+  const terms = [...new Set(text.split(',').map((term) => term.trim()).filter((term) => term.length > 0))];
+  return terms.length > 0 ? terms : undefined;
+}
 
 /** id вида из названия: латиницей, чтобы его было видно в файле данных. */
 function kindIdOf(name: string, taken: readonly string[]): string {
@@ -97,6 +93,13 @@ export const KindsDialog: React.FC = () => {
   const [draft, setDraft] = useState<PlaceKind | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [naming, setNaming] = useState<Naming>('kind');
+  const [termsText, setTermsText] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  /** Вид, удаление которого ждёт подтверждения: у него есть места. */
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const aliasCategories = useEditorStore((s) => s.aliasCategories);
+  const setNodeCategory = useEditorStore((s) => s.setNodeCategory);
+  const iconButtonRef = useRef<HTMLButtonElement>(null);
 
   if (!open) return null;
 
@@ -106,10 +109,14 @@ export const KindsDialog: React.FC = () => {
     if (!draft || draft.name.trim().length === 0) return;
     const name = draft.name.trim();
     const taken = kinds.filter((kind) => kind.id !== editingId).map((kind) => kind.id);
+    const nameEn = draft.nameEn?.trim();
     const kind: PlaceKind = {
       ...draft,
       name,
       id: editingId ?? kindIdOf(name, taken),
+      nameEn: nameEn ? nameEn : undefined,
+      searchTerms: draft.place ? termsFromText(termsText) : undefined,
+      quick: draft.place ? draft.quick : undefined,
       namePattern: patternFor(naming, name),
     };
 
@@ -122,11 +129,25 @@ export const KindsDialog: React.FC = () => {
     setEditingId(null);
   };
 
+  /** Места этого вида: после удаления вида они останутся без вида места. */
+  const placesOf = (kind: PlaceKind) => [...aliasCategories].filter(([, category]) => category === kind.id).map(([id]) => id);
+
   const remove = (kind: PlaceKind) => {
-    setKinds(
-      kinds.filter((item) => item.id !== kind.id),
-      `Удалён вид точки: ${kind.name}`
-    );
+    // Удаление вида, у которого есть места, — только после подтверждения: его
+    // места теряют вид, и навигатор перестанет их находить быстрыми кнопками.
+    const places = placesOf(kind);
+    if (places.length > 0 && confirmDelete !== kind.id) {
+      setConfirmDelete(kind.id);
+      return;
+    }
+    setConfirmDelete(null);
+    runInSession(KINDS_SESSION, 'Виды точек', () => {
+      setPlaceKinds(
+        kinds.filter((item) => item.id !== kind.id),
+        `Удалён вид точки: ${kind.name}`
+      );
+      for (const id of places) setNodeCategory(id, null);
+    });
   };
 
   const move = (kind: PlaceKind, direction: -1 | 1) => {
@@ -145,9 +166,23 @@ export const KindsDialog: React.FC = () => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="kinds-title"
-        className="editor-dialog editor-dialog--wide"
+        className="editor-dialog editor-dialog--wide editor-dialog--kinds"
         onClick={(e) => e.stopPropagation()}
       >
+        {pickerOpen && draft && (
+          <IconPicker
+            current={draft}
+            onPick={(choice) => {
+              setDraft({ ...draft, ...choice });
+              setPickerOpen(false);
+              iconButtonRef.current?.focus();
+            }}
+            onClose={() => {
+              setPickerOpen(false);
+              iconButtonRef.current?.focus();
+            }}
+          />
+        )}
         <div className="editor-help__head">
           <h2 id="kinds-title" className="editor-dialog__title">
             Виды точек
@@ -199,6 +234,7 @@ export const KindsDialog: React.FC = () => {
                     setDraft({ ...kind });
                     setEditingId(kind.id);
                     setNaming(namingOf(kind));
+                    setTermsText((kind.searchTerms ?? []).join(', '));
                   }}
                   aria-label={`Изменить вид «${kind.name}»`}
                 >
@@ -214,6 +250,22 @@ export const KindsDialog: React.FC = () => {
                 >
                   <Icon name="close" />
                 </button>
+                {confirmDelete === kind.id && (
+                  <div className="editor-list__confirm" role="alert">
+                    <p className="editor-section__hint editor-section__hint--problem">
+                      У {placesOf(kind).length} {plural(placesOf(kind).length, ['точки', 'точек', 'точек'])} вид «{kind.name}» — после
+                      удаления они останутся без вида места, и навигатор перестанет находить их быстрой кнопкой.
+                    </p>
+                    <div className="editor-card__actions">
+                      <button type="button" className="editor-button editor-button--danger" onClick={() => remove(kind)}>
+                        Удалить вид
+                      </button>
+                      <button type="button" className="editor-button editor-button--ghost" onClick={() => setConfirmDelete(null)}>
+                        Не удалять
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -245,6 +297,7 @@ export const KindsDialog: React.FC = () => {
                 setDraft(emptyKind());
                 setEditingId(null);
                 setNaming('kind');
+                setTermsText('');
               }}
             >
               <Icon name="plus" />
@@ -254,9 +307,13 @@ export const KindsDialog: React.FC = () => {
             <KindForm
               draft={draft}
               naming={naming}
+              termsText={termsText}
               editing={editingId !== null}
+              iconButtonRef={iconButtonRef}
               onChange={setDraft}
               onNaming={setNaming}
+              onTerms={setTermsText}
+              onPickIcon={() => setPickerOpen(true)}
               onCancel={() => {
                 setDraft(null);
                 setEditingId(null);
@@ -302,12 +359,16 @@ const NamingChoice: React.FC<{
 const KindForm: React.FC<{
   draft: PlaceKind;
   naming: Naming;
+  termsText: string;
   editing: boolean;
+  iconButtonRef: React.RefObject<HTMLButtonElement>;
   onChange: (kind: PlaceKind) => void;
   onNaming: (naming: Naming) => void;
+  onTerms: (text: string) => void;
+  onPickIcon: () => void;
   onCancel: () => void;
   onSave: () => void;
-}> = ({ draft, naming, editing, onChange, onNaming, onCancel, onSave }) => (
+}> = ({ draft, naming, termsText, editing, iconButtonRef, onChange, onNaming, onTerms, onPickIcon, onCancel, onSave }) => (
   <section className="editor-card__section" aria-label={editing ? 'Изменить вид точки' : 'Создать вид точки'}>
     <h3 className="editor-card__heading">{editing ? 'Изменить вид' : 'Новый вид'}</h3>
 
@@ -322,26 +383,65 @@ const KindForm: React.FC<{
       />
     </label>
 
+    <label className="editor-card__field">
+      <span className="editor-section__hint">Название по-английски — для английской версии навигатора</span>
+      <input
+        value={draft.nameEn ?? ''}
+        onChange={(e) => onChange({ ...draft, nameEn: e.target.value })}
+        placeholder="Например: First aid"
+        aria-label="Название по-английски"
+        className="editor-input"
+      />
+    </label>
+
     <div className="editor-card__field">
-      <span className="editor-section__hint" id="kind-icon-label">
-        Значок
-      </span>
-      <div className="editor-icon-grid" role="group" aria-labelledby="kind-icon-label">
-        {KIND_ICONS.map(({ icon, label }) => (
-          <button
-            key={icon}
-            type="button"
-            className="editor-icon-choice"
-            aria-pressed={(draft.icon ?? 'pin') === icon}
-            aria-label={label}
-            title={label}
-            onClick={() => onChange({ ...draft, icon })}
-          >
-            <Icon name={icon} size={20} />
-          </button>
-        ))}
-      </div>
+      <span className="editor-section__hint">Значок — его видят и разметчик, и студент в навигаторе</span>
+      <button ref={iconButtonRef} type="button" className="editor-button editor-icon-pick" onClick={onPickIcon}>
+        <KindGlyph kind={draft} size={24} />
+        {draft.iconImage || draft.icon ? 'Сменить значок…' : 'Выбрать значок…'}
+      </button>
     </div>
+
+    <label className="editor-check">
+      <input
+        type="checkbox"
+        checked={draft.place === true}
+        onChange={(e) => onChange({ ...draft, place: e.target.checked || undefined })}
+      />
+      <span className="editor-check__text">
+        Место для быстрого поиска
+        <span className="editor-check__hint">навигатор находит ближайшее такое место и показывает его значок</span>
+      </span>
+    </label>
+
+    {draft.place && (
+      <>
+        <label className="editor-check">
+          <input
+            type="checkbox"
+            checked={draft.quick === true}
+            onChange={(e) => onChange({ ...draft, quick: e.target.checked || undefined })}
+          />
+          <span className="editor-check__text">
+            Кнопка в навигаторе
+            <span className="editor-check__hint">
+              кнопка «Рядом» на шторке навигатора; порядок кнопок — как в списке видов
+            </span>
+          </span>
+        </label>
+
+        <label className="editor-card__field">
+          <span className="editor-section__hint">Другие слова, по которым ищут, — через запятую</span>
+          <input
+            value={termsText}
+            onChange={(e) => onTerms(e.target.value)}
+            placeholder="Например: врач, медкабинет, first aid"
+            aria-label="Слова для поиска"
+            className="editor-input"
+          />
+        </label>
+      </>
+    )}
 
     <fieldset className="editor-fieldset">
       <legend className="editor-section__hint">Какое название получит поставленная точка</legend>
