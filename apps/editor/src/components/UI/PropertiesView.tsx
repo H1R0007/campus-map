@@ -16,6 +16,26 @@ const CONNECT_CANDIDATES = 6;
 const NO_ALIASES: string[] = [];
 
 /**
+ * Ключ карточки точки: новый при выборе другой точки, прежний — при
+ * переименовании выбранной.
+ *
+ * Карточка с новым ключом собирается заново и сбрасывает всё, что человек в
+ * ней открыл и набрал. Для другой точки так и надо, а для той же точки под
+ * новым id — нет: иначе «Служебное» сворачивалось бы прямо после
+ * переименования, а курсор пропадал из поля id.
+ */
+function useCardKey(nodeId: string | null): string | null {
+  const lastRename = useEditorStore((s) => s.lastRename);
+  const [card, setCard] = useState({ nodeId, key: nodeId });
+  if (card.nodeId === nodeId) return card.key;
+
+  const renamed = lastRename !== null && lastRename.from === card.nodeId && lastRename.to === nodeId;
+  const next = { nodeId, key: renamed ? card.key : nodeId };
+  setCard(next);
+  return next.key;
+}
+
+/**
  * Вкладка «Свойства» инспектора: карточка выбранного узла, сводка по
  * нескольким выбранным, а без выбора — обзор открытого плана.
  */
@@ -26,9 +46,10 @@ export const PropertiesView: React.FC = () => {
   const clearSelection = useEditorStore((s) => s.clearSelection);
 
   const selectedIds = Array.from(selectedNodeIds);
+  const cardKey = useCardKey(selectedIds.length === 1 ? selectedIds[0] : null);
 
   if (selectedIds.length === 1) {
-    return <NodeCard key={selectedIds[0]} nodeId={selectedIds[0]} onClose={clearSelection} />;
+    return <NodeCard key={cardKey ?? selectedIds[0]} nodeId={selectedIds[0]} onClose={clearSelection} />;
   }
 
   if (selectedIds.length > 1) {
@@ -243,6 +264,15 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
     setNewName('');
   };
 
+  // Уход из поля — тоже «добавить», как у остальных полей карточки: после
+  // щелчка кистью «Помещение» человек дописывает номер и сразу щёлкает по
+  // следующей двери. Нетронутое начало из шаблона («А-1») названием не
+  // становится — это только подсказка.
+  const leaveNewName = () => {
+    if (newName.trim() === draftRef.current.trim()) return;
+    addName();
+  };
+
   return (
     <section className="editor-card__section" aria-labelledby="card-names">
       <h3 id="card-names" className="editor-card__heading">
@@ -302,6 +332,7 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
           ref={newRef}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
+          onBlur={leaveNewName}
           onKeyDown={(e) => {
             if (e.key === 'Enter') addName();
             // Курсор оказался здесь сразу после того, как точку поставили

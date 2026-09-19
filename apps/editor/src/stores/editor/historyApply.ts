@@ -1,6 +1,6 @@
 import type { Draft } from 'immer';
 import type { PlaceCategory, Transition } from '@campus-map/core';
-import type { HistoryEntry } from '../historyStore';
+import type { AliasSnapshot, HistoryEntry } from '../historyStore';
 import { applyNeighborsSnapshot } from './graphState';
 import type { EditorStore } from './types';
 
@@ -78,6 +78,58 @@ export function entryNodes(entry: HistoryEntry): string[] {
 
 type State = Draft<EditorStore>;
 
+/** Хранилища того, что о точке известно помимо неё самой. */
+interface PlaceMaps {
+  aliases: ReadonlyMap<string, string[]>;
+  aliasCategories: ReadonlyMap<string, PlaceCategory>;
+  aliasTranslations: EditorStore['aliasTranslations'];
+}
+
+/**
+ * Названия, перевод и вид места точки — для записи истории перед удалением.
+ *
+ * @returns `null`, если у точки ничего этого нет
+ */
+export function snapshotPlace(state: PlaceMaps, id: string): AliasSnapshot | null {
+  const names = state.aliases.get(id) ?? [];
+  const category = state.aliasCategories.get(id);
+  const translations = state.aliasTranslations.get(id);
+  if (names.length === 0 && category === undefined && translations === undefined) return null;
+  return {
+    id,
+    names: [...names],
+    ...(category === undefined ? {} : { category }),
+    ...(translations === undefined ? {} : { translations }),
+  };
+}
+
+/** Убирает названия, перевод и вид места точки — вместе с самой точкой. */
+export function forgetPlace(s: State, id: string): void {
+  s.aliases.delete(id);
+  s.aliasCategories.delete(id);
+  s.aliasTranslations.delete(id);
+}
+
+/** Возвращает то, что снял `snapshotPlace`. */
+function restorePlace(s: State, place: AliasSnapshot | null): void {
+  if (place === null) return;
+  if (place.names.length > 0) s.aliases.set(place.id, [...place.names]);
+  if (place.category !== undefined) s.aliasCategories.set(place.id, place.category);
+  if (place.translations !== undefined) s.aliasTranslations.set(place.id, place.translations);
+}
+
+/**
+ * Меняет ключ записи, не сдвигая её: `Map` помнит порядок вставки, а по нему
+ * пишутся файлы. Удалить и вставить заново значило бы перенести запись в
+ * конец файла, и отмена переименования этот порядок уже не вернула бы.
+ */
+function renameKey<V>(map: Map<string, V>, from: string, to: string): void {
+  if (!map.has(from)) return;
+  const entries = [...map.entries()];
+  map.clear();
+  for (const [key, value] of entries) map.set(key === from ? to : key, value);
+}
+
 /**
  * Меняет id точки во всех местах, где на него ссылаются.
  *
@@ -89,13 +141,11 @@ export function renameNodeEverywhere(s: State, from: string, to: string): void {
   const node = s.nodes.get(from);
   if (!node || from === to || s.nodes.has(to)) return;
 
-  // Порядок точек сохраняется: от него зависит содержимое graph.json.
-  const entries = [...s.nodes.entries()].map(([id, item]) => [id === from ? to : id, item] as const);
-  s.nodes.clear();
-  for (const [id, item] of entries) {
-    item.id = id === to ? to : item.id;
+  // Порядок записей сохраняется везде: от него зависит содержимое файлов.
+  renameKey(s.nodes, from, to);
+  for (const item of s.nodes.values()) {
+    if (item.id === from) item.id = to;
     item.neighbors = item.neighbors.map((neighbour) => (neighbour === from ? to : neighbour));
-    s.nodes.set(id, item);
   }
 
   s.transitions = s.transitions.map((transition) => ({
@@ -104,23 +154,9 @@ export function renameNodeEverywhere(s: State, from: string, to: string): void {
     toNode: transition.toNode === from ? to : transition.toNode,
   }));
 
-  const names = s.aliases.get(from);
-  if (names) {
-    s.aliases.delete(from);
-    s.aliases.set(to, names);
-  }
-
-  const category = s.aliasCategories.get(from);
-  if (category) {
-    s.aliasCategories.delete(from);
-    s.aliasCategories.set(to, category);
-  }
-
-  const translations = s.aliasTranslations.get(from);
-  if (translations) {
-    s.aliasTranslations.delete(from);
-    s.aliasTranslations.set(to, translations);
-  }
+  renameKey(s.aliases, from, to);
+  renameKey(s.aliasCategories, from, to);
+  renameKey(s.aliasTranslations, from, to);
 
   if (s.selectedNodeIds.has(from)) {
     s.selectedNodeIds.delete(from);
@@ -129,6 +165,7 @@ export function renameNodeEverywhere(s: State, from: string, to: string): void {
   if (s.hoveredNodeId === from) s.hoveredNodeId = to;
   if (s.chainLastNodeId === from) s.chainLastNodeId = to;
   if (s.lastPlacedNodeId === from) s.lastPlacedNodeId = to;
+  s.lastRename = { from, to };
 }
 
 /** Ставит или снимает вид места; пустой вид — отсутствие записи. */
@@ -147,13 +184,11 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
       break;
     }
     case 'REMOVE_NODE': {
-      const { node, neighborsBefore, transitionsBefore, aliases } = entry.undoData;
+      const { node, neighborsBefore, transitionsBefore, place } = entry.undoData;
       s.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
       applyNeighborsSnapshot(s.nodes, neighborsBefore);
       s.transitions = [...transitionsBefore];
-      if (aliases && aliases.length > 0) {
-        s.aliases.set(node.id, [...aliases]);
-      }
+      restorePlace(s, place);
       break;
     }
     case 'MOVE_NODE': {
@@ -220,9 +255,7 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
           }
           applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
           s.transitions = [...u.transitionsBefore];
-          for (const a of u.aliases ?? []) {
-            s.aliases.set(a.id, [...a.names]);
-          }
+          for (const place of u.aliases ?? []) restorePlace(s, place);
           break;
         }
         case 'moveMultiple': {
@@ -264,12 +297,13 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
           }
           for (const id of u.nodeIds) {
             s.nodes.delete(id);
-            s.aliases.delete(id);
-            s.aliasCategories.delete(id);
+            forgetPlace(s, id);
           }
           applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
           s.transitions = [...u.transitionsBefore];
           s.selectedNodeIds = new Set();
+          s.chainLastNodeId = u.chainBefore;
+          s.lastPlacedNodeId = u.lastPlacedBefore;
           break;
         }
         case 'splitEdge': {
@@ -299,7 +333,7 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
       }
       s.transitions = s.transitions.filter((t) => t.fromNode !== nodeId && t.toNode !== nodeId);
       s.nodes.delete(nodeId);
-      s.aliases.delete(nodeId);
+      forgetPlace(s, nodeId);
       s.selectedNodeIds = new Set();
       break;
     }
@@ -372,7 +406,7 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
         case 'deleteMultiple': {
           for (const id of r.nodeIds) {
             s.nodes.delete(id);
-            s.aliases.delete(id);
+            forgetPlace(s, id);
           }
           for (const [, n] of s.nodes) {
             n.neighbors = n.neighbors.filter((nb) => !r.nodeIds.includes(nb));
@@ -434,6 +468,8 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
           s.transitions = [...r.transitions];
           for (const alias of r.aliases) s.aliases.set(alias.id, [...alias.names]);
           for (const { id, category } of r.categories) s.aliasCategories.set(id, category);
+          s.chainLastNodeId = r.chainAfter;
+          s.lastPlacedNodeId = r.lastPlacedAfter;
           break;
         }
         case 'splitEdge': {

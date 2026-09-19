@@ -161,7 +161,9 @@ export const KindsDialog: React.FC = () => {
                   type="button"
                   className="editor-icon-button editor-list__remove"
                   onClick={() => remove(kind)}
+                  disabled={kinds.length === 1}
                   aria-label={`Удалить вид «${kind.name}»`}
+                  title={kinds.length === 1 ? 'Последний вид удалить нельзя: кистям нечего будет ставить' : undefined}
                 >
                   <Icon name="close" />
                 </button>

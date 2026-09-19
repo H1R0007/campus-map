@@ -117,6 +117,14 @@ export default {
       await e.key('Enter');
 
       assert.equal(await e.propertiesNodeId(), 'a1_stairs_west', 'карточка осталась на старом id');
+      // Та же точка под новым id: карточка не собирается заново, блок не
+      // сворачивается, курсор остаётся в поле id.
+      const card = await page.eval(`(() => ({
+        open: document.querySelector('[aria-label="Свойства узла"] details')?.open ?? null,
+        focus: document.activeElement?.getAttribute('aria-label') ?? null,
+      }))()`);
+      assert.equal(card.open, true, '«Служебное» свернулось после переименования');
+      assert.equal(card.focus, 'id точки', 'курсор ушёл из поля id');
       const ids = await e.nodeIds();
       assert.ok(ids.includes('a1_stairs_west'), 'точки с новым id нет на карте');
       assert.ok(!ids.includes('a1_stairs'), 'старый id остался на карте');

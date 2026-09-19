@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../src/stores/editorStore';
 import { useHistoryStore } from '../src/stores/historyStore';
+import { placementPoint } from '../src/stores/editor/editSlice';
+import { datasetFromState } from '../src/stores/editor/graphState';
+import { datasetFiles } from '../src/utils/datasetFiles';
 import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
-import { dataSnapshot, loadFixture, openFloor, store } from './helpers/fixture';
+import { dataSnapshot, fixtureDataset, loadFixture, openFloor, store } from './helpers/fixture';
 
 /**
  * Отмена и повтор каждого действия правки.
@@ -27,6 +30,12 @@ const cases: Case[] = [
   { name: 'добавить узел', setup: () => openFloor(1), act: () => store().addNode(250, 150) },
   { name: 'удалить узел с алиасами, заметкой и переходом', act: () => store().removeNode('a1_room101') },
   { name: 'удалить узел перехода', act: () => store().removeNode('a1_stairs') },
+  { name: 'удалить узел с видом места и переводом', act: () => store().removeNode('campus_gate') },
+  {
+    name: 'удалить выделенные с видом места и переводом',
+    setup: () => select('campus_gate', 'a1_room101'),
+    act: () => store().deleteSelected(),
+  },
   {
     name: 'перетащить узел',
     act: () => {
@@ -341,5 +350,194 @@ describe('id новых точек говорят, что это', () => {
     store().duplicateSelected();
 
     expect(store().nodes.has('a1_room101_2')).toBe(true);
+  });
+});
+
+/** Все файлы датасета так, как их запишет сохранение. */
+const savedFiles = () => datasetFiles(datasetFromState(store()));
+
+/** План точки: корпус и этаж. */
+const planOf = (id: string) => {
+  const node = store().nodes.get(id);
+  return node ? `${node.building}:${node.floor}` : 'нет точки';
+};
+
+/** Связи, которые идут на другой план, — ребро сквозь перекрытие. */
+const crossPlanLinks = () =>
+  [...store().nodes.values()].flatMap((node) =>
+    node.neighbors.filter((other) => planOf(other) !== planOf(node.id)).map((other) => `${node.id}—${other}`)
+  );
+
+const useKind = (kindId: string) => {
+  store().setPlaceKinds([...BUILT_IN_PLACE_KINDS], 'Виды точек');
+  store().setActiveKind(kindId);
+};
+
+describe('удалённая точка уносит название, перевод и вид места', () => {
+  it('отмена удаления возвращает вид места, даже если id успела занять новая точка', () => {
+    openFloor(1);
+    useKind('toilet');
+    const toilet = store().placeKindNode(380, 20);
+    expect(store().aliasCategories.get(toilet)).toBe('toilet');
+
+    store().removeNode(toilet);
+    expect(store().placeKindNode(380, 60)).toBe(toilet);
+    store().undo();
+    store().undo();
+
+    expect(store().aliasCategories.get(toilet)).toBe('toilet');
+  });
+
+  it('точка под id удалённой не наследует её перевод и вид места', () => {
+    store().setNodeCategory('a1_room101', 'toilet');
+    store().removeNode('a1_room101');
+    expect(store().renameNode('a1_hall', 'a1_room101')).toBe(true);
+
+    expect(store().aliasTranslations.get('a1_room101')).toBeUndefined();
+    expect(store().aliasCategories.get('a1_room101')).toBeUndefined();
+  });
+});
+
+describe('щелчок кистью связывает точки только в пределах плана', () => {
+  it('у стопки выбрана и возвращена точка открытого этажа', () => {
+    openFloor(2);
+    useKind('stairs');
+    const id = store().placeKindNode(350, 180);
+
+    expect(planOf(id)).toBe('building_a:2');
+    expect([...store().selectedNodeIds]).toEqual([id]);
+  });
+
+  it('Shift+щелчок на другом этаже не тянет связь к точке прежнего этажа', () => {
+    openFloor(1);
+    useKind('toilet');
+    store().placeKindNode(380, 20);
+    openFloor(2);
+    store().setActiveKind('corridor');
+    store().placeKindNode(380, 20, { linkToLast: true });
+
+    expect(crossPlanLinks()).toEqual([]);
+  });
+
+  it('стопка с Shift связывает с предыдущей только точку своего этажа', () => {
+    openFloor(1);
+    useKind('corridor');
+    const corridor = store().placeKindNode(380, 190);
+    store().setActiveKind('stairs');
+    const stairs = store().placeKindNode(390, 180, { linkToLast: true });
+
+    expect(crossPlanLinks()).toEqual([]);
+    expect(store().nodes.get(stairs)?.neighbors).toContain(corridor);
+  });
+
+  it('стопка у корпуса без описанных этажей ставит точку на открытом этаже', () => {
+    useEditorStore.setState((s) => {
+      s.buildingMetas.set('building_b', { id: 'building_b', name: 'Корпус Б', floors: [] });
+    });
+    useEditorStore.setState({ currentBuilding: 'building_b', currentFloor: 1 });
+    useKind('stairs');
+
+    const id = store().placeKindNode(50, 50);
+    expect(planOf(id)).toBe('building_b:1');
+  });
+});
+
+describe('отмена щелчка кистью продолжает линию', () => {
+  it('после отмены последней точки коридора следующая цепляется к предыдущей, а не к ближайшей', () => {
+    openFloor(1);
+    useKind('corridor');
+    store().placeKindNode(150, 190);
+    const previous = store().placeKindNode(200, 190);
+    store().placeKindNode(240, 190);
+    store().undo();
+
+    // Вплотную к лестнице: без восстановления линии точка прицепилась бы к ней.
+    const next = store().placeKindNode(296, 126, { align: false });
+    expect(store().nodes.get(next)?.neighbors).toEqual([previous]);
+  });
+});
+
+describe('переименование не переставляет записи в файлах', () => {
+  it('переименование и отмена дают те же файлы', () => {
+    const before = savedFiles();
+    store().renameNode('campus_gate', 'campus_main_gate');
+    store().undo();
+
+    expect(savedFiles()).toEqual(before);
+  });
+
+  it('переименованная запись названий остаётся на своём месте', () => {
+    const order = () => JSON.parse(savedFiles().get('aliases.json')!).aliases.map((entry: { id: string }) => entry.id);
+    const before = order();
+    store().renameNode('campus_gate', 'campus_main_gate');
+
+    expect(order()).toEqual(before.map((id: string) => (id === 'campus_gate' ? 'campus_main_gate' : id)));
+  });
+});
+
+describe('каталог видов', () => {
+  it('последний вид не удаляется: пустой каталог означал бы «файла нет»', () => {
+    store().setPlaceKinds([{ id: 'medpoint', name: 'Медпункт' }], 'Свой вид');
+    const entries = useHistoryStore.getState().entries.length;
+
+    store().setPlaceKinds([], 'Удалены все виды');
+
+    expect(store().placeKinds.map((kind) => kind.id)).toEqual(['medpoint']);
+    expect(useHistoryStore.getState().entries).toHaveLength(entries);
+  });
+});
+
+describe('черновик прежней версии редактора', () => {
+  it('без каталога видов открывается, а не падает', () => {
+    const old: Partial<ReturnType<typeof fixtureDataset>> = fixtureDataset();
+    delete old.placeKinds;
+
+    expect(() => store().loadData(old as ReturnType<typeof fixtureDataset>)).not.toThrow();
+    expect(store().placeKinds).toEqual([]);
+    expect(store().nodes.has('a1_hall')).toBe(true);
+  });
+});
+
+describe('призрак точки показывает, куда она встанет', () => {
+  const withGrid = () =>
+    useEditorStore.setState((s) => {
+      s.gridSettings.enabled = true;
+      s.gridSettings.snap = true;
+      s.gridSettings.size = 20;
+      s.gridSettings.alignToNeighbours = true;
+    });
+
+  it('сетка уводит точку с линии соседа — линии выравнивания нет, место то же', () => {
+    openFloor(1);
+    withGrid();
+    // Соседи стоят мимо клеток, на x = 103: щелчок у x = 105 выровнялся бы
+    // по ним, но сетка с клеткой 20 ставит точку на 100.
+    useEditorStore.setState((s) => {
+      s.nodes.get('a1_hall')!.x = 103;
+      s.nodes.get('a1_room101')!.x = 103;
+    });
+    const ghost = placementPoint(store(), 105, 157);
+    useKind('corridor');
+    const id = store().placeKindNode(105, 157);
+
+    const node = store().nodes.get(id)!;
+    expect({ x: node.x, y: node.y }).toEqual({ x: ghost.x, y: ghost.y });
+    expect(ghost.x).toBe(100);
+    expect(ghost.alignedX, 'линия ряда показана, хотя точка в ряд не встанет').toBeNull();
+  });
+
+  it('без выбранного вида точка встаёт туда же, куда показывал призрак', () => {
+    openFloor(1);
+    useEditorStore.setState((s) => {
+      s.gridSettings.alignToNeighbours = true;
+    });
+    const ghost = placementPoint(store(), 103, 157);
+    expect(ghost.alignedX).not.toBeNull();
+
+    store().setActiveKind('нет-такого-вида');
+    const id = store().placeKindNode(103, 157);
+    const node = store().nodes.get(id)!;
+
+    expect({ x: node.x, y: node.y }).toEqual({ x: ghost.x, y: ghost.y });
   });
 });

@@ -1,7 +1,7 @@
 import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, DEFAULT_TRANSITION_TYPE, distance } from '@campus-map/core';
 import type { MapNode, PlaceCategory, PlaceKind, Transition, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
-import type { NeighborSnapshot, NodePosition } from '../historyStore';
+import type { AliasSnapshot, NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
 import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
@@ -12,7 +12,7 @@ import type { SnapResult } from '../../utils/snapping';
 import { useCursorStore } from '../cursorStore';
 import { floorNodesOf } from './dataSlice';
 import { snapshotNeighbors } from './graphState';
-import { renameNodeEverywhere } from './historyApply';
+import { forgetPlace, renameNodeEverywhere, snapshotPlace } from './historyApply';
 import type { EditorSlice, EditorStore } from './types';
 
 /** План, на котором окажется точка: у территории оба поля `null`. */
@@ -117,6 +117,31 @@ export interface EditSlice {
  * постановка обязаны совпадать до пикселя, иначе точка встанет не туда, куда
  * показывала линия выравнивания.
  */
+/** Что нужно знать о плане, чтобы решить, куда встанет точка по щелчку. */
+type PlacementState = Pick<
+  EditorStore,
+  'nodes' | 'currentBuilding' | 'currentFloor' | 'displayFilters' | 'gridSettings' | 'snapToGrid'
+>;
+
+/**
+ * Куда встанет точка по щелчку: выравнивание по соседям, затем сетка.
+ *
+ * Одна функция на подсказку и на постановку: призрак на карте обязан
+ * показывать ровно то место, куда точка встанет. Если сетка увела точку с
+ * линии соседа, линия выравнивания не показывается — ряда уже нет.
+ */
+export function placementPoint(state: PlacementState, x: number, y: number, align = true): SnapResult {
+  const aligned = alignToPlan(state, x, y, align);
+  const px = Math.round(state.snapToGrid(aligned.x));
+  const py = Math.round(state.snapToGrid(aligned.y));
+  return {
+    x: px,
+    y: py,
+    alignedX: aligned.alignedX && aligned.alignedX.x === px ? aligned.alignedX : null,
+    alignedY: aligned.alignedY && aligned.alignedY.y === py ? aligned.alignedY : null,
+  };
+}
+
 export function alignToPlan(
   state: Pick<EditorStore, 'nodes' | 'currentBuilding' | 'currentFloor' | 'displayFilters' | 'gridSettings'>,
   x: number,
@@ -238,9 +263,9 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const transitionsBefore = [...st.transitions];
     const nodeSnapshot: MapNode = { ...node, neighbors: [...node.neighbors] };
 
-    // Алиасы живут отдельно от узла, поэтому снимаются своим слепком.
-    // Комментарий — поле самого узла и уходит вместе с `nodeSnapshot`.
-    const aliasesSnapshot = [...(st.aliases.get(nodeId) ?? [])];
+    // Названия, перевод и вид места живут отдельно от узла, поэтому снимаются
+    // своим слепком. Комментарий — поле самого узла и уходит с `nodeSnapshot`.
+    const place = snapshotPlace(st, nodeId);
 
     useHistoryStore.getState().push({
       type: 'REMOVE_NODE',
@@ -249,7 +274,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         node: nodeSnapshot,
         neighborsBefore,
         transitionsBefore,
-        aliases: aliasesSnapshot,
+        place,
       },
       redoData: { nodeId },
     });
@@ -260,7 +285,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       }
       s.transitions = s.transitions.filter((t) => t.fromNode !== nodeId && t.toNode !== nodeId);
       s.nodes.delete(nodeId);
-      s.aliases.delete(nodeId);
+      forgetPlace(s, nodeId);
       s.selectedNodeIds.delete(nodeId);
       s.edgeStartNodeId = null;
       s.transitionStartNodeId = null;
@@ -509,21 +534,27 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
   placeKindNode: (x, y, options = {}) => {
     const st = get();
     const kind = visibleKinds(st.placeKinds).find((item) => item.id === st.activeKindId);
-    if (!kind) return st.addNode(x, y);
+    const point = placementPoint(st, x, y, options.align !== false);
+    // Вид могли удалить в окне «Все виды»: тогда ставится простая точка, но
+    // туда же, куда показывал призрак.
+    if (!kind) return st.addNode(point.x, point.y);
 
     const building = st.currentBuilding;
     const floor = st.currentFloor;
-    const aligned = alignToPlan(st, x, y, options.align !== false);
-    const snappedX = Math.round(st.snapToGrid(aligned.x));
-    const snappedY = Math.round(st.snapToGrid(aligned.y));
+    const snappedX = point.x;
+    const snappedY = point.y;
 
     const transitionsBefore = st.transitions.map((transition) => ({ ...transition }));
 
     // Этажи стопки: только у вида «сразу на всех этажах» и только в корпусе.
-    const floors =
+    // Открытый этаж входит всегда — даже у корпуса, этажи которого в данных
+    // ещё не описаны: иначе щелчок не поставил бы ничего.
+    const buildingFloors =
       kind.stack && building !== null && floor !== null
-        ? (st.buildingMetas.get(building)?.floors ?? []).map((meta) => meta.floor).sort((a, b) => a - b)
-        : [floor];
+        ? (st.buildingMetas.get(building)?.floors ?? []).map((meta) => meta.floor)
+        : [];
+    const floors: (number | null)[] =
+      floor !== null && buildingFloors.includes(floor) ? [...buildingFloors].sort((a, b) => a - b) : [floor];
 
     const nameTemplate = kindNameTemplate(kind, building === null ? undefined : st.buildingMetas.get(building)?.name, floor);
     const wantsNumber = (kind.namePattern ?? '').includes('{номер}');
@@ -564,14 +595,21 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // получался бы зигзагом.
       // Shift+щелчок связывает с последней поставленной точкой: так в
       // большом кабинете ставят вторую точку внутри, связанную с дверью.
+      // Связь с предыдущей — только в пределах плана: ребро сквозь перекрытие
+      // на карте не видно, а маршрут по нему шёл бы через потолок.
       const chainFrom = options.linkToLast ? st.lastPlacedNodeId : kind.chain ? st.chainLastNodeId : null;
-      if (chainFrom !== null && st.nodes.has(chainFrom)) {
-        links.push({ nodeId: id, nearestId: chainFrom });
+      const chainNode = chainFrom === null ? undefined : st.nodes.get(chainFrom);
+      if (chainNode && chainNode.building === node.building && chainNode.floor === node.floor) {
+        links.push({ nodeId: id, nearestId: chainNode.id });
       } else if (kind.connect) {
         const nearest = nearestNodeOnPlan(st.nodes, node);
         if (nearest) links.push({ nodeId: id, nearestId: nearest.id });
       }
     }
+
+    // Точка открытого плана: её выбирают, от неё продолжается линия, её id
+    // возвращается. У стопки это этаж на экране, а не нижний.
+    const primary = created[floors.indexOf(floor)];
 
     const neighborsBefore = snapshotNeighbors(
       st.nodes,
@@ -602,10 +640,10 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       s.transitions = [...s.transitions, ...newTransitions];
       for (const alias of aliases) s.aliases.set(alias.id, [...alias.names]);
       for (const { id, category } of categories) s.aliasCategories.set(id, category);
-      s.selectedNodeIds = new Set([created[0].id]);
+      s.selectedNodeIds = new Set([primary.id]);
       // Линия продолжится от этой точки, пока вид ведущий.
-      s.chainLastNodeId = kind.chain ? created[0].id : null;
-      s.lastPlacedNodeId = created[0].id;
+      s.chainLastNodeId = kind.chain ? primary.id : null;
+      s.lastPlacedNodeId = primary.id;
     });
 
     const after = get();
@@ -620,6 +658,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         nodeIds: created.map((node) => node.id),
         neighborsBefore,
         transitionsBefore,
+        chainBefore: st.chainLastNodeId,
+        lastPlacedBefore: st.lastPlacedNodeId,
       },
       redoData: {
         kind: 'placeKind',
@@ -631,14 +671,16 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         transitions: after.transitions.map((transition) => ({ ...transition })),
         aliases,
         categories,
+        chainAfter: kind.chain ? primary.id : null,
+        lastPlacedAfter: primary.id,
       },
     });
 
     // Шаблон с номером — человеку остаётся дописать номер: курсор в поле
     // названия прямо в карточке, с уже подставленным началом.
-    if (wantsNumber) get().editNodeName(created[0].id, nameTemplate);
+    if (wantsNumber) get().editNodeName(primary.id, nameTemplate);
 
-    return created[0].id;
+    return primary.id;
   },
 
   setNodeAliases: (nodeId, names) => {
@@ -669,6 +711,11 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
    * записывает их целиком — дальше видно, что именно лежит в данных.
    */
   setPlaceKinds: (kinds, description) => {
+    // Пустой каталог в состоянии означает «файла нет — показываем встроенные
+    // виды». Удалить последний вид значило бы показать встроенные, а на диске
+    // оставить прежний каталог: сохранение пустой каталог не пишет.
+    if (kinds.length === 0) return;
+
     const before = get().placeKinds;
     const after = kinds.map((kind) => ({ ...kind }));
     if (JSON.stringify(before) === JSON.stringify(after)) return;
@@ -809,12 +856,13 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
 
   deleteSelected: () => {
-    const { selectedNodeIds, nodes, transitions, aliases } = get();
+    const st = get();
+    const { selectedNodeIds, nodes, transitions } = st;
     if (selectedNodeIds.size === 0) return;
 
     const ids = Array.from(selectedNodeIds);
     const deletedNodes: MapNode[] = [];
-    const deletedAliases: { id: string; names: string[] }[] = [];
+    const deletedPlaces: AliasSnapshot[] = [];
     const affected = new Set<string>();
 
     for (const id of ids) {
@@ -825,10 +873,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         for (const nb of node.neighbors) affected.add(nb);
       }
 
-      const nodeAliases = aliases.get(id);
-      if (nodeAliases && nodeAliases.length > 0) {
-        deletedAliases.push({ id, names: [...nodeAliases] });
-      }
+      const place = snapshotPlace(st, id);
+      if (place) deletedPlaces.push(place);
     }
 
     useHistoryStore.getState().push({
@@ -839,7 +885,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         nodes: deletedNodes,
         neighborsBefore: snapshotNeighbors(nodes, affected),
         transitionsBefore: [...transitions],
-        aliases: deletedAliases,
+        aliases: deletedPlaces,
       },
       redoData: { kind: 'deleteMultiple', nodeIds: ids },
     });
@@ -847,7 +893,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     set((s) => {
       for (const id of ids) {
         s.nodes.delete(id);
-        s.aliases.delete(id);
+        forgetPlace(s, id);
       }
       for (const [, n] of s.nodes) {
         n.neighbors = n.neighbors.filter((nb) => !ids.includes(nb));

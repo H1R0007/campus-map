@@ -150,9 +150,16 @@ const KeyboardHandler: React.FC = () => {
 
       // Сохранение — отовсюду, в том числе из поля названия: у Ctrl+S в поле
       // ввода своего смысла нет, а курсор уводить ради сохранения незачем.
+      // Поля карточки пишут в данные при уходе фокуса, поэтому фокус на миг
+      // уходит и возвращается: иначе «Сохранено» не включало бы то, что
+      // набрано на экране.
       if (ctrl && code === 'KeyS') {
         e.preventDefault();
         e.stopPropagation();
+        if (isInput && target instanceof HTMLElement) {
+          target.blur();
+          if (target.isConnected) target.focus();
+        }
         st.requestSave();
         return;
       }

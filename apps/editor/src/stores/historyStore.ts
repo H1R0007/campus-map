@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
+import type { AliasEntry, MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
 
 /**
  * Контракт истории действий редактора и сам стек отмены.
@@ -27,10 +27,19 @@ export interface PortalChange {
   isPortal: boolean;
 }
 
-/** Слепок алиасов узла: алиасы живут отдельно от узла. */
+/**
+ * Слепок того, что о точке хранится отдельно от неё самой: названия, их
+ * переводы и вид места.
+ *
+ * Удаление уносит всё это вместе с точкой, отмена возвращает. Иначе новая
+ * точка, получившая освободившийся id, унаследовала бы чужой перевод и вид
+ * места, а отмена её постановки стёрла бы вид места удалённой.
+ */
 export interface AliasSnapshot {
   id: string;
   names: string[];
+  category?: PlaceCategory;
+  translations?: NonNullable<AliasEntry['translations']>;
 }
 
 /**
@@ -71,6 +80,13 @@ export type BatchUndoPayload =
       nodeIds: string[];
       neighborsBefore: NeighborSnapshot;
       transitionsBefore: Transition[];
+      /**
+       * От какой точки шла линия и какая точка была поставлена последней до
+       * щелчка: после отмены линия продолжается от предыдущей точки, а не
+       * цепляется к ближайшей чужой.
+       */
+      chainBefore: string | null;
+      lastPlacedBefore: string | null;
     };
 
 /** Нагрузки повтора для составных действий. */
@@ -95,6 +111,8 @@ export type BatchRedoPayload =
       /** Названия и виды мест, которые подставил вид точки. */
       aliases: AliasSnapshot[];
       categories: { id: string; category: PlaceCategory }[];
+      chainAfter: string | null;
+      lastPlacedAfter: string;
     };
 
 /** Тип действия, по которому ветвится применение отмены и повтора. */
@@ -136,7 +154,8 @@ export type HistoryEntry =
         node: MapNode;
         neighborsBefore: NeighborSnapshot;
         transitionsBefore: Transition[];
-        aliases: string[];
+        /** Названия, перевод и вид места; `null`, если ничего этого не было. */
+        place: AliasSnapshot | null;
       };
       redoData: { nodeId: string };
     }

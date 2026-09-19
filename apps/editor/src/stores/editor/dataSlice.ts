@@ -30,16 +30,16 @@ export interface DataSlice {
    *
    * Правки переводов в редакторе пока нет, но сохранить их он обязан: алиасы
    * стор держит списками имён, и без этого поля переводы молча пропадали бы
-   * при первом же экспорте. Ни одно действие поле не меняет, поэтому в отмене
-   * оно не участвует: узел, восстановленный отменой удаления, получает свои
-   * переводы обратно, а переводы удалённого узла отбрасывает экспорт.
+   * при первом же экспорте. Удаление точки уносит её переводы в запись
+   * истории, отмена возвращает: иначе новая точка с освободившимся id
+   * унаследовала бы чужой перевод.
    */
   aliasTranslations: ReadonlyMap<string, NonNullable<AliasEntry['translations']>>;
 
   /**
-   * Категории мест из датасета (запись 19). Правки категорий в редакторе пока
-   * нет; поле живёт по правилам `aliasTranslations`: сохраняется при экспорте и
-   * в отмене не участвует.
+   * Виды мест (запись 19): ставятся в карточке точки и кистью вида. Удаление
+   * точки уносит вид места в запись истории вместе с переводами, отмена
+   * возвращает.
    */
   aliasCategories: ReadonlyMap<string, PlaceCategory>;
 
@@ -151,7 +151,9 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.aliasTranslations = new Map(
         dataset.aliases.flatMap((alias) => (alias.translations ? [[alias.id, alias.translations] as const] : []))
       );
-      state.placeKinds = dataset.placeKinds.map((kind) => ({ ...kind }));
+      // Черновик, записанный прежней версией редактора, каталога видов не
+      // содержит: он приходит из хранилища браузера мимо загрузчика ядра.
+      state.placeKinds = (dataset.placeKinds ?? []).map((kind) => ({ ...kind }));
       state.aliasCategories = new Map(
         dataset.aliases.flatMap((alias) => (alias.category ? [[alias.id, alias.category] as const] : []))
       );

@@ -112,6 +112,38 @@ export default {
       assert.deepEqual(await e.nodeIds(), before);
     });
 
+    await step('номер, набранный после щелчка кистью, не теряется от щелчка по следующей двери', async () => {
+      // Разметчик дописывает номер и сразу щёлкает по следующей двери, без
+      // Enter. Прежде набранное пропадало вместе с карточкой первой точки.
+      await e.key('2', { code: 'Digit2' });
+      const before = await e.nodeIds();
+      const first = await e.emptyMapPoint(90);
+      await e.click(first.x, first.y);
+      await e.type('07');
+      const second = await e.emptyMapPoint(40);
+      await e.click(second.x, second.y);
+
+      const added = (await e.nodeIds()).filter((id) => !before.includes(id));
+      assert.equal(added.length, 2, 'вторая дверь не поставлена');
+      await page.eval('document.activeElement?.blur()');
+
+      // Карточка второй двери: нетронутое начало «А-1» названием не стало.
+      assert.equal(await e.propertiesNodeId(), added[1]);
+      assert.match(await e.panelSection('Названия'), /Названия \(0\)/, 'нетронутое «А-1» стало названием');
+
+      // Первая дверь получила набранный номер: поиск его находит.
+      await e.key('f', { modifiers: MOD.ctrl });
+      await e.type('А-107');
+      await page.sleep(200);
+      const found = await page.eval(`[...document.querySelectorAll('[role="option"]')].map((o) => o.textContent.trim())`);
+      assert.match(found[0] ?? '', /^А-107/, `номер потерялся, найдено: ${JSON.stringify(found.slice(0, 3))}`);
+      await e.key('Escape', { keyCode: 27 });
+
+      for (let i = 0; i < 3; i++) await e.key('z', { modifiers: MOD.ctrl });
+      assert.deepEqual(await e.nodeIds(), before, 'отмена не убрала обе двери и название');
+      await e.key('Escape', { keyCode: 27 });
+    });
+
     await step('кисть «Лестница» ставит точки на всех этажах и связывает их переходами', async () => {
       await e.key('6', { code: 'Digit6' });
       assert.equal(await activeKind(), 'Лестница');
@@ -252,6 +284,34 @@ export default {
       await e.toggleFilter('Соседний этаж бледно');
       await page.sleep(400);
       assert.ok((await ghosts()) > 0, 'калька не появилась');
+
+      // Перетаскивание точки своего этажа не перерисовывает кальку: точки
+      // соседнего этажа при этом не меняются.
+      await e.press('Выбор (V)');
+      await page.eval(`(() => {
+        window.__touched = new Set();
+        window.__obs?.disconnect();
+        window.__obs = new MutationObserver((records) => {
+          for (const r of records) if (r.type === 'attributes') window.__touched.add(r.target);
+        });
+        window.__obs.observe(document.querySelector('.leaflet-overlay-pane'), {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['d', 'points'],
+        });
+      })()`);
+      const room = await e.nodePoint('a1_room101');
+      await e.drag(room.x, room.y, room.x + 30, room.y + 18);
+      const touched = await page.eval(`(() => {
+        const ghosts = [...window.__touched].filter((el) => el.classList.contains('editor-ghost-node') || el.classList.contains('editor-ghost-edge')).length;
+        const all = window.__touched.size;
+        window.__obs.disconnect();
+        return { all, ghosts };
+      })()`);
+      assert.ok(touched.all > 0, 'перетаскивание ничего не перерисовало — замер не сработал');
+      assert.equal(touched.ghosts, 0, `перетаскивание перерисовало кальку: ${touched.ghosts} путей`);
+      await e.key('z', { modifiers: MOD.ctrl });
+
 
       // Щелчок прямо по бледной точке соседнего этажа попадает в свой этаж:
       // калька ничего не ловит мышью.

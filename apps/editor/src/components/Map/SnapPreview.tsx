@@ -1,7 +1,7 @@
 import React from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
-import { alignToPlan } from '../../stores/editor/editSlice';
+import { placementPoint } from '../../stores/editor/editSlice';
 import { useCursorStore } from '../../stores/cursorStore';
 import { mapPalette } from '../../utils/themeColor';
 
@@ -22,7 +22,7 @@ export const SnapPreview: React.FC = () => {
 
   if (activeTool !== 'node' || !align || !cursor) return null;
 
-  const snapped = alignToPlan(state, cursor.x, cursor.y);
+  const snapped = placementPoint(state, cursor.x, cursor.y);
   if (!snapped.alignedX && !snapped.alignedY) return null;
 
   const guide = { color: palette.draft, weight: 1, opacity: 0.9, dashArray: '4 6' };
