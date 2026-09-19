@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { CAMPUS_BUILDING_ID, PLACE_CATEGORIES, TRANSITION_TYPES, distance } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, TRANSITION_TYPES, distance, searchablePlaceKinds } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
@@ -7,7 +7,8 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
 import { PlanOverview } from './PlanOverview';
-import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
+import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
+import { KindGlyph } from '../Layout/KindPalette';
 import { nodeIdProblem } from '../../utils/nodeIds';
 
 /** Сколько ближайших узлов предлагать для быстрого соединения. */
@@ -230,6 +231,8 @@ const CardSessionBar: React.FC<{ sessionKey: string }> = ({ sessionKey }) => {
  */
 const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named }) => {
   const category = useEditorStore((s) => s.aliasCategories.get(nodeId) ?? null);
+  const placeKinds = useEditorStore((s) => s.placeKinds);
+  const kinds = useMemo(() => searchablePlaceKinds(placeKinds), [placeKinds]);
   const setNodeCategory = useEditorStore((s) => s.setNodeCategory);
   const edit = useCardEdit();
 
@@ -243,17 +246,24 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
 
   return (
     <div className="editor-card__actions" role="group" aria-label="Вид места">
-      {PLACE_CATEGORIES.map((kind) => (
+      {kinds.map((kind) => (
         <button
-          key={kind}
+          key={kind.id}
           type="button"
           className="editor-chip"
-          aria-pressed={category === kind}
-          onClick={() => edit(() => setNodeCategory(nodeId, category === kind ? null : kind))}
+          aria-pressed={category === kind.id}
+          onClick={() => edit(() => setNodeCategory(nodeId, category === kind.id ? null : kind.id))}
         >
-          {PLACE_CATEGORY_LABELS[kind]}
+          <KindGlyph kind={kind} size={16} />
+          {kind.name}
         </button>
       ))}
+      {/* Вид удалили из каталога, а у точки он остался: видно, что именно. */}
+      {category !== null && !kinds.some((kind) => kind.id === category) && (
+        <button type="button" className="editor-chip" aria-pressed title="Такого вида больше нет в каталоге">
+          {category} — нет в каталоге
+        </button>
+      )}
       <button
         type="button"
         className="editor-chip"

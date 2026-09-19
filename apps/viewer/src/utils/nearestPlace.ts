@@ -10,6 +10,7 @@ import { CAMPUS_BUILDING_ID, findNearest, scopeOfNode } from '@campus-map/core';
 import { formatFloor, messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
+import { EXIT_TARGET, exitNodesOf } from './placeKinds';
 import { sameScope } from './routeFloors';
 import { formatDuration } from './routeInstructions';
 
@@ -32,6 +33,9 @@ export interface NearestPlace {
  * обзор маршрута объяснит, что мешает, и снимет запрет лестниц одной кнопкой, —
  * это полезнее молча недоступной кнопки.
  *
+ * Выход (`EXIT_TARGET`) — двери корпусов, а не отмеченные места; с территории
+ * выходить некуда — тогда `null`.
+ *
  * @returns `null`, если мест категории нет или ни до одного не дойти
  */
 export function nearestPlaceOf(
@@ -41,7 +45,9 @@ export function nearestPlaceOf(
   category: PlaceCategory,
   options: PathfindingOptions
 ): NearestPlace | null {
-  const targets = aliasManager.getIdsByCategory(category).filter((id) => id !== startId);
+  if (category === EXIT_TARGET && graph.getNode(startId)?.building === CAMPUS_BUILDING_ID) return null;
+  const candidates = category === EXIT_TARGET ? exitNodesOf(graph) : aliasManager.getIdsByCategory(category);
+  const targets = candidates.filter((id) => id !== startId);
   if (targets.length === 0) return null;
 
   const restricted = findNearest(graph, startId, targets, options);

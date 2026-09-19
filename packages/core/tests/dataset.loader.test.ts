@@ -471,7 +471,18 @@ describe('loadDataset: виды точек', () => {
     files[PLACE_KINDS_PATH] = {
       kinds: [
         { id: 'room', name: 'Помещение', namePattern: '{корпус}-{этаж}{номер}', connect: true },
-        { id: 'toilet', name: 'Туалет', icon: 'toilet', namePattern: 'Туалет', connect: true, category: 'toilet' },
+        {
+          id: 'medpoint',
+          name: 'Медпункт',
+          nameEn: 'First aid',
+          icon: 'tabler:first-aid-kit',
+          iconImage: 'data:image/svg+xml,%3Csvg%2F%3E',
+          searchTerms: ['врач', ' ', 'врач'],
+          place: true,
+          quick: true,
+          namePattern: 'Медпункт',
+          connect: true,
+        },
       ],
     };
 
@@ -480,7 +491,18 @@ describe('loadDataset: виды точек', () => {
     expect(warnings.filter((w) => w.includes(PLACE_KINDS_PATH))).toEqual([]);
     expect(dataset.placeKinds).toEqual([
       { id: 'room', name: 'Помещение', namePattern: '{корпус}-{этаж}{номер}', connect: true },
-      { id: 'toilet', name: 'Туалет', icon: 'toilet', namePattern: 'Туалет', connect: true, category: 'toilet' },
+      {
+        id: 'medpoint',
+        name: 'Медпункт',
+        nameEn: 'First aid',
+        icon: 'tabler:first-aid-kit',
+        iconImage: 'data:image/svg+xml,%3Csvg%2F%3E',
+        searchTerms: ['врач'],
+        place: true,
+        quick: true,
+        namePattern: 'Медпункт',
+        connect: true,
+      },
     ]);
   });
 
@@ -489,7 +511,7 @@ describe('loadDataset: виды точек', () => {
     files[PLACE_KINDS_PATH] = {
       kinds: [
         { id: 'broken' },
-        { id: 'weird', name: 'Странный', category: 'банкомат' },
+        { id: 'weird', name: 'Странный', iconImage: 'javascript:alert(1)' },
       ],
     };
 

@@ -1,5 +1,5 @@
 import type { AliasEntry } from '../types/alias.js';
-import { isPlaceCategory } from '../types/alias.js';
+import { isIconImage, searchablePlaceKinds } from '../placeKinds.js';
 import type { PlaceKind } from '../types/placeKind.js';
 import type {
   BuildingMeta,
@@ -447,12 +447,14 @@ function normalizeAlias(raw: AliasEntry & Raw, path: string, warnings: string[])
   );
   if (translations !== undefined) entry.translations = translations;
 
+  // Какие виды мест бывают, знает каталог видов; сверка с ним — после того,
+  // как прочитаны оба файла (`checkPlaceCategories`).
   if (raw.category !== undefined) {
     const category = asOptionalString(raw.category);
-    if (category !== undefined && isPlaceCategory(category)) {
+    if (category !== undefined && category.length > 0) {
       entry.category = category;
     } else {
-      warnings.push(`${path}: ${raw.id}: неизвестная категория места ${JSON.stringify(raw.category)} пропущена`);
+      warnings.push(`${path}: ${raw.id}: вид места ${JSON.stringify(raw.category)} — не название вида, пропущен`);
     }
   }
 
@@ -768,10 +770,33 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
     }
   }
 
+  checkPlaceCategories(aliases, placeKinds, warnings);
+
   return {
     dataset: { campusMeta, buildingMetas, nodes, transitions, aliases, placeKinds },
     warnings,
   };
+}
+
+/**
+ * Вид места у названий — id вида-места из каталога (или из затравки, если
+ * своего каталога нет). Незнакомый вид назван и отброшен: навигатор не знает
+ * о нём ни названия, ни значка, ни кнопки.
+ *
+ * Прежний вид `exit` объяснён отдельно: выход больше не отмечают — навигатор
+ * находит его по входам в корпус, заведённым переходами.
+ */
+function checkPlaceCategories(aliases: AliasEntry[], placeKinds: readonly PlaceKind[], warnings: string[]): void {
+  const known = new Set(searchablePlaceKinds(placeKinds).map((kind) => kind.id));
+  for (const alias of aliases) {
+    if (alias.category === undefined || known.has(alias.category)) continue;
+    warnings.push(
+      alias.category === 'exit'
+        ? `${ALIASES_PATH}: ${alias.id}: отметка «выход» больше не нужна — навигатор находит выход по входам в корпус; снята`
+        : `${ALIASES_PATH}: ${alias.id}: вида места «${alias.category}» нет в каталоге видов — снят`
+    );
+    delete alias.category;
+  }
 }
 
 /**
@@ -788,20 +813,25 @@ function normalizePlaceKind(raw: Raw, warnings: string[]): PlaceKind | null {
   }
 
   const kind: PlaceKind = { id, name };
+  const nameEn = asOptionalString(raw.nameEn);
+  if (nameEn !== undefined && nameEn.length > 0) kind.nameEn = nameEn;
   const icon = asOptionalString(raw.icon);
   if (icon !== undefined) kind.icon = icon;
+  const iconImage = asOptionalString(raw.iconImage);
+  if (iconImage !== undefined) {
+    if (isIconImage(iconImage)) kind.iconImage = iconImage;
+    else warnings.push(`${PLACE_KINDS_PATH}: вид «${name}» — значок не SVG или PNG либо слишком большой, пропущен`);
+  }
   const color = asOptionalString(raw.color);
   if (color !== undefined) kind.color = color;
+  const searchTerms = uniqueNames(asStringArray(raw.searchTerms).filter((term) => term.trim().length > 0));
+  if (searchTerms.length > 0) kind.searchTerms = searchTerms;
+  if (raw.place === true) kind.place = true;
+  if (raw.quick === true) kind.quick = true;
   const namePattern = asOptionalString(raw.namePattern);
   if (namePattern !== undefined) kind.namePattern = namePattern;
   if (raw.connect === true) kind.connect = true;
   if (raw.chain === true) kind.chain = true;
-
-  const category = asOptionalString(raw.category);
-  if (category !== undefined) {
-    if (isPlaceCategory(category)) kind.category = category;
-    else warnings.push(`${PLACE_KINDS_PATH}: вид «${name}» — неизвестный вид места «${category}», пропущен`);
-  }
 
   return kind;
 }

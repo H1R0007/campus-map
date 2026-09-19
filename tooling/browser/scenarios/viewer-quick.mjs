@@ -26,7 +26,8 @@ export default {
       await v.open('/');
       // Без заданной точки свёрнутая шторка — только поиск: быстрые кнопки — в
       // поиске и в раскрытой шторке (запись 37).
-      const all = ['Ближайший туалет', 'Ближайшая столовая', 'Ближайший гардероб', 'Ближайший выход'];
+      // Названия видов — из каталога в данных (запись 44); выход — двери корпусов.
+      const all = ['Туалет — ближайшее место', 'Столовая — ближайшее место', 'Гардероб — ближайшее место', 'Ближайший выход'];
       assert.deepEqual(await quickLabels(), [], 'в свёрнутой шторке кнопок нет');
       await v.click('Развернуть панель');
       assert.deepEqual(await quickLabels(), all, 'кнопки в раскрытой шторке');
@@ -37,7 +38,7 @@ export default {
       assert.deepEqual(await quickLabels(SEARCH), all, 'кнопки в поиске');
       await shot('viewer-quick-idle');
 
-      await v.click('Ближайший туалет');
+      await v.click('Туалет — ближайшее место');
       await page.waitFor(`!!${SEARCH}`);
       assert.equal(await page.eval('document.activeElement?.placeholder'), 'Аудитория или место рядом с вами');
       assert.ok((await page.eval(`${SEARCH}.textContent`)).includes('Где вы сейчас?'));
@@ -56,7 +57,7 @@ export default {
     await step('QR у входа: время до места и маршрут без поиска', async () => {
       await v.open('/?at=a1_entrance');
       const [toilet] = await quickLabels();
-      assert.match(toilet, /^Ближайший туалет, ~\d+\sмин$/);
+      assert.match(toilet, /^Туалет — ближайшее место, ~\d+\sмин$/);
       await shot('viewer-quick-qr');
 
       await v.click(toilet);

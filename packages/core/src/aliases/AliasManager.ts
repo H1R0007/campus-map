@@ -1,5 +1,4 @@
 import type { AliasEntry, PlaceCategory, SearchSuggestion } from '../types/alias.js';
-import { PLACE_CATEGORIES } from '../types/alias.js';
 
 /**
  * Индекс названий для поиска по карте.
@@ -110,7 +109,7 @@ export interface AliasLoadOptions {
    * Не данные вуза, а словарь языка, поэтому живёт в приложении рядом со
    * строками интерфейса (запись 20).
    */
-  categoryTerms?: Partial<Record<PlaceCategory, readonly string[]>>;
+  categoryTerms?: Readonly<Record<PlaceCategory, readonly string[]>>;
 }
 
 export class AliasManager {
@@ -216,7 +215,7 @@ export class AliasManager {
   private indexCategoryTerms(terms: NonNullable<AliasLoadOptions['categoryTerms']>): void {
     const seen = new Set<string>();
 
-    for (const category of PLACE_CATEGORIES) {
+    for (const category of Object.keys(terms)) {
       const ids = this.categoryToIds.get(category) ?? [];
 
       for (const term of terms[category] ?? []) {

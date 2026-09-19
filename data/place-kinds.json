@@ -3,7 +3,9 @@
     {
       "id": "corridor",
       "name": "Коридор",
-      "icon": "dot",
+      "nameEn": "Corridor",
+      "icon": "tabler:walk",
+      "iconImage": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%204a1%201%200%201%200%202%200a1%201%200%201%200%20-2%200%22%2F%3E%3Cpath%20d%3D%22M7%2021l3%20-4%22%2F%3E%3Cpath%20d%3D%22M16%2021l-2%20-4l-3%20-3l1%20-6%22%2F%3E%3Cpath%20d%3D%22M6%2012l2%20-3l4%20-1l3%203l3%201%22%2F%3E%3C%2Fsvg%3E",
       "color": "muted",
       "connect": true,
       "chain": true
@@ -11,7 +13,9 @@
     {
       "id": "room",
       "name": "Помещение",
-      "icon": "door",
+      "nameEn": "Room",
+      "icon": "tabler:door",
+      "iconImage": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%2012v.01%22%2F%3E%3Cpath%20d%3D%22M3%2021h18%22%2F%3E%3Cpath%20d%3D%22M6%2021v-16a2%202%200%200%201%202%20-2h8a2%202%200%200%201%202%202v16%22%2F%3E%3C%2Fsvg%3E",
       "color": "node",
       "namePattern": "{корпус}-{этаж}{номер}",
       "connect": true
@@ -19,29 +23,74 @@
     {
       "id": "toilet",
       "name": "Туалет",
-      "icon": "toilet",
+      "nameEn": "Toilet",
+      "icon": "tabler:badge-wc",
+      "iconImage": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207a2%202%200%200%201%202%20-2h14a2%202%200%200%201%202%202v10a2%202%200%200%201%20-2%202h-14a2%202%200%200%201%20-2%20-2v-10%22%2F%3E%3Cpath%20d%3D%22M6.5%209l.5%206l2%20-4l2%204l.5%20-6%22%2F%3E%3Cpath%20d%3D%22M17%2010.5a1.5%201.5%200%200%200%20-3%200v3a1.5%201.5%200%200%200%203%200%22%2F%3E%3C%2Fsvg%3E",
       "color": "place",
+      "searchTerms": [
+        "туалет",
+        "уборная",
+        "санузел",
+        "wc",
+        "toilet",
+        "restroom",
+        "bathroom",
+        "lavatory"
+      ],
+      "place": true,
+      "quick": true,
       "namePattern": "Туалет",
-      "connect": true,
-      "category": "toilet"
+      "connect": true
     },
     {
       "id": "food",
       "name": "Столовая",
-      "icon": "food",
+      "nameEn": "Canteen",
+      "icon": "tabler:tools-kitchen-2",
+      "iconImage": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M19%203v12h-5c-.023%20-3.681%20.184%20-7.406%205%20-12m0%2012v6h-1v-3m-10%20-14v17m-3%20-17v3a3%203%200%201%200%206%200v-3%22%2F%3E%3C%2Fsvg%3E",
       "color": "place",
+      "searchTerms": [
+        "столовая",
+        "столовка",
+        "буфет",
+        "кафе",
+        "еда",
+        "поесть",
+        "обед",
+        "кофе",
+        "canteen",
+        "cafeteria",
+        "cafe",
+        "food",
+        "eat",
+        "lunch",
+        "coffee"
+      ],
+      "place": true,
+      "quick": true,
       "namePattern": "Столовая",
-      "connect": true,
-      "category": "food"
+      "connect": true
     },
     {
       "id": "cloakroom",
       "name": "Гардероб",
-      "icon": "cloakroom",
+      "nameEn": "Cloakroom",
+      "icon": "tabler:hanger",
+      "iconImage": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%206a2%202%200%201%200%20-4%200c0%201.667%20.67%203%202%204h-.008l7.971%204.428a2%202%200%200%201%201.029%201.749v.823a2%202%200%200%201%20-2%202h-14a2%202%200%200%201%20-2%20-2v-.823a2%202%200%200%201%201.029%20-1.749l7.971%20-4.428%22%2F%3E%3C%2Fsvg%3E",
       "color": "place",
+      "searchTerms": [
+        "гардероб",
+        "гардеробная",
+        "раздевалка",
+        "верхняя одежда",
+        "cloakroom",
+        "coat check",
+        "wardrobe"
+      ],
+      "place": true,
+      "quick": true,
       "namePattern": "Гардероб",
-      "connect": true,
-      "category": "cloakroom"
+      "connect": true
     }
   ]
 }

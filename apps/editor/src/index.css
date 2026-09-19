@@ -943,6 +943,19 @@ input[type='checkbox'] {
     color: var(--editor-bg);
 }
 
+/* Значок вида из данных: картинка — маска, цвет — цвет текста вокруг. */
+.editor-kind-icon {
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
 /* Выбор значка вида: сетка кнопок 44×44, выбранная — цветом акцента. */
 .editor-icon-grid {
     display: flex;

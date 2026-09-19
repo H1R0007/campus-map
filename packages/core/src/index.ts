@@ -85,3 +85,12 @@ export { findAlternativePaths, findNearest, findPath } from './pathfinding/astar
 
 // Поиск по названиям
 export { AliasManager, type AliasLoadOptions } from './aliases/AliasManager.js';
+export {
+  DEFAULT_PLACE_KINDS,
+  MAX_ICON_IMAGE_LENGTH,
+  isIconImage,
+  placeKindsOf,
+  searchablePlaceKinds,
+  svgIconDataUrl,
+  type IconNode,
+} from './placeKinds.js';

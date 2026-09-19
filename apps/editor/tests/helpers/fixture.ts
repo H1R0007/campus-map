@@ -66,7 +66,7 @@ export function fixtureDataset(): Dataset {
     ],
     placeKinds: [],
     aliases: [
-      { id: 'campus_gate', names: ['Главный вход'], category: 'exit' },
+      { id: 'campus_gate', names: ['Главный вход'], category: 'cloakroom' },
       { id: 'a1_room101', names: ['А-101', '101'], translations: { en: { names: ['A-101'] } } },
       { id: 'a2_room201', names: ['А-201'] },
     ],

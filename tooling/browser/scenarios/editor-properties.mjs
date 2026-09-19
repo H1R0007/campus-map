@@ -202,7 +202,7 @@ export default {
       // Передумал: туалет, еда, снова как было — записи нет вовсе.
       await chip('Туалет');
       assert.equal(await bar(), true, 'полоса изменений не появилась');
-      await chip('Еда');
+      await chip('Столовая');
       await chip(kindBefore);
       await e.press('Применить');
       assert.equal(await edits(), editsBefore, 'правка «туда и обратно» попала в историю');
@@ -218,7 +218,7 @@ export default {
       assert.equal(await edits(), editsBefore);
 
       // «Отменить изменения» возвращает всё без записи в истории.
-      await chip('Еда');
+      await chip('Столовая');
       await e.press('Отменить изменения');
       assert.equal(await pressedKind(), kindBefore, '«Отменить изменения» не вернуло вид места');
       assert.equal(await edits(), editsBefore, '«Отменить изменения» оставило запись');

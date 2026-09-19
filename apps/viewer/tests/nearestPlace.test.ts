@@ -5,6 +5,7 @@ import { useMapStore } from '../src/stores/mapStore';
 import { useRouteStore } from '../src/stores/routeStore';
 import { useUiStore } from '../src/stores/uiStore';
 import { nearestHint, nearestPlaceOf } from '../src/utils/nearestPlace';
+import { EXIT_TARGET } from '../src/utils/placeKinds';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
@@ -23,7 +24,7 @@ function aliases(): AliasManager {
   manager.load([
     { id: 'a1_hall', names: ['Туалет у холла'], category: 'toilet' },
     { id: 'a2_room201', names: ['Туалет, 2 этаж'], category: 'toilet' },
-    { id: 'campus_gate', names: ['Проходная'], category: 'exit' },
+    { id: 'campus_gate', names: ['Проходная'] },
   ]);
   return manager;
 }
@@ -59,7 +60,11 @@ describe('nearestPlaceOf', () => {
 
   it('без мест категории — null', () => {
     expect(nearestPlaceOf(fixtureGraph(), aliases(), 'a1_hall', 'cloakroom', OPTIONS)).toBeNull();
-    expect(nearestPlaceOf(fixtureGraph(), aliases(), 'campus_gate', 'exit', OPTIONS)).toBeNull();
+  });
+
+  it('выход — ближайшая дверь корпуса; с территории выходить некуда', () => {
+    expect(nearestPlaceOf(fixtureGraph(), aliases(), 'a2_room201', EXIT_TARGET, OPTIONS)?.nodeId).toBe('a1_entrance');
+    expect(nearestPlaceOf(fixtureGraph(), aliases(), 'campus_gate', EXIT_TARGET, OPTIONS)).toBeNull();
   });
 });
 

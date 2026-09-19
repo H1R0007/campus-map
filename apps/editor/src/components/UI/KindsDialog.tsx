@@ -4,7 +4,6 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { visibleKinds } from '../../utils/placeKinds';
-import { PLACE_CATEGORY_LABELS } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
@@ -279,7 +278,7 @@ function kindSummary(kind: PlaceKind): string {
   if (naming === 'room') parts.push('номер помещения: «А-1…» и ваш номер');
   if (kind.chain) parts.push('ведёт линию');
   if (kind.connect) parts.push('цепляется к ближайшей точке');
-  if (kind.category) parts.push(`в навигаторе: ${PLACE_CATEGORY_LABELS[kind.category].toLowerCase()}`);
+  if (kind.place) parts.push(kind.quick ? 'место быстрого поиска, кнопка в навигаторе' : 'место быстрого поиска');
   return parts.length > 0 ? parts.join(' · ') : 'точка без названия';
 }
 

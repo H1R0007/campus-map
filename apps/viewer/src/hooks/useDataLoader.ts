@@ -5,8 +5,10 @@ import {
   createHttpDatasetSource,
   indexBuildingMetas,
   loadDataset,
+  placeKindsOf,
 } from '@campus-map/core';
-import { categoryTermsOfAllLanguages } from '../i18n';
+import { exitTermsOfAllLanguages } from '../i18n';
+import { EXIT_TARGET, categoryTermsOf, exitNodesOf } from '../utils/placeKinds';
 import { useMapStore } from '../stores/mapStore';
 import { DATA_BASE_URL } from '../config/dataBase';
 
@@ -52,14 +54,27 @@ export function useDataLoader() {
         console.warn(`[campus-map] ${warning}`);
       }
 
+      const graph = Graph.fromDataset(dataset);
+      const placeKinds = placeKindsOf(dataset.placeKinds);
+
+      // Выходы — двери корпусов (`exitNodesOf`); для поиска «выход» они
+      // получают вид места выхода, если своего вида у них нет.
+      const exits = new Set(exitNodesOf(graph));
+      const searchAliases = dataset.aliases.map((alias) =>
+        exits.has(alias.id) && alias.category === undefined ? { ...alias, category: EXIT_TARGET } : alias
+      );
+
       const aliasManager = new AliasManager();
-      aliasManager.load(dataset.aliases, { categoryTerms: categoryTermsOfAllLanguages() });
+      aliasManager.load(searchAliases, {
+        categoryTerms: { ...categoryTermsOf(placeKinds), [EXIT_TARGET]: exitTermsOfAllLanguages() },
+      });
 
       setData({
-        graph: Graph.fromDataset(dataset),
+        graph,
         aliasManager,
         campusMeta: dataset.campusMeta,
         buildingMetas: indexBuildingMetas(dataset.buildingMetas),
+        placeKinds,
       });
 
       setState({ isLoading: false, error: null });

@@ -4,8 +4,8 @@ import { useHistoryStore } from '../historyStore';
 import type { AliasSnapshot, NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
-import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
-import { kindNameTemplate, visibleKinds } from '../../utils/placeKinds';
+import { TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
+import { kindNameTemplate, placeKindName, visibleKinds } from '../../utils/placeKinds';
 import { nodeIdForKind, nodeIdProblem, planPrefix, rebaseNodeId, uniqueNodeId } from '../../utils/nodeIds';
 import { snapToNeighbours } from '../../utils/snapping';
 import type { SnapResult } from '../../utils/snapping';
@@ -716,7 +716,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // Название ставится сразу, только если дописывать нечего: «Туалет» —
       // готово, «А-3…» ждёт номера от человека.
       name: nameTemplate.length > 0 && !wantsNumber ? nameTemplate : null,
-      category: kind.category ?? null,
+      // Вид — место быстрого поиска: его id и есть вид места у точки.
+      category: kind.place ? kind.id : null,
       connect: kind.connect === true,
       linkFrom: options.linkToLast ? st.lastPlacedNodeId : kind.chain ? st.chainLastNodeId : null,
       chain: kind.chain === true,
@@ -823,7 +824,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'SET_CATEGORY',
-      description: category === null ? 'Снят вид места' : `Вид места: ${PLACE_CATEGORY_LABELS[category].toLowerCase()}`,
+      description: category === null ? 'Снят вид места' : `Вид места: ${placeKindName(get().placeKinds, category).toLowerCase()}`,
       undoData: { nodeId, category: previous },
       redoData: { nodeId, category },
     });
