@@ -23,45 +23,45 @@ export default {
       const room = await e.nodePoint('a1_room101');
       await e.click(room.x, room.y);
       assert.equal(await e.propertiesNodeId(), 'a1_room101');
-      assert.match(await e.panelSection('Алиасы'), /Алиасы \(4\)/);
+      assert.match(await e.panelSection('Названия'), /Названия \(4\)/);
 
-      const input = await e.panelPoint('input[placeholder="Новый алиас..."]');
+      const input = await e.panelPoint('input[aria-label="Новое название"]');
       assert.ok(input);
       await e.click(input.x, input.y);
       await e.type('Проверочное имя');
       await e.key('Enter');
 
-      let section = await e.panelSection('Алиасы');
-      assert.match(section, /Алиасы \(5\)/, `после добавления: ${section}`);
+      let section = await e.panelSection('Названия');
+      assert.match(section, /Названия \(5\)/, `после добавления: ${section}`);
       assert.match(section, /Проверочное имя/, 'добавленное название не показано');
       await shot('editor-properties');
 
       // Удаление первого названия не должно трогать добавленное.
       const remove = await e.panelPoint('button[aria-label="Удалить название «А-101»"]');
       await e.click(remove.x, remove.y);
-      section = await e.panelSection('Алиасы');
-      assert.match(section, /Алиасы \(4\)/, `после удаления: ${section}`);
+      section = await e.panelSection('Названия');
+      assert.match(section, /Названия \(4\)/, `после удаления: ${section}`);
       assert.match(section, /Проверочное имя/, 'добавленное название стёрлось при следующей правке');
       assert.doesNotMatch(section, /А-101/, 'удалено не то название');
 
       await e.key('z', { modifiers: 2 });
       await e.key('z', { modifiers: 2 });
-      section = await e.panelSection('Алиасы');
-      assert.match(section, /Алиасы \(4\)/);
+      section = await e.panelSection('Названия');
+      assert.match(section, /Названия \(4\)/);
       assert.doesNotMatch(section, /Проверочное имя/, 'отмена вернула прежние названия');
     });
 
-    await step('список соседей обновляется после удаления ребра', async () => {
+    await step('список связей обновляется после удаления связи', async () => {
       const stairs = await e.nodePoint('a1_stairs');
       await e.click(stairs.x, stairs.y);
-      const before = await e.panelSection('Соседи');
-      assert.match(before, /Соседи \(1\)/, before);
+      const before = await e.panelSection('Связи');
+      assert.match(before, /Связи \(1\)/, before);
 
       const remove = await e.panelPoint('button[aria-label^="Удалить связь"]');
       await e.click(remove.x, remove.y);
-      assert.match(await e.panelSection('Соседи'), /Соседи \(0\)/, 'список соседей не обновился');
+      assert.match(await e.panelSection('Связи'), /Связи \(0\)/, 'список связей не обновился');
       await e.key('z', { modifiers: 2 });
-      assert.match(await e.panelSection('Соседи'), /Соседи \(1\)/);
+      assert.match(await e.panelSection('Связи'), /Связи \(1\)/);
     });
 
     await step('список переходов обновляется после удаления перехода на карте', async () => {
@@ -76,6 +76,117 @@ export default {
       assert.match(await e.panelSection('Переходы'), /Переходы \(0\)/, 'список переходов не обновился');
       await e.key('z', { modifiers: 2 });
       assert.match(await e.panelSection('Переходы'), /Переходы \(1\)/);
+    });
+
+    await step('названия — первый раздел карточки, служебное свёрнуто', async () => {
+      const layout = await page.eval(`(() => {
+        const card = document.querySelector('[aria-label="Свойства узла"]');
+        return {
+          first: card.querySelector('section h3')?.textContent.trim(),
+          serviceOpen: card.querySelector('details')?.open ?? null,
+        };
+      })()`);
+      assert.match(layout.first ?? '', /^Названия/, `первый раздел: ${layout.first}`);
+      assert.equal(layout.serviceOpen, false, 'положение и id должны быть свёрнуты');
+    });
+
+    await step('переименование id переносит на новый id связи, переход и выбор', async () => {
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs');
+
+      const summary = await e.panelPoint('details > summary');
+      await e.click(summary.x, summary.y);
+
+      /** Пишет в поле id вместо прежнего значения. */
+      const setId = async (value) => {
+        const field = await e.panelPoint('input[aria-label="id точки"]');
+        await e.click(field.x, field.y);
+        await page.eval('document.activeElement.setSelectionRange(0, document.activeElement.value.length)');
+        await e.type(value);
+      };
+      const problem = () =>
+        page.eval(`document.querySelector('[aria-label="Свойства узла"] .editor-section__hint--problem')?.textContent.trim() ?? ''`);
+
+      // Занятый id не принимается и объясняет, что не так.
+      await setId('a1_hall');
+      assert.match(await problem(), /занят/, 'редактор не сказал, что id занят');
+      await e.key('Enter');
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs', 'точка переименована в чужой id');
+
+      await setId('a1_stairs_west');
+      assert.equal(await problem(), '', 'свободный id показан как проблемный');
+      await e.key('Enter');
+
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs_west', 'карточка осталась на старом id');
+      const ids = await e.nodeIds();
+      assert.ok(ids.includes('a1_stairs_west'), 'точки с новым id нет на карте');
+      assert.ok(!ids.includes('a1_stairs'), 'старый id остался на карте');
+      assert.match(await e.panelSection('Связи'), /Связи \(1\)/, 'переименование потеряло связь');
+      assert.match(await e.panelSection('Переходы'), /Переходы \(1\)/, 'переименование потеряло переход');
+
+      const links = await page.eval(`[...document.querySelectorAll('path[data-edge]')].map((p) => p.dataset.edge)`);
+      assert.ok(
+        links.some((key) => key.includes('a1_stairs_west')),
+        `связь на карте ведёт на несуществующий id: ${JSON.stringify(links.filter((k) => k.includes('stairs')))}`
+      );
+
+      await page.eval('document.activeElement?.blur()');
+      await e.key('z', { modifiers: 2 });
+      assert.equal(await e.propertiesNodeId(), 'a1_stairs', 'отмена не вернула прежний id');
+      assert.ok((await e.nodeIds()).includes('a1_stairs'));
+    });
+
+    await step('двойной щелчок по узлу без названия — сразу ввод названия', async () => {
+      const corridor = await e.nodePoint('a1_corridor_3');
+      await e.dblclick(corridor.x, corridor.y);
+      assert.equal(await e.propertiesNodeId(), 'a1_corridor_3');
+      assert.equal(
+        await page.eval(`document.activeElement?.getAttribute('aria-label')`),
+        'Новое название',
+        'курсор не в поле названия'
+      );
+      await e.type('Коридор у лестницы');
+      await e.key('Enter');
+      assert.match(await e.panelSection('Названия'), /Коридор у лестницы/);
+      assert.equal(
+        await page.eval(`document.querySelector('[aria-label="Свойства узла"] h2')?.textContent.trim()`),
+        'Коридор у лестницы',
+        'заголовок карточки — первое название'
+      );
+      // Ctrl+Z в поле ввода — отмена набора, а не правки: сначала уходим из поля.
+      await page.eval('document.activeElement?.blur()');
+      await e.key('z', { modifiers: 2 });
+      assert.doesNotMatch(await e.panelSection('Названия'), /Коридор у лестницы/, 'отмена не убрала название');
+    });
+
+    await step('двойной щелчок по узлу с названием — правка главного названия', async () => {
+      const room = await e.nodePoint('a1_room102');
+      await e.dblclick(room.x, room.y);
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Название 1');
+      await e.key('Escape');
+      assert.equal(await e.propertiesNodeId(), 'a1_room102', 'Esc в поле названия снял выбор');
+    });
+
+    await step('без выбора — обзор плана: сводка и распавшийся план', async () => {
+      const overview = () =>
+        page.eval(`document.querySelector('[aria-label="Обзор плана"]')?.textContent.replace(/\\s+/g, ' ') ?? ''`);
+      await e.key('Escape');
+      let text = await overview();
+      assert.match(text, /Корпус А, этаж 1/, text);
+      assert.match(text, /Узлов ?23/, text);
+      assert.match(text, /Все узлы плана связаны/, text);
+
+      const room = await e.nodePoint('a1_room103');
+      await e.click(room.x, room.y);
+      const remove = await e.panelPoint('button[aria-label^="Удалить связь"]');
+      await e.click(remove.x, remove.y);
+      await e.key('Escape');
+      text = await overview();
+      assert.match(text, /распался на 2 части/, text);
+      assert.match(text, /Без связей ?1/, text);
+      await shot('editor-plan-overview');
+
+      await e.key('z', { modifiers: 2 });
+      assert.match(await overview(), /Все узлы плана связаны/, 'отмена не вернула связь в обзоре');
     });
   },
 };

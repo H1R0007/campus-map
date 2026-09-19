@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadDataset } from '@campus-map/core';
+import { PLACE_KINDS_PATH, loadDataset } from '@campus-map/core';
 import type { Dataset, DatasetSource } from '@campus-map/core';
 import { datasetFiles } from '../src/utils/datasetFiles';
+import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
 import { datasetFromState } from '../src/stores/editor/graphState';
 import { fixtureDataset, loadFixture, openFloor, store } from './helpers/fixture';
 
@@ -73,6 +74,36 @@ describe('круг «сохранить → открыть»', () => {
     expect(dataset.aliases.find((alias) => alias.id === 'campus_gate')?.category).toBe('exit');
     expect(dataset.buildingMetas[0].translations).toEqual({ en: { name: 'Building A' } });
     expect(dataset.buildingMetas[0].placement?.metersPerPixel).toBe(0.1);
+  });
+
+  it('нетронутый каталог видов точек файла не создаёт', () => {
+    expect(datasetFiles(datasetFromState(store())).has(PLACE_KINDS_PATH)).toBe(false);
+  });
+
+  it('заведённый вид точки сохраняется и читается обратно', async () => {
+    store().setPlaceKinds(
+      [
+        ...BUILT_IN_PLACE_KINDS,
+        { id: 'medpoint', name: 'Медпункт', icon: 'note', namePattern: 'Медпункт', connect: true, category: 'exit' },
+      ],
+      'Добавлен вид точки: Медпункт'
+    );
+
+    const files = datasetFiles(datasetFromState(store()));
+    expect(files.has(PLACE_KINDS_PATH)).toBe(true);
+
+    const { dataset, warnings } = await loadDataset(sourceOf(files));
+    expect(warnings).toEqual([]);
+    expect(dataset.placeKinds.at(-1)).toEqual({
+      id: 'medpoint',
+      name: 'Медпункт',
+      icon: 'note',
+      namePattern: 'Медпункт',
+      connect: true,
+      category: 'exit',
+    });
+    // Встроенные виды тоже уходят в файл: дальше видно, что лежит в данных.
+    expect(dataset.placeKinds.map((kind) => kind.id)).toContain('stairs');
   });
 
   it('названия удалённых узлов не сохраняются', async () => {

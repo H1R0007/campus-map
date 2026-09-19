@@ -16,6 +16,10 @@ export function openingFloorOf(meta: BuildingMeta | undefined): number | null {
 }
 
 export interface DisplayFilters {
+  /** Соседний этаж бледно поверх открытого — «калька». */
+  showNeighbourFloor: boolean;
+  /** Какой этаж показывать калькой: ниже (`true`) или выше. */
+  neighbourFloorBelow: boolean;
   showPortals: boolean;
   showEdges: boolean;
   showTransitions: boolean;
@@ -26,6 +30,11 @@ export interface DisplayFilters {
 }
 
 export interface GridSettings {
+  /**
+   * Выравнивать новую точку по соседним точкам плана. Сетка для этого не
+   * годится: двери стоят там, где начерчены, а не в узлах клеток.
+   */
+  alignToNeighbours: boolean;
   enabled: boolean;
   size: number;
   snap: boolean;
@@ -74,6 +83,8 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   fitPlanRequest: 0,
 
   displayFilters: {
+    showNeighbourFloor: false,
+    neighbourFloorBelow: true,
     showPortals: true,
     showEdges: true,
     showTransitions: true,
@@ -84,6 +95,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   },
 
   gridSettings: {
+    alignToNeighbours: true,
     enabled: false,
     size: 20,
     snap: true,
@@ -100,6 +112,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       // корпусе. Прежде смена плана сбрасывала начало, и лестницу между
       // этажами нельзя было создать щелчками вовсе.
       state.edgeStartNodeId = null;
+      state.chainLastNodeId = null;
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;
@@ -112,6 +125,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
       state.currentFloor = floor;
       state.selectedNodeIds = new Set();
       state.edgeStartNodeId = null;
+      state.chainLastNodeId = null;
       state.lineTool.start = null;
       state.lineTool.end = null;
       state.selectionBox = null;

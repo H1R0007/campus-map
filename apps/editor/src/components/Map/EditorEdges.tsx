@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Polyline } from 'react-leaflet';
 import L from 'leaflet';
+import { mapPalette } from '../../utils/themeColor';
 import { edgeKey } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
@@ -13,11 +14,10 @@ interface FloorEdge {
 }
 
 /**
- * Рёбра текущего плана.
+ * Связи текущего плана.
  *
- * Правая кнопка открывает меню ребра, инструмент «Удалить» удаляет ребро
- * щелчком. Событие ребра дальше карты не идёт: иначе вслед за меню ребра
- * открывалось бы меню пустого места.
+ * Правая кнопка открывает меню связи. Событие связи дальше карты не идёт:
+ * иначе вслед за меню связи открывалось бы меню пустого места.
  */
 export const EditorEdges: React.FC = () => {
   const allNodes = useEditorStore((s) => s.nodes);
@@ -25,9 +25,9 @@ export const EditorEdges: React.FC = () => {
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const showEdges = useEditorStore((s) => s.displayFilters.showEdges);
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
-  const activeTool = useEditorStore((s) => s.activeTool);
   const hoveredEdge = useEditorStore((s) => s.hoveredEdge);
   const setHoveredEdge = useEditorStore((s) => s.setHoveredEdge);
+  const palette = mapPalette();
 
   const edges = useMemo(() => {
     if (!showEdges) return [];
@@ -46,6 +46,11 @@ export const EditorEdges: React.FC = () => {
 
   const hoveredKey = hoveredEdge ? edgeKey(hoveredEdge.from, hoveredEdge.to) : null;
 
+  const onHover = useCallback(
+    (edge: { from: string; to: string } | null) => setHoveredEdge(edge),
+    [setHoveredEdge]
+  );
+
   return (
     <>
       {edges.map(({ from, to, key }) => {
@@ -53,45 +58,93 @@ export const EditorEdges: React.FC = () => {
         const b = allNodes.get(to);
         if (!a || !b) return null;
 
-        const isHovered = hoveredKey === key;
-
         return (
-          <Polyline
-            key={`edge-${key}`}
-            positions={[
-              [a.y, a.x],
-              [b.y, b.x],
-            ]}
-            pathOptions={{
-              color: isHovered ? (activeTool === 'delete' ? '#ef4444' : '#60a5fa') : '#4b5563',
-              weight: isHovered ? 7 : 4, // толще для щелчка
-              opacity: isHovered ? 0.95 : 0.6,
-              className: 'editor-edge',
-            }}
-            eventHandlers={{
-              add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-edge', key),
-              mouseover: () => setHoveredEdge({ from, to }),
-              mouseout: () => setHoveredEdge(null),
-              mousedown: (e) => {
-                if (e.originalEvent.button === 0 && useEditorStore.getState().activeTool === 'delete') {
-                  L.DomEvent.stopPropagation(e);
-                }
-              },
-              click: (e) => {
-                L.DomEvent.stopPropagation(e);
-                const st = useEditorStore.getState();
-                if (st.activeTool === 'delete') st.removeEdge(from, to);
-              },
-              contextmenu: (e) => {
-                L.DomEvent.stopPropagation(e);
-                e.originalEvent.preventDefault();
-                const dom = e.originalEvent;
-                useEditorStore.getState().openContextMenu(dom.clientX, dom.clientY, { kind: 'edge', from, to });
-              },
-            }}
+          <EdgeLine
+            key={key}
+            edgeId={key}
+            from={from}
+            to={to}
+            ax={a.x}
+            ay={a.y}
+            bx={b.x}
+            by={b.y}
+            hovered={hoveredKey === key}
+            color={hoveredKey === key ? palette.edgeHover : palette.edge}
+            onHover={onHover}
           />
         );
       })}
     </>
   );
 };
+
+interface EdgeLineProps {
+  edgeId: string;
+  from: string;
+  to: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  hovered: boolean;
+  color: string;
+  onHover: (edge: { from: string; to: string } | null) => void;
+}
+
+/**
+ * Одна связь на карте.
+ *
+ * Запоминается по координатам концов: при перетаскивании узла меняются
+ * только связи этого узла, а не все связи этажа. На большом этаже связей
+ * больше четырёхсот, и пересборка их всех на каждом кадре роняла
+ * перетаскивание до двух десятков кадров в секунду.
+ */
+const EdgeLine = React.memo(function EdgeLine({
+  edgeId,
+  from,
+  to,
+  ax,
+  ay,
+  bx,
+  by,
+  hovered,
+  color,
+  onHover,
+}: EdgeLineProps) {
+  const positions = useMemo((): [number, number][] => [
+    [ay, ax],
+    [by, bx],
+  ], [ax, ay, bx, by]);
+
+  const pathOptions = useMemo(
+    () => ({
+      color,
+      // Наведённая связь толще: по ней целятся правой кнопкой.
+      weight: hovered ? 7 : 4,
+      opacity: hovered ? 0.95 : 0.6,
+    }),
+    [color, hovered]
+  );
+
+  const handlers = useMemo(
+    () => ({
+      add: (e: L.LeafletEvent) => {
+        const element = (e.target as L.Path).getElement();
+        element?.setAttribute('data-edge', edgeId);
+        element?.classList.add('editor-edge');
+      },
+      mouseover: () => onHover({ from, to }),
+      mouseout: () => onHover(null),
+      click: (e: L.LeafletMouseEvent) => L.DomEvent.stopPropagation(e),
+      contextmenu: (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        const dom = e.originalEvent;
+        dom.preventDefault();
+        useEditorStore.getState().openContextMenu(dom.clientX, dom.clientY, { kind: 'edge', from, to });
+      },
+    }),
+    [edgeId, from, to, onHover]
+  );
+
+  return <Polyline positions={positions} pathOptions={pathOptions} eventHandlers={handlers} />;
+});

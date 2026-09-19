@@ -1,11 +1,25 @@
-import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR } from '@campus-map/core';
-import type { MapNode, TransitionType } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, DEFAULT_TRANSITION_TYPE, distance } from '@campus-map/core';
+import type { MapNode, PlaceCategory, PlaceKind, Transition, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import type { NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
+import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
+import { kindNameTemplate, visibleKinds } from '../../utils/placeKinds';
+import { nodeIdForKind, nodeIdProblem, planPrefix, rebaseNodeId, uniqueNodeId } from '../../utils/nodeIds';
+import { snapToNeighbours } from '../../utils/snapping';
+import type { SnapResult } from '../../utils/snapping';
+import { useCursorStore } from '../cursorStore';
+import { floorNodesOf } from './dataSlice';
 import { snapshotNeighbors } from './graphState';
-import type { EditorSlice } from './types';
+import { renameNodeEverywhere } from './historyApply';
+import type { EditorSlice, EditorStore } from './types';
+
+/** План, на котором окажется точка: у территории оба поля `null`. */
+interface PlanRef {
+  building: string | null;
+  floor: number | null;
+}
 
 /** Сдвиг вставки на том же плане, пиксели: копия не ложится точно на оригинал. */
 const PASTE_OFFSET = 20;
@@ -31,7 +45,7 @@ export interface ClipboardData {
 export interface EditSlice {
   clipboard: ClipboardData | null;
 
-  generateNodeId: () => string;
+  generateNodeId: (kind?: PlaceKind | null) => string;
   addNode: (x: number, y: number) => string;
   removeNode: (nodeId: string) => void;
   moveNode: (nodeId: string, x: number, y: number) => void;
@@ -44,6 +58,13 @@ export interface EditSlice {
    */
   commitNodePositions: (before: readonly NodePosition[], after: readonly NodePosition[]) => void;
   updateNode: (nodeId: string, updates: Partial<MapNode>) => void;
+  /**
+   * Меняет id точки, чиня ссылки на неё: связи, переходы, названия, вид места.
+   *
+   * @returns `true`, если переименование прошло; `false`, если новый id не
+   *          годится — вызывающая сторона показывает причину человеку.
+   */
+  renameNode: (nodeId: string, nextId: string) => boolean;
   addEdge: (fromId: string, toId: string) => void;
   removeEdge: (fromId: string, toId: string) => void;
   /**
@@ -56,7 +77,20 @@ export interface EditSlice {
   addTransition: (fromId: string, toId: string, type: TransitionType) => AddTransitionResult;
   removeTransition: (fromId: string, toId: string) => void;
   updateTransitionType: (fromId: string, toId: string, type: TransitionType) => void;
+  /**
+   * Ставит точку выбранного вида: название, связь, точка перехода, вид места
+   * и, если вид так велит, точки на всех этажах разом.
+   */
+  placeKindNode: (x: number, y: number, options?: { align?: boolean; linkToLast?: boolean }) => string;
   setNodeAliases: (nodeId: string, names: string[]) => void;
+  /** Вид места: туалет, еда, гардероб, выход — или ничего. */
+  setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
+
+  /**
+   * Заменяет каталог видов точек целиком: так пишутся и создание вида, и
+   * правка, и удаление, и порядок.
+   */
+  setPlaceKinds: (kinds: PlaceKind[], description: string) => void;
   setNodeComment: (nodeId: string, comment: string) => void;
 
   splitEdge: (fromId: string, toId: string) => string | null;
@@ -76,18 +110,76 @@ export interface EditSlice {
   autoFix: () => AutoFixReport;
 }
 
+/**
+ * Точка с учётом выравнивания по соседям на плане.
+ *
+ * Считается там же, где ставится точка: подсказка на карте и сама
+ * постановка обязаны совпадать до пикселя, иначе точка встанет не туда, куда
+ * показывала линия выравнивания.
+ */
+export function alignToPlan(
+  state: Pick<EditorStore, 'nodes' | 'currentBuilding' | 'currentFloor' | 'displayFilters' | 'gridSettings'>,
+  x: number,
+  y: number,
+  enabled = true
+): SnapResult {
+  if (!enabled || !state.gridSettings.alignToNeighbours) {
+    return { x, y, alignedX: null, alignedY: null };
+  }
+
+  const scale = 2 ** (useCursorStore.getState().zoom ?? 0);
+  const planNodes = floorNodesOf(state.nodes, state.currentBuilding, state.currentFloor, state.displayFilters.showPortals);
+  return snapToNeighbours(planNodes, x, y, scale);
+}
+
+/**
+ * Ближайшая точка того же плана — к ней кисть цепляет новую.
+ *
+ * Ищется по плану, а не по всему датасету: иначе дверь цеплялась бы к точке
+ * этажом выше, и маршрут проходил бы сквозь перекрытие.
+ */
+function nearestNodeOnPlan(nodes: Map<string, MapNode>, node: MapNode): MapNode | null {
+  let best: MapNode | null = null;
+  let bestAway = Number.POSITIVE_INFINITY;
+
+  for (const other of nodes.values()) {
+    if (other.id === node.id || other.building !== node.building || other.floor !== node.floor) continue;
+    const away = distance(node, other);
+    if (away < bestAway) {
+      best = other;
+      bestAway = away;
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Раздаёт id новым точкам набора.
+ *
+ * Пока набор не положен в состояние, `nodes` о нём не знает, поэтому занятость
+ * проверяется и по уже выданным id: иначе две копии подряд получили бы один id
+ * и вторая затёрла бы первую.
+ */
+function idMinter(nodes: Map<string, MapNode>) {
+  const used = new Set<string>();
+  /** `source` — точка, с которой снята копия, или `null` у точки без прошлого. */
+  return (source: Pick<MapNode, 'id' | 'building' | 'floor'> | null, to: PlanRef): string => {
+    const toPrefix = planPrefix(to.building, to.floor);
+    const base =
+      source === null ? `${toPrefix}_node` : rebaseNodeId(source.id, planPrefix(source.building, source.floor), toPrefix);
+    const id = uniqueNodeId(base, (candidate) => nodes.has(candidate) || used.has(candidate));
+    used.add(id);
+    return id;
+  };
+}
+
 export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
   clipboard: null,
 
-  generateNodeId: () => {
+  generateNodeId: (kind = null) => {
     const st = get();
-    const building = st.currentBuilding ?? 'campus';
-    const floor = st.currentFloor ?? 0;
-    const counter = st.nodeIdCounter;
-    set((s) => {
-      s.nodeIdCounter = counter + 1;
-    });
-    return `${building.toLowerCase()}_${floor}_node_${counter}`;
+    return nodeIdForKind(kind, st.currentBuilding, st.currentFloor, (id) => st.nodes.has(id));
   },
 
   addNode: (x, y) => {
@@ -152,7 +244,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_NODE',
-      description: 'Удален узел',
+      description: 'Удалён узел',
       undoData: {
         node: nodeSnapshot,
         neighborsBefore,
@@ -229,7 +321,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     } else {
       history.push({
         type: 'BATCH',
-        description: `Перемещено ${after.length} узлов`,
+        description: `Перемещено: ${nodesCount(after.length)}`,
         undoData: { kind: 'moveMultiple', positions: before.map((p) => ({ ...p })) },
         redoData: { kind: 'moveMultiple', positions: after.map((p) => ({ ...p })) },
       });
@@ -262,6 +354,26 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
+  renameNode: (nodeId, nextId) => {
+    const st = get();
+    const to = nextId.trim();
+    if (!st.nodes.has(nodeId) || to === nodeId) return false;
+    if (nodeIdProblem(to, (id) => st.nodes.has(id), nodeId) !== null) return false;
+
+    useHistoryStore.getState().push({
+      type: 'RENAME_NODE',
+      description: `id точки: ${nodeId} → ${to}`,
+      undoData: { from: nodeId, to },
+      redoData: { from: nodeId, to },
+    });
+
+    set((s) => {
+      renameNodeEverywhere(s, nodeId, to);
+    });
+
+    return true;
+  },
+
   addEdge: (fromId, toId) => {
     if (fromId === toId) return;
     const st = get();
@@ -272,7 +384,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'ADD_EDGE',
-      description: 'Добавлено ребро',
+      description: 'Добавлена связь',
       // `neighborsBefore` уже содержит оба узла как ключи, поэтому
       // отдельный список id был бы избыточным дублем в каждой записи.
       undoData: { neighborsBefore: snapshotNeighbors(st.nodes, [fromId, toId]) },
@@ -293,7 +405,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_EDGE',
-      description: 'Удалено ребро',
+      description: 'Удалена связь',
       undoData: { neighborsBefore: snapshotNeighbors(st.nodes, [fromId, toId]) },
       redoData: { fromId, toId },
     });
@@ -326,7 +438,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'ADD_TRANSITION',
-      description: `Добавлен переход (${type})`,
+      description: `Добавлен переход: ${TRANSITION_LABELS[type].toLowerCase()}`,
       undoData: { transitions: before },
       redoData: { transitions: next },
     });
@@ -348,7 +460,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_TRANSITION',
-      description: 'Удален переход',
+      description: 'Удалён переход',
       undoData: { transitions: before },
       redoData: { transitions: next },
     });
@@ -380,6 +492,155 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
+  /**
+   * Ставит точку выбранного вида — всё, что вид обещает, за один щелчок.
+   *
+   * Что делает вид: даёт название по шаблону, цепляет точку к ближайшей на
+   * плане, отмечает точкой перехода, ставит вид места и, если вид «сразу на
+   * всех этажах», повторяет точку на каждом этаже корпуса и связывает
+   * соседние этажи переходами.
+   *
+   * Всё это — одна запись отмены: после Ctrl+Z на плане не остаётся половины
+   * работы (точки без связи или названия без точки).
+   *
+   * @returns id поставленной точки на открытом плане и название, которое
+   *          осталось дописать (шаблон с `{номер}`), либо `null`
+   */
+  placeKindNode: (x, y, options = {}) => {
+    const st = get();
+    const kind = visibleKinds(st.placeKinds).find((item) => item.id === st.activeKindId);
+    if (!kind) return st.addNode(x, y);
+
+    const building = st.currentBuilding;
+    const floor = st.currentFloor;
+    const aligned = alignToPlan(st, x, y, options.align !== false);
+    const snappedX = Math.round(st.snapToGrid(aligned.x));
+    const snappedY = Math.round(st.snapToGrid(aligned.y));
+
+    const transitionsBefore = st.transitions.map((transition) => ({ ...transition }));
+
+    // Этажи стопки: только у вида «сразу на всех этажах» и только в корпусе.
+    const floors =
+      kind.stack && building !== null && floor !== null
+        ? (st.buildingMetas.get(building)?.floors ?? []).map((meta) => meta.floor).sort((a, b) => a - b)
+        : [floor];
+
+    const nameTemplate = kindNameTemplate(kind, building === null ? undefined : st.buildingMetas.get(building)?.name, floor);
+    const wantsNumber = (kind.namePattern ?? '').includes('{номер}');
+    const created: MapNode[] = [];
+    const aliases: { id: string; names: string[] }[] = [];
+    const categories: { id: string; category: PlaceCategory }[] = [];
+    const newTransitions: Transition[] = [];
+
+    const links: { nodeId: string; nearestId: string }[] = [];
+
+    const usedIds = new Set<string>();
+    for (const planFloor of floors) {
+      const id = nodeIdForKind(kind, building, planFloor, (candidate) => st.nodes.has(candidate) || usedIds.has(candidate));
+      usedIds.add(id);
+      const node: MapNode = {
+        id,
+        x: snappedX,
+        y: snappedY,
+        building: planFloor === null ? CAMPUS_BUILDING_ID : (building ?? CAMPUS_BUILDING_ID),
+        floor: planFloor === null ? CAMPUS_FLOOR : planFloor,
+        neighbors: [],
+        isPortal: kind.isPortal === true,
+      };
+      created.push(node);
+
+      // Название ставится сразу, только если в шаблоне нечего дописывать:
+      // «Туалет» — готово, «А-3{номер}» ждёт номера от человека.
+      if (nameTemplate.length > 0 && !wantsNumber) {
+        aliases.push({ id, names: [nameTemplate] });
+        if (kind.category) categories.push({ id, category: kind.category });
+      }
+
+      // К чему цеплять, решается по тому, что на плане уже есть: новые точки
+      // стопки друг другу не соседи — они на разных этажах.
+      //
+      // У ведущего вида (коридор) следующая точка цепляется к предыдущей
+      // точке линии: иначе она прилипала бы к ближайшей двери и коридор
+      // получался бы зигзагом.
+      // Shift+щелчок связывает с последней поставленной точкой: так в
+      // большом кабинете ставят вторую точку внутри, связанную с дверью.
+      const chainFrom = options.linkToLast ? st.lastPlacedNodeId : kind.chain ? st.chainLastNodeId : null;
+      if (chainFrom !== null && st.nodes.has(chainFrom)) {
+        links.push({ nodeId: id, nearestId: chainFrom });
+      } else if (kind.connect) {
+        const nearest = nearestNodeOnPlan(st.nodes, node);
+        if (nearest) links.push({ nodeId: id, nearestId: nearest.id });
+      }
+    }
+
+    const neighborsBefore = snapshotNeighbors(
+      st.nodes,
+      links.map((link) => link.nearestId)
+    );
+
+    // Переходы между соседними этажами стопки — того типа, что у вида.
+    if (created.length > 1) {
+      const type = kind.transition ?? DEFAULT_TRANSITION_TYPE;
+      for (let i = 0; i + 1 < created.length; i += 1) {
+        newTransitions.push({ fromNode: created[i].id, toNode: created[i + 1].id, type });
+      }
+    }
+
+    set((s) => {
+      for (const node of created) s.nodes.set(node.id, { ...node, neighbors: [] });
+
+      // Связь с ближайшей точкой того же плана: дверь цепляется к коридору,
+      // лестница — к коридору своего этажа.
+      for (const { nodeId, nearestId } of links) {
+        const node = s.nodes.get(nodeId);
+        const nearest = s.nodes.get(nearestId);
+        if (!node || !nearest) continue;
+        node.neighbors.push(nearestId);
+        nearest.neighbors.push(nodeId);
+      }
+
+      s.transitions = [...s.transitions, ...newTransitions];
+      for (const alias of aliases) s.aliases.set(alias.id, [...alias.names]);
+      for (const { id, category } of categories) s.aliasCategories.set(id, category);
+      s.selectedNodeIds = new Set([created[0].id]);
+      // Линия продолжится от этой точки, пока вид ведущий.
+      s.chainLastNodeId = kind.chain ? created[0].id : null;
+      s.lastPlacedNodeId = created[0].id;
+    });
+
+    const after = get();
+    useHistoryStore.getState().push({
+      type: 'BATCH',
+      description:
+        created.length > 1
+          ? `${kind.name} на ${created.length} ${plural(created.length, ['этаже', 'этажах', 'этажах'])}`
+          : kind.name,
+      undoData: {
+        kind: 'placeKind',
+        nodeIds: created.map((node) => node.id),
+        neighborsBefore,
+        transitionsBefore,
+      },
+      redoData: {
+        kind: 'placeKind',
+        nodes: created.map((node) => ({ ...after.nodes.get(node.id)! })),
+        neighbors: snapshotNeighbors(after.nodes, [
+          ...created.map((node) => node.id),
+          ...links.map((link) => link.nearestId),
+        ]),
+        transitions: after.transitions.map((transition) => ({ ...transition })),
+        aliases,
+        categories,
+      },
+    });
+
+    // Шаблон с номером — человеку остаётся дописать номер: курсор в поле
+    // названия прямо в карточке, с уже подставленным началом.
+    if (wantsNumber) get().editNodeName(created[0].id, nameTemplate);
+
+    return created[0].id;
+  },
+
   setNodeAliases: (nodeId, names) => {
     const prev = get().aliases.get(nodeId) ?? [];
     const next = names.map((x) => x.trim()).filter((x) => x.length > 0);
@@ -396,6 +657,57 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       // Пустой список — отсутствие записи, как после отмены и повтора.
       if (next.length > 0) s.aliases.set(nodeId, next);
       else s.aliases.delete(nodeId);
+    });
+  },
+
+  /**
+   * Каталог видов точек.
+   *
+   * Виды — данные разметки: они уходят в `place-kinds.json` рядом с узлами и
+   * названиями, поэтому правка каталога отменяется, как любая другая правка.
+   * Пока каталог пуст, редактор показывает встроенные виды; первая же правка
+   * записывает их целиком — дальше видно, что именно лежит в данных.
+   */
+  setPlaceKinds: (kinds, description) => {
+    const before = get().placeKinds;
+    const after = kinds.map((kind) => ({ ...kind }));
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+
+    useHistoryStore.getState().push({
+      type: 'SET_PLACE_KINDS',
+      description,
+      undoData: { kinds: before.map((kind) => ({ ...kind })) },
+      redoData: { kinds: after.map((kind) => ({ ...kind })) },
+    });
+
+    set((s) => {
+      s.placeKinds = after;
+    });
+  },
+
+  /**
+   * Вид места — то, по чему навигатор показывает быстрые кнопки «ближайший
+   * туалет», «где поесть» и значок на карточке места.
+   *
+   * Хранится в записи названий (`aliases.json`), и ядро признаёт вид только у
+   * места с названием. Редактор до сих пор умел лишь сохранять то, что
+   * вписано в файл руками: размеченный в редакторе туалет быстрая кнопка
+   * навигатора не находила.
+   */
+  setNodeCategory: (nodeId, category) => {
+    const previous = get().aliasCategories.get(nodeId) ?? null;
+    if (previous === category) return;
+
+    useHistoryStore.getState().push({
+      type: 'SET_CATEGORY',
+      description: category === null ? 'Снят вид места' : `Вид места: ${PLACE_CATEGORY_LABELS[category].toLowerCase()}`,
+      undoData: { nodeId, category: previous },
+      redoData: { nodeId, category },
+    });
+
+    set((s) => {
+      if (category === null) s.aliasCategories.delete(nodeId);
+      else s.aliasCategories.set(nodeId, category);
     });
   },
 
@@ -453,8 +765,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     }
 
     const { building, floor } = fromNode;
-    const counter = st.nodeIdCounter;
-    const newId = `${building.toLowerCase()}_${floor}_node_${counter}`;
+    const newId = nodeIdForKind(null, building, floor, (id) => st.nodes.has(id));
 
     const newNode: MapNode = {
       id: newId,
@@ -468,7 +779,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: 'Разделено ребро',
+      description: 'Узел вставлен в связь',
       undoData: {
         kind: 'splitEdge',
         newNodeId: newId,
@@ -480,8 +791,6 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
 
     set((s) => {
-      s.nodeIdCounter = counter + 1;
-
       const from = s.nodes.get(fromId)!;
       const to = s.nodes.get(toId)!;
       from.neighbors = from.neighbors.filter((n) => n !== toId);
@@ -524,7 +833,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Удалено ${ids.length} узлов`,
+      description: `Удалено: ${nodesCount(ids.length)}`,
       undoData: {
         kind: 'deleteMultiple',
         nodes: deletedNodes,
@@ -549,7 +858,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
   },
 
   duplicateSelected: () => {
-    const { selectedNodeIds, nodes, currentBuilding, currentFloor } = get();
+    const { selectedNodeIds, nodes } = get();
     if (selectedNodeIds.size === 0) return;
 
     const ids = Array.from(selectedNodeIds);
@@ -558,15 +867,13 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const oldToNew = new Map<string, string>();
     const newNodes: MapNode[] = [];
 
-    let counter = get().nodeIdCounter;
-    const building = currentBuilding ?? 'campus';
-    const floor = currentFloor ?? 0;
+    const mint = idMinter(nodes);
 
     for (const id of ids) {
       const node = nodes.get(id);
       if (!node) continue;
 
-      const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
+      const newId = mint(node, node);
       oldToNew.set(id, newId);
 
       newNodes.push({
@@ -592,13 +899,12 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Дублировано ${newNodes.length} узлов`,
+      description: `Дублировано: ${nodesCount(newNodes.length)}`,
       undoData: { kind: 'line', nodeIds: newNodes.map((n) => n.id) },
       redoData: { kind: 'line', nodes: newNodes },
     });
 
     set((s) => {
-      s.nodeIdCounter = counter;
       for (const n of newNodes) {
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
@@ -646,7 +952,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     const entry = {
       type: 'BATCH',
-      description: `Перемещено ${after.length} узлов`,
+      description: `Перемещено: ${nodesCount(after.length)}`,
       undoData: continues && last.undoData.kind === 'moveMultiple' ? last.undoData : { kind: 'moveMultiple' as const, positions: before },
       redoData: { kind: 'moveMultiple' as const, positions: after },
     } as const;
@@ -701,7 +1007,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Соединено цепочкой ${nodeList.length} узлов`,
+      description: `Соединено цепочкой: ${nodesCount(nodeList.length)}`,
       undoData: { kind: 'chainConnect', neighborsBefore: snapshotNeighbors(nodes, ids) },
       redoData: { kind: 'chainConnect', nodeIds: nodeList.map((n) => n.id) },
     });
@@ -761,10 +1067,10 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const oldToNew = new Map<string, string>();
     const newNodes: MapNode[] = [];
 
-    let counter = get().nodeIdCounter;
+    const mint = idMinter(get().nodes);
 
     for (const node of clipboard.nodes) {
-      const newId = `${building.toLowerCase()}_${floor}_node_${counter++}`;
+      const newId = mint(node, { building, floor });
       oldToNew.set(node.id, newId);
 
       newNodes.push({
@@ -789,13 +1095,12 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Вставлено ${newNodes.length} узлов`,
+      description: `Вставлено: ${nodesCount(newNodes.length)}`,
       undoData: { kind: 'line', nodeIds: newNodes.map((n) => n.id) },
       redoData: { kind: 'line', nodes: newNodes },
     });
 
     set((s) => {
-      s.nodeIdCounter = counter;
       for (const n of newNodes) {
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }
@@ -814,8 +1119,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     const building = st.currentBuilding ?? CAMPUS_BUILDING_ID;
     const floor = st.currentFloor ?? CAMPUS_FLOOR;
-    const currentCounter = st.nodeIdCounter;
-    const buildingLower = building.toLowerCase();
+    const mint = idMinter(st.nodes);
 
     const created: MapNode[] = [];
     for (let i = 0; i < count; i++) {
@@ -828,7 +1132,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       }
 
       created.push({
-        id: `${buildingLower}_${floor}_node_${currentCounter + i}`,
+        id: mint(null, { building, floor }),
         x,
         y,
         building,
@@ -847,13 +1151,12 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Line tool: ${created.length} узлов`,
+      description: `Линия: ${nodesCount(created.length)}`,
       undoData: { kind: 'line', nodeIds: created.map((n) => n.id) },
       redoData: { kind: 'line', nodes: created },
     });
 
     set((s) => {
-      s.nodeIdCounter = currentCounter + count;
       for (const n of created) {
         s.nodes.set(n.id, { ...n, neighbors: [...n.neighbors] });
       }

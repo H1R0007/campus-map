@@ -1,62 +1,108 @@
-import React, { useMemo } from 'react';
-import { Tooltip, CircleMarker } from 'react-leaflet';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Tooltip, CircleMarker, useMap } from 'react-leaflet';
+import { distance } from '@campus-map/core';
+import type { MapNode } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { floorNodesOf } from '../../stores/editor/dataSlice';
+import { useQuiet } from '../../hooks/useQuiet';
 
+/**
+ * Сколько экранных пикселей должно быть между соседними узлами, чтобы их
+ * подписи не слипались в полосу.
+ */
+const MIN_LABEL_GAP = 48;
+
+/** Сколько ждать тишины в правках, прежде чем пересчитывать расстояния, мс. */
+const QUIET_MS = 400;
+
+/**
+ * Расстояние до ближайшего соседа, медиана — по узлам с названиями.
+ *
+ * По ней решается, читаемы ли подписи при нынешнем приближении: порог «по
+ * масштабу» не годится — у большого плана пиксель мельче, и один и тот же
+ * масштаб означает разную густоту узлов на экране. Считается по названным
+ * узлам: подписи есть только у них, а безымянные точки коридора стоят гораздо
+ * гуще и занижали бы расстояние.
+ */
+function medianSpacing(nodes: readonly MapNode[]): number {
+  if (nodes.length < 2) return Number.POSITIVE_INFINITY;
+
+  const nearest: number[] = [];
+  for (const node of nodes) {
+    let best = Number.POSITIVE_INFINITY;
+    for (const other of nodes) {
+      if (other === node) continue;
+      const away = distance(node, other);
+      if (away < best) best = away;
+    }
+    nearest.push(best);
+  }
+  nearest.sort((a, b) => a - b);
+  return nearest[Math.floor(nearest.length / 2)];
+}
+
+/**
+ * Постоянные подписи узлов («Показывать на карте» → «Названия узлов»).
+ *
+ * Показываются, только когда узлы на экране достаточно далеко друг от друга:
+ * на общем виде этажа подписи соседних узлов налезали друг на друга и
+ * сливались в серую полосу. Каждая подпись — свой запоминаемый слой: иначе
+ * перетаскивание одного узла двигало подписи всего этажа.
+ */
 export const AliasLabels: React.FC = () => {
-  const nodes = useEditorStore((s) => s.getNodesForCurrentFloor());
+  const map = useMap();
+  const allNodes = useEditorStore((s) => s.nodes);
+  const currentBuilding = useEditorStore((s) => s.currentBuilding);
+  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const aliases = useEditorStore((s) => s.aliases);
   const showAliasLabels = useEditorStore((s) => s.displayFilters.showAliasLabels);
 
-  const nodesWithAliases = useMemo(() => {
+  const [scale, setScale] = useState(() => 2 ** map.getZoom());
+
+  useEffect(() => {
+    const update = () => setScale(2 ** map.getZoom());
+    update();
+    map.on('zoomend', update);
+    return () => {
+      map.off('zoomend', update);
+    };
+  }, [map]);
+
+  const named = useMemo(() => {
     if (!showAliasLabels) return [];
+    return floorNodesOf(allNodes, currentBuilding, currentFloor, showPortals)
+      .map((node) => ({ node, alias: aliases.get(node.id)?.[0] }))
+      .filter((item): item is { node: MapNode; alias: string } => item.alias !== undefined);
+  }, [showAliasLabels, allNodes, currentBuilding, currentFloor, showPortals, aliases]);
 
-    return nodes
-      .map(node => {
-        const nodeAliases = aliases.get(node.id) || [];
-        if (nodeAliases.length === 0) return null;
-        return { node, alias: nodeAliases[0] };
-      })
-      .filter(Boolean) as { node: typeof nodes[0]; alias: string }[];
-  }, [nodes, aliases, showAliasLabels]);
+  // Расстояния считаются по узлам, которые перестали двигаться: обход O(n²)
+  // на каждом кадре перетаскивания стоил бы кадра. Пока «затихшего» списка
+  // ещё нет (подписи только что включили), считаем по нынешнему: иначе
+  // подписи на миг появлялись бы там, где им тесно, и тут же гасли.
+  const quietNamed = useQuiet(named, QUIET_MS);
+  const source = quietNamed.length === 0 ? named : quietNamed;
+  const spacing = useMemo(() => medianSpacing(source.map((item) => item.node)), [source]);
 
-  if (!showAliasLabels || nodesWithAliases.length === 0) {
-    return null;
-  }
+  const labelled = spacing * scale < MIN_LABEL_GAP ? [] : named;
 
   return (
     <>
-      {nodesWithAliases.map(({ node, alias }) => (
-        <CircleMarker
-          key={`label-${node.id}`}
-          center={[node.y, node.x]}
-          radius={0}
-          pathOptions={{ opacity: 0, fillOpacity: 0 }}
-        >
-          <Tooltip
-            permanent
-            direction="top"
-            offset={[0, -15]}
-            className="alias-label-tooltip"
-          >
-            <div
-              style={{
-                padding: '2px 6px',
-                backgroundColor: 'rgba(0, 0, 0, 0.75)',
-                borderRadius: '4px',
-                color: 'white',
-                fontSize: '10px',
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                maxWidth: '120px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {alias}
-            </div>
-          </Tooltip>
-        </CircleMarker>
+      {labelled.map(({ node, alias }) => (
+        <AliasLabel key={node.id} node={node} alias={alias} />
       ))}
     </>
   );
 };
+
+const AliasLabel = React.memo(function AliasLabel({ node, alias }: { node: MapNode; alias: string }) {
+  const center = useMemo((): [number, number] => [node.y, node.x], [node.y, node.x]);
+
+  return (
+    <CircleMarker center={center} radius={0} interactive={false} pathOptions={{ opacity: 0, fillOpacity: 0 }}>
+      <Tooltip permanent direction="top" offset={[0, -15]} className="alias-label-tooltip">
+        <div className="alias-label">{alias}</div>
+      </Tooltip>
+    </CircleMarker>
+  );
+});

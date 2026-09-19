@@ -30,6 +30,7 @@ export {
 
   CAMPUS_META_PATH,
   DATA_ROOT,
+  PLACE_KINDS_PATH,
   TRANSITIONS_PATH,
   buildingMetaPath,
   campusMapPath,

@@ -1,13 +1,22 @@
 import {
   ALIASES_PATH,
   CAMPUS_BUILDING_ID,
+  PLACE_KINDS_PATH,
   CAMPUS_GRAPH_PATH,
   CAMPUS_META_PATH,
   TRANSITIONS_PATH,
   buildingMetaPath,
   floorGraphPath,
 } from '@campus-map/core';
-import type { AliasEntry, BuildingMeta, CampusMeta, Dataset, FloorMeta, MapNode } from '@campus-map/core';
+import type {
+  AliasEntry,
+  BuildingMeta,
+  CampusMeta,
+  Dataset,
+  FloorMeta,
+  MapNode,
+  PlaceKind,
+} from '@campus-map/core';
 
 /**
  * Файлы датасета из состояния редактора.
@@ -185,6 +194,32 @@ export function datasetFiles(dataset: Dataset): Map<string, string> {
         ),
     })
   );
+
+  // Каталог видов точек пишется, только когда разметчик его завёл: у
+  // нетронутого датасета файла нет, и сохранение не должно его создавать.
+  if (dataset.placeKinds.length > 0) {
+    files.set(
+      PLACE_KINDS_PATH,
+      toJson({
+        kinds: dataset.placeKinds.map(
+          (kind) =>
+            ({
+              id: kind.id,
+              name: kind.name,
+              icon: kind.icon,
+              color: kind.color,
+              namePattern: kind.namePattern,
+              isPortal: kind.isPortal,
+              transition: kind.transition,
+              stack: kind.stack,
+              connect: kind.connect,
+              chain: kind.chain,
+              category: kind.category,
+            }) satisfies EveryField<PlaceKind>
+        ),
+      })
+    );
+  }
 
   return files;
 }

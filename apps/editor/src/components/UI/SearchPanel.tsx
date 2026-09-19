@@ -1,154 +1,166 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { searchNodeHits } from '../../utils/nodeSearch';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { nodePlaceLabel, nodeTitle } from '../../utils/labels';
 import { Icon } from './Icon';
 
+/**
+ * Поиск узла (Ctrl+F): по названию с опечатками, по id и по координатам.
+ *
+ * Выбранный результат открывает план узла, выделяет его и показывает в
+ * центре карты.
+ */
 export const SearchPanel: React.FC = () => {
   const searchOpen = useEditorStore((s) => s.searchOpen);
   const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
-  const searchNodes = useEditorStore((s) => s.searchNodes);
+  const nodes = useEditorStore((s) => s.nodes);
+  const aliases = useEditorStore((s) => s.aliases);
+  const aliasTranslations = useEditorStore((s) => s.aliasTranslations);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const searchHistory = useEditorStore((s) => s.searchHistory);
   const addToSearchHistory = useEditorStore((s) => s.addToSearchHistory);
   const clearSearchHistory = useEditorStore((s) => s.clearSearchHistory);
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
-  const getNodeAliases = useEditorStore((s) => s.getNodeAliases);
+  const setInspectorTab = useEditorStore((s) => s.setInspectorTab);
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ReturnType<typeof searchNodes>>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (searchOpen && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [searchOpen]);
+  const hits = useMemo(
+    () => (searchOpen ? searchNodeHits(query, nodes, aliases, aliasTranslations) : []),
+    [searchOpen, query, nodes, aliases, aliasTranslations]
+  );
 
-  useEffect(() => {
-    if (query.trim()) {
-      setResults(searchNodes(query));
-      setSelectedIndex(0);
-    } else {
-      setResults([]);
-    }
-  }, [query, searchNodes]);
+  useEffect(() => setActive(0), [query]);
 
-  const handleSelect = useCallback((nodeId: string) => {
-    addToSearchHistory(query);
-    centerOnNode(nodeId);
+  const close = useCallback(() => {
     setSearchOpen(false);
     setQuery('');
-  }, [query, addToSearchHistory, centerOnNode, setSearchOpen]);
+  }, [setSearchOpen]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex(i => Math.min(i + 1, results.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && results[selectedIndex]) {
-      handleSelect(results[selectedIndex].id);
-    } else if (e.key === 'Escape') {
+  useDialogFocus(searchOpen, dialogRef, close, inputRef);
+
+  const choose = useCallback(
+    (nodeId: string) => {
+      addToSearchHistory(query);
+      centerOnNode(nodeId);
+      // Найденное показывается карточкой, даже если справа была проверка.
+      setInspectorTab('properties', false);
       setSearchOpen(false);
       setQuery('');
+    },
+    [query, addToSearchHistory, centerOnNode, setInspectorTab, setSearchOpen]
+  );
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActive((i) => Math.min(i + 1, hits.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && hits[active]) {
+      e.preventDefault();
+      choose(hits[active].node.id);
     }
-  }, [results, selectedIndex, handleSelect, setSearchOpen]);
+  };
 
   if (!searchOpen) return null;
 
+  const showHistory = query.trim() === '' && searchHistory.length > 0;
+
   return (
-    <div
-      className="fixed inset-0 z-[2500] flex items-start justify-center pt-20"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={() => { setSearchOpen(false); setQuery(''); }}
-    >
+    <div className="editor-dialog-backdrop editor-dialog-backdrop--top" onClick={close}>
       <div
-        className="w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden"
-        style={{ backgroundColor: 'var(--editor-panel)', border: '1px solid var(--editor-border)' }}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Поиск узла"
+        className="editor-search"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search Input */}
-        <div className="p-4" style={{ borderBottom: '1px solid var(--editor-border)' }}>
-          <div className="flex items-center gap-3">
-            <Icon name="search" size={20} className="flex-shrink-0 opacity-70" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="ID, алиас или координаты (100, 200)..."
-              className="flex-1 bg-transparent text-white text-lg outline-none"
-              style={{ caretColor: 'var(--editor-highlight)' }}
-            />
-            <kbd className="px-2 py-1 rounded text-xs" style={{ backgroundColor: 'var(--editor-bg)', color: 'var(--editor-text-muted)' }}>
-              ESC
-            </kbd>
-          </div>
-          <div className="text-xs mt-2" style={{ color: 'var(--editor-text-muted)' }}>
-            Подсказка: для поиска по координатам введите "100, 200" или "100 200"
-          </div>
+        <div className="editor-search__field">
+          <Icon name="search" size={20} />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
+            role="combobox"
+            aria-expanded={hits.length > 0}
+            aria-controls="editor-search-results"
+            aria-activedescendant={hits[active] ? `editor-search-${hits[active].node.id}` : undefined}
+            aria-autocomplete="list"
+            aria-label="Название, id или координаты"
+            placeholder="Название, id или координаты «100, 200»"
+            className="editor-search__input"
+          />
+          <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть поиск">
+            <Icon name="close" />
+          </button>
         </div>
 
-        {/* Results */}
-        <div className="max-h-80 overflow-y-auto">
-          {query.trim() === '' && searchHistory.length > 0 && (
-            <div className="p-2">
-              <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>История поиска</span>
-                <button onClick={clearSearchHistory} className="text-xs hover:underline" style={{ color: 'var(--editor-text-muted)' }}>
+        <div className="editor-search__body">
+          {showHistory && (
+            <div className="editor-search__history">
+              <div className="editor-search__history-head">
+                <span>Недавние запросы</span>
+                <button type="button" className="editor-button editor-button--ghost" onClick={clearSearchHistory}>
                   Очистить
                 </button>
               </div>
-              {searchHistory.map((h, i) => (
-                <button key={i} onClick={() => setQuery(h)} className="w-full px-3 py-2 text-left text-sm rounded-lg hover:bg-white/10" style={{ color: 'white' }}>
-                  <span className="inline-flex items-center gap-2"><Icon name="clock" size={14} className="opacity-70" />{h}</span>
+              {searchHistory.map((h) => (
+                <button key={h} type="button" className="editor-list__main" onClick={() => setQuery(h)}>
+                  <Icon name="clock" size={14} />
+                  <span className="editor-list__name">{h}</span>
                 </button>
               ))}
             </div>
           )}
 
-          {query.trim() !== '' && results.length === 0 && (
-            <div className="p-8 text-center" style={{ color: 'var(--editor-text-muted)' }}>
-              Ничего не найдено
-            </div>
+          {query.trim() !== '' && hits.length === 0 && (
+            <p className="editor-empty" role="status">
+              Ничего не найдено. Поиск прощает опечатки и другую раскладку; попробуйте часть названия или id.
+            </p>
           )}
 
-          {results.map((node, i) => {
-            const aliases = getNodeAliases(node.id);
-            const isSelected = i === selectedIndex;
-
-            return (
-              <button
-                key={node.id}
-                onClick={() => handleSelect(node.id)}
-                className="w-full px-4 py-3 text-left flex items-center gap-3 transition-colors"
-                style={{ backgroundColor: isSelected ? 'var(--editor-highlight)' : 'transparent' }}
-                onMouseEnter={() => setSelectedIndex(i)}
-              >
-                <Icon name={node.isPortal ? 'star' : 'pin'} size={18} filled={node.isPortal} className="flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-white font-medium truncate">
-                    {aliases[0] || node.id}
-                  </div>
-                  <div className="text-xs truncate" style={{ color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--editor-text-muted)' }}>
-                    {node.building} / Этаж {node.floor} • ({node.x}, {node.y})
-                  </div>
-                </div>
-                <div className="text-xs" style={{ color: 'var(--editor-text-muted)' }}>
-                  {node.neighbors.length} связей
-                </div>
-              </button>
-            );
-          })}
+          {hits.length > 0 && (
+            <ul id="editor-search-results" role="listbox" aria-label="Найденные узлы" className="editor-list">
+              {hits.map((hit, i) => {
+                const title = nodeTitle(hit.node.id, aliases);
+                return (
+                  <li
+                    key={hit.node.id}
+                    id={`editor-search-${hit.node.id}`}
+                    role="option"
+                    aria-selected={i === active}
+                    className={`editor-search__option${i === active ? ' editor-search__option--active' : ''}`}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => choose(hit.node.id)}
+                  >
+                    <span className="editor-list__text">
+                      <span className="editor-list__name">{title}</span>
+                      <span className="editor-list__sub">
+                        {nodePlaceLabel(hit.node, buildingMetas)}
+                        {hit.matched && hit.matched !== title && ` · нашлось по «${hit.matched}»`}
+                        {title !== hit.node.id && ` · ${hit.node.id}`}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-4 py-2 flex items-center gap-4 text-xs" style={{ borderTop: '1px solid var(--editor-border)', color: 'var(--editor-text-muted)' }}>
-          <span>↑↓ навигация</span>
-          <span>Enter выбрать</span>
-          <span>Esc закрыть</span>
-          <span className="ml-auto">Найдено: {results.length}</span>
+        <div className="editor-search__footer">
+          <span>↑↓ — выбрать</span>
+          <span>Enter — показать на карте</span>
+          <span>Esc — закрыть</span>
+          {hits.length > 0 && <span className="ml-auto">Найдено: {hits.length}</span>}
         </div>
       </div>
     </div>

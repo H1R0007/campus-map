@@ -1,3 +1,4 @@
+import { readLayoutPrefs, writeLayoutPrefs } from '../../utils/layoutPrefs';
 import type { EditorSlice } from './types';
 
 /**
@@ -31,31 +32,65 @@ export interface EditorNotice {
   id: number;
 }
 
-export interface Bookmark {
-  nodeId: string;
-  name: string;
-  createdAt: number;
-}
+/**
+ * Вкладка инспектора — правой колонки редактора.
+ *
+ * - `properties` — выбранное на карте (без выбора — обзор плана);
+ * - `problems` — проверка данных;
+ * - `route` — проверка маршрута. Метка идёт по маршруту, только пока
+ *   открыта эта вкладка.
+ */
+export type InspectorTab = 'properties' | 'problems' | 'route';
 
 /**
- * Открытые панели, контекстное меню, история поиска и закладки.
+ * Раскладка экрана, открытые окна, контекстное меню и история поиска.
+ *
+ * Плавающих панелей поверх карты больше нет: всё, что раньше открывалось
+ * над планом, живёт в закреплённых колонках по бокам (запись 39).
  */
 export interface PanelSlice {
-  diagnosticsOpen: boolean;
+  inspectorTab: InspectorTab;
+  /** Левая колонка (структура и «Показывать») свёрнута в полоску. */
+  structureCollapsed: boolean;
+  /** Правая колонка (инспектор) свёрнута в полоску. */
+  inspectorCollapsed: boolean;
   searchOpen: boolean;
-  statisticsOpen: boolean;
-  filtersOpen: boolean;
-  routeSimulatorOpen: boolean;
+  /** Открыта справка по мыши и клавишам. */
+  helpOpen: boolean;
+  /** Открыто окно со всеми видами точек. */
+  kindsOpen: boolean;
+  /**
+   * Узел, которому просили сразу ввести название (двойной щелчок по узлу или
+   * точка, поставленная кистью). Карточка узла ставит курсор в поле названия
+   * и сбрасывает просьбу.
+   */
+  nameEditNodeId: string | null;
+  /**
+   * Начало названия, которое уже подставил вид точки («А-3»): человеку
+   * остаётся дописать номер.
+   */
+  nameEditDraft: string;
   contextMenu: ContextMenuState;
   notice: EditorNotice | null;
   searchHistory: string[];
-  bookmarks: Map<string, Bookmark>;
 
-  setDiagnosticsOpen: (open: boolean) => void;
+  /**
+   * Открыть вкладку инспектора. `expand` — развернуть свёрнутый инспектор:
+   * кнопка «Проверка» разворачивает, а щелчок по узлу на карте — нет, чтобы
+   * не отнимать место у карты, которое человек освободил сам.
+   */
+  setInspectorTab: (tab: InspectorTab, expand?: boolean) => void;
+  setStructureCollapsed: (collapsed: boolean) => void;
+  setInspectorCollapsed: (collapsed: boolean) => void;
   setSearchOpen: (open: boolean) => void;
-  setStatisticsOpen: (open: boolean) => void;
-  setFiltersOpen: (open: boolean) => void;
-  setRouteSimulatorOpen: (open: boolean) => void;
+  setHelpOpen: (open: boolean) => void;
+  setKindsOpen: (open: boolean) => void;
+  /**
+   * Выбрать узел, открыть его карточку и поставить курсор в название.
+   * `draft` — начало названия из шаблона вида точки.
+   */
+  editNodeName: (nodeId: string, draft?: string) => void;
+  clearNameEdit: () => void;
 
   openContextMenu: (x: number, y: number, target: ContextMenuTarget) => void;
   closeContextMenu: () => void;
@@ -66,19 +101,17 @@ export interface PanelSlice {
 
   addToSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
-
-  addBookmark: (nodeId: string, name?: string) => void;
-  removeBookmark: (id: string) => void;
-  renameBookmark: (id: string, name: string) => void;
-  goToBookmark: (id: string) => void;
 }
 
 export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
-  diagnosticsOpen: false,
+  inspectorTab: 'properties',
+  structureCollapsed: readLayoutPrefs().structureCollapsed,
+  inspectorCollapsed: readLayoutPrefs().inspectorCollapsed,
   searchOpen: false,
-  statisticsOpen: false,
-  filtersOpen: false,
-  routeSimulatorOpen: false,
+  helpOpen: false,
+  kindsOpen: false,
+  nameEditNodeId: null,
+  nameEditDraft: '',
 
   contextMenu: {
     open: false,
@@ -89,27 +122,56 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
 
   notice: null,
   searchHistory: [],
-  bookmarks: new Map(),
 
-  setDiagnosticsOpen: (open) =>
+  setInspectorTab: (tab, expand = true) => {
+    if (expand && get().inspectorCollapsed) get().setInspectorCollapsed(false);
     set((s) => {
-      s.diagnosticsOpen = open;
-    }),
+      s.inspectorTab = tab;
+    });
+  },
+
+  setStructureCollapsed: (collapsed) => {
+    set((s) => {
+      s.structureCollapsed = collapsed;
+    });
+    writeLayoutPrefs({ structureCollapsed: collapsed, inspectorCollapsed: get().inspectorCollapsed });
+  },
+
+  setInspectorCollapsed: (collapsed) => {
+    set((s) => {
+      s.inspectorCollapsed = collapsed;
+    });
+    writeLayoutPrefs({ structureCollapsed: get().structureCollapsed, inspectorCollapsed: collapsed });
+  },
+
   setSearchOpen: (open) =>
     set((s) => {
       s.searchOpen = open;
     }),
-  setStatisticsOpen: (open) =>
+
+  setHelpOpen: (open) =>
     set((s) => {
-      s.statisticsOpen = open;
+      s.helpOpen = open;
     }),
-  setFiltersOpen: (open) =>
+
+  setKindsOpen: (open) =>
     set((s) => {
-      s.filtersOpen = open;
+      s.kindsOpen = open;
     }),
-  setRouteSimulatorOpen: (open) =>
+
+  editNodeName: (nodeId, draft = '') => {
+    get().selectSingleNode(nodeId);
+    get().setInspectorTab('properties');
     set((s) => {
-      s.routeSimulatorOpen = open;
+      s.nameEditNodeId = nodeId;
+      s.nameEditDraft = draft;
+    });
+  },
+
+  clearNameEdit: () =>
+    set((s) => {
+      s.nameEditNodeId = null;
+      s.nameEditDraft = '';
     }),
 
   openContextMenu: (x, y, target) =>
@@ -143,37 +205,4 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     set((s) => {
       s.searchHistory = [];
     }),
-
-  addBookmark: (nodeId, name) => {
-    const node = get().nodes.get(nodeId);
-    if (!node) return;
-
-    const aliases = get().aliases.get(nodeId) || [];
-    const defaultName = aliases[0] || nodeId;
-    const bookmarkId = `bm_${Date.now()}`;
-
-    set((s) => {
-      s.bookmarks.set(bookmarkId, {
-        nodeId,
-        name: name || defaultName,
-        createdAt: Date.now(),
-      });
-    });
-  },
-
-  removeBookmark: (id) =>
-    set((s) => {
-      s.bookmarks.delete(id);
-    }),
-
-  renameBookmark: (id, name) =>
-    set((s) => {
-      const bm = s.bookmarks.get(id);
-      if (bm) bm.name = name;
-    }),
-
-  goToBookmark: (id) => {
-    const bm = get().bookmarks.get(id);
-    if (bm) get().centerOnNode(bm.nodeId);
-  },
 });

@@ -7,11 +7,13 @@ import type {
   Dataset,
   MapNode,
   PlaceCategory,
+  PlaceKind,
   Transition,
 } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import { buildGraphFromState } from './graphState';
 import { initialRouteSimulation } from './routeSlice';
+import { searchNodeHits } from '../../utils/nodeSearch';
 import type { EditorSlice } from './types';
 
 /**
@@ -42,6 +44,13 @@ export interface DataSlice {
   aliasCategories: ReadonlyMap<string, PlaceCategory>;
 
   /**
+   * Каталог видов точек из `place-kinds.json`. Пустой список означает, что
+   * разметчик каталог не трогал: редактор показывает встроенные виды и файла
+   * не создаёт.
+   */
+  placeKinds: PlaceKind[];
+
+  /**
    * Метаданные кампуса, из которых был загружен датасет.
    *
    * Редактор их не меняет, но обязан сохранить при экспорте: без них
@@ -59,7 +68,6 @@ export interface DataSlice {
   loadWarnings: string[];
 
   isLoading: boolean;
-  nodeIdCounter: number;
 
   /**
    * Принимает датасет.
@@ -115,10 +123,10 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   aliases: new Map(),
   aliasTranslations: new Map(),
   aliasCategories: new Map(),
+  placeKinds: [],
   campusMeta: null,
   loadWarnings: [],
   isLoading: true,
-  nodeIdCounter: 1,
 
   /**
    * Принимает нормализованный датасет из ядра.
@@ -131,16 +139,10 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   loadData: (dataset, warnings = [], options = {}) =>
     set((state) => {
       state.nodes = new Map();
-      state.bookmarks = new Map();
-      let maxCounter = 0;
-
       for (const node of dataset.nodes) {
         state.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
-        const match = node.id.match(/_node_(\d+)$/);
-        if (match) maxCounter = Math.max(maxCounter, Number.parseInt(match[1], 10));
       }
 
-      state.nodeIdCounter = maxCounter + 1;
       state.transitions = [...dataset.transitions];
       state.buildingMetas = new Map();
       for (const meta of dataset.buildingMetas) state.buildingMetas.set(meta.id, meta);
@@ -149,6 +151,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.aliasTranslations = new Map(
         dataset.aliases.flatMap((alias) => (alias.translations ? [[alias.id, alias.translations] as const] : []))
       );
+      state.placeKinds = dataset.placeKinds.map((kind) => ({ ...kind }));
       state.aliasCategories = new Map(
         dataset.aliases.flatMap((alias) => (alias.category ? [[alias.id, alias.category] as const] : []))
       );
@@ -249,45 +252,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   isGraphConnected: () => findConnectedComponents(buildGraphFromState(get())),
 
   searchNodes: (query) => {
-    const { nodes, aliases } = get();
-    const q = query.toLowerCase().trim();
-    if (!q) return [];
-
-    const results: MapNode[] = [];
-
-    for (const [id, node] of nodes) {
-      if (id.toLowerCase().includes(q)) {
-        results.push(node);
-        continue;
-      }
-
-      const nodeAliases = aliases.get(id) || [];
-      if (nodeAliases.some((a) => a.toLowerCase().includes(q))) {
-        results.push(node);
-        continue;
-      }
-
-      const cleanQ = q.replace(/[()]/g, '').trim();
-      const coordMatch = cleanQ.match(/^(\d+)\s*[,\s]\s*(\d+)$/);
-      if (coordMatch) {
-        const searchX = parseInt(coordMatch[1], 10);
-        const searchY = parseInt(coordMatch[2], 10);
-        const tolerance = 30;
-        if (Math.abs(node.x - searchX) < tolerance && Math.abs(node.y - searchY) < tolerance) {
-          results.push(node);
-          continue;
-        }
-      }
-    }
-
-    results.sort((a, b) => {
-      const aExact = a.id.toLowerCase() === q;
-      const bExact = b.id.toLowerCase() === q;
-      if (aExact && !bExact) return -1;
-      if (!aExact && bExact) return 1;
-      return 0;
-    });
-
-    return results.slice(0, 50);
+    const { nodes, aliases, aliasTranslations } = get();
+    return searchNodeHits(query, nodes, aliases, aliasTranslations).map((hit) => hit.node);
   },
 });

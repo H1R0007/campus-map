@@ -64,6 +64,7 @@ export function fixtureDataset(): Dataset {
       { fromNode: 'campus_entrance_a', toNode: 'a1_entrance', type: 'entrance' },
       { fromNode: 'a1_stairs', toNode: 'a2_stairs', type: 'stairs' },
     ],
+    placeKinds: [],
     aliases: [
       { id: 'campus_gate', names: ['Главный вход'], category: 'exit' },
       { id: 'a1_room101', names: ['А-101', '101'], translations: { en: { names: ['A-101'] } } },
@@ -99,8 +100,10 @@ export function openFloor(floor: number | null): void {
 export const store = () => useEditorStore.getState();
 
 /**
- * Данные, которые правит редактор, в сравнимом виде: узлы, переходы, алиасы.
- * Порядок соседей сохраняется — от него зависит содержимое `graph.json`.
+ * Данные, которые правит редактор, в сравнимом виде: узлы, переходы, названия
+ * с их видами мест и переводами. Порядок соседей сохраняется — от него
+ * зависит содержимое `graph.json`. Поле, которого здесь нет, круг «сделать →
+ * отменить → повторить» не проверяет, поэтому список идёт следом за данными.
  */
 export function dataSnapshot() {
   const s = store();
@@ -111,6 +114,11 @@ export function dataSnapshot() {
     transitions: s.transitions.map((t) => ({ ...t })),
     aliases: [...s.aliases.entries()]
       .map(([id, names]) => [id, [...names]] as const)
+      .sort(([a], [b]) => a.localeCompare(b)),
+    categories: [...s.aliasCategories.entries()].sort(([a], [b]) => a.localeCompare(b)),
+    placeKinds: s.placeKinds.map((kind) => ({ ...kind })),
+    translations: [...s.aliasTranslations.entries()]
+      .map(([id, value]) => [id, JSON.stringify(value)] as const)
       .sort(([a], [b]) => a.localeCompare(b)),
   };
 }

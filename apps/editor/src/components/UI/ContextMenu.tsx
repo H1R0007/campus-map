@@ -53,7 +53,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         entries: [
           {
             kind: 'action',
-            label: 'Соединить ребром с другим узлом',
+            label: 'Соединить связью с другим узлом',
             icon: 'link',
             run: () => {
               st.setActiveTool('edge');
@@ -135,7 +135,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
       const { from, to } = target;
       if (!st.nodes.get(from)?.neighbors.includes(to) && !st.nodes.get(to)?.neighbors.includes(from)) return null;
       return {
-        title: 'Ребро',
+        title: 'Связь',
         subtitle: `${nodeTitle(from, st.aliases)} — ${nodeTitle(to, st.aliases)}`,
         entries: [
           { kind: 'action', label: 'Вставить узел посередине', icon: 'plus', run: () => st.splitEdge(from, to) },
@@ -146,7 +146,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
             run: () => useEditorStore.setState({ selectedNodeIds: new Set([from, to]) }),
           },
           separator,
-          { kind: 'action', label: 'Удалить ребро', icon: 'trash', danger: true, run: () => st.removeEdge(from, to) },
+          { kind: 'action', label: 'Удалить связь', icon: 'trash', danger: true, run: () => st.removeEdge(from, to) },
         ],
       };
     }

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MapNode, Transition } from '@campus-map/core';
+import type { MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
 
 /**
  * Контракт истории действий редактора и сам стек отмены.
@@ -64,6 +64,13 @@ export type BatchUndoPayload =
       fromId: string;
       toId: string;
       neighborsBefore: NeighborSnapshot;
+    }
+  | {
+      /** Точка (или стопка точек), поставленная кистью вида. */
+      kind: 'placeKind';
+      nodeIds: string[];
+      neighborsBefore: NeighborSnapshot;
+      transitionsBefore: Transition[];
     };
 
 /** Нагрузки повтора для составных действий. */
@@ -79,7 +86,16 @@ export type BatchRedoPayload =
       fixedTransitions: Transition[];
       fixedCoordinates: Record<string, { x: number; y: number }>;
     }
-  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string };
+  | { kind: 'splitEdge'; newNode: MapNode; fromId: string; toId: string }
+  | {
+      kind: 'placeKind';
+      nodes: MapNode[];
+      neighbors: NeighborSnapshot;
+      transitions: Transition[];
+      /** Названия и виды мест, которые подставил вид точки. */
+      aliases: AliasSnapshot[];
+      categories: { id: string; category: PlaceCategory }[];
+    };
 
 /** Тип действия, по которому ветвится применение отмены и повтора. */
 export type ActionType =
@@ -93,6 +109,9 @@ export type ActionType =
   | 'REMOVE_TRANSITION'
   | 'UPDATE_TRANSITION'
   | 'SET_ALIASES'
+  | 'SET_CATEGORY'
+  | 'SET_PLACE_KINDS'
+  | 'RENAME_NODE'
   | 'BATCH';
 
 /**
@@ -176,6 +195,29 @@ export type HistoryEntry =
       timestamp: number;
       undoData: { nodeId: string; names: string[] };
       redoData: { nodeId: string; names: string[] };
+    }
+  | {
+      type: 'SET_CATEGORY';
+      description: string;
+      timestamp: number;
+      undoData: { nodeId: string; category: PlaceCategory | null };
+      redoData: { nodeId: string; category: PlaceCategory | null };
+    }
+  | {
+      /** Новый id точки: ссылки на неё чинятся по всему датасету. */
+      type: 'RENAME_NODE';
+      description: string;
+      timestamp: number;
+      undoData: { from: string; to: string };
+      redoData: { from: string; to: string };
+    }
+  | {
+      /** Каталог видов точек целиком: список короткий, а правки редкие. */
+      type: 'SET_PLACE_KINDS';
+      description: string;
+      timestamp: number;
+      undoData: { kinds: PlaceKind[] };
+      redoData: { kinds: PlaceKind[] };
     }
   | {
       type: 'BATCH';

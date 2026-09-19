@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { Icon } from './Icon';
 
 /** Когда черновик записан, словами: «сегодня в 14:32», «17 сентября в 9:05». */
@@ -30,21 +31,11 @@ export const DraftPrompt: React.FC = () => {
   const dismissDraft = useEditorStore((s) => s.dismissDraft);
   const keepDraft = useEditorStore((s) => s.keepDraft);
   const restoreRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!draft) return;
-    restoreRef.current?.focus();
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        keepDraft();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [draft, keepDraft]);
+  // Escape ничего не решает за человека: черновик остаётся, вопрос вернётся
+  // при следующем открытии.
+  useDialogFocus(draft !== null, dialogRef, keepDraft, restoreRef);
 
   if (!draft) return null;
 
@@ -53,7 +44,7 @@ export const DraftPrompt: React.FC = () => {
 
   return (
     <div className="editor-dialog-backdrop">
-      <div className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-prompt-title">
+      <div ref={dialogRef} className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-prompt-title">
         <h2 className="editor-dialog__title" id="draft-prompt-title">
           <Icon name="note" size={18} className="inline-block mr-2 align-middle" />
           Осталась несохранённая работа

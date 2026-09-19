@@ -1,7 +1,7 @@
 import type { TransitionType } from '@campus-map/core';
 import type { EditorSlice } from './types';
 
-export type EditorTool = 'select' | 'node' | 'edge' | 'transition' | 'delete' | 'line';
+export type EditorTool = 'select' | 'node' | 'edge' | 'transition' | 'line';
 
 export interface LinePoint {
   x: number;
@@ -21,12 +21,31 @@ export interface LineToolState {
  */
 export interface ToolSlice {
   activeTool: EditorTool;
+  /**
+   * Выбранный вид точки — «кисть» инструмента «Узел»: щелчки по карте ставят
+   * точки этого вида подряд. Хранится по id: каталог видов правится, и
+   * ссылка на исчезнувший вид просто перестаёт быть выбранной.
+   */
+  activeKindId: string;
+  /**
+   * Последняя точка начатой линии: следующая точка ведущего вида
+   * соединится с ней. `null` — линия не начата.
+   */
+  chainLastNodeId: string | null;
+  /**
+   * Последняя поставленная точка любого вида: с ней связывает Shift+щелчок.
+   * Так в большом кабинете ставят вторую точку внутри, связанную с дверью.
+   */
+  lastPlacedNodeId: string | null;
   transitionType: TransitionType;
   edgeStartNodeId: string | null;
   transitionStartNodeId: string | null;
   lineTool: LineToolState;
 
   setActiveTool: (tool: EditorTool) => void;
+  setActiveKind: (kindId: string) => void;
+  /** Закончить начатую линию: следующая точка начнёт новую. */
+  endChain: () => void;
   setTransitionType: (type: TransitionType) => void;
   setEdgeStartNode: (nodeId: string | null) => void;
   setTransitionStartNode: (nodeId: string | null) => void;
@@ -40,6 +59,9 @@ export interface ToolSlice {
 
 export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
   activeTool: 'select',
+  activeKindId: 'room',
+  chainLastNodeId: null,
+  lastPlacedNodeId: null,
   transitionType: 'entrance',
   edgeStartNodeId: null,
   transitionStartNodeId: null,
@@ -51,11 +73,25 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
     autoConnect: true,
   },
 
+  setActiveKind: (kindId) =>
+    set((s) => {
+      s.activeKindId = kindId;
+      // Смена вида заканчивает начатую линию: коридор не должен цепляться к
+      // двери, поставленной другой кистью.
+      s.chainLastNodeId = null;
+    }),
+
+  endChain: () =>
+    set((s) => {
+      s.chainLastNodeId = null;
+    }),
+
   setActiveTool: (tool) =>
     set((state) => {
       state.activeTool = tool;
       state.edgeStartNodeId = null;
       state.transitionStartNodeId = null;
+      state.chainLastNodeId = null;
       if (tool !== 'line') {
         state.lineTool.start = null;
         state.lineTool.end = null;

@@ -8,7 +8,7 @@ import { floorNodesOf } from '../../stores/editor/dataSlice';
 import type { NodePosition } from '../../stores/historyStore';
 import { suppressNextMapClick } from '../../utils/clickGuard';
 import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
-import { themeColor } from '../../utils/themeColor';
+import { mapPalette } from '../../utils/themeColor';
 
 /** С какого сдвига курсора, в пикселях экрана, нажатие становится перетаскиванием. */
 const DRAG_THRESHOLD = 4;
@@ -46,8 +46,8 @@ export const EditorNodes: React.FC = () => {
   const map = useMap();
   const dragRef = useRef<DragState | null>(null);
 
-  // Акцент темы значением: атрибуты SVG, которые ставит Leaflet, `var()` не понимают.
-  const highlightColor = useMemo(() => themeColor('--editor-highlight'), []);
+  // Цвета темы значением: атрибуты SVG, которые ставит Leaflet, `var()` не понимают.
+  const palette = mapPalette();
 
   const allNodes = useEditorStore((s) => s.nodes);
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
@@ -228,16 +228,12 @@ export const EditorNodes: React.FC = () => {
             `${TRANSITION_LABELS[type]}: «${nodeTitle(startId, st.aliases)}» — «${nodeTitle(nodeId, st.aliases)}»`
           );
         } else if (result === 'samePlan') {
-          st.showNotice('Оба узла на одном плане: между ними нужна связь (ребро), а не переход.', 'warn');
+          st.showNotice('Оба узла на одном плане: их соединяет связь, а не переход.', 'warn');
         } else if (result === 'exists') {
           st.showNotice('Переход между этими узлами уже есть.', 'warn');
         }
         return;
       }
-
-      case 'delete':
-        st.removeNode(nodeId);
-        return;
 
       default:
         st.selectSingleNode(nodeId);
@@ -261,7 +257,11 @@ export const EditorNodes: React.FC = () => {
       }
 
       // Симулятор маршрута ждёт точку — щелчок выбирает её.
-      if (st.routeSimulatorOpen && st.routePickMode && st.pickRouteNode(node.id)) return;
+      if (st.pickRouteNode(node.id)) return;
+
+      // Выбранное на карте показывает карточку, даже если в инспекторе была
+      // открыта проверка или маршрут.
+      if (st.inspectorTab !== 'properties') st.setInspectorTab('properties', false);
 
       if (dom.shiftKey || dom.ctrlKey || dom.metaKey) {
         st.toggleSelectNode(node.id, true);
@@ -327,90 +327,61 @@ export const EditorNodes: React.FC = () => {
         const isRouteTo = route.toNodeId === node.id;
         const isInRoute = routePath.has(node.id);
 
-        let fillColor = '#6366f1';
-        let strokeColor = '#4f46e5';
+        let fillColor = palette.node;
+        let strokeColor = palette.nodeStroke;
 
         if (node.isPortal) {
-          fillColor = '#f59e0b';
-          strokeColor = '#d97706';
+          fillColor = palette.portal;
+          strokeColor = palette.portalStroke;
         }
         if (isEdgeStart) {
-          fillColor = '#22c55e';
-          strokeColor = '#16a34a';
+          fillColor = palette.start;
+          strokeColor = palette.startStroke;
         }
         if (isTransitionStart) {
           // Узел, от которого строится переход: цвет выбранного типа, как у его
           // кнопки в панели инструментов, и обводка акцентом темы.
           fillColor = TRANSITION_COLORS[transitionType];
-          strokeColor = highlightColor;
+          strokeColor = palette.highlight;
         }
         if (isInRoute) {
-          fillColor = '#8b5cf6';
-          strokeColor = '#7c3aed';
+          fillColor = palette.route;
+          strokeColor = palette.routeStroke;
         }
         if (isRouteFrom) {
-          fillColor = '#22c55e';
-          strokeColor = '#16a34a';
+          fillColor = palette.start;
+          strokeColor = palette.startStroke;
         }
         if (isRouteTo) {
-          fillColor = '#ef4444';
-          strokeColor = '#dc2626';
+          fillColor = palette.finish;
+          strokeColor = palette.finishStroke;
         }
         if (isSelected) {
-          fillColor = highlightColor;
-          strokeColor = '#dc2626';
+          fillColor = palette.highlight;
+          strokeColor = palette.finishStroke;
         }
 
         let extraStroke: string | null = null;
-        if (errorIds.has(node.id)) extraStroke = '#ef4444';
-        else if (orphanIds.has(node.id)) extraStroke = '#f97316';
-        else if (noAliasIds.has(node.id)) extraStroke = '#eab308';
+        if (errorIds.has(node.id)) extraStroke = palette.problemError;
+        else if (orphanIds.has(node.id)) extraStroke = palette.problemOrphan;
+        else if (noAliasIds.has(node.id)) extraStroke = palette.problemNoName;
 
         const radius = isHovered || isSelected ? 10 : 8;
         const weight = isSelected || isHovered || isEdgeStart || isTransitionStart ? 3 : 2;
 
         return (
-          <React.Fragment key={node.id}>
-            {extraStroke && (
-              <CircleMarker
-                center={[node.y, node.x]}
-                radius={radius + 4}
-                interactive={false}
-                pathOptions={{
-                  color: extraStroke,
-                  fillColor: 'transparent',
-                  fillOpacity: 0,
-                  weight: 2,
-                  dashArray: '4 4',
-                }}
-              />
-            )}
-
-            <CircleMarker
-              center={[node.y, node.x]}
-              radius={radius}
-              bubblingMouseEvents={false}
-              pathOptions={{
-                fillColor,
-                color: strokeColor,
-                fillOpacity: 0.9,
-                weight,
-                className: 'editor-node',
-              }}
-              eventHandlers={{
-                // Метка для сценариев в браузере и отладки: какой узел под этим кружком.
-                add: (e) => (e.target as L.Path).getElement()?.setAttribute('data-node-id', node.id),
-                mousedown: (e) => onNodeMouseDown(node, e),
-                // Щелчок по узлу — узлу. Leaflet отдаёт событие слою, только если
-                // слой на него подписан, а иначе — карте, и та сняла бы выбор,
-                // только что поставленный нажатием.
-                click: (e) => L.DomEvent.stopPropagation(e),
-                mouseover: () => setHoveredNode(node.id),
-                mouseout: () => setHoveredNode(null),
-                contextmenu: (e) => onNodeContextMenu(node, e),
-              }}
-            />
-          </React.Fragment>
+          <NodeMarker
+            key={node.id}
+            node={node}
+            fill={fillColor}
+            stroke={strokeColor}
+            radius={radius}
+            weight={weight}
+            problemStroke={extraStroke}
+            onMouseDown={onNodeMouseDown}
+            onContextMenu={onNodeContextMenu}
+            onHover={setHoveredNode}
+          />
         );
       })}
 
@@ -433,3 +404,80 @@ export const EditorNodes: React.FC = () => {
     </>
   );
 };
+
+interface NodeMarkerProps {
+  node: MapNode;
+  fill: string;
+  stroke: string;
+  radius: number;
+  weight: number;
+  /** Пунктирная обводка подсветки проблем или `null`. */
+  problemStroke: string | null;
+  onMouseDown: (node: MapNode, e: L.LeafletMouseEvent) => void;
+  onContextMenu: (node: MapNode, e: L.LeafletMouseEvent) => void;
+  onHover: (nodeId: string | null) => void;
+}
+
+/**
+ * Один узел на карте.
+ *
+ * Вынесен и запоминается (`React.memo`): на этаже бывает больше двухсот узлов,
+ * а наведение мыши и перетаскивание меняют вид одного-двух. Раньше каждое
+ * движение мыши перебирало и обновляло все узлы этажа — наведение занимало
+ * около 33 мс, шаг перетаскивания около 48 мс, и работа шла рывками.
+ */
+const NodeMarker = React.memo(function NodeMarker({
+  node,
+  fill,
+  stroke,
+  radius,
+  weight,
+  problemStroke,
+  onMouseDown,
+  onContextMenu,
+  onHover,
+}: NodeMarkerProps) {
+  const center = useMemo((): [number, number] => [node.y, node.x], [node.y, node.x]);
+
+  const handlers = useMemo(
+    () => ({
+      // Метка для сценариев в браузере и отладки: какой узел под этим кружком.
+      add: (e: L.LeafletEvent) => {
+        const element = (e.target as L.Path).getElement();
+        element?.setAttribute('data-node-id', node.id);
+        element?.classList.add('editor-node');
+      },
+      mousedown: (e: L.LeafletMouseEvent) => onMouseDown(node, e),
+      // Щелчок по узлу — узлу. Leaflet отдаёт событие слою, только если слой на
+      // него подписан, а иначе — карте, и та сняла бы выбор, только что
+      // поставленный нажатием.
+      click: (e: L.LeafletMouseEvent) => L.DomEvent.stopPropagation(e),
+      // Двойной щелчок — сразу к названию узла в карточке.
+      dblclick: (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e);
+        if (useEditorStore.getState().activeTool === 'select') useEditorStore.getState().editNodeName(node.id);
+      },
+      mouseover: () => onHover(node.id),
+      mouseout: () => onHover(null),
+      contextmenu: (e: L.LeafletMouseEvent) => onContextMenu(node, e),
+    }),
+    [node, onMouseDown, onContextMenu, onHover]
+  );
+
+  const pathOptions = useMemo(
+    () => ({ fillColor: fill, color: stroke, fillOpacity: 0.9, weight }),
+    [fill, stroke, weight]
+  );
+
+  const problemOptions = useMemo(
+    () => ({ color: problemStroke ?? '', fillColor: 'transparent', fillOpacity: 0, weight: 2, dashArray: '4 4' }),
+    [problemStroke]
+  );
+
+  return (
+    <>
+      {problemStroke && <CircleMarker center={center} radius={radius + 4} interactive={false} pathOptions={problemOptions} />}
+      <CircleMarker center={center} radius={radius} bubblingMouseEvents={false} pathOptions={pathOptions} eventHandlers={handlers} />
+    </>
+  );
+});

@@ -24,6 +24,11 @@ export default {
     const e = editorHelpers(page, base);
     const graphPath = path.join(dataDir, 'buildings', 'building_a', 'floors', '1', 'graph.json');
     const graph = () => JSON.parse(readFileSync(graphPath, 'utf8'));
+    const aliasesPath = path.join(dataDir, 'aliases.json');
+    const aliasOf = (id) => {
+      const file = JSON.parse(readFileSync(aliasesPath, 'utf8'));
+      return (file.aliases ?? file).find((entry) => entry.id === id) ?? null;
+    };
 
     await step('до сохранения файл на диске не меняется', async () => {
       await e.open();
@@ -75,6 +80,15 @@ export default {
       assert.match(await page.eval(`document.querySelector('[role="dialog"]').textContent`), /несохранённая работа/i);
       await shot('editor-draft');
 
+      // Окно черновика — модальное: фокус внутри и Tab из него не уходит.
+      const insideDialog = () =>
+        page.eval(`document.querySelector('[role="dialog"]')?.contains(document.activeElement) ?? false`);
+      assert.ok(await insideDialog(), 'фокус не в окне черновика');
+      for (let i = 0; i < 3; i++) {
+        await e.key('Tab', { keyCode: 9 });
+        assert.ok(await insideDialog(), 'Tab увёл фокус из окна черновика');
+      }
+
       await e.press('Восстановить');
       await page.sleep(500);
       assert.match(await e.status(), /Изменено/, 'восстановленная работа должна считаться несохранённой');
@@ -84,6 +98,29 @@ export default {
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 8000);
       const x = graph().nodes.find((n) => n.id === 'a1_room101').x;
       assert.equal(x, 125, 'сдвинутый узел сохранён не на своём месте');
+    });
+
+    await step('вид места доходит до файла названий — иначе навигатор его не увидит', async () => {
+      // Быстрые кнопки навигатора («ближайший туалет») работают по виду места
+      // в aliases.json. Редактор до фазы 10 умел только сохранять то, что
+      // вписано в файл руками.
+      const room = await e.nodePoint('a1_room102');
+      await e.click(room.x, room.y);
+      assert.equal(aliasOf('a1_room102')?.category, undefined, 'у аудитории уже стоит вид места');
+
+      const chip = await e.panelPoint('[aria-label="Вид места"] button[aria-pressed="false"]');
+      await e.click(chip.x, chip.y);
+      await e.press('Сохранить');
+      await page.waitFor(`document.body.innerText.includes('Сохранено')`, 8000);
+      assert.ok(
+        ['toilet', 'food', 'cloakroom', 'exit'].includes(aliasOf('a1_room102')?.category),
+        `вид места не попал в файл: ${JSON.stringify(aliasOf('a1_room102'))}`
+      );
+
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.press('Сохранить');
+      await page.waitFor(`document.body.innerText.includes('Сохранено')`, 8000);
+      assert.equal(aliasOf('a1_room102')?.category, undefined, 'отмена не убрала вид места из файла');
     });
 
     await step('чужую правку на диске редактор не затирает молча', async () => {

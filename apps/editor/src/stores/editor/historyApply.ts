@@ -1,5 +1,5 @@
 import type { Draft } from 'immer';
-import type { Transition } from '@campus-map/core';
+import type { PlaceCategory, Transition } from '@campus-map/core';
 import type { HistoryEntry } from '../historyStore';
 import { applyNeighborsSnapshot } from './graphState';
 import type { EditorStore } from './types';
@@ -33,10 +33,16 @@ export function entryNodes(entry: HistoryEntry): string[] {
     case 'MOVE_NODE':
     case 'UPDATE_NODE':
     case 'SET_ALIASES':
+    case 'SET_CATEGORY':
       return [entry.undoData.nodeId];
     case 'ADD_EDGE':
     case 'REMOVE_EDGE':
       return [entry.redoData.fromId, entry.redoData.toId];
+    case 'SET_PLACE_KINDS':
+      // Каталог видов не привязан к узлам: показывать нечего.
+      return [];
+    case 'RENAME_NODE':
+      return [entry.redoData.to];
     case 'ADD_TRANSITION':
     case 'REMOVE_TRANSITION':
     case 'UPDATE_TRANSITION':
@@ -44,6 +50,7 @@ export function entryNodes(entry: HistoryEntry): string[] {
     case 'BATCH':
       switch (entry.undoData.kind) {
         case 'line':
+        case 'placeKind':
           return entry.undoData.nodeIds;
         case 'deleteMultiple':
           return entry.undoData.nodes.map((node) => node.id);
@@ -70,6 +77,65 @@ export function entryNodes(entry: HistoryEntry): string[] {
  */
 
 type State = Draft<EditorStore>;
+
+/**
+ * Меняет id точки во всех местах, где на него ссылаются.
+ *
+ * Ссылки на точку живут в четырёх местах: сама точка, соседи других точек,
+ * переходы и записи названий с видом места. Пропущенное место означало бы
+ * висячую ссылку — маршрут молча теряет ребро.
+ */
+export function renameNodeEverywhere(s: State, from: string, to: string): void {
+  const node = s.nodes.get(from);
+  if (!node || from === to || s.nodes.has(to)) return;
+
+  // Порядок точек сохраняется: от него зависит содержимое graph.json.
+  const entries = [...s.nodes.entries()].map(([id, item]) => [id === from ? to : id, item] as const);
+  s.nodes.clear();
+  for (const [id, item] of entries) {
+    item.id = id === to ? to : item.id;
+    item.neighbors = item.neighbors.map((neighbour) => (neighbour === from ? to : neighbour));
+    s.nodes.set(id, item);
+  }
+
+  s.transitions = s.transitions.map((transition) => ({
+    ...transition,
+    fromNode: transition.fromNode === from ? to : transition.fromNode,
+    toNode: transition.toNode === from ? to : transition.toNode,
+  }));
+
+  const names = s.aliases.get(from);
+  if (names) {
+    s.aliases.delete(from);
+    s.aliases.set(to, names);
+  }
+
+  const category = s.aliasCategories.get(from);
+  if (category) {
+    s.aliasCategories.delete(from);
+    s.aliasCategories.set(to, category);
+  }
+
+  const translations = s.aliasTranslations.get(from);
+  if (translations) {
+    s.aliasTranslations.delete(from);
+    s.aliasTranslations.set(to, translations);
+  }
+
+  if (s.selectedNodeIds.has(from)) {
+    s.selectedNodeIds.delete(from);
+    s.selectedNodeIds.add(to);
+  }
+  if (s.hoveredNodeId === from) s.hoveredNodeId = to;
+  if (s.chainLastNodeId === from) s.chainLastNodeId = to;
+  if (s.lastPlacedNodeId === from) s.lastPlacedNodeId = to;
+}
+
+/** Ставит или снимает вид места; пустой вид — отсутствие записи. */
+function applyCategory(s: State, nodeId: string, category: PlaceCategory | null): void {
+  if (category === null) s.aliasCategories.delete(nodeId);
+  else s.aliasCategories.set(nodeId, category);
+}
 
 export function applyUndo(s: State, entry: HistoryEntry): void {
   switch (entry.type) {
@@ -120,6 +186,18 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
       const { nodeId, names } = entry.undoData;
       if (names.length > 0) s.aliases.set(nodeId, [...names]);
       else s.aliases.delete(nodeId);
+      break;
+    }
+    case 'SET_CATEGORY': {
+      applyCategory(s, entry.undoData.nodeId, entry.undoData.category);
+      break;
+    }
+    case 'SET_PLACE_KINDS': {
+      s.placeKinds = entry.undoData.kinds.map((kind) => ({ ...kind }));
+      break;
+    }
+    case 'RENAME_NODE': {
+      renameNodeEverywhere(s, entry.undoData.to, entry.undoData.from);
       break;
     }
     case 'BATCH': {
@@ -178,6 +256,20 @@ export function applyUndo(s: State, entry: HistoryEntry): void {
               node.y = position.y;
             }
           }
+          break;
+        }
+        case 'placeKind': {
+          for (const [, node] of s.nodes) {
+            node.neighbors = node.neighbors.filter((id) => !u.nodeIds.includes(id));
+          }
+          for (const id of u.nodeIds) {
+            s.nodes.delete(id);
+            s.aliases.delete(id);
+            s.aliasCategories.delete(id);
+          }
+          applyNeighborsSnapshot(s.nodes, u.neighborsBefore);
+          s.transitions = [...u.transitionsBefore];
+          s.selectedNodeIds = new Set();
           break;
         }
         case 'splitEdge': {
@@ -250,6 +342,18 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
       s.transitions = [...entry.redoData.transitions];
       break;
     }
+    case 'SET_CATEGORY': {
+      applyCategory(s, entry.redoData.nodeId, entry.redoData.category);
+      break;
+    }
+    case 'SET_PLACE_KINDS': {
+      s.placeKinds = entry.redoData.kinds.map((kind) => ({ ...kind }));
+      break;
+    }
+    case 'RENAME_NODE': {
+      renameNodeEverywhere(s, entry.redoData.from, entry.redoData.to);
+      break;
+    }
     case 'SET_ALIASES': {
       const { nodeId, names } = entry.redoData;
       if (names.length > 0) s.aliases.set(nodeId, [...names]);
@@ -320,6 +424,16 @@ export function applyRedo(s: State, entry: HistoryEntry): void {
             }
           }
           s.transitions = [...r.fixedTransitions];
+          break;
+        }
+        case 'placeKind': {
+          for (const node of r.nodes) {
+            s.nodes.set(node.id, { ...node, neighbors: [...node.neighbors] });
+          }
+          applyNeighborsSnapshot(s.nodes, r.neighbors);
+          s.transitions = [...r.transitions];
+          for (const alias of r.aliases) s.aliases.set(alias.id, [...alias.names]);
+          for (const { id, category } of r.categories) s.aliasCategories.set(id, category);
           break;
         }
         case 'splitEdge': {

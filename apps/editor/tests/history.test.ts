@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../src/stores/editorStore';
 import { useHistoryStore } from '../src/stores/historyStore';
+import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
 import { dataSnapshot, loadFixture, openFloor, store } from './helpers/fixture';
 
 /**
@@ -42,6 +43,21 @@ const cases: Case[] = [
   { name: 'убрать все алиасы', act: () => store().setNodeAliases('a1_room101', []) },
   { name: 'алиасы узлу без алиасов', act: () => store().setNodeAliases('a1_hall', ['Холл']) },
   { name: 'изменить заметку', act: () => store().setNodeComment('a1_room101', 'дверь закрыта после 18:00') },
+  { name: 'переименовать id точки', act: () => store().renameNode('a1_room101', 'a1_toilet_east') },
+  { name: 'поставить вид места', act: () => store().setNodeCategory('a1_room101', 'toilet') },
+  {
+    name: 'завести свой вид точки',
+    act: () =>
+      store().setPlaceKinds(
+        [
+          ...BUILT_IN_PLACE_KINDS,
+          { id: 'medpoint', name: 'Медпункт', icon: 'note', namePattern: 'Медпункт', connect: true },
+        ],
+        'Добавлен вид точки: Медпункт'
+      ),
+  },
+  { name: 'сменить вид места', act: () => store().setNodeCategory('campus_gate', 'food') },
+  { name: 'снять вид места', act: () => store().setNodeCategory('campus_gate', null) },
   { name: 'стереть заметку', act: () => store().setNodeComment('a1_room101', '') },
   { name: 'разделить ребро', act: () => store().splitEdge('a1_hall', 'a1_stairs') },
   { name: 'сменить тип перехода', act: () => store().updateTransitionType('a2_stairs', 'a1_stairs', 'lift') },
@@ -216,6 +232,15 @@ describe('отмена показывает, где случилась прав�
     expect(store().notice?.text).toContain('Отменено');
   });
 
+  it('кнопка отмены называет действие словами', () => {
+    store().addTransition('a1_room101', 'a2_room201', 'lift');
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Добавлен переход: лифт');
+
+    select('a1_hall', 'a1_room101', 'a1_stairs');
+    store().moveSelectedBy(5, 0);
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Перемещено: 3 узла');
+  });
+
   it('правку на открытом плане план не переключает', () => {
     openFloor(1);
     store().updateNode('a1_hall', { isPortal: true });
@@ -238,5 +263,83 @@ describe('действия без изменений не попадают в и
   it('та же заметка', () => {
     store().setNodeComment('a1_room101', 'уточнить у коменданта ');
     expect(useHistoryStore.getState().entries).toHaveLength(0);
+  });
+});
+
+describe('переименование id', () => {
+  it('чинит ссылки: связи, название, перевод, вид места', () => {
+    store().setNodeCategory('a1_room101', 'toilet');
+
+    expect(store().renameNode('a1_room101', 'a1_room101a')).toBe(true);
+
+    expect(store().nodes.has('a1_room101')).toBe(false);
+    expect(store().nodes.get('a1_room101a')?.id).toBe('a1_room101a');
+    expect(store().nodes.get('a1_hall')?.neighbors).toContain('a1_room101a');
+    expect(store().nodes.get('a1_hall')?.neighbors).not.toContain('a1_room101');
+    expect(store().aliases.get('a1_room101a')).toEqual(['А-101', '101']);
+    expect(store().aliasCategories.get('a1_room101a')).toBe('toilet');
+    expect(store().aliasTranslations.get('a1_room101a')).toBeDefined();
+  });
+
+  it('переход переезжает на новый id', () => {
+    store().renameNode('a1_stairs', 'a1_stairs_main');
+
+    expect(store().transitions).toContainEqual({ fromNode: 'a1_stairs_main', toNode: 'a2_stairs', type: 'stairs' });
+    expect(store().transitions.some((t) => t.fromNode === 'a1_stairs' || t.toNode === 'a1_stairs')).toBe(false);
+  });
+
+  it('занятый id, чужие буквы и пустое отклоняются без записи в историю', () => {
+    expect(store().renameNode('a1_hall', 'a1_stairs')).toBe(false);
+    expect(store().renameNode('a1_hall', 'Холл 1')).toBe(false);
+    expect(store().renameNode('a1_hall', '   ')).toBe(false);
+
+    expect(store().nodes.has('a1_hall')).toBe(true);
+    expect(useHistoryStore.getState().entries).toHaveLength(0);
+  });
+
+  it('выделенная точка остаётся выделенной', () => {
+    select('a1_hall');
+    store().renameNode('a1_hall', 'a1_lobby');
+
+    expect([...store().selectedNodeIds]).toEqual(['a1_lobby']);
+  });
+});
+
+/**
+ * id новой точки — половина разметки: по нему точку находят в файлах данных.
+ * Автоматический `building_a_1_node_7` не говорил ничего, и в датасете
+ * однажды остался мусорный узел, который никто не опознал (запись 10).
+ */
+describe('id новых точек говорят, что это', () => {
+  it('точка кисти названа по виду места и плану', () => {
+    openFloor(1);
+    store().setPlaceKinds([...BUILT_IN_PLACE_KINDS], 'Виды точек');
+    store().setActiveKind('toilet');
+
+    expect(store().placeKindNode(50, 50)).toBe('a1_toilet');
+    expect(store().placeKindNode(80, 50)).toBe('a1_toilet_2');
+  });
+
+  it('точка без вида названа по плану', () => {
+    openFloor(1);
+    expect(store().addNode(10, 10)).toBe('a1_node');
+  });
+
+  it('копия на другом этаже сохраняет название оригинала', () => {
+    openFloor(1);
+    select('a1_room101');
+    store().copySelected();
+    openFloor(2);
+    store().paste();
+
+    expect(store().nodes.has('a2_room101')).toBe(true);
+  });
+
+  it('копия рядом с оригиналом получает номер', () => {
+    openFloor(1);
+    select('a1_room101');
+    store().duplicateSelected();
+
+    expect(store().nodes.has('a1_room101_2')).toBe(true);
   });
 });

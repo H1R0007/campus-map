@@ -3,7 +3,8 @@
  *
  * У каждого видимого текста цвет против фактического фона — с учётом
  * полупрозрачных подложек и прозрачности — не ниже 4,5:1, у крупного текста —
- * 3:1 (WCAG 1.4.3). Выражение выполняется в странице (`page.eval`) и
+ * 3:1 (WCAG 1.4.3). Выключенные элементы не меряются: их приглушённый вид —
+ * это и есть сообщение «сейчас нельзя». Выражение выполняется в странице (`page.eval`) и
  * возвращает список нарушений.
  */
 
@@ -46,6 +47,10 @@ export const LOW_CONTRAST = `(() => {
   for (const element of document.querySelectorAll('body *')) {
     const text = [...element.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(' ').trim();
     if (!text || element.closest('.leaflet-pane, script, style')) continue;
+    // Выключенные кнопки и поля WCAG не меряет (1.4.3, «неактивные элементы»):
+    // они нарочно приглушены, и требовать от них контраста — требовать, чтобы
+    // выключенное выглядело включённым.
+    if (element.closest('button:disabled, input:disabled, select:disabled, textarea:disabled, fieldset:disabled, [aria-disabled="true"]')) continue;
     const rect = element.getBoundingClientRect();
     if (rect.width <= 1 || rect.height <= 1) continue;
     if (rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) continue;

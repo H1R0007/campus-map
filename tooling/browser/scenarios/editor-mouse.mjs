@@ -42,7 +42,7 @@ export default {
       const still = await e.nodePoint('a1_room101');
       assert.ok(near(still.x, reference.x) && near(still.y, reference.y), 'сдвинулась карта');
       assert.equal(await e.propertiesNodeId(), 'a1_room103', 'перетащенный узел выбран');
-      assert.match(await e.status(), /1\/1/, 'одна запись истории на всё перетаскивание');
+      assert.match(await e.status(), /Правок: 1/, 'одна запись истории на всё перетаскивание');
       await shot('editor-drag');
 
       await e.key('z', { modifiers: MOD.ctrl });
@@ -53,9 +53,11 @@ export default {
     await step('перетаскивание пустого места двигает карту', async () => {
       const before = await e.nodePoint('a1_room101');
       const empty = await e.emptyMapPoint();
-      await e.drag(empty.x, empty.y, empty.x - 60, empty.y - 30);
+      // Вправо: левый край плана с коридором остаётся на виду, а не уходит
+      // под колонку инструментов.
+      await e.drag(empty.x, empty.y, empty.x + 60, empty.y - 30);
       const after = await e.nodePoint('a1_room101');
-      assert.ok(near(after.x, before.x - 60, 4) && near(after.y, before.y - 30, 4), `карта не сдвинулась: ${JSON.stringify({ before, after })}`);
+      assert.ok(near(after.x, before.x + 60, 4) && near(after.y, before.y - 30, 4), `карта не сдвинулась: ${JSON.stringify({ before, after })}`);
       assert.equal(await e.propertiesNodeId(), 'a1_room103', 'выбор не снят перетаскиванием карты');
     });
 
@@ -70,9 +72,37 @@ export default {
       assert.equal(await e.selectedCount(), 0);
     });
 
+    await step('перетаскивание перерисовывает только свой узел и его связи', async () => {
+      // Leaflet переписывает у пути атрибут «d», когда слой обновился. До
+      // разделения слоёв на запоминаемые части каждый кадр перетаскивания
+      // трогал все узлы и связи этажа: на большом этаже это роняло
+      // перетаскивание вдвое ниже плавного.
+      const paths = await page.eval(`document.querySelectorAll('.leaflet-overlay-pane path').length`);
+      assert.ok(paths > 20, `на плане слишком мало путей для замера: ${paths}`);
+      await page.eval(`(() => {
+        window.__touched = new Set();
+        window.__obs?.disconnect();
+        window.__obs = new MutationObserver((records) => {
+          for (const r of records) if (r.type === 'attributes') window.__touched.add(r.target);
+        });
+        window.__obs.observe(document.querySelector('.leaflet-overlay-pane'), {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['d', 'points'],
+        });
+      })()`);
+
+      const room = await e.nodePoint('a1_room101');
+      await e.drag(room.x, room.y, room.x + 30, room.y + 18);
+      const touched = await page.eval(`(() => { const n = window.__touched.size; window.__obs.disconnect(); return n; })()`);
+      assert.ok(touched > 0, 'перетаскивание ничего не перерисовало — замер не сработал');
+      assert.ok(touched <= 8, `перерисовано путей: ${touched} из ${paths} — двигали один узел`);
+      await e.key('z', { modifiers: MOD.ctrl });
+    });
+
     await step('меню ребра: одно меню, пункт срабатывает', async () => {
       const nodesBefore = (await e.nodeIds()).length;
-      const edge = await e.linePoint('path[data-edge="a1_corridor_1|a1_corridor_2"]');
+      const edge = await e.linePoint('path[data-edge="a1_corridor_10|a1_corridor_9"]');
       await e.click(edge.x, edge.y, { button: 'right' });
 
       const menus = await e.menus();
@@ -102,12 +132,13 @@ export default {
       const room = await e.nodePoint('a1_room103');
       await e.click(room.x, room.y, { button: 'right' });
       const focused = () => page.eval(`document.activeElement?.closest('[role="menu"]') ? document.activeElement.textContent.trim() : null`);
-      assert.equal(await focused(), 'Соединить ребром с другим узлом', 'фокус — на первом пункте меню');
+      assert.equal(await focused(), 'Соединить связью с другим узлом', 'фокус — на первом пункте меню');
       await e.key('ArrowDown');
       assert.equal(await focused(), 'Вход в корпус', 'стрелка перевела фокус на следующий пункт');
       await e.key('Delete');
       assert.ok((await e.nodeIds()).includes('a1_room103'), 'Delete под меню удалил узел');
-      const after = await e.nodePoint('a1_room103');
+      // Меню открыто и может лежать поверх узла: нужно только положение.
+      const after = await e.nodePoint('a1_room103', { allowCovered: true });
       assert.ok(near(after.x, room.x) && near(after.y, room.y), 'стрелка под меню сдвинула узел');
       await e.key('Escape', { keyCode: 27 });
       assert.equal((await e.menus()).length, 0);
