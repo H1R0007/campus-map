@@ -189,6 +189,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.lineTool.end = null;
       state.selectionBox = null;
       state.routeSimulation = initialRouteSimulation();
+      state.alignment = null;
 
       useHistoryStore.getState().clear();
       // −1 не совпадает ни с одним состоянием истории: восстановленный

@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { floorLabel } from '@campus-map/core';
-import type { BuildingMeta, FloorMeta } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
+import type { BuildingMeta, FloorMeta, PlanSource } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { parseFloorNumber } from '../../stores/editor/structureSlice';
 import { useHistoryStore } from '../../stores/historyStore';
 import { heldFile, planScopeKey } from '../../utils/planFiles';
+import { heldSource } from '../../utils/saveFiles';
+import { fetchSourceFile } from '../../utils/diskStore';
 import { plural } from '../../utils/labels';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from './Icon';
@@ -165,6 +167,8 @@ export const FloorSection: React.FC<{ building: BuildingMeta; floor: FloorMeta }
       <SessionBar sessionKey={sessionKey} what="этажа" />
       <div className="editor-card__actions">
         <PlanFileButton building={building.id} floor={floor.floor} />
+        <RedoPlanButton building={building.id} floor={floor.floor} source={floor.source} />
+        <AlignButton building={building.id} floor={floor.floor} />
         <button type="button" className="editor-button editor-button--danger" onClick={() => setDeleting(true)}>
           <Icon name="trash" />
           Удалить этаж…
@@ -249,8 +253,79 @@ export const CampusPlanSection: React.FC = () => {
       <PlanFacts scope={planScopeKey(null, null)} meta={campusMeta ?? undefined} />
       <div className="editor-card__actions">
         <PlanFileButton building={null} floor={null} />
+        <RedoPlanButton building={null} floor={null} source={campusMeta?.source} />
+        <AlignButton building={null} floor={null} />
       </div>
     </section>
+  );
+};
+
+/**
+ * «Переделать план…» — тот же лист присланного файла, с прежней рамкой и
+ * поворотом: поправить обрезку или поворот, а точки пересчитаются сами.
+ */
+const RedoPlanButton: React.FC<{ building: string | null; floor: number | null; source: PlanSource | undefined }> = ({
+  building,
+  floor,
+  source,
+}) => {
+  const openImport = useEditorStore((s) => s.openImport);
+  const showNotice = useEditorStore((s) => s.showNotice);
+  const [loading, setLoading] = useState(false);
+  if (!source) return null;
+
+  const redo = async () => {
+    setLoading(true);
+    try {
+      const blob = heldSource(source.file)?.blob ?? (await fetchSourceFile(source.file));
+      const name = (source.name ?? source.file).split(' › ').pop() ?? source.file;
+      if (!blob) {
+        showNotice(`Оригинала «${name}» на этой машине нет. Перетащите тот же файл на редактор — он узнает его`, 'warn');
+        return;
+      }
+      openImport([new File([blob], name)], {
+        ...(building === null ? { campus: true } : { building, floor: floor ?? undefined }),
+        redo: { file: source.file, page: source.page ?? 1, rotation: source.rotation ?? 0, crop: source.crop ?? null },
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="editor-button editor-button--ghost"
+      disabled={loading}
+      onClick={() => void redo()}
+      title="Открыть тот же лист присланного файла: поправить рамку или поворот, точки пересчитаются сами"
+    >
+      Переделать план…
+    </button>
+  );
+};
+
+/** «Совместить точки с планом» — когда точки плана не легли на новый план. */
+const AlignButton: React.FC<{ building: string | null; floor: number | null }> = ({ building, floor }) => {
+  const startAlignment = useEditorStore((s) => s.startAlignment);
+  const hasNodes = useEditorStore((s) => {
+    for (const node of s.nodes.values()) {
+      if (building === null ? node.building === CAMPUS_BUILDING_ID : node.building === building && node.floor === floor) return true;
+    }
+    return false;
+  });
+  const hasPlan = useEditorStore((s) => s.planFiles.has(planScopeKey(building, floor)));
+  if (!hasNodes || !hasPlan) return null;
+  return (
+    <button
+      type="button"
+      className="editor-button editor-button--ghost"
+      onClick={() => startAlignment([{ building, floor }])}
+      title="Точки не на своих местах после замены плана: назовите пары «эта точка — вот здесь», и все точки переедут разом"
+    >
+      <Icon name="move" />
+      Совместить точки с планом…
+    </button>
   );
 };
 

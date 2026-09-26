@@ -4,7 +4,7 @@ import { CAMPUS_BUILDING_ID, MAX_FLOOR_LABEL_LENGTH, floorLabel } from '@campus-
 import type { BuildingMeta, MapNode, MapSize, PlanFormat, PlanPlacement, PlanSource } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import type { StructureSide } from '../historyStore';
-import { applySimilarity } from '../../import/planGeometry';
+import { applySimilarity, planChange } from '../../import/planGeometry';
 import type { Similarity } from '../../import/planGeometry';
 import { plural } from '../../utils/labels';
 import { planScopeKey } from '../../utils/planFiles';
@@ -82,6 +82,22 @@ export interface ImportPlans {
   campus?: PlanInput;
 }
 
+/** План: этаж корпуса или территория (`building === null`). */
+export interface PlanRef {
+  building: string | null;
+  floor: number | null;
+}
+
+export interface ImportResult {
+  problem: string | null;
+  /**
+   * Планы, которым заменили план, а точки остались в прежних координатах:
+   * их нужно совместить с новым планом по парам точек. План, переделанный из
+   * того же исходника, сюда не попадает — его точки пересчитаны сами.
+   */
+  align: PlanRef[];
+}
+
 export interface StructureSlice {
   /** Добавляет корпус без этажей. @returns id корпуса или текст проблемы */
   addBuilding: (name: string) => { id: string } | { problem: string };
@@ -102,7 +118,9 @@ export interface StructureSlice {
    *
    * @returns текст проблемы или `null`
    */
-  importPlans: (request: ImportPlans) => string | null;
+  importPlans: (request: ImportPlans) => ImportResult;
+  /** Сдвигает все точки плана одним подобием — совмещение с новым планом, одна правка. */
+  moveNodesOfPlan: (plan: PlanRef, transform: Similarity, description: string) => void;
 }
 
 // ---------- проверки: общие для стора и форм ----------
@@ -443,11 +461,11 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       const newNames = new Map<string, string>();
       for (const item of request.floors) {
         if ('newName' in item.building) newNames.set(key(item.building.newName), item.building.newName.trim());
-        else if (!st.buildingMetas.has(item.building.id)) return 'Корпуса нет';
+        else if (!st.buildingMetas.has(item.building.id)) return { problem: 'Корпуса нет', align: [] };
       }
       for (const name of newNames.values()) {
         const problem = buildingNameProblem(name, st.buildingMetas);
-        if (problem) return problem;
+        if (problem) return { problem, align: [] };
       }
 
       const seen = new Set<string>();
@@ -455,18 +473,50 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
         const target = 'id' in item.building ? item.building.id : `new:${key(item.building.newName)}`;
         // Этаж, который уже есть, не помеха: ему заменяется план.
         const problem = floorNumberProblem(item.floor, undefined) ?? floorLabelProblem(item.label ?? '');
-        if (problem) return problem;
-        if (seen.has(`${target}|${item.floor}`)) return `Два листа на один этаж: ${item.floor}`;
+        if (problem) return { problem, align: [] };
+        if (seen.has(`${target}|${item.floor}`)) return { problem: `Два листа на один этаж: ${item.floor}`, align: [] };
         seen.add(`${target}|${item.floor}`);
       }
-      if (request.floors.length === 0 && !request.campus) return 'Нечего добавлять';
+      if (request.floors.length === 0 && !request.campus) return { problem: 'Нечего добавлять', align: [] };
+
+      // Точки планов, которым меняется план: из того же исходника — пересчёт
+      // точный, иначе — совмещение по парам после импорта.
+      const moves = new Map<string, Similarity>();
+      const align: PlanRef[] = [];
+      const plansWithNodes = (plan: PlanRef, before: { source?: PlanSource; mapSize?: MapSize } | undefined, after: PlanInput) => {
+        const ids = plan.building === null ? nodesOf(st.nodes, CAMPUS_BUILDING_ID) : nodesOf(st.nodes, plan.building, plan.floor ?? undefined);
+        if (ids.length === 0 || !before) return [];
+        const exact =
+          before.source && before.mapSize && after.source
+            ? planChange({ source: before.source, mapSize: before.mapSize }, { source: after.source, mapSize: after.mapSize })
+            : null;
+        if (exact) {
+          for (const id of ids) moves.set(id, exact);
+          return ids;
+        }
+        align.push(plan);
+        return [];
+      };
+      const moved: string[] = [];
+      for (const item of request.floors) {
+        if (!('id' in item.building)) continue;
+        const before = st.buildingMetas.get(item.building.id)?.floors.find((floor) => floor.floor === item.floor);
+        moved.push(...plansWithNodes({ building: item.building.id, floor: item.floor }, before, item.plan));
+      }
+      if (request.campus) moved.push(...plansWithNodes({ building: null, floor: null }, st.campusMeta ?? undefined, request.campus));
 
       const parts = [
         request.floors.length > 0 ? `${request.floors.length} ${plural(request.floors.length, ['этаж', 'этажа', 'этажей'])}` : '',
         request.campus ? 'план территории' : '',
       ].filter(Boolean);
 
-      commit(`Планы из файлов: ${parts.join(', ')}`, [], (s) => {
+      commit(`Планы из файлов: ${parts.join(', ')}`, moved, (s) => {
+        for (const [id, transform] of moves) {
+          const node = s.nodes.get(id)!;
+          const next = applySimilarity(transform, node);
+          node.x = Math.round(next.x * 10) / 10;
+          node.y = Math.round(next.y * 10) / 10;
+        }
         const ids = new Map<string, string>();
         for (const [normalized, name] of newNames) {
           const meta = newBuildingMeta(name, (candidate) => s.buildingMetas.has(candidate));
@@ -504,7 +554,21 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
           s.selectedNodeIds = new Set();
         }
       });
-      return null;
+      return { problem: null, align };
+    },
+
+    moveNodesOfPlan: (plan, transform, description) => {
+      const st = get();
+      const ids = plan.building === null ? nodesOf(st.nodes, CAMPUS_BUILDING_ID) : nodesOf(st.nodes, plan.building, plan.floor ?? undefined);
+      if (ids.length === 0) return;
+      commit(description, ids, (s) => {
+        for (const id of ids) {
+          const node = s.nodes.get(id)!;
+          const next = applySimilarity(transform, node);
+          node.x = Math.round(next.x * 10) / 10;
+          node.y = Math.round(next.y * 10) / 10;
+        }
+      });
     },
 
     deletionImpact: (buildingId, floor) => {

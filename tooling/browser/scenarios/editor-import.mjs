@@ -158,13 +158,13 @@ export default {
       const status = await page.eval(`document.querySelector('.editor-import__status').textContent`);
       assert.match(status, /Пропущено: 3 листа/);
       const button = await page.eval(`[...document.querySelectorAll('[role="dialog"] button')].at(-1).textContent`);
-      assert.equal(button, 'Добавить 7 этажей и план территории');
+      assert.equal(button, 'Добавить: 7 планов этажей и план территории');
     });
 
     await step('всё добавляется одной правкой и открывается первый этаж', async () => {
-      await pressInDialog('Добавить 7 этажей и план территории');
+      await pressInDialog('Добавить: 7 планов этажей и план территории');
       await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 30_000);
-      assert.match(await e.notice(), /Добавлено: 7 этажей и план территории\. Сохраните/);
+      assert.match(await e.notice(), /Добавлено: 7 планов этажей и план территории\. Сохраните/);
       assert.match(await e.place(), /Корпус А \/ Этаж 1/);
       // Подвал встал в дерево корпуса.
       assert.ok(

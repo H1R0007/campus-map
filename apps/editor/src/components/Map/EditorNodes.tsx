@@ -251,6 +251,19 @@ export const EditorNodes: React.FC = () => {
 
       const st = useEditorStore.getState();
 
+      // Совмещение с новым планом: щелчок выбирает точку, которую переносим,
+      // а когда точка уже выбрана — ставит её сюда, даже поверх другой: старые
+      // точки лежат на новом плане где попало и не должны мешать.
+      if (st.alignment) {
+        if (st.alignment.pending) {
+          const { lat, lng } = map.mouseEventToLatLng(dom);
+          st.alignPlace(Math.round(lng * 10) / 10, Math.round(lat * 10) / 10);
+        } else {
+          st.alignPickNode(node.id);
+        }
+        return;
+      }
+
       if (st.activeTool !== 'select') {
         activateWithTool(node.id);
         return;

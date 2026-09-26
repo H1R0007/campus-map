@@ -2022,3 +2022,60 @@ input[type='checkbox'] {
         border-bottom: 1px solid var(--editor-border);
     }
 }
+
+/* --- Совмещение точек с новым планом (запись 49) --- */
+
+.editor-align-bar {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 600;
+    width: min(640px, calc(100% - 24px));
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-focus);
+    box-shadow: var(--editor-shadow);
+    color: var(--editor-text);
+}
+
+.editor-align-bar__title {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.editor-align-bar__text {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-align-bar__pairs {
+    margin: 0 0 6px;
+    padding-left: 20px;
+    font-size: 13px;
+}
+
+.editor-align-bar__pair--bad {
+    color: var(--editor-danger);
+}
+
+.editor-link-button {
+    margin-left: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--editor-text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+
+.editor-align-tip {
+    background: #e94560;
+    color: #ffffff;
+    border: 0;
+    font-weight: 700;
+}

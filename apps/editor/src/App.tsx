@@ -10,6 +10,7 @@ import { StatusBar } from './components/UI/StatusBar';
 import { SearchPanel } from './components/UI/SearchPanel';
 import { Notice } from './components/UI/Notice';
 import { PlanStatus } from './components/UI/PlanStatus';
+import { AlignmentBar } from './components/UI/AlignmentBar';
 import { ImportDialog } from './components/UI/ImportDialog';
 import { ImportDropZone } from './components/UI/ImportDropZone';
 import { ContextMenu } from './components/UI/ContextMenu';
@@ -184,6 +185,7 @@ const App: React.FC = () => {
             <div className="editor-map-area">
               <EditorMap />
               <PlanStatus />
+              <AlignmentBar />
               <Notice />
             </div>
           </main>

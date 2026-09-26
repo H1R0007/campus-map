@@ -65,6 +65,20 @@ export async function fetchDiskManifest(): Promise<DiskManifest | null> {
 }
 
 /**
+ * Исходник плана из `data-sources/` — чтобы переделать план.
+ *
+ * @returns `null`, если исходника на этой машине нет или редактор открыт не из репозитория
+ */
+export async function fetchSourceFile(name: string): Promise<Blob | null> {
+  try {
+    const response = await fetch(`${CONTROL_URL}/sources/${name}`, { headers: { 'X-Campus-Editor': '1' } });
+    return response.ok ? await response.blob() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Загружает большой файл — план или исходник — до сохранения.
  *
  * @returns текст ошибки или `null`

@@ -35,6 +35,8 @@ export interface Piece {
   target: PieceTarget;
   /** Откуда догадка — словами. */
   notes: string[];
+  /** Переделка плана из того же листа: точки пересчитаются сами. */
+  redo?: boolean;
 }
 
 let nextPiece = 1;
@@ -165,7 +167,9 @@ export function checkPieces(
       else if ('id' in target.building) {
         const meta = metas.get(target.building.id);
         const exists = meta?.floors.some((item) => item.floor === floor);
-        if (exists && planFiles.has(planScopeKey(target.building.id, floor))) {
+        if (exists && piece.redo) {
+          note = 'Точки этажа пересчитаются вместе с планом — совмещать не придётся';
+        } else if (exists && planFiles.has(planScopeKey(target.building.id, floor))) {
           note = `У этажа ${floorLabel(meta, floor)} уже есть план — новый заменит его. Точки этажа сохранят прежние координаты: если масштаб нового плана другой, совместите их с планом после добавления`;
         } else if (exists) {
           note = `Этаж ${floorLabel(meta, floor)} уже есть — у него появится план`;
@@ -175,6 +179,7 @@ export function checkPieces(
       }
     } else if (target.kind === 'campus') {
       if ((counts.get('campus') ?? 0) > 1) problem = 'План территории выбран у двух листов';
+      else if (piece.redo) note = 'Точки территории пересчитаются вместе с планом';
       else if (planFiles.has(planScopeKey(null, null))) note = 'План территории уже есть — новый заменит его';
     }
 
@@ -183,12 +188,15 @@ export function checkPieces(
   return result;
 }
 
-/** Итог словами для кнопки: «Добавить 3 этажа и план территории». */
+/**
+ * Итог словами — «3 плана этажей и план территории»: подходит и новым
+ * этажам, и заменённым планам.
+ */
 export function importSummary(pieces: readonly Piece[]): string {
   const floors = pieces.filter((piece) => piece.target.kind === 'floor').length;
   const campus = pieces.some((piece) => piece.target.kind === 'campus');
   const parts: string[] = [];
-  if (floors > 0) parts.push(`${floors} ${plural(floors, ['этаж', 'этажа', 'этажей'])}`);
+  if (floors > 0) parts.push(`${floors} ${plural(floors, ['план', 'плана', 'планов'])} ${floors === 1 ? 'этажа' : 'этажей'}`);
   if (campus) parts.push('план территории');
-  return parts.length === 0 ? 'Добавить' : `Добавить ${parts.join(' и ')}`;
+  return parts.join(' и ');
 }

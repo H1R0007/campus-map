@@ -14,6 +14,7 @@ import { IMPORT_ACCEPT, displayName, readImportFiles } from '../../import/reader
 import type { ImportSheet, ReadProblem } from '../../import/readers';
 import { clampBox, contentBox, scaleBox } from '../../import/trim';
 import { plural } from '../../utils/labels';
+import { digestOf } from '../../utils/planFiles';
 import { CropEditor } from './CropEditor';
 import { Icon } from './Icon';
 
@@ -41,6 +42,7 @@ const ImportWindow: React.FC = () => {
   const closeImport = useEditorStore((s) => s.closeImport);
   const openImport = useEditorStore((s) => s.openImport);
   const importPlans = useEditorStore((s) => s.importPlans);
+  const startAlignment = useEditorStore((s) => s.startAlignment);
   const showNotice = useEditorStore((s) => s.showNotice);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const planFiles = useEditorStore((s) => s.planFiles);
@@ -71,11 +73,37 @@ const ImportWindow: React.FC = () => {
       const read = await readImportFiles(request.files, (name) => !cancelled && setReading(name));
       if (cancelled) return;
       const metas = useEditorStore.getState().buildingMetas;
-      const added = read.sheets.map((sheet) => initialPiece(sheet.id, guessPlace(sheet.clues), metas, request.preset));
+      const redo = request.preset.redo;
+      const added = await Promise.all(
+        read.sheets.map(async (sheet): Promise<Piece> => {
+          if (!redo) return initialPiece(sheet.id, guessPlace(sheet.clues), metas, request.preset);
+          // Переделка плана: тот лист того же файла — с прежними рамкой и
+          // поворотом, остальные листы пропускаются.
+          const same = (await digestOf(sheet.blob)).sha256.startsWith(redo.file.split('.')[0]) && sheet.page === redo.page;
+          const id = pieceId();
+          if (!same) return { id, sheetId: sheet.id, rotation: 0, crop: null, trimmed: false, target: { kind: 'skip' }, notes: ['Другой лист — план этажа не с него'] };
+          touched.current.add(id);
+          const target: PieceTarget =
+            request.preset.building === undefined
+              ? { kind: 'campus' }
+              : { kind: 'floor', building: { id: request.preset.building }, floorText: String(request.preset.floor ?? ''), label: '' };
+          return {
+            id,
+            sheetId: sheet.id,
+            rotation: redo.rotation,
+            crop: redo.crop,
+            trimmed: false,
+            target,
+            notes: ['Тот же лист, что у плана сейчас: поправьте рамку или поворот'],
+            redo: true,
+          };
+        })
+      );
+      if (cancelled) return;
       setSheets((previous) => [...previous, ...read.sheets]);
       setPieces((previous) => [...previous, ...added]);
       setProblems((previous) => [...previous, ...read.problems]);
-      setSelectedId((previous) => previous ?? added[0]?.id ?? null);
+      setSelectedId((previous) => previous ?? (added.find((piece) => piece.target.kind !== 'skip') ?? added[0])?.id ?? null);
       setReading(null);
 
       // Миниатюры и поля — по одному листу, чтобы окно оставалось живым.
@@ -94,7 +122,7 @@ const ImportWindow: React.FC = () => {
           const crop = clampBox(scaleBox(box, 1 / scale), sheet.size);
           setPieces((previous) =>
             previous.map((piece) =>
-              piece.sheetId === sheet.id && piece.rotation === 0 && !touched.current.has(piece.id)
+              piece.sheetId === sheet.id && piece.rotation === 0 && !touched.current.has(piece.id) && piece.target.kind !== 'skip'
                 ? { ...piece, crop, trimmed: true }
                 : piece
             )
@@ -148,13 +176,15 @@ const ImportWindow: React.FC = () => {
           });
         }
       }
-      const problem = importPlans({ floors, campus });
-      if (problem) {
-        setError(problem);
+      const result = importPlans({ floors, campus });
+      if (result.problem) {
+        setError(result.problem);
         return;
       }
       closeImport();
-      showNotice(`${importSummary(toAdd).replace('Добавить', 'Добавлено:')}. Сохраните — тогда планы попадут в data/`);
+      showNotice(`Добавлено: ${importSummary(toAdd)}. Сохраните — тогда планы попадут в data/`);
+      // Этажи, где точки остались в прежних координатах, — сразу к совмещению.
+      if (result.align.length > 0) startAlignment(result.align);
     } catch (cause) {
       setError(`Не получилось подготовить план: ${cause instanceof Error ? cause.message : String(cause)}`);
     } finally {
@@ -278,6 +308,7 @@ const ImportWindow: React.FC = () => {
                       id: pieceId(),
                       target: selected.target.kind === 'floor' ? { ...selected.target, floorText: '' } : selected.target,
                       notes: ['Ещё одна область того же листа — выберите её и укажите этаж'],
+                      redo: false,
                     };
                     touched.current.add(copy.id);
                     setPieces((previous) => {
@@ -321,7 +352,7 @@ const ImportWindow: React.FC = () => {
             onClick={() => void run()}
             disabled={busy !== null || reading !== null || toAdd.length === 0 || unresolved > 0}
           >
-            {importSummary(toAdd)}
+            {toAdd.length === 0 ? 'Добавить' : `Добавить: ${importSummary(toAdd)}`}
           </button>
         </div>
       </div>

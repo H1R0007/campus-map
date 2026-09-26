@@ -122,8 +122,9 @@ describe('проверка до импорта', () => {
 
   it('итог словами', () => {
     const pieces = [floorPiece('a', { id: 'building_a' }, '3'), floorPiece('b', { id: 'building_a' }, '4')];
-    expect(importSummary(pieces)).toBe('Добавить 2 этажа');
-    expect(importSummary([...pieces, { ...pieces[0], id: 'c', target: { kind: 'campus' } }])).toBe('Добавить 2 этажа и план территории');
+    expect(importSummary(pieces)).toBe('2 плана этажей');
+    expect(importSummary(pieces.slice(0, 1))).toBe('1 план этажа');
+    expect(importSummary([...pieces, { ...pieces[0], id: 'c', target: { kind: 'campus' } }])).toBe('2 плана этажей и план территории');
   });
 });
 
@@ -132,7 +133,7 @@ describe('импорт одной правкой', () => {
 
   it('новый корпус, новые и существующие этажи, территория — одна запись, отмена всё убирает', () => {
     const before = { data: dataSnapshot(), buildings: JSON.stringify([...metas().values()]), plans: [...planFiles()] };
-    const problem = store().importPlans({
+    const { problem, align } = store().importPlans({
       floors: [
         { building: { newName: 'Корпус Г' }, floor: 1, plan: PLAN },
         { building: { newName: 'корпус г' }, floor: 2, label: '2', plan: PLAN },
@@ -143,6 +144,11 @@ describe('импорт одной правкой', () => {
     });
 
     expect(problem).toBeNull();
+    // У этажа 2 и территории есть точки, а план не из того же исходника — совместить.
+    expect(align).toEqual([
+      { building: 'building_a', floor: 2 },
+      { building: null, floor: null },
+    ]);
     expect(useHistoryStore.getState().entries).toHaveLength(1);
     expect(useHistoryStore.getState().entries[0].description).toBe('Планы из файлов: 4 этажа, план территории');
     expect(metas().get('building_g')?.floors.map((floor) => floor.floor)).toEqual([1, 2]);
@@ -168,10 +174,10 @@ describe('импорт одной правкой', () => {
           { building: { id: 'building_a' }, floor: 3, plan: PLAN },
           { building: { id: 'building_a' }, floor: 3, plan: PLAN },
         ],
-      })
+      }).problem
     ).toMatch(/Два листа на один этаж/);
-    expect(store().importPlans({ floors: [{ building: { newName: 'Корпус А' }, floor: 1, plan: PLAN }] })).toMatch(/уже есть/);
-    expect(store().importPlans({ floors: [] })).toBe('Нечего добавлять');
+    expect(store().importPlans({ floors: [{ building: { newName: 'Корпус А' }, floor: 1, plan: PLAN }] }).problem).toMatch(/уже есть/);
+    expect(store().importPlans({ floors: [] }).problem).toBe('Нечего добавлять');
     expect(useHistoryStore.getState().entries).toEqual([]);
   });
 });

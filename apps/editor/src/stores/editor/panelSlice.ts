@@ -51,6 +51,11 @@ export interface ImportPreset {
   building?: string;
   floor?: number;
   campus?: boolean;
+  /**
+   * «Переделать план»: тот же лист того же файла с прежними поворотом и
+   * обрезкой. Остальные листы файла пропускаются.
+   */
+  redo?: { file: string; page: number; rotation: number; crop: { x: number; y: number; width: number; height: number } | null };
 }
 
 /** Открытое окно «Планы из файлов» (запись 48). */

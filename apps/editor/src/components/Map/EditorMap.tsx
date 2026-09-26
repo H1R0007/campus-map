@@ -20,6 +20,7 @@ import { GridOverlay } from './GridOverlay';
 import { NeighbourFloor } from './NeighbourFloor';
 import { RouteOverlay } from './RouteOverlay';
 import { AliasLabels } from './AliasLabels';
+import { AlignmentLayer } from './AlignmentLayer';
 
 const CameraController: React.FC = () => {
   const map = useMap();
@@ -338,6 +339,12 @@ const MapEventHandler: React.FC = () => {
       const st = useEditorStore.getState();
       const { lng: x, lat: y } = e.latlng;
 
+      if (st.alignment) {
+        if (st.alignment.pending) st.alignPlace(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        else st.showNotice('Сначала щёлкните точку, которую переносите, затем место на плане, где она должна стоять');
+        return;
+      }
+
       if (st.activeTool === 'node') {
         // Щелчок ставит точку выбранного вида: вид сам даёт название, цепляет
         // к ближайшей точке и, если нужно, повторяет себя на всех этажах.
@@ -486,6 +493,7 @@ export const EditorMap: React.FC = () => {
       <SelectionBox />
       <EditorNodes />
       <AliasLabels />
+      <AlignmentLayer />
 
       <MapEventHandler />
     </PixelMap>
