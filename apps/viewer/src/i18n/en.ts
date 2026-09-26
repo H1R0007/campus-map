@@ -117,6 +117,12 @@ export const en: Messages = {
   },
 
   route: {
+    kindPlaces: {
+      show: (kind, count) => `${kind}: all places (${count})`,
+      title: (kind) => `${kind}: all places`,
+      current: 'selected',
+      marker: (place) => `${place} — route here`,
+    },
     title: 'Route',
     summaryLine: (summary) => `Route · ${summary}`,
     fromPlace: (place) => `From: ${place}`,

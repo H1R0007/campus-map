@@ -1,5 +1,5 @@
 import { CAMPUS_BUILDING_ID, searchablePlaceKinds } from '@campus-map/core';
-import type { Graph, PlaceCategory, PlaceKind } from '@campus-map/core';
+import type { AliasManager, Graph, PlaceCategory, PlaceKind } from '@campus-map/core';
 import type { Language } from '../i18n/languages';
 
 /**
@@ -31,6 +31,16 @@ export function exitNodesOf(graph: Graph): readonly string[] {
   return exits;
 }
 
+/** Все места вида: отмеченные в данных или, для выхода, двери корпусов. */
+export function placeIdsOfKind(graph: Graph, aliasManager: AliasManager, kind: PlaceCategory): readonly string[] {
+  return kind === EXIT_TARGET ? exitNodesOf(graph) : aliasManager.getIdsByCategory(kind);
+}
+
+/** Место — одно из мест вида. */
+export function belongsToKind(graph: Graph, aliasManager: AliasManager, nodeId: string, kind: PlaceCategory): boolean {
+  return placeIdsOfKind(graph, aliasManager, kind).includes(nodeId);
+}
+
 /**
  * Слова поиска всех мест вида: название на всех языках и слова из каталога.
  * Все языки сразу: студент набирает «toilet», не переключив интерфейс.
@@ -49,6 +59,21 @@ export function categoryTermsOf(kinds: readonly PlaceKind[]): Record<PlaceCatego
 /** Вид места по id; такого вида нет в каталоге — `undefined`. */
 export function findPlaceKind(kinds: readonly PlaceKind[], id: PlaceCategory | null): PlaceKind | undefined {
   return id === null ? undefined : kinds.find((kind) => kind.id === id);
+}
+
+/**
+ * Как назвать вид, среди мест которого выбирают: название из каталога на языке
+ * интерфейса; выход — своим словом; вида нет в каталоге — его id.
+ */
+export function kindDisplayName(
+  kinds: readonly PlaceKind[],
+  kind: PlaceCategory,
+  language: Language,
+  exitLabel: string
+): string {
+  if (kind === EXIT_TARGET) return exitLabel;
+  const found = findPlaceKind(kinds, kind);
+  return found ? placeKindName(found, language) : kind;
 }
 
 /** Название вида на языке интерфейса; английского нет — русское. */

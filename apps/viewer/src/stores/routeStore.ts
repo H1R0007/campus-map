@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { PathResult, PathfindingOptions, PlaceCategory } from '@campus-map/core';
 import { DEFAULT_PATHFINDING_OPTIONS, findPath } from '@campus-map/core';
 import { nearestPlaceOf } from '../utils/nearestPlace';
+import { belongsToKind } from '../utils/placeKinds';
 import { routeBuildingFloors, routePassesScope } from '../utils/routeFloors';
 import { scopeOf, useMapStore } from './mapStore';
 
@@ -37,6 +38,14 @@ interface RouteState {
   arrived: boolean;
 
   options: PathfindingOptions;
+
+  /**
+   * Вид места, к ближайшему из которых вела быстрая кнопка («Столовая»), —
+   * пока цель остаётся местом этого вида. По нему навигатор показывает все
+   * места вида на карте и списком, чтобы выбрать не ближайшее (запись 45).
+   * Цель сменили на место другого вида — выбор закончен.
+   */
+  nearestKind: PlaceCategory | null;
 
   /**
    * Точка маршрута, заданная узлом, — единственный способ сделать это из
@@ -129,9 +138,16 @@ export const useRouteStore = create<RouteState>((set, get) => {
     // Значения по умолчанию принадлежат ядру: здесь раньше лежала их копия,
     // и расхождение между двумя наборами никто бы не заметил.
     options: { ...DEFAULT_PATHFINDING_OPTIONS },
+    nearestKind: null,
 
     setPoint: (field, nodeId) => {
-      const { currentRoute } = get();
+      const { currentRoute, nearestKind } = get();
+
+      // Цель — место другого вида: выбор среди мест вида закончен.
+      if (field === 'to' && nearestKind !== null) {
+        const { graph, aliasManager } = useMapStore.getState();
+        if (!graph || !aliasManager || !belongsToKind(graph, aliasManager, nodeId, nearestKind)) set({ nearestKind: null });
+      }
       const current = field === 'from' ? get().fromNodeId : get().toNodeId;
 
       // Та же точка при показанном маршруте — маршрут остаётся как есть.
@@ -154,6 +170,7 @@ export const useRouteStore = create<RouteState>((set, get) => {
         currentRoute: null,
         stepIndex: null,
         arrived: false,
+        ...(field === 'to' ? { nearestKind: null } : {}),
       }),
 
     routeToNearest: (category) => {
@@ -162,7 +179,9 @@ export const useRouteStore = create<RouteState>((set, get) => {
       if (!graph || !aliasManager || fromNodeId === null) return null;
 
       const nearest = nearestPlaceOf(graph, aliasManager, fromNodeId, category, options);
-      return nearest === null ? null : setPoint('to', nearest.nodeId);
+      if (nearest === null) return null;
+      set({ nearestKind: category });
+      return setPoint('to', nearest.nodeId);
     },
 
     setOptions: (patch) => {
@@ -193,11 +212,11 @@ export const useRouteStore = create<RouteState>((set, get) => {
     },
 
     clearRoute: () =>
-      set({ fromNodeId: null, toNodeId: null, currentRoute: null, stepIndex: null, arrived: false }),
+      set({ fromNodeId: null, toNodeId: null, currentRoute: null, stepIndex: null, arrived: false, nearestKind: null }),
 
     swapPoints: () => {
       const { fromNodeId, toNodeId, currentRoute } = get();
-      set({ fromNodeId: toNodeId, toNodeId: fromNodeId });
+      set({ fromNodeId: toNodeId, toNodeId: fromNodeId, nearestKind: null });
 
       // Маршрут направлен, и прежний результат показывать нельзя. Был показан —
       // пересчитываем в обратную сторону сразу; не был — обмен только меняет

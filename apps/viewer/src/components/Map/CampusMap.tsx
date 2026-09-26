@@ -11,6 +11,7 @@ import { PathLayer } from './PathLayer';
 import { PlaceLayer } from './PlaceLayer';
 import { PortalLayer } from './PortalLayer';
 import { MarkerLayer } from './MarkerLayer';
+import { KindPlacesLayer } from './KindPlacesLayer';
 import { PlanStatus } from './PlanStatus';
 import { MapGestureWatch } from './MapGestureWatch';
 import { WorldCanvas } from './WorldCanvas';
@@ -54,6 +55,7 @@ export const CampusMap: React.FC = () => {
       <PlaceLayer />
       <PathLayer />
       <PortalLayer />
+      <KindPlacesLayer />
       <MarkerLayer />
       <PlanStatus />
       <MapRail />

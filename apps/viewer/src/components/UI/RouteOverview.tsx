@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { ShareRoute } from '../../hooks/useShareRoute';
 import { useStepNavigation } from '../../hooks/useStepNavigation';
 import { capitalize, messagesFor, useLanguage } from '../../i18n';
@@ -6,6 +6,10 @@ import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import { useUiStore } from '../../stores/uiStore';
 import { nodeName } from '../../utils/placeLabels';
+import { nearestHint, placesOfKind } from '../../utils/nearestPlace';
+import { EXIT_TARGET, kindDisplayName } from '../../utils/placeKinds';
+import { portalTypeOf } from '../../utils/portals';
+import { PlaceIcon } from './PlaceIcon';
 import { routeSummary } from '../../utils/routeSummary';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
@@ -46,11 +50,28 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
   const clearRoute = useRouteStore((s) => s.clearRoute);
   const swapPoints = useRouteStore((s) => s.swapPoints);
   const openSearch = useUiStore((s) => s.openSearch);
+  const nearestKind = useRouteStore((s) => s.nearestKind);
+  const setPoint = useRouteStore((s) => s.setPoint);
+  const placeKinds = useMapStore((s) => s.placeKinds);
+  const buildingMetas = useMapStore((s) => s.buildingMetas);
   const navigation = useStepNavigation();
   const language = useLanguage();
   const messages = messagesFor(language);
 
+  // Все места вида после быстрой кнопки — от начала, ближайшее первым
+  // (запись 45). Человек не всегда хочет в ближайшую.
+  const choices = useMemo(
+    () =>
+      graph && aliasManager && nearestKind !== null && fromNodeId !== null
+        ? placesOfKind(graph, aliasManager, fromNodeId, nearestKind, options)
+        : [],
+    [graph, aliasManager, nearestKind, fromNodeId, options]
+  );
+
   if (!graph || currentRoute === null) return null;
+
+  const kindName = nearestKind === null ? '' : kindDisplayName(placeKinds, nearestKind, language, messages.quick.exit);
+  const showChoices = currentRoute.found && choices.length > 1;
 
   const nameOf = (nodeId: string | null) => (nodeId === null ? '' : (nodeName(aliasManager, nodeId, language) ?? nodeId));
 
@@ -156,6 +177,15 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
         </div>
       )}
 
+      {/* Свёрнутая шторка: карта над ней — главное, поэтому список раскрывается
+          кнопкой, а сами места уже видны на карте отметками. */}
+      {showChoices && !expanded && (
+        <button type="button" onClick={onExpand} className={`mt-2 w-full ${SECONDARY_BUTTON}`}>
+          <Icon name="expand" />
+          <span className="truncate">{messages.route.kindPlaces.show(kindName, choices.length)}</span>
+        </button>
+      )}
+
       {expanded && (
         <div className="mt-4 space-y-5">
           <div className="flex items-center gap-1">
@@ -182,6 +212,44 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             </div>
             <IconButton icon="swap" label={messages.search.swap} onClick={swapPoints} />
           </div>
+
+          {showChoices && (
+            <section aria-labelledby="kind-places-title">
+              <h3 id="kind-places-title" className="mb-2 text-sm font-semibold text-gray-700">
+                {messages.route.kindPlaces.title(kindName)}
+              </h3>
+              <ul className="rounded-2xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                {choices.map((choice) => {
+                  const current = choice.nodeId === toNodeId;
+                  const node = graph.getNode(choice.nodeId);
+                  const hint = buildingMetas && fromNodeId !== null
+                    ? nearestHint(graph, buildingMetas, fromNodeId, { ...choice, reachable: true }, language)
+                    : '';
+                  return (
+                    <li key={choice.nodeId}>
+                      <button
+                        type="button"
+                        aria-current={current || undefined}
+                        onClick={() => setPoint('to', choice.nodeId)}
+                        className={`w-full min-h-[3.5rem] px-4 py-2 flex items-center gap-3 text-left transition-colors ${current ? 'bg-selected' : 'hover:bg-gray-50'}`}
+                      >
+                        <PlaceIcon
+                          transition={node?.isPortal ? portalTypeOf(graph, node) : null}
+                          category={nearestKind === EXIT_TARGET ? null : nearestKind}
+                        />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-base text-gray-900 truncate">{nameOf(choice.nodeId)}</span>
+                          <span className="block text-sm text-gray-600 truncate">
+                            {current ? `${hint} · ${messages.route.kindPlaces.current}` : hint}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
 
           <RouteOptions />
           <RouteSteps steps={navigation.steps} currentIndex={null} onSelect={navigation.goTo} />

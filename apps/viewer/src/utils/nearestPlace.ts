@@ -6,11 +6,11 @@ import type {
   PathResult,
   PlaceCategory,
 } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, findNearest, scopeOfNode } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, findNearest, findPath, scopeOfNode } from '@campus-map/core';
 import { formatFloor, messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
-import { EXIT_TARGET, exitNodesOf } from './placeKinds';
+import { EXIT_TARGET, exitNodesOf, placeIdsOfKind } from './placeKinds';
 import { sameScope } from './routeFloors';
 import { formatDuration } from './routeInstructions';
 
@@ -55,6 +55,36 @@ export function nearestPlaceOf(
   if (!route.found) return null;
 
   return { nodeId: route.path[route.path.length - 1], route, reachable: restricted.found };
+}
+
+/** Место вида и маршрут до него от начала. */
+export interface PlaceChoice {
+  nodeId: string;
+  route: PathResult;
+}
+
+/**
+ * Все места вида от начала маршрута, ближайшее первым — «все столовые» после
+ * быстрой кнопки (запись 45). Человек не всегда хочет в ближайшую: в соседнем
+ * корпусе может быть та, что ему нужна.
+ *
+ * Места, до которых при выбранных ограничениях не дойти, не показываются:
+ * выбор среди них вёл бы к «маршрут не найден».
+ */
+export function placesOfKind(
+  graph: Graph,
+  aliasManager: AliasManager,
+  startId: string,
+  kind: PlaceCategory,
+  options: PathfindingOptions,
+  limit = 20
+): PlaceChoice[] {
+  return placeIdsOfKind(graph, aliasManager, kind)
+    .filter((id) => id !== startId)
+    .map((nodeId) => ({ nodeId, route: findPath(graph, startId, nodeId, options) }))
+    .filter((choice) => choice.route.found)
+    .sort((a, b) => a.route.cost - b.route.cost)
+    .slice(0, limit);
 }
 
 /**
