@@ -96,8 +96,19 @@ export function planFormatOf(meta: { planFormat?: PlanFormat } | undefined): Pla
  * молчаливый 404. Та же история, что с удалённым `BuildingMeta.bounds`.
  */
 export interface FloorMeta {
-  /** Номер этажа */
+  /**
+   * Номер этажа — порядок этажей и высота (`elevationMeters` по формуле
+   * корпуса). Подвал — `-1`, цоколь — `0`, антресоль между первым и
+   * вторым — `1.5`.
+   */
   floor: number;
+
+  /**
+   * Подпись этажа, как на табличках: «1А», «Ц», «−1». Без неё этаж
+   * называется номером. Нужна там, где номер ничего не говорит человеку:
+   * антресоль «1.5» в корпусе называют «1А».
+   */
+  label?: string;
 
   /**
    * Размер плана этажа в пикселях.
@@ -209,4 +220,17 @@ export interface CampusMeta {
  */
 export function buildingName(meta: BuildingMeta, language: string): string {
   return meta.translations?.[language]?.name ?? meta.name;
+}
+
+/** Самая длинная подпись этажа: она стоит на кнопке этажа шириной в палец. */
+export const MAX_FLOOR_LABEL_LENGTH = 12;
+
+/**
+ * Как назвать этаж человеку: подпись из данных, а без неё — номер. Подвал —
+ * с настоящим минусом, а не дефисом: «−1».
+ */
+export function floorLabel(meta: Pick<BuildingMeta, 'floors'> | undefined, floor: number): string {
+  const label = meta?.floors.find((item) => item.floor === floor)?.label;
+  if (label) return label;
+  return floor < 0 ? `−${-floor}` : String(floor);
 }

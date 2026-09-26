@@ -1,3 +1,5 @@
+import { floorLabel } from '@campus-map/core';
+import type { BuildingMeta } from '@campus-map/core';
 import { useSettingsStore } from '../stores/settingsStore';
 import { en } from './en';
 import { LANGUAGES } from './languages';
@@ -47,6 +49,18 @@ export function useMessages(): Messages {
  */
 export function formatFloor(floor: number): string {
   return floor < 0 ? `−${-floor}` : String(floor);
+}
+
+/**
+ * Как назвать этаж корпуса: подпись из данных («1А», «Ц»), а без неё — номер
+ * (`floorLabel` ядра — одна запись для редактора и навигатора).
+ */
+export function floorText(
+  buildingMetas: ReadonlyMap<string, BuildingMeta> | null | undefined,
+  buildingId: string,
+  floor: number
+): string {
+  return floorLabel(buildingMetas?.get(buildingId), floor);
 }
 
 /**

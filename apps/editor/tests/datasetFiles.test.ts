@@ -7,6 +7,7 @@ import type { Dataset, DatasetSource } from '@campus-map/core';
 import { datasetFiles } from '../src/utils/datasetFiles';
 import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
 import { datasetFromState } from '../src/stores/editor/graphState';
+import { useEditorStore } from '../src/stores/editorStore';
 import { fixtureDataset, loadFixture, openFloor, store } from './helpers/fixture';
 
 /**
@@ -63,6 +64,15 @@ describe('круг «сохранить → открыть»', () => {
     expect(saved?.neighbors).toEqual(['a1_hall']);
     expect(saved?.comment).toBe('дверь закрыта после 18:00');
     expect(dataset.aliases.find((alias) => alias.id === id)?.names).toEqual(['Кладовая']);
+  });
+
+  it('подпись этажа сохраняется и читается обратно', async () => {
+    useEditorStore.setState((s) => {
+      s.buildingMetas.get('building_a')!.floors[1].label = '2А';
+    });
+
+    const { dataset } = await loadDataset(sourceOf(datasetFiles(datasetFromState(store()))));
+    expect(dataset.buildingMetas[0].floors.map((floor) => floor.label)).toEqual([undefined, '2А']);
   });
 
   it('переводы и категории, которые редактор не правит, не теряются', async () => {

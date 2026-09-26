@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useMemo } from 'react';
-import { CAMPUS_BUILDING_ID } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { Icon } from '../UI/Icon';
 import { DisplayOptions } from './DisplayOptions';
@@ -121,7 +121,7 @@ const PlanTree: React.FC = () => {
                       aria-current={currentFloor === floor.floor ? 'true' : undefined}
                       onClick={() => setCurrentFloor(floor.floor)}
                     >
-                      <span className="editor-tree__label">Этаж {floor.floor}</span>
+                      <span className="editor-tree__label">Этаж {floorLabel(building, floor.floor)}</span>
                       <NodeCount count={counts.get(planKey(building.id, floor.floor)) ?? 0} />
                     </button>
                   </li>

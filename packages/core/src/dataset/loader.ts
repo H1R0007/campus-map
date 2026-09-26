@@ -12,7 +12,7 @@ import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
 import type { MapNode, MapNodeData } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
-import { isPlanFormat } from '../types/building.js';
+import { MAX_FLOOR_LABEL_LENGTH, isPlanFormat } from '../types/building.js';
 import type { PlanFormat } from '../types/building.js';
 import { createCampusProjection } from '../projection.js';
 import {
@@ -479,6 +479,12 @@ function normalizeFloors(
     // фиксирована, и эти поля никогда ни на что не влияли (см. `FloorMeta`).
     const meta: FloorMeta = { floor };
     const where = `${path}: этаж ${floor}`;
+
+    const label = asOptionalString(item.label)?.trim();
+    if (label) {
+      if (label.length <= MAX_FLOOR_LABEL_LENGTH) meta.label = label;
+      else warnings.push(`${where}: подпись «${label}» длиннее ${MAX_FLOOR_LABEL_LENGTH} знаков — на кнопке этажа не поместится, пропущена`);
+    }
 
     const mapSize = readMapSize(item.mapSize, where, warnings);
     if (mapSize !== undefined) meta.mapSize = mapSize;

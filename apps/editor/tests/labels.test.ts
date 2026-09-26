@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { nodesCount } from '../src/utils/labels';
+import type { BuildingMeta } from '@campus-map/core';
+import { nodePlaceLabel, nodesCount } from '../src/utils/labels';
 
 describe('nodesCount', () => {
   it.each([
@@ -16,5 +17,18 @@ describe('nodesCount', () => {
     [0, '0 узлов'],
   ])('%i → «%s»', (count, text) => {
     expect(nodesCount(count)).toBe(text);
+  });
+});
+
+describe('где лежит узел', () => {
+  const metas = new Map<string, BuildingMeta>([
+    ['building_a', { id: 'building_a', name: 'Корпус А', floors: [{ floor: -1 }, { floor: 1 }, { floor: 1.5, label: '1А' }] }],
+  ]);
+
+  it('этаж — подписью с таблички, подвал — с минусом, территория — словом', () => {
+    expect(nodePlaceLabel({ building: 'building_a', floor: 1.5 }, metas)).toBe('Корпус А, этаж 1А');
+    expect(nodePlaceLabel({ building: 'building_a', floor: -1 }, metas)).toBe('Корпус А, этаж −1');
+    expect(nodePlaceLabel({ building: 'building_a', floor: 1 }, metas)).toBe('Корпус А, этаж 1');
+    expect(nodePlaceLabel({ building: 'CAMPUS', floor: 0 }, metas)).toBe('Территория');
   });
 });

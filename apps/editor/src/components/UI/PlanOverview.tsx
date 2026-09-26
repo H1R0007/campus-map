@@ -1,3 +1,4 @@
+import { floorLabel } from '@campus-map/core';
 import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
@@ -32,7 +33,7 @@ export const PlanOverview: React.FC = () => {
   );
 
   const title = currentBuilding
-    ? `${buildingMetas.get(currentBuilding)?.name ?? currentBuilding}, этаж ${currentFloor}`
+    ? `${buildingMetas.get(currentBuilding)?.name ?? currentBuilding}, этаж ${currentFloor === null ? '' : floorLabel(buildingMetas.get(currentBuilding), currentFloor)}`
     : 'Территория кампуса';
   const problems = report.errors.length + report.warnings.length;
 

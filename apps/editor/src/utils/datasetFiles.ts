@@ -148,6 +148,7 @@ export function datasetFiles(dataset: Dataset): Map<string, string> {
           (floor) =>
             ({
               floor: floor.floor,
+              label: floor.label,
               mapSize: floor.mapSize,
               placement: floor.placement,
               elevationMeters: floor.elevationMeters,

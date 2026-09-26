@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALIASES_PATH,
-  PLACE_KINDS_PATH,
+  buildingMetaPath,
   CAMPUS_GRAPH_PATH,
   CAMPUS_META_PATH,
-  TRANSITIONS_PATH,
-  buildingMetaPath,
   floorGraphPath,
+  floorLabel,
   loadDataset,
+  PLACE_KINDS_PATH,
+  TRANSITIONS_PATH,
 } from '../src/index.js';
 import { memorySource } from './helpers/memorySource.js';
 import type { DatasetFiles } from './helpers/memorySource.js';
@@ -458,6 +459,32 @@ describe('loadDataset: переводы названий', () => {
  * а вот битая запись обязана быть названа: разметчик должен понять, почему
  * его кисть пропала.
  */
+/**
+ * Подпись этажа: антресоль, цоколь, подвал — то, что написано на табличке.
+ */
+describe('loadDataset: подпись этажа', () => {
+  it('читает подпись и отбрасывает слишком длинную с предупреждением', async () => {
+    const files = twoBuildingFiles();
+    const meta = files[buildingMetaPath('bA')] as { floors: { floor: number; label?: string }[] };
+    meta.floors[0].label = ' 1А ';
+    meta.floors[1].label = 'Антресольный этаж корпуса';
+
+    const { dataset, warnings } = await loadDataset(memorySource(files));
+    const floors = dataset.buildingMetas.find((item) => item.id === 'bA')!.floors;
+
+    expect(floors.map((floor) => floor.label)).toEqual(['1А', undefined]);
+    expect(warnings.filter((warning) => warning.includes('длиннее'))).toHaveLength(1);
+  });
+
+  it('этаж называется подписью, без неё — номером, подвал — с минусом', () => {
+    const meta = { floors: [{ floor: 1.5, label: '1А' }, { floor: -1 }, { floor: 2 }] };
+    expect(floorLabel(meta, 1.5)).toBe('1А');
+    expect(floorLabel(meta, -1)).toBe('−1');
+    expect(floorLabel(meta, 2)).toBe('2');
+    expect(floorLabel(undefined, 3)).toBe('3');
+  });
+});
+
 describe('loadDataset: виды точек', () => {
   it('без файла список пуст и предупреждения о нём нет', async () => {
     const { dataset, warnings } = await loadDataset(memorySource(twoBuildingFiles()));

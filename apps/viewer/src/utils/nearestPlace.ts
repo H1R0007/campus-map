@@ -7,7 +7,7 @@ import type {
   PlaceCategory,
 } from '@campus-map/core';
 import { CAMPUS_BUILDING_ID, findNearest, findPath, scopeOfNode } from '@campus-map/core';
-import { formatFloor, messagesFor } from '../i18n';
+import { floorText, messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
 import { EXIT_TARGET, exitNodesOf, placeIdsOfKind } from './placeKinds';
@@ -110,7 +110,7 @@ export function nearestHint(
   const messages = messagesFor(language);
   if (sameScope(scopeOfNode(start), scopeOfNode(node))) return messages.quick.sameFloor;
   if (node.building === start.building && node.building !== CAMPUS_BUILDING_ID) {
-    return messages.map.floor(formatFloor(node.floor));
+    return messages.map.floor(floorText(buildingMetas, node.building, node.floor));
   }
   return nodePlaceLabel(graph, buildingMetas, node.id, language);
 }
