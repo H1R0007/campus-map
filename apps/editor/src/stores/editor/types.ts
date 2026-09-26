@@ -8,6 +8,7 @@ import type { SelectionSlice } from './selectionSlice';
 import type { StorageSlice } from './storageSlice';
 import type { StructureSlice } from './structureSlice';
 import type { AlignSlice } from './alignSlice';
+import type { PlaceSlice } from './placeSlice';
 import type { ToolSlice } from './toolSlice';
 import type { ViewSlice } from './viewSlice';
 
@@ -30,7 +31,8 @@ export type EditorStore = DataSlice &
   RouteSlice &
   StorageSlice &
   StructureSlice &
-  AlignSlice;
+  AlignSlice &
+  PlaceSlice;
 
 /** Создатель среза: `set` с immer поверх всего стора, срез возвращает свою часть. */
 export type EditorSlice<T> = StateCreator<EditorStore, [['zustand/immer', never]], [], T>;

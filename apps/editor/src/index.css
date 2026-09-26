@@ -2079,3 +2079,51 @@ input[type='checkbox'] {
     border: 0;
     font-weight: 700;
 }
+
+/* --- Корпуса на территории и их постановка (запись 50) --- */
+
+.editor-placing-plan {
+    opacity: 0.6;
+    outline: 2px solid #e94560;
+}
+
+.editor-campus-building {
+    opacity: 0.9;
+}
+
+.editor-place-handle span {
+    display: block;
+    width: 22px;
+    height: 22px;
+    border: 3px solid #ffffff;
+    border-radius: 9999px;
+    background: #e94560;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.editor-place-handle--move span {
+    cursor: move;
+}
+
+.editor-place-handle--rotate span {
+    border-radius: 9999px;
+    background: #f59e0b;
+    cursor: grab;
+}
+
+.editor-place-handle--scale span {
+    border-radius: 4px;
+    cursor: nwse-resize;
+}
+
+.editor-place-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-place-field__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}

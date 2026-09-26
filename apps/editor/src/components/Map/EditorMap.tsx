@@ -21,6 +21,8 @@ import { NeighbourFloor } from './NeighbourFloor';
 import { RouteOverlay } from './RouteOverlay';
 import { AliasLabels } from './AliasLabels';
 import { AlignmentLayer } from './AlignmentLayer';
+import { CampusBuildings, MeasureLayer, PlacementLayer } from './PlacementLayers';
+import { EDITOR_UNDERLAY } from './panes';
 
 const CameraController: React.FC = () => {
   const map = useMap();
@@ -339,6 +341,15 @@ const MapEventHandler: React.FC = () => {
       const st = useEditorStore.getState();
       const { lng: x, lat: y } = e.latlng;
 
+      if (st.measuring) {
+        st.measureClick(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        return;
+      }
+      if (st.placing) {
+        if (st.placing.pairMode) st.placingClick(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        return;
+      }
+
       if (st.alignment) {
         if (st.alignment.pending) st.alignPlace(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
         else st.showNotice('Сначала щёлкните точку, которую переносите, затем место на плане, где она должна стоять');
@@ -399,6 +410,12 @@ const MapEventHandler: React.FC = () => {
     mouseout: () => useCursorStore.getState().setPoint(null),
 
     zoomend: () => useCursorStore.getState().setZoom(map.getZoom()),
+
+    moveend: () => {
+      const bounds = map.getBounds();
+      const center = map.getCenter();
+      useCursorStore.getState().setView({ center: { x: center.lng, y: center.lat }, width: bounds.getEast() - bounds.getWest() });
+    },
 
     contextmenu: (e) => {
       const dom = e.originalEvent;
@@ -476,12 +493,14 @@ export const EditorMap: React.FC = () => {
       zoomControl
       doubleClickZoom={false}
       overlayOpacity={0.6}
+      imagePane={EDITOR_UNDERLAY}
     >
       <CameraController />
       <MapResizeWatcher />
       <KeyboardHandler />
 
       {/* overlays order */}
+      <CampusBuildings />
       <NeighbourFloor />
       <GridOverlay />
       <EditorEdges />
@@ -494,6 +513,8 @@ export const EditorMap: React.FC = () => {
       <EditorNodes />
       <AliasLabels />
       <AlignmentLayer />
+      <PlacementLayer />
+      <MeasureLayer />
 
       <MapEventHandler />
     </PixelMap>

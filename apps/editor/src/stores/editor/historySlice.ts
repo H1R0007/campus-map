@@ -108,8 +108,10 @@ export const createHistorySlice: EditorSlice<HistorySlice> = (set, get) => ({
   undo: () => {
     // Отмена при открытой правке панели отменяет её целиком.
     get().closeSession();
-    // Совмещение — про план, каким он был; после отмены оно не о том.
+    // Совмещение и постановка — про данные, какими они были; после отмены они не о том.
     if (get().alignment) get().cancelAlignment();
+    if (get().placing) get().cancelPlacing();
+    if (get().measuring) get().cancelMeasuring();
     const entry = useHistoryStore.getState().undo();
     if (entry) applyEntry('undo', entry, set, get);
   },
@@ -117,6 +119,8 @@ export const createHistorySlice: EditorSlice<HistorySlice> = (set, get) => ({
   redo: () => {
     get().closeSession();
     if (get().alignment) get().cancelAlignment();
+    if (get().placing) get().cancelPlacing();
+    if (get().measuring) get().cancelMeasuring();
     const entry = useHistoryStore.getState().redo();
     if (entry) applyEntry('redo', entry, set, get);
   },

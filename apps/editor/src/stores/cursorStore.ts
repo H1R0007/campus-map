@@ -11,6 +11,9 @@ interface CursorState {
   point: { x: number; y: number } | null;
   /** Уровень приближения Leaflet. */
   zoom: number | null;
+  /** Что видно на карте, пиксели плана: сюда кладётся корпус, который ставят впервые. */
+  view: { center: { x: number; y: number }; width: number } | null;
+  setView: (view: { center: { x: number; y: number }; width: number }) => void;
   setPoint: (point: { x: number; y: number } | null) => void;
   setZoom: (zoom: number) => void;
 }
@@ -18,6 +21,8 @@ interface CursorState {
 export const useCursorStore = create<CursorState>((set, get) => ({
   point: null,
   zoom: null,
+  view: null,
+  setView: (view) => set({ view }),
   setPoint: (point) => {
     const current = get().point;
     if (point === current) return;

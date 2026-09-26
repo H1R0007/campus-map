@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import type { BuildingMeta, FloorMeta, PlanSource } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { useCursorStore } from '../../stores/cursorStore';
 import { parseFloorNumber } from '../../stores/editor/structureSlice';
 import { useHistoryStore } from '../../stores/historyStore';
 import { heldFile, planScopeKey } from '../../utils/planFiles';
@@ -232,8 +233,35 @@ export const BuildingSection: React.FC<{ building: BuildingMeta }> = ({ building
           <span className="editor-section__hint">Этот этаж навигатор открывает, когда выбирают корпус</span>
         </label>
       )}
+      {building.placement?.originMeters !== undefined && (
+        <div className="editor-card__row">
+          <Field
+            label="Высота этажа, м"
+            value={String(building.placement.floorHeightMeters ?? '')}
+            inputMode="decimal"
+            hint="Для времени в пути по лестнице"
+            onCommit={(text) => {
+              const value = Number(text.replace(',', '.'));
+              if (!(value > 0)) return 'Высота этажа — положительное число метров';
+              return change({ placement: { ...building.placement, floorHeightMeters: value } });
+            }}
+          />
+          <Field
+            label="Пол 1 этажа над землёй, м"
+            value={String(building.placement.baseElevationMeters ?? '')}
+            inputMode="decimal"
+            hint="0 — вход с уровня земли"
+            onCommit={(text) => {
+              const value = Number(text.replace(',', '.').replace(/[−–—]/g, '-'));
+              if (!Number.isFinite(value)) return 'Отметка — число метров';
+              return change({ placement: { ...building.placement, baseElevationMeters: value } });
+            }}
+          />
+        </div>
+      )}
       <SessionBar sessionKey={sessionKey} what="корпуса" />
       <div className="editor-card__actions">
+        <PlaceButton building={building} />
         <button type="button" className="editor-button editor-button--danger" onClick={() => setDeleting(true)}>
           <Icon name="trash" />
           Удалить корпус…
@@ -244,10 +272,79 @@ export const BuildingSection: React.FC<{ building: BuildingMeta }> = ({ building
   );
 };
 
+/**
+ * Поставить корпус на территорию: на карту территории, с планом этажа входа
+ * поверх. Без масштаба территории метров нет — сначала замер.
+ */
+function usePlaceBuilding() {
+  const startPlacing = useEditorStore((s) => s.startPlacing);
+  const startMeasuring = useEditorStore((s) => s.startMeasuring);
+  const showNotice = useEditorStore((s) => s.showNotice);
+  return (building: string) => {
+    const st = useEditorStore.getState();
+    const cursorView = useCursorStore.getState().view;
+    const size = st.campusMeta?.mapSize ?? { width: 1200, height: 800 };
+    // Корпус впервые ложится туда, куда смотрят на территории; с плана
+    // этажа — в середину территории.
+    const view =
+      st.currentFloor === null && cursorView
+        ? cursorView
+        : { center: { x: size.width / 2, y: size.height / 2 }, width: size.width };
+    const problem = startPlacing(building, view);
+    if (problem === null) return;
+    showNotice(problem, 'warn');
+    if (st.campusMeta?.metersPerPixel === undefined) startMeasuring();
+  };
+}
+
+/** Масштаб территории и корпуса на ней: что поставлено, что нет. */
+const TerritorySection: React.FC = () => {
+  const campusMpp = useEditorStore((s) => s.campusMeta?.metersPerPixel);
+  const buildingMetas = useEditorStore((s) => s.buildingMetas);
+  const startMeasuring = useEditorStore((s) => s.startMeasuring);
+  const place = usePlaceBuilding();
+
+  return (
+    <section className="editor-card__section" aria-label="Корпуса на территории">
+      <h3 className="editor-card__heading">Корпуса на территории</h3>
+      <p className="editor-section__hint">
+        {campusMpp === undefined
+          ? 'Масштаб территории не задан: без него нет метров — ни времени в пути, ни постановки корпусов.'
+          : `Масштаб территории: 1 пикс. = ${String(Math.round(campusMpp * 10000) / 10000).replace('.', ',')} м.`}
+      </p>
+      <div className="editor-card__actions">
+        <button type="button" className="editor-button editor-button--ghost" onClick={startMeasuring}>
+          <Icon name="ruler" />
+          {campusMpp === undefined ? 'Задать масштаб по двум точкам…' : 'Уточнить масштаб…'}
+        </button>
+      </div>
+      <ul className="editor-list" aria-label="Корпуса">
+        {[...buildingMetas.values()].map((meta) => {
+          const placed = meta.placement?.originMeters !== undefined;
+          return (
+            <li key={meta.id} className="editor-list__row">
+              <span className="editor-list__main">
+                <span className="editor-list__text">
+                  <span className="editor-list__name">{meta.name}</span>
+                  <span className="editor-list__sub">{placed ? 'стоит на территории' : 'не поставлен — навигатор не знает, где он'}</span>
+                </span>
+              </span>
+              <button type="button" className="editor-button editor-button--ghost" onClick={() => place(meta.id)} disabled={meta.floors.length === 0}>
+                {placed ? 'Передвинуть…' : 'Поставить…'}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+};
+
 /** План территории: что за файл. */
 export const CampusPlanSection: React.FC = () => {
   const campusMeta = useEditorStore((s) => s.campusMeta);
   return (
+    <>
     <section className="editor-card__section" aria-label="План территории">
       <h3 className="editor-card__heading">План территории</h3>
       <PlanFacts scope={planScopeKey(null, null)} meta={campusMeta ?? undefined} />
@@ -257,6 +354,8 @@ export const CampusPlanSection: React.FC = () => {
         <AlignButton building={null} floor={null} />
       </div>
     </section>
+    <TerritorySection />
+    </>
   );
 };
 
@@ -301,6 +400,19 @@ const RedoPlanButton: React.FC<{ building: string | null; floor: number | null; 
       title="Открыть тот же лист присланного файла: поправить рамку или поворот, точки пересчитаются сами"
     >
       Переделать план…
+    </button>
+  );
+};
+
+/** «Поставить на территорию…» из карточки корпуса. */
+const PlaceButton: React.FC<{ building: BuildingMeta }> = ({ building }) => {
+  const place = usePlaceBuilding();
+  if (building.floors.length === 0) return null;
+  const placed = building.placement?.originMeters !== undefined;
+  return (
+    <button type="button" className="editor-button editor-button--ghost" onClick={() => place(building.id)}>
+      <Icon name="map" />
+      {placed ? 'Передвинуть на территории…' : 'Поставить на территорию…'}
     </button>
   );
 };

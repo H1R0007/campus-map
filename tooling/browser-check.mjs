@@ -32,6 +32,7 @@ import editorSave from './browser/scenarios/editor-save.mjs';
 import editorStructure from './browser/scenarios/editor-structure.mjs';
 import editorImport from './browser/scenarios/editor-import.mjs';
 import editorAlign from './browser/scenarios/editor-align.mjs';
+import editorPlace from './browser/scenarios/editor-place.mjs';
 import editorLayout from './browser/scenarios/editor-layout.mjs';
 import editorHelpSearch from './browser/scenarios/editor-help-search.mjs';
 import editorA11y from './browser/scenarios/editor-a11y.mjs';
@@ -68,6 +69,7 @@ const SCENARIOS = [
   editorStructure,
   editorImport,
   editorAlign,
+  editorPlace,
   editorLayout,
   editorHelpSearch,
   editorA11y,

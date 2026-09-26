@@ -5,6 +5,7 @@ import type { BuildingMeta, MapNode, MapSize, PlanFormat, PlanPlacement, PlanSou
 import { useHistoryStore } from '../historyStore';
 import type { StructureSide } from '../historyStore';
 import { applySimilarity, planChange } from '../../import/planGeometry';
+import { rescalePlacement } from '../../import/placementMath';
 import type { Similarity } from '../../import/planGeometry';
 import { plural } from '../../utils/labels';
 import { planScopeKey } from '../../utils/planFiles';
@@ -121,7 +122,21 @@ export interface StructureSlice {
   importPlans: (request: ImportPlans) => ImportResult;
   /** Сдвигает все точки плана одним подобием — совмещение с новым планом, одна правка. */
   moveNodesOfPlan: (plan: PlanRef, transform: Similarity, description: string) => void;
+  /**
+   * Ставит корпус на территорию: привязка корпуса — для всех его этажей, у
+   * которых нет своей. Высоты этажей, если их не было, — по умолчанию.
+   */
+  placeBuilding: (id: string, placement: { metersPerPixel: number; originMeters: { x: number; y: number }; rotationDeg: number }) => void;
+  /**
+   * Масштаб территории: метров в пикселе её плана. Корпуса, уже стоящие на
+   * территории, остаются на тех же местах картинки — их привязки
+   * пересчитываются.
+   */
+  setCampusScale: (metersPerPixel: number) => string | null;
 }
+
+/** Высота этажа по умолчанию, метры: типичная для учебного корпуса. Её можно поправить в карточке корпуса. */
+export const DEFAULT_FLOOR_HEIGHT = 3.6;
 
 // ---------- проверки: общие для стора и форм ----------
 
@@ -555,6 +570,41 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
         }
       });
       return { problem: null, align };
+    },
+
+    placeBuilding: (id, placement) => {
+      const meta = get().buildingMetas.get(id);
+      if (!meta) return;
+      const placed = meta.placement?.originMeters !== undefined;
+      commit(`Корпус «${meta.name}» ${placed ? 'передвинут' : 'поставлен'} на территорию`, [], (s) => {
+        const target = s.buildingMetas.get(id)!;
+        target.placement = {
+          ...target.placement,
+          metersPerPixel: placement.metersPerPixel,
+          originMeters: { ...placement.originMeters },
+          rotationDeg: placement.rotationDeg,
+          baseElevationMeters: target.placement?.baseElevationMeters ?? 0,
+          floorHeightMeters: target.placement?.floorHeightMeters ?? DEFAULT_FLOOR_HEIGHT,
+        };
+      });
+    },
+
+    setCampusScale: (metersPerPixel) => {
+      const st = get();
+      if (!Number.isFinite(metersPerPixel) || metersPerPixel <= 0) return 'Масштаб — положительное число';
+      if (!st.campusMeta) return 'У данных нет метаданных территории';
+      const previous = st.campusMeta.metersPerPixel;
+      commit('Масштаб территории', [], (s) => {
+        s.campusMeta!.metersPerPixel = Math.round(metersPerPixel * 1e7) / 1e7;
+        if (previous === undefined || previous === metersPerPixel) return;
+        // Корпуса остаются на тех же местах картинки территории.
+        const ratio = metersPerPixel / previous;
+        for (const meta of s.buildingMetas.values()) {
+          if (meta.placement) meta.placement = rescalePlacement(meta.placement, ratio);
+          for (const floor of meta.floors) if (floor.placement) floor.placement = rescalePlacement(floor.placement, ratio);
+        }
+      });
+      return null;
     },
 
     moveNodesOfPlan: (plan, transform, description) => {

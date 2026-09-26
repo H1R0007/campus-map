@@ -105,6 +105,11 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   setCurrentBuilding: (buildingId) =>
     set((state) => {
       state.currentBuilding = buildingId;
+      // Постановка и замер — на территории: другой план их заканчивает.
+      if (buildingId !== null) {
+        state.placing = null;
+        state.measuring = null;
+      }
       // У корпуса без этажей плана нет: карта показывает территорию, а поверх —
       // предложение добавить этаж (`PlanStatus`).
       state.currentFloor = buildingId ? openingFloorOf(state.buildingMetas.get(buildingId)) : null;
