@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import { DEFAULT_INSETS, PixelMap, fitPaddingOf, flyToBounds, useMapFrame } from '@campus-map/mapkit';
-import { campusMapUrl, floorMapUrl, planFormatOf } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useCursorStore } from '../../stores/cursorStore';
 import type { EditorStore, EditorTool } from '../../stores/editorStore';
-import { DATA_BASE_URL } from '../../config/dataBase';
+import { blankPlanUrl, usePlanUrl } from '../../hooks/usePlanUrl';
+import { planScopeKey } from '../../utils/planFiles';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { visibleKinds } from '../../utils/placeKinds';
 import { TRANSITION_LABELS } from '../../utils/labels';
@@ -448,18 +448,23 @@ export const EditorMap: React.FC = () => {
   const campusMeta = useEditorStore((s) => s.campusMeta);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
 
-  // Формат плана — из метаданных: PNG или SVG (запись 29).
-  const mapUrl = useMemo(() => {
-    if (currentBuilding === null || currentFloor === null) {
-      return campusMapUrl(DATA_BASE_URL, planFormatOf(campusMeta ?? undefined));
-    }
-    const floorMeta = buildingMetas.get(currentBuilding)?.floors.find((meta) => meta.floor === currentFloor);
-    return floorMapUrl(currentBuilding, currentFloor, DATA_BASE_URL, planFormatOf(floorMeta));
-  }, [currentBuilding, currentFloor, campusMeta, buildingMetas]);
+  // Корпус без этажей показывает территорию: разметки на нём нет, а поверх
+  // карты — предложение добавить этажи (`PlanStatus`).
+  const building = currentFloor === null ? null : currentBuilding;
+  const plan = usePlanUrl(building, currentFloor);
+  const mapSize =
+    building === null
+      ? campusMeta?.mapSize
+      : buildingMetas.get(building)?.floors.find((meta) => meta.floor === currentFloor)?.mapSize;
+  // У плана без файла — прозрачная подложка его размера: точки ставятся как обычно.
+  const mapUrl = plan.url ?? blankPlanUrl(mapSize);
 
   return (
     <PixelMap
       url={mapUrl}
+      // Вид подгоняется под план, когда открыли другой план или сменили его
+      // содержимое, — но не когда сохранение перенесло тот же файл.
+      fitKey={`${planScopeKey(building, currentFloor)}|${plan.key ?? 'blank'}`}
       maxZoom={6}
       zoomControl
       doubleClickZoom={false}

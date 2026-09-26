@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { CircleMarker, ImageOverlay, Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { edgeKey, floorMapUrl, planFormatOf } from '@campus-map/core';
+import { edgeKey } from '@campus-map/core';
 import type { MapNode } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
-import { DATA_BASE_URL } from '../../config/dataBase';
+import { usePlanUrl } from '../../hooks/usePlanUrl';
 import { mapPalette } from '../../utils/themeColor';
 
 /**
@@ -75,6 +75,7 @@ export const NeighbourFloor: React.FC = () => {
   }, [nodes]);
 
   const floorMeta = neighbour === null ? undefined : meta?.floors.find((item) => item.floor === neighbour);
+  const plan = usePlanUrl(currentBuilding, neighbour);
   const width = floorMeta?.mapSize?.width;
   const height = floorMeta?.mapSize?.height;
   const bounds = useMemo(
@@ -86,9 +87,9 @@ export const NeighbourFloor: React.FC = () => {
 
   return (
     <>
-      {bounds && (
+      {bounds && plan.url !== null && (
         <ImageOverlay
-          url={floorMapUrl(currentBuilding, neighbour, DATA_BASE_URL, planFormatOf(floorMeta))}
+          url={plan.url}
           bounds={bounds}
           opacity={0.18}
           interactive={false}

@@ -110,12 +110,6 @@ function toJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-/**
- * Собирает файлы датасета: путь внутри `data/` → содержимое.
- *
- * Планы (`map.png`, `map.svg`) сюда не попадают: редактор их пока не меняет,
- * и переписывать их своим содержимым было бы потерей.
- */
 /** Запись об исходнике плана — в порядке полей формата. */
 function sourceForFile(source: PlanSource | undefined): PlanSource | undefined {
   if (!source) return undefined;
@@ -129,6 +123,13 @@ function sourceForFile(source: PlanSource | undefined): PlanSource | undefined {
   } satisfies EveryField<PlanSource>;
 }
 
+/**
+ * Собирает файлы датасета: путь внутри `data/` → содержимое.
+ *
+ * Планы (`map.png`, `map.svg` …) сюда не попадают: это не текст, и их байты
+ * лежат не в данных стора, а на диске или в памяти редактора. Что с ними
+ * делать при сохранении, решает `planSave` (`utils/saveFiles.ts`).
+ */
 export function datasetFiles(dataset: Dataset): Map<string, string> {
   const { nodes: allNodes, transitions, buildingMetas, aliases, campusMeta } = dataset;
   const files = new Map<string, string>();

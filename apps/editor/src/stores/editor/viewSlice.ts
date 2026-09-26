@@ -105,7 +105,9 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
   setCurrentBuilding: (buildingId) =>
     set((state) => {
       state.currentBuilding = buildingId;
-      state.currentFloor = buildingId ? (openingFloorOf(state.buildingMetas.get(buildingId)) ?? 1) : null;
+      // У корпуса без этажей плана нет: карта показывает территорию, а поверх —
+      // предложение добавить этаж (`PlanStatus`).
+      state.currentFloor = buildingId ? openingFloorOf(state.buildingMetas.get(buildingId)) : null;
       state.selectedNodeIds = new Set();
       // Начатое ребро и линия живут в пределах плана, а начатый переход —
       // наоборот: второй его конец почти всегда на другом этаже или в другом

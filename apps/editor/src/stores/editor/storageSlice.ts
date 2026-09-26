@@ -1,8 +1,12 @@
-import { datasetFiles } from '../../utils/datasetFiles';
+import { datasetUrl } from '@campus-map/core';
+import { DATA_BASE_URL } from '../../config/dataBase';
 import { clearDraft, readDraft, writeDraft } from '../../utils/draftStorage';
 import type { EditorDraft } from '../../utils/draftStorage';
-import { fetchDiskManifest, saveFilesToDisk } from '../../utils/diskStore';
-import type { FileHashes } from '../../utils/diskStore';
+import { fetchDiskManifest, saveFilesToDisk, uploadToDisk } from '../../utils/diskStore';
+import type { FileHashes, SaveOutcome } from '../../utils/diskStore';
+import { heldFiles, holdFile, planFilesByHash, restoreHeldFiles } from '../../utils/planFiles';
+import { isPlanFile, planSave } from '../../utils/saveFiles';
+import { plural } from '../../utils/labels';
 import { useHistoryStore } from '../historyStore';
 import { datasetFromState } from './graphState';
 import type { EditorSlice, EditorStore } from './types';
@@ -28,6 +32,13 @@ export interface StorageSlice {
   diskDataDir: string | null;
   /** Отпечатки файлов, с которыми редактор работает: по ним видны чужие правки. */
   diskHashes: FileHashes;
+  /** Исходники планов, которые уже лежат в `data-sources/`. */
+  diskSources: Set<string>;
+  /**
+   * Файлы данных, которые редактор знает: понял при открытии или сам
+   * сохранил. Удалить сохранение может только их (запись 47).
+   */
+  ownedFiles: Set<string>;
   saving: boolean;
 
   /**
@@ -61,6 +72,8 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
   diskSaveAvailable: false,
   diskDataDir: null,
   diskHashes: {},
+  diskSources: new Set(),
+  ownedFiles: new Set(),
   saving: false,
   saveRequest: 0,
   draftFound: null,
@@ -77,8 +90,17 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
         s.diskSaveAvailable = true;
         s.diskDataDir = manifest.dataDir;
         s.diskHashes = manifest.files;
+        s.diskSources = new Set(manifest.sources);
+        // Планы узнаются по отпечаткам: путь файла меняется, содержимое — нет.
+        s.planFiles = planFilesByHash(s.planFiles, manifest.files);
       });
     }
+    // Что редактор понял при открытии, то он и вправе удалить.
+    set((s) => {
+      s.ownedFiles = new Set(
+        savePlanOf(get()).produced.filter((path) => manifest === null || manifest.files[path] !== undefined)
+      );
+    });
 
     const draft = await readDraft();
     if (draft) set((s) => { s.draftFound = draft; });
@@ -92,19 +114,37 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
 
     set((s) => { s.saving = true; });
     try {
-      const files = datasetFiles(datasetFromState(state));
-      const outcome = await saveFilesToDisk(files, state.diskHashes);
+      const plan = savePlanOf(state);
+      if (plan.lost.length > 0) {
+        get().showNotice(
+          `Не найдено содержимое планов: ${plan.lost.join(', ')}. Добавьте эти планы заново — остальное не сохранено, чтобы ничего не потерять`,
+          'warn'
+        );
+        return;
+      }
+
+      // Удаляемый план запоминается: отмена удаления этажа после сохранения
+      // вернёт и его план.
+      for (const path of plan.delete.filter(isPlanFile)) await rememberDiskFile(path);
+
+      const outcome = await uploadAndSave(plan, state.diskHashes);
 
       if (outcome.kind === 'saved') {
         set((s) => {
-          s.diskHashes = { ...s.diskHashes, ...outcome.hashes };
+          const hashes = { ...s.diskHashes, ...outcome.hashes };
+          for (const path of outcome.deleted) delete hashes[path];
+          s.diskHashes = hashes;
+          for (const name of outcome.sources) s.diskSources.add(name);
+          s.ownedFiles = new Set(plan.produced);
         });
         get().markSaved();
         await clearDraft();
+        const deleted = outcome.deleted.length;
         get().showNotice(
-          outcome.written.length === 0
+          outcome.written.length === 0 && deleted === 0
             ? 'Сохранять нечего: файлы данных уже такие'
-            : `Сохранено в data/: файлов ${outcome.written.length}`
+            : `Сохранено в data/: файлов ${outcome.written.length}` +
+                (deleted > 0 ? `, удалено ${deleted} ${plural(deleted, ['файл', 'файла', 'файлов'])}` : '')
         );
       } else if (outcome.kind === 'conflict') {
         get().showNotice(
@@ -112,6 +152,8 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
             'Перезагрузите страницу и внесите правки заново или сохраните архив.',
           'warn'
         );
+      } else if (outcome.kind === 'missing-upload') {
+        get().showNotice('Не удалось передать файлы плана на диск. Попробуйте сохранить ещё раз', 'warn');
       } else {
         get().showNotice(`Не удалось сохранить: ${outcome.message}`, 'warn');
       }
@@ -126,9 +168,28 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
 
     set((s) => { s.saving = true; });
     try {
+      const plan = savePlanOf(state);
+      if (plan.lost.length > 0) {
+        get().showNotice(`Не найдено содержимое планов: ${plan.lost.join(', ')}. Добавьте эти планы заново`, 'warn');
+        return;
+      }
+      const held = (sha256: string) => plan.uploads.find((file) => file.sha256 === sha256)?.blob;
+      const plans: { path: string; blob: Blob }[] = [];
+      for (const [path, file] of Object.entries(plan.files)) {
+        const blob = 'upload' in file ? held(file.upload) : 'copy' in file ? await fetchDataFile(file.copy) : undefined;
+        if (blob) plans.push({ path, blob });
+      }
+      const sources = Object.entries(plan.sources).flatMap(([name, { upload }]) => {
+        const blob = held(upload);
+        return blob ? [{ name, blob }] : [];
+      });
+
       const { exportToZip } = await import('../../utils/exportData');
-      await exportToZip(datasetFromState(state));
-      get().showNotice('Архив с данными скачан. Чтобы правки увидел навигатор, распакуйте его в корень репозитория');
+      await exportToZip(datasetFromState(state), { plans, sources, deleted: plan.delete });
+      get().showNotice(
+        'Архив с данными скачан. Чтобы правки увидел навигатор, распакуйте его в корень репозитория' +
+          (plan.delete.length > 0 ? ' и удалите файлы, перечисленные в README.md архива' : '')
+      );
     } finally {
       set((s) => { s.saving = false; });
     }
@@ -138,8 +199,16 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
     const draft = get().draftFound;
     if (!draft) return;
 
-    get().loadData(draft.dataset, [], { unsaved: true });
-    set((s) => { s.draftFound = null; });
+    restoreHeldFiles(draft.heldFiles ?? []);
+    get().loadData(draft.dataset, [], {
+      unsaved: true,
+      planFiles: draft.planFiles ? new Map(draft.planFiles) : undefined,
+    });
+    set((s) => {
+      s.draftFound = null;
+      // Черновик прежней версии редактора планов не помнит: они — те, что на диске.
+      if (s.diskSaveAvailable) s.planFiles = planFilesByHash(s.planFiles, s.diskHashes);
+    });
     get().showNotice('Несохранённая работа восстановлена. Проверьте её и сохраните');
   },
 
@@ -152,6 +221,55 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
     set((s) => { s.draftFound = null; });
   },
 });
+
+/** Что сделать с файлами, чтобы на диске оказалось состояние редактора. */
+function savePlanOf(state: EditorStore) {
+  return planSave({
+    dataset: datasetFromState(state),
+    planFiles: state.planFiles,
+    diskHashes: state.diskHashes,
+    diskSources: state.diskSources,
+    owned: state.ownedFiles,
+  });
+}
+
+/** Файл каталога данных с сервера — для архива. */
+async function fetchDataFile(path: string): Promise<Blob | undefined> {
+  try {
+    const response = await fetch(datasetUrl(path, DATA_BASE_URL), { cache: 'no-store' });
+    return response.ok ? await response.blob() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Кладёт файл с диска в память редактора. Не прочитался — отмена его не вернёт, но сохранению это не мешает. */
+async function rememberDiskFile(path: string): Promise<void> {
+  try {
+    const response = await fetch(datasetUrl(path, DATA_BASE_URL), { cache: 'no-store' });
+    if (response.ok) await holdFile(await response.blob());
+  } catch {
+    // Сервер не отдал файл — сохранение всё равно идёт.
+  }
+}
+
+/**
+ * Загружает большие файлы и сохраняет. Если загрузка пропала до сохранения
+ * (временный каталог очищен), она повторяется один раз.
+ */
+async function uploadAndSave(plan: ReturnType<typeof planSave>, base: FileHashes): Promise<SaveOutcome> {
+  for (const file of plan.uploads) {
+    const error = await uploadToDisk(file);
+    if (error) return { kind: 'error', message: error };
+  }
+  const request = { files: plan.files, delete: plan.delete, sources: plan.sources };
+  const outcome = await saveFilesToDisk(request, base);
+  if (outcome.kind !== 'missing-upload') return outcome;
+
+  const missing = plan.uploads.find((file) => file.sha256 === outcome.sha256);
+  if (!missing || (await uploadToDisk(missing)) !== null) return outcome;
+  return saveFilesToDisk(request, base);
+}
 
 let autosaveStarted = false;
 
@@ -176,7 +294,13 @@ function startDraftAutosave(get: () => EditorStore): void {
       const unsaved = useHistoryStore.getState().stateId() !== state.savedStateId;
 
       if (unsaved) {
-        void writeDraft({ savedAt: Date.now(), dataset: datasetFromState(state), base: state.diskHashes });
+        void writeDraft({
+          savedAt: Date.now(),
+          dataset: datasetFromState(state),
+          base: state.diskHashes,
+          planFiles: [...state.planFiles.entries()],
+          heldFiles: heldFiles(),
+        });
       } else {
         void clearDraft();
       }

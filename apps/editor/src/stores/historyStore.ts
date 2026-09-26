@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AliasEntry, MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
+import type { AliasEntry, BuildingMeta, CampusMeta, MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
 
 /**
  * Контракт истории действий редактора и сам стек отмены.
@@ -34,6 +34,26 @@ export interface AliasSnapshot {
   names: string[];
   category?: PlaceCategory;
   translations?: NonNullable<AliasEntry['translations']>;
+}
+
+/**
+ * Структура кампуса по одну сторону правки корпуса, этажа или плана.
+ *
+ * Корпуса, метаданные территории, планы и переходы хранятся целиком: их
+ * немного, а правка структуры задевает их по-разному — удаление этажа уносит
+ * переходы, смена номера двигает план. Точки и их названия — только
+ * затронутые: `null` значит «точки нет».
+ */
+export interface StructureSide {
+  buildingMetas: BuildingMeta[];
+  campusMeta: CampusMeta | null;
+  /** Планы: территория или этаж → ключ содержимого (`utils/planFiles.ts`). */
+  planFiles: [string, string][];
+  transitions: Transition[];
+  nodes: [string, MapNode | null][];
+  places: [string, AliasSnapshot | null][];
+  /** Какой план был открыт: отмена и повтор возвращают к нему. */
+  view: { building: string | null; floor: number | null };
 }
 
 /**
@@ -122,6 +142,7 @@ export type ActionType =
   | 'SET_CATEGORY'
   | 'SET_PLACE_KINDS'
   | 'RENAME_NODE'
+  | 'STRUCTURE'
   | 'GROUP'
   | 'BATCH';
 
@@ -222,6 +243,14 @@ export type HistoryEntry =
       timestamp: number;
       undoData: { from: string; to: string };
       redoData: { from: string; to: string };
+    }
+  | {
+      /** Корпус, этаж или план: добавлен, удалён, изменён (запись 47). */
+      type: 'STRUCTURE';
+      description: string;
+      timestamp: number;
+      undoData: StructureSide;
+      redoData: StructureSide;
     }
   | {
       /** Каталог видов точек целиком: список короткий, а правки редкие. */

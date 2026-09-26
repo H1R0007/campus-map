@@ -1,4 +1,5 @@
 import type { Dataset } from '@campus-map/core';
+import type { HeldFile } from './planFiles';
 
 /**
  * Черновик несохранённой работы в браузере.
@@ -28,6 +29,10 @@ export interface EditorDraft {
    * что данные на диске успели измениться после черновика.
    */
   base: Record<string, string>;
+  /** Планы: территория или этаж → ключ содержимого. Нет у черновиков прежних версий. */
+  planFiles?: [string, string][];
+  /** Импортированные, но не сохранённые планы и исходники — сами байты. */
+  heldFiles?: HeldFile[];
 }
 
 function openDatabase(): Promise<IDBDatabase | null> {

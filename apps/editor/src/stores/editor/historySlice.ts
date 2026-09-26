@@ -56,6 +56,9 @@ function dataFingerprint(st: EditorStore): string {
     [...st.aliasCategories.entries()],
     [...st.aliasTranslations.entries()],
     st.placeKinds,
+    [...st.buildingMetas.values()],
+    st.campusMeta,
+    [...st.planFiles.entries()],
   ]);
 }
 

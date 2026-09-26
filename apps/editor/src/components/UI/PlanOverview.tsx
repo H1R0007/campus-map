@@ -6,6 +6,7 @@ import { useValidationReport } from '../../hooks/useValidationReport';
 import { planStats } from '../../utils/planStats';
 import { plural } from '../../utils/labels';
 import { Icon } from './Icon';
+import { BuildingSection, CampusPlanSection, FloorSection } from './StructureCards';
 
 /**
  * Обзор открытого плана — вкладка «Свойства», когда ничего не выбрано.
@@ -14,8 +15,47 @@ import { Icon } from './Icon';
  * плане узлов, у скольких есть названия, нет ли узлов без связей и не
  * распался ли план на несвязанные части. Прежняя плавающая «Статистика»
  * смешивала цифры кампуса и этажа и закрывала кнопку «Маршрут».
+ *
+ * Ниже — карточки этажа и корпуса: номер, подпись, названия, удаление
+ * (запись 47). У корпуса без этажей — только они.
  */
 export const PlanOverview: React.FC = () => {
+  const currentBuilding = useEditorStore((s) => s.currentBuilding);
+  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const building = useEditorStore((s) => (currentBuilding === null ? undefined : s.buildingMetas.get(currentBuilding)));
+  const floor = currentFloor === null ? undefined : building?.floors.find((item) => item.floor === currentFloor);
+
+  if (building && !floor) {
+    return (
+      <section aria-label="Обзор корпуса" className="editor-card">
+        <header className="editor-card__header">
+          <h2 className="editor-card__title">{building.name}</h2>
+          <p className="editor-card__place">Этажей пока нет. Первый этаж добавляется на карте или кнопкой «Этаж» в структуре.</p>
+        </header>
+        <BuildingSection building={building} />
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <PlanStatsCard />
+      {building && floor ? (
+        <section aria-label="Этаж и корпус" className="editor-card">
+          <FloorSection key={`${building.id}/${floor.floor}`} building={building} floor={floor} />
+          <BuildingSection key={building.id} building={building} />
+        </section>
+      ) : (
+        <section aria-label="Территория" className="editor-card">
+          <CampusPlanSection />
+        </section>
+      )}
+    </>
+  );
+};
+
+/** Цифры открытого плана и итог проверки. */
+const PlanStatsCard: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);

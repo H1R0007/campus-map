@@ -9,6 +9,7 @@ import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
 import { SearchPanel } from './components/UI/SearchPanel';
 import { Notice } from './components/UI/Notice';
+import { PlanStatus } from './components/UI/PlanStatus';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
 import { HelpDialog } from './components/UI/HelpDialog';
@@ -180,6 +181,7 @@ const App: React.FC = () => {
             <ToolOptions />
             <div className="editor-map-area">
               <EditorMap />
+              <PlanStatus />
               <Notice />
             </div>
           </main>

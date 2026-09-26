@@ -7,6 +7,7 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
 import { PlanOverview } from './PlanOverview';
+import { SessionBar } from './SessionBar';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { nodeIdProblem } from '../../utils/nodeIds';
@@ -161,7 +162,7 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
         <CommentSection nodeId={nodeId} />
         <ServiceSection nodeId={nodeId} />
 
-        <CardSessionBar sessionKey={sessionKey} />
+        <SessionBar sessionKey={sessionKey} what="точки" />
 
         <footer className="editor-card__footer">
           <button
@@ -181,43 +182,6 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
         </footer>
       </section>
     </CardEdit.Provider>
-  );
-};
-
-/**
- * Полоса «изменения точки» внизу карточки: правки копятся в одну запись, и
- * ими можно распорядиться разом — применить или вернуть всё как было.
- */
-const CardSessionBar: React.FC<{ sessionKey: string }> = ({ sessionKey }) => {
-  const pending = useHistoryStore(
-    (s) => s.session !== null && s.session.key === sessionKey && s.currentIndex > s.session.startIndex
-  );
-  const closeSession = useEditorStore((s) => s.closeSession);
-  const revertSession = useEditorStore((s) => s.revertSession);
-  const showNotice = useEditorStore((s) => s.showNotice);
-
-  if (!pending) return null;
-
-  return (
-    <div className="editor-card__session" role="group" aria-label="Изменения точки">
-      <p className="editor-section__hint">Изменения точки — одной правкой: отмена вернёт их все разом.</p>
-      <div className="editor-card__actions">
-        <button
-          type="button"
-          className="editor-button editor-button--primary"
-          onClick={() => {
-            closeSession();
-            showNotice('Изменения точки применены');
-          }}
-        >
-          <Icon name="checkCircle" />
-          Применить
-        </button>
-        <button type="button" className="editor-button editor-button--ghost" onClick={revertSession}>
-          Отменить изменения
-        </button>
-      </div>
-    </div>
   );
 };
 

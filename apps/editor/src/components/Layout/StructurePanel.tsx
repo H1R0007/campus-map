@@ -1,7 +1,9 @@
-import React, { useDeferredValue, useMemo } from 'react';
+import React, { useDeferredValue, useMemo, useState } from 'react';
 import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { nextBuildingName } from '../../stores/editor/structureSlice';
 import { Icon } from '../UI/Icon';
+import { AddFloorForm } from '../UI/StructureCards';
 import { DisplayOptions } from './DisplayOptions';
 
 /** Ключ плана для подсчёта узлов: корпус и этаж. */
@@ -77,6 +79,7 @@ const PlanTree: React.FC = () => {
   }, [nodes]);
 
   const buildings = Array.from(buildingMetas.values());
+  const [addingFloor, setAddingFloor] = useState<string | null>(null);
 
   return (
     <ul className="editor-tree" aria-label="Планы">
@@ -126,12 +129,115 @@ const PlanTree: React.FC = () => {
                     </button>
                   </li>
                 ))}
+                <li>
+                  {addingFloor === building.id ? (
+                    <div className="editor-tree__form">
+                      <AddFloorForm building={building} autoFocus onDone={() => setAddingFloor(null)} />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="editor-tree__item editor-tree__item--add"
+                      onClick={() => setAddingFloor(building.id)}
+                    >
+                      <Icon name="plus" />
+                      <span className="editor-tree__label">Этаж</span>
+                    </button>
+                  )}
+                </li>
               </ul>
             )}
           </li>
         );
       })}
+
+      <li>
+        <AddBuilding />
+      </li>
     </ul>
+  );
+};
+
+/**
+ * Новый корпус: имя с подсказанной следующей буквой. Корпус появляется
+ * пустым и сразу открывается — дальше добавляются этажи.
+ */
+const AddBuilding: React.FC = () => {
+  const addBuilding = useEditorStore((s) => s.addBuilding);
+  const [name, setName] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  if (name === null) {
+    return (
+      <button
+        type="button"
+        className="editor-tree__item editor-tree__item--add"
+        onClick={() => setName(nextBuildingName(useEditorStore.getState().buildingMetas.values()))}
+      >
+        <Icon name="plus" />
+        <span className="editor-tree__label">Корпус</span>
+      </button>
+    );
+  }
+
+  const submit = () => {
+    const result = addBuilding(name);
+    if ('problem' in result) {
+      setProblem(result.problem);
+      return;
+    }
+    setName(null);
+    setProblem(null);
+  };
+
+  return (
+    <form
+      className="editor-tree__form"
+      aria-label="Новый корпус"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <label className="editor-card__field">
+        <span className="editor-section__hint">Название нового корпуса</span>
+        <input
+          aria-label="Название нового корпуса"
+          aria-invalid={problem !== null}
+          className="editor-input"
+          value={name}
+          autoFocus
+          onChange={(e) => {
+            setName(e.target.value);
+            setProblem(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              setName(null);
+              setProblem(null);
+            }
+          }}
+        />
+        {problem !== null && <span className="editor-section__hint editor-section__hint--problem">{problem}</span>}
+      </label>
+      <div className="editor-card__actions">
+        <button type="submit" className="editor-button editor-button--primary">
+          <Icon name="plus" />
+          Добавить
+        </button>
+        <button
+          type="button"
+          className="editor-button editor-button--ghost"
+          onClick={() => {
+            setName(null);
+            setProblem(null);
+          }}
+        >
+          Отмена
+        </button>
+      </div>
+    </form>
   );
 };
 
