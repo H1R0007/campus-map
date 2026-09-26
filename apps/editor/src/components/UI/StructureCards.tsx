@@ -164,6 +164,7 @@ export const FloorSection: React.FC<{ building: BuildingMeta; floor: FloorMeta }
       <PlanFacts scope={planScopeKey(building.id, floor.floor)} meta={floor} />
       <SessionBar sessionKey={sessionKey} what="этажа" />
       <div className="editor-card__actions">
+        <PlanFileButton building={building.id} floor={floor.floor} />
         <button type="button" className="editor-button editor-button--danger" onClick={() => setDeleting(true)}>
           <Icon name="trash" />
           Удалить этаж…
@@ -246,7 +247,26 @@ export const CampusPlanSection: React.FC = () => {
     <section className="editor-card__section" aria-label="План территории">
       <h3 className="editor-card__heading">План территории</h3>
       <PlanFacts scope={planScopeKey(null, null)} meta={campusMeta ?? undefined} />
+      <div className="editor-card__actions">
+        <PlanFileButton building={null} floor={null} />
+      </div>
     </section>
+  );
+};
+
+/** «Заменить план…» или «Добавить план…» — окно «Планы из файлов» для этого плана. */
+const PlanFileButton: React.FC<{ building: string | null; floor: number | null }> = ({ building, floor }) => {
+  const openImport = useEditorStore((s) => s.openImport);
+  const hasPlan = useEditorStore((s) => s.planFiles.has(planScopeKey(building, floor)));
+  return (
+    <button
+      type="button"
+      className="editor-button editor-button--ghost"
+      onClick={() => openImport([], building === null ? { campus: true } : { building, floor: floor ?? undefined })}
+    >
+      <Icon name="upload" />
+      {hasPlan ? 'Заменить план…' : 'Добавить план…'}
+    </button>
   );
 };
 

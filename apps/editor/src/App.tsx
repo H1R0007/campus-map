@@ -10,6 +10,8 @@ import { StatusBar } from './components/UI/StatusBar';
 import { SearchPanel } from './components/UI/SearchPanel';
 import { Notice } from './components/UI/Notice';
 import { PlanStatus } from './components/UI/PlanStatus';
+import { ImportDialog } from './components/UI/ImportDialog';
+import { ImportDropZone } from './components/UI/ImportDropZone';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
 import { HelpDialog } from './components/UI/HelpDialog';
@@ -193,6 +195,8 @@ const App: React.FC = () => {
         <ContextMenu />
         <HelpDialog />
         <KindsDialog />
+        <ImportDialog />
+        <ImportDropZone />
         <DraftPrompt />
       </div>
     </ErrorBoundary>

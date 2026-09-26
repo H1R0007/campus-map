@@ -53,10 +53,29 @@ export const StructurePanel: React.FC = () => {
         </button>
       </div>
       <div className="editor-column-body">
+        <ImportButton />
         <PlanTree />
         <DisplayOptions />
       </div>
     </nav>
+  );
+};
+
+/** «Планы из файлов»: присланные PDF, сканы, чертежи — сразу в этажи и корпуса. */
+const ImportButton: React.FC = () => {
+  const openImport = useEditorStore((s) => s.openImport);
+  return (
+    <div className="editor-tree__form">
+      <button
+        type="button"
+        className="editor-button editor-button--ghost editor-button--block"
+        onClick={() => openImport()}
+        title="PDF, сканы, картинки, чертежи DXF, архивы ZIP. Файлы можно просто перетащить на редактор"
+      >
+        <Icon name="upload" />
+        Планы из файлов…
+      </button>
+    </div>
   );
 };
 

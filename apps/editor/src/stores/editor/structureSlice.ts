@@ -6,6 +6,7 @@ import { useHistoryStore } from '../historyStore';
 import type { StructureSide } from '../historyStore';
 import { applySimilarity } from '../../import/planGeometry';
 import type { Similarity } from '../../import/planGeometry';
+import { plural } from '../../utils/labels';
 import { planScopeKey } from '../../utils/planFiles';
 import { syncPortals } from './graphState';
 import { applyStructureSide, forgetPlace, snapshotPlace } from './historyApply';
@@ -68,6 +69,19 @@ export interface DeletionImpact {
   plans: number;
 }
 
+/** Этаж из окна «Планы из файлов»: корпус — существующий или новый по имени. */
+export interface ImportFloor {
+  building: { id: string } | { newName: string };
+  floor: number;
+  label?: string;
+  plan: PlanInput;
+}
+
+export interface ImportPlans {
+  floors: ImportFloor[];
+  campus?: PlanInput;
+}
+
 export interface StructureSlice {
   /** Добавляет корпус без этажей. @returns id корпуса или текст проблемы */
   addBuilding: (name: string) => { id: string } | { problem: string };
@@ -82,6 +96,13 @@ export interface StructureSlice {
   /** Ставит план этажу или территории (`buildingId === null`). */
   setPlan: (buildingId: string | null, floor: number | null, plan: PlanInput) => void;
   deletionImpact: (buildingId: string, floor?: number) => DeletionImpact;
+  /**
+   * Всё, что выбрано в окне «Планы из файлов», — одной записью истории: новые
+   * корпуса, этажи, планы. Этажу, который уже есть, план заменяется.
+   *
+   * @returns текст проблемы или `null`
+   */
+  importPlans: (request: ImportPlans) => string | null;
 }
 
 // ---------- проверки: общие для стора и форм ----------
@@ -249,16 +270,8 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       if (problem) return { problem };
 
       const trimmed = name.trim();
-      const id = buildingIdFor(trimmed, (candidate) => st.buildingMetas.has(candidate));
-      const letter = buildingLetter(trimmed);
-      const meta: BuildingMeta = {
-        id,
-        name: trimmed,
-        // Английское имя для навигатора: корпуса называют буквами, и «Building G»
-        // понятнее иностранцу, чем «Корпус Г».
-        ...(letter ? { translations: { en: { name: `Building ${transliterate(letter).toUpperCase()}` } } } : {}),
-        floors: [],
-      };
+      const meta = newBuildingMeta(trimmed, (candidate) => st.buildingMetas.has(candidate));
+      const id = meta.id;
 
       commit(`Добавлен корпус «${trimmed}»`, [], (s) => {
         s.buildingMetas.set(id, meta);
@@ -424,6 +437,76 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       });
     },
 
+    importPlans: (request) => {
+      const st = get();
+      const key = (name: string) => name.trim().toLowerCase();
+      const newNames = new Map<string, string>();
+      for (const item of request.floors) {
+        if ('newName' in item.building) newNames.set(key(item.building.newName), item.building.newName.trim());
+        else if (!st.buildingMetas.has(item.building.id)) return 'Корпуса нет';
+      }
+      for (const name of newNames.values()) {
+        const problem = buildingNameProblem(name, st.buildingMetas);
+        if (problem) return problem;
+      }
+
+      const seen = new Set<string>();
+      for (const item of request.floors) {
+        const target = 'id' in item.building ? item.building.id : `new:${key(item.building.newName)}`;
+        // Этаж, который уже есть, не помеха: ему заменяется план.
+        const problem = floorNumberProblem(item.floor, undefined) ?? floorLabelProblem(item.label ?? '');
+        if (problem) return problem;
+        if (seen.has(`${target}|${item.floor}`)) return `Два листа на один этаж: ${item.floor}`;
+        seen.add(`${target}|${item.floor}`);
+      }
+      if (request.floors.length === 0 && !request.campus) return 'Нечего добавлять';
+
+      const parts = [
+        request.floors.length > 0 ? `${request.floors.length} ${plural(request.floors.length, ['этаж', 'этажа', 'этажей'])}` : '',
+        request.campus ? 'план территории' : '',
+      ].filter(Boolean);
+
+      commit(`Планы из файлов: ${parts.join(', ')}`, [], (s) => {
+        const ids = new Map<string, string>();
+        for (const [normalized, name] of newNames) {
+          const meta = newBuildingMeta(name, (candidate) => s.buildingMetas.has(candidate));
+          s.buildingMetas.set(meta.id, meta);
+          ids.set(normalized, meta.id);
+        }
+
+        let first: { building: string | null; floor: number | null } | null = null;
+        for (const item of request.floors) {
+          const id = 'id' in item.building ? item.building.id : ids.get(key(item.building.newName))!;
+          const meta = s.buildingMetas.get(id)!;
+          let floor = meta.floors.find((entry) => entry.floor === item.floor);
+          if (!floor) {
+            meta.floors.push({ floor: item.floor });
+            meta.floors.sort((a, b) => a.floor - b.floor);
+            floor = meta.floors.find((entry) => entry.floor === item.floor)!;
+          }
+          const label = item.label?.trim();
+          if (label) floor.label = label;
+          Object.assign(floor, planFields(item.plan));
+          s.planFiles.set(planScopeKey(id, item.floor), item.plan.key);
+          first ??= { building: id, floor: item.floor };
+        }
+
+        if (request.campus && s.campusMeta) {
+          Object.assign(s.campusMeta, planFields(request.campus));
+          s.planFiles.set(planScopeKey(null, null), request.campus.key);
+          first ??= { building: null, floor: null };
+        }
+
+        // Открывается первое добавленное: видно, что получилось.
+        if (first) {
+          s.currentBuilding = first.building;
+          s.currentFloor = first.floor;
+          s.selectedNodeIds = new Set();
+        }
+      });
+      return null;
+    },
+
     deletionImpact: (buildingId, floor) => {
       const st = get();
       const meta = st.buildingMetas.get(buildingId);
@@ -437,6 +520,19 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
     },
   };
 };
+
+/** Новый корпус без этажей: код по букве, английское имя для навигатора. */
+function newBuildingMeta(name: string, taken: (id: string) => boolean): BuildingMeta {
+  const letter = buildingLetter(name);
+  return {
+    id: buildingIdFor(name, taken),
+    name,
+    // Английское имя для навигатора: корпуса называют буквами, и «Building G»
+    // понятнее иностранцу, чем «Корпус Г».
+    ...(letter ? { translations: { en: { name: `Building ${transliterate(letter).toUpperCase()}` } } } : {}),
+    floors: [],
+  };
+}
 
 /** Поля метаданных, которые задаёт план. */
 function planFields(plan: PlanInput) {

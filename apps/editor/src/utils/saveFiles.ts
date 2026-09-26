@@ -6,7 +6,7 @@ import type { HeldFile } from './planFiles';
 /**
  * Что сделать с файлами при сохранении (запись 47).
  *
- * Данные редактора — это файлы JSON (\`datasetFiles\`) и планы: у каждого плана
+ * Данные редактора — это файлы JSON (`datasetFiles`) и планы: у каждого плана
  * в сторе отпечаток содержимого, а путь файла задают корпус, этаж и формат.
  * План, который уже лежит где надо, не трогается; импортированный
  * загружается; переехавший (этаж сменил номер) копируется со старого места.
@@ -18,7 +18,7 @@ import type { HeldFile } from './planFiles';
 export type SaveFile = { text: string } | { upload: string } | { copy: string };
 
 export interface SavePlan {
-  /** Путь внутри \`data/\` → что записать. Нетронутые планы сюда не входят. */
+  /** Путь внутри `data/` → что записать. Нетронутые планы сюда не входят. */
   files: Record<string, SaveFile>;
   /** Файлы данных, которые больше не нужны. */
   delete: string[];
@@ -37,7 +37,7 @@ export interface SaveInput {
   planFiles: ReadonlyMap<string, string>;
   /** Отпечатки файлов на диске: путь → SHA-1. */
   diskHashes: Record<string, string>;
-  /** Исходники, которые уже лежат в \`data-sources/\`. */
+  /** Исходники, которые уже лежат в `data-sources/`. */
   diskSources: ReadonlySet<string>;
   /** Файлы, которые редактор знает: открыл или сам сохранил. */
   owned: ReadonlySet<string>;

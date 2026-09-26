@@ -1085,7 +1085,8 @@ input[type='checkbox'] {
     cursor: pointer;
 }
 
-.editor-chip[aria-pressed='true'] {
+.editor-chip[aria-pressed='true'],
+.editor-chip[aria-checked='true'] {
     background: var(--chip, var(--editor-highlight));
     color: var(--editor-on-accent);
 }
@@ -1770,4 +1771,254 @@ input[type='checkbox'] {
     border: 1px solid var(--editor-border);
     color: var(--editor-text);
     font-size: 14px;
+}
+
+/* --- Окно «Планы из файлов» (запись 48) --- */
+
+.editor-dialog--import {
+    max-width: min(1180px, 100%);
+    height: min(88vh, 900px);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.editor-dialog--import .editor-help__head {
+    padding: 16px 20px 8px;
+}
+
+.editor-dialog--import .editor-dialog__title {
+    margin: 0;
+}
+
+.editor-import {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(220px, 300px) 1fr;
+    border-top: 1px solid var(--editor-border);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-import__list {
+    overflow-y: auto;
+    padding: 8px;
+    border-right: 1px solid var(--editor-border);
+}
+
+.editor-import__list ul {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+.editor-import__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 64px;
+    padding: 6px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.editor-import__item:hover {
+    background: var(--editor-hover);
+}
+
+.editor-import__item[aria-current='true'] {
+    background: var(--editor-accent);
+    box-shadow: inset 3px 0 0 var(--editor-highlight);
+}
+
+.editor-import__thumb {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.editor-import__thumb img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.editor-import__caption {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+}
+
+.editor-import__name {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-import__target {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+.editor-import__target--problem {
+    color: var(--editor-danger);
+}
+
+.editor-import__detail {
+    overflow-y: auto;
+    padding: 12px 16px;
+}
+
+.editor-import__piece {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.editor-import__notes {
+    margin: 0;
+    padding-left: 18px;
+    list-style: disc;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-import__empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 0 20px;
+    padding: 24px;
+    border: 2px dashed var(--editor-border);
+    border-radius: 14px;
+    text-align: center;
+}
+
+.editor-import__empty p {
+    max-width: 520px;
+    margin: 0;
+}
+
+.editor-import__actions {
+    align-items: center;
+    margin: 0;
+    padding: 12px 20px 16px;
+}
+
+.editor-import__status {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+/* Лист с областью будущего плана: вне области — затемнено. */
+.editor-crop {
+    position: relative;
+    max-width: 100%;
+    background: #ffffff;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+}
+
+.editor-crop__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.editor-crop__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: #374151;
+    font-size: 14px;
+}
+
+.editor-crop__box {
+    position: absolute;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55);
+    outline: 2px solid var(--editor-focus);
+    cursor: move;
+}
+
+.editor-crop__handle {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+    padding: 0;
+    border: 2px solid #ffffff;
+    border-radius: 4px;
+    background: var(--editor-focus);
+}
+
+.editor-crop__handle:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+}
+
+.editor-crop__handle--nw { left: 0; top: 0; cursor: nwse-resize; }
+.editor-crop__handle--n { left: 50%; top: 0; cursor: ns-resize; }
+.editor-crop__handle--ne { left: 100%; top: 0; cursor: nesw-resize; }
+.editor-crop__handle--e { left: 100%; top: 50%; cursor: ew-resize; }
+.editor-crop__handle--se { left: 100%; top: 100%; cursor: nwse-resize; }
+.editor-crop__handle--s { left: 50%; top: 100%; cursor: ns-resize; }
+.editor-crop__handle--sw { left: 0; top: 100%; cursor: nesw-resize; }
+.editor-crop__handle--w { left: 0; top: 50%; cursor: ew-resize; }
+
+/* Файлы несут над редактором. */
+.editor-drop {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--editor-backdrop);
+    pointer-events: none;
+}
+
+.editor-drop__box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 48px;
+    border: 2px dashed var(--editor-focus);
+    border-radius: 16px;
+    background: var(--editor-panel);
+    color: var(--editor-text);
+    font-size: 18px;
+}
+
+@media (max-width: 760px) {
+    .editor-import {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+
+    .editor-import__list {
+        max-height: 30vh;
+        border-right: 0;
+        border-bottom: 1px solid var(--editor-border);
+    }
 }

@@ -43,6 +43,25 @@ export interface EditorNotice {
 export type InspectorTab = 'properties' | 'problems' | 'route';
 
 /**
+ * Для чего открыто окно «Планы из файлов»: план этажа или территории, этажи
+ * корпуса — или что угодно (`null`-поля). Окно подставляет это туда, где
+ * догадка по файлу ничего не нашла.
+ */
+export interface ImportPreset {
+  building?: string;
+  floor?: number;
+  campus?: boolean;
+}
+
+/** Открытое окно «Планы из файлов» (запись 48). */
+export interface ImportRequest {
+  files: File[];
+  preset: ImportPreset;
+  /** Меняется с каждым открытием: файлы, брошенные в открытое окно, — новая просьба. */
+  id: number;
+}
+
+/**
  * Раскладка экрана, открытые окна, контекстное меню и история поиска.
  *
  * Плавающих панелей поверх карты больше нет: всё, что раньше открывалось
@@ -59,6 +78,8 @@ export interface PanelSlice {
   helpOpen: boolean;
   /** Открыто окно со всеми видами точек. */
   kindsOpen: boolean;
+  /** Открыто окно «Планы из файлов». */
+  importRequest: ImportRequest | null;
   /**
    * Узел, которому просили сразу ввести название (двойной щелчок по узлу или
    * точка, поставленная кистью). Карточка узла ставит курсор в поле названия
@@ -85,6 +106,9 @@ export interface PanelSlice {
   setSearchOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
   setKindsOpen: (open: boolean) => void;
+  /** Открыть окно «Планы из файлов» — с файлами (перетащили) или пустым (выбрать). */
+  openImport: (files?: File[], preset?: ImportPreset) => void;
+  closeImport: () => void;
   /**
    * Выбрать узел, открыть его карточку и поставить курсор в название.
    * `draft` — начало названия из шаблона вида точки.
@@ -110,6 +134,7 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   searchOpen: false,
   helpOpen: false,
   kindsOpen: false,
+  importRequest: null,
   nameEditNodeId: null,
   nameEditDraft: '',
 
@@ -157,6 +182,16 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   setKindsOpen: (open) =>
     set((s) => {
       s.kindsOpen = open;
+    }),
+
+  openImport: (files = [], preset = {}) =>
+    set((s) => {
+      s.importRequest = { files, preset, id: (s.importRequest?.id ?? 0) + 1 };
+    }),
+
+  closeImport: () =>
+    set((s) => {
+      s.importRequest = null;
     }),
 
   editNodeName: (nodeId, draft = '') => {
