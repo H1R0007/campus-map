@@ -68,7 +68,7 @@ export interface BuildingPlacement extends PlanPlacement {
  * `map.<формат>`. Произвольное имя файла в данных уже было источником
  * молчаливых 404 (история `mapPath`), поэтому выбирается только формат.
  */
-export const PLAN_FORMATS = ['png', 'svg'] as const;
+export const PLAN_FORMATS = ['png', 'svg', 'jpg', 'webp'] as const;
 
 export type PlanFormat = (typeof PLAN_FORMATS)[number];
 
@@ -83,6 +83,38 @@ export function isPlanFormat(value: string): value is PlanFormat {
 /** Формат плана территории или этажа: значение из данных либо PNG. */
 export function planFormatOf(meta: { planFormat?: PlanFormat } | undefined): PlanFormat {
   return meta?.planFormat ?? DEFAULT_PLAN_FORMAT;
+}
+
+/**
+ * Откуда взят план и как он из исходника получен (запись 46).
+ *
+ * Исходник — файл, как его прислали (PDF, скан, чертёж), лежит в
+ * `data-sources/` и в навигатор не попадает. План в данных — результат:
+ * страница исходника, повёрнутая и обрезанная, в размере `mapSize`. Запись
+ * позволяет переделать план — другая страница, обрезка, поворот, размер — и
+ * пересчитать точки разметки ровно вместе с ним, ничего не сдвинув.
+ */
+export interface PlanSource {
+  /** Файл в `data-sources/`: отпечаток содержимого и расширение, `3f2a9c1b04de7a1c.pdf`. */
+  file: string;
+
+  /** Имя файла, как его прислали: «Корпус А.pdf». Только для людей. */
+  name?: string;
+
+  /** Страница многостраничного файла (PDF, TIFF), с 1. */
+  page?: number;
+
+  /** Размер страницы исходника в его единицах: пункты PDF, пиксели картинки, единицы чертежа. */
+  pageSize: MapSize;
+
+  /** Поворот страницы по часовой стрелке, градусы: 90, 180, 270 или малый угол для перекоса скана. */
+  rotation?: number;
+
+  /**
+   * Вырезанная область повёрнутой страницы в её единицах, от левого верхнего
+   * угла описанного вокруг неё прямоугольника. Без поля — вся страница.
+   */
+  crop?: { x: number; y: number; width: number; height: number };
 }
 
 /**
@@ -132,6 +164,9 @@ export interface FloorMeta {
 
   /** Отметка пола этажа над уровнем территории, метры. Важнее формулы корпуса. */
   elevationMeters?: number;
+
+  /** Откуда взят план этажа и как обработан — чтобы его можно было переделать. */
+  source?: PlanSource;
 
   /** Формат файла плана этажа; без поля — PNG. */
   planFormat?: PlanFormat;
@@ -210,6 +245,9 @@ export interface CampusMeta {
 
   /** Формат файла плана территории; без поля — PNG. */
   planFormat?: PlanFormat;
+
+  /** Откуда взят план территории и как обработан — чтобы его можно было переделать. */
+  source?: PlanSource;
 }
 
 /**

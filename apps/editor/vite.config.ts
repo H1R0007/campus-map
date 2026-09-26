@@ -29,6 +29,19 @@ const dataDir = process.env.CAMPUS_DATA_DIR
   ? path.resolve(process.cwd(), process.env.CAMPUS_DATA_DIR)
   : path.resolve(__dirname, '../../data');
 
+/**
+ * Исходники планов — присланные файлы как есть (запись 46). В навигатор не
+ * попадают; в проверках подменяются вместе с каталогом данных.
+ */
+const sourcesDir = process.env.CAMPUS_SOURCES_DIR
+  ? path.resolve(process.cwd(), process.env.CAMPUS_SOURCES_DIR)
+  : path.resolve(__dirname, '../../data-sources');
+
+/** Загрузки до сохранения; без переменной — во временном каталоге системы. */
+const uploadsDir = process.env.CAMPUS_UPLOADS_DIR
+  ? path.resolve(process.cwd(), process.env.CAMPUS_UPLOADS_DIR)
+  : undefined;
+
 export default defineConfig({
   base,
 
@@ -44,7 +57,7 @@ export default defineConfig({
     // Редактор читает тот же датасет из корня монорепо, что и навигатор, и —
     // в режиме разработки — сохраняет правки прямо в него: команда разметки
     // запускает редактор из репозитория, а результат забирает git.
-    campusDataPlugin({ sourceDir: dataDir, writable: true }),
+    campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, writable: true }),
 
     // Библиотека значков для окна «Все виды» — только в редакторе и только
     // при открытии выбора значка (запись 44).

@@ -15,7 +15,7 @@ import {
 } from '../src/index.js';
 import { memorySource } from './helpers/memorySource.js';
 
-/** Формат плана — PNG или SVG (запись 29). */
+/** Формат плана — PNG, SVG (запись 29), JPG или WebP (запись 46). */
 
 describe('формат плана', () => {
   it('без поля — PNG, как до его появления', () => {
@@ -32,13 +32,17 @@ describe('формат плана', () => {
     expect(campusMapPath('svg')).toBe('campus/map.svg');
     expect(floorMapUrl('building_a', -1, '/campus/data/', 'svg')).toBe('/campus/data/buildings/building_a/floors/-1/map.svg');
     expect(campusMapUrl('/data', 'svg')).toBe('/data/campus/map.svg');
+    expect(floorMapPath('building_a', 1, 'jpg')).toBe('buildings/building_a/floors/1/map.jpg');
   });
 
   it('принимает только известные форматы', () => {
     expect(isPlanFormat('svg')).toBe(true);
     expect(isPlanFormat('png')).toBe(true);
+    expect(isPlanFormat('jpg')).toBe(true);
+    expect(isPlanFormat('webp')).toBe(true);
     expect(isPlanFormat('SVG')).toBe(false);
-    expect(isPlanFormat('jpg')).toBe(false);
+    expect(isPlanFormat('jpeg')).toBe(false);
+    expect(isPlanFormat('tiff')).toBe(false);
   });
 });
 
@@ -52,15 +56,15 @@ describe('формат плана в загрузчике', () => {
   const formatWarnings = (warnings: readonly string[]) => warnings.filter((w) => w.includes('planFormat'));
 
   it('читает формат плана территории и этажа', async () => {
-    const { dataset, warnings } = await loadDataset(memorySource(files({ planFormat: 'svg' }, { planFormat: 'svg' })));
+    const { dataset, warnings } = await loadDataset(memorySource(files({ planFormat: 'jpg' }, { planFormat: 'webp' })));
 
-    expect(dataset.campusMeta.planFormat).toBe('svg');
-    expect(dataset.buildingMetas[0].floors[0].planFormat).toBe('svg');
+    expect(dataset.campusMeta.planFormat).toBe('jpg');
+    expect(dataset.buildingMetas[0].floors[0].planFormat).toBe('webp');
     expect(formatWarnings(warnings)).toEqual([]);
   });
 
   it('неизвестный формат отбрасывает с предупреждением', async () => {
-    const { dataset, warnings } = await loadDataset(memorySource(files({ planFormat: 'jpg' }, { planFormat: 'SVG' })));
+    const { dataset, warnings } = await loadDataset(memorySource(files({ planFormat: 'tiff' }, { planFormat: 'SVG' })));
 
     expect(dataset.campusMeta.planFormat).toBeUndefined();
     expect(dataset.buildingMetas[0].floors[0].planFormat).toBeUndefined();
