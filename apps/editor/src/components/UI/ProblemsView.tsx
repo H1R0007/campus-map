@@ -3,6 +3,7 @@ import { createCampusProjection } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { Icon } from './Icon';
 import { useValidationReport } from '../../hooks/useValidationReport';
+import { useStructureAction, useStructureChecks } from '../../hooks/useStructureChecks';
 import { autoFixSummary } from '../../utils/autoFix';
 
 /**
@@ -41,6 +42,8 @@ export const ProblemsView: React.FC = () => {
   const [lastFixReport, setLastFixReport] = useState<string | null>(null);
 
   const report = useValidationReport();
+  const structure = useStructureChecks();
+  const runAction = useStructureAction();
 
   const handleAutoFix = () => {
     const lines = autoFixSummary(autoFix());
@@ -51,7 +54,8 @@ export const ProblemsView: React.FC = () => {
     );
   };
 
-  const clean = report.errors.length === 0 && report.warnings.length === 0 && loadWarnings.length === 0;
+  const clean =
+    report.errors.length === 0 && report.warnings.length === 0 && loadWarnings.length === 0 && structure.length === 0;
 
   return (
     <div className="editor-card">
@@ -63,6 +67,8 @@ export const ProblemsView: React.FC = () => {
           <dd className={report.warnings.length > 0 ? 'editor-facts__warn' : 'editor-facts__ok'}>
             {report.warnings.length}
           </dd>
+          <dt>Корпуса, этажи и планы</dt>
+          <dd className={structure.length > 0 ? 'editor-facts__warn' : 'editor-facts__ok'}>{structure.length}</dd>
         </dl>
 
         {clean && <div className="editor-callout editor-callout--ok">Данные в порядке.</div>}
@@ -83,6 +89,26 @@ export const ProblemsView: React.FC = () => {
           </div>
         )}
       </section>
+
+      {structure.length > 0 && (
+        <section className="editor-card__section" aria-label={`Корпуса, этажи и планы: ${structure.length}`}>
+          <h3 className="editor-card__heading editor-problems__title editor-problems__title--warn">
+            <Icon name="building" />
+            Корпуса, этажи и планы ({structure.length})
+          </h3>
+          <p className="editor-section__hint">Этого не хватит навигатору. Кнопка у находки ведёт туда, где её исправляют.</p>
+          <ul className="editor-problems editor-problems--actions">
+            {structure.map((issue) => (
+              <li key={issue.text}>
+                <span>{issue.text}</span>
+                <button type="button" className="editor-button editor-button--ghost" onClick={() => runAction(issue.action)}>
+                  {issue.actionLabel}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <ProblemList title="Ошибки" kind="error" items={report.errors} />
       <ProblemList title="Предупреждения" kind="warn" items={report.warnings} />

@@ -24,11 +24,21 @@ export default {
     const planA2 = readFileSync(file('buildings/building_a/floors/2/map.svg'));
     const planA3 = readFileSync(file('buildings/building_a/floors/3/map.svg'));
 
-    const save = async () => {
+    /**
+     * Ctrl+S. Пока новый корпус не поставлен на территорию и без плана,
+     * сохранение сначала говорит, что заметят в навигаторе (запись 51).
+     */
+    const save = async ({ navigator = null } = {}) => {
       await e.key('s', { modifiers: MOD.ctrl });
+      if (navigator) {
+        await page.waitFor(`document.querySelector('[role="dialog"]')?.textContent.includes('Что заметят в навигаторе')`, 10_000);
+        assert.match(await page.eval(`document.querySelector('[role="dialog"]').textContent`), navigator);
+        await page.eval(`[...document.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent.trim() === 'Сохранить всё равно').click()`);
+      }
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 10_000);
       return e.notice();
     };
+    const unplacedG = /Корпус «Корпус Г» не поставлен на территорию.*У этажа 1 корпуса «Корпус Г» нет плана/;
     const tree = () => page.eval(`[...document.querySelectorAll('nav[aria-label="Структура кампуса"] .editor-tree__label')].map((l) => l.textContent.trim())`);
     const fillAndEnter = async (label, value) => {
       const ok = await page.eval(`(() => {
@@ -75,13 +85,25 @@ export default {
     });
 
     await step('сохранение создаёт файлы корпуса и вписывает его в список', async () => {
-      await save();
+      await save({ navigator: unplacedG });
       const meta = json('buildings/building_g/meta.json');
       assert.equal(meta.name, 'Корпус Г');
       assert.deepEqual(meta.translations, { en: { name: 'Building G' } });
       assert.deepEqual(meta.floors.map((floor) => floor.floor), [1]);
       assert.equal(json('buildings/building_g/floors/1/graph.json').nodes.length, 1);
       assert.ok(json('campus/meta.json').buildings.some((b) => b.id === 'building_g'));
+    });
+
+    await step('«Проверка» называет, чего не хватит навигатору, и ведёт к исправлению', async () => {
+      await e.press('Проверка');
+      const section = () => page.eval(`document.querySelector('[aria-label^="Корпуса, этажи и планы"]')?.textContent ?? ''`);
+      assert.match(await section(), /Корпус «Корпус Г» не поставлен на территорию/);
+      assert.match(await section(), /У этажа 1 корпуса «Корпус Г» нет плана/);
+      await page.eval(`[...document.querySelectorAll('[aria-label^="Корпуса, этажи и планы"] li')].find((li) => li.textContent.includes('нет плана')).querySelector('button').click()`);
+      await page.waitFor(`!!document.querySelector('.editor-dialog--import')`, 10_000);
+      await e.key('Escape');
+      await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 10_000);
+      await e.press('Свойства');
     });
 
     await step('удаление этажа перечисляет, что уйдёт', async () => {
@@ -102,7 +124,7 @@ export default {
     });
 
     await step('сохранение удаляет граф и план этажа', async () => {
-      const notice = await save();
+      const notice = await save({ navigator: unplacedG });
       assert.match(notice, /удалено 2 файла/);
       assert.ok(!existsSync(file('buildings/building_a/floors/2/map.svg')), 'план удалённого этажа остался');
       assert.ok(!existsSync(file('buildings/building_a/floors/2/graph.json')), 'граф удалённого этажа остался');
@@ -112,7 +134,7 @@ export default {
     await step('отмена после сохранения возвращает этаж вместе с планом', async () => {
       await e.key('z', { modifiers: MOD.ctrl });
       assert.ok((await tree()).includes('Этаж 2'), 'этаж не вернулся');
-      await save();
+      await save({ navigator: unplacedG });
       assert.ok(readFileSync(file('buildings/building_a/floors/2/map.svg')).equals(planA2), 'план вернулся не тем');
       assert.ok(json('buildings/building_a/floors/2/graph.json').nodes.length > 0, 'точки этажа не вернулись');
     });
@@ -122,7 +144,7 @@ export default {
       await e.key('Escape');
       await fillAndEnter('Номер этажа', '4');
       assert.ok((await tree()).includes('Этаж 4'), 'номер не сменился');
-      await save();
+      await save({ navigator: unplacedG });
       assert.ok(readFileSync(file('buildings/building_a/floors/4/map.svg')).equals(planA3), 'план не переехал');
       assert.ok(!existsSync(file('buildings/building_a/floors/3')), 'каталог прежнего номера остался');
       assert.ok(json('buildings/building_a/floors/4/graph.json').nodes.length > 0);

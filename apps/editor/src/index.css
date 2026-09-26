@@ -2127,3 +2127,18 @@ input[type='checkbox'] {
     align-items: center;
     gap: 6px;
 }
+
+/* Находки проверки структуры: текст и кнопка, которая ведёт к исправлению (запись 51). */
+.editor-problems--actions {
+    padding-left: 0;
+    list-style: none;
+}
+
+.editor-problems--actions li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--editor-border);
+}

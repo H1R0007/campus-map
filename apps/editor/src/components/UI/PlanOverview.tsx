@@ -3,6 +3,7 @@ import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useValidationReport } from '../../hooks/useValidationReport';
+import { useStructureChecks } from '../../hooks/useStructureChecks';
 import { planStats } from '../../utils/planStats';
 import { plural } from '../../utils/labels';
 import { Icon } from './Icon';
@@ -66,6 +67,7 @@ const PlanStatsCard: React.FC = () => {
   const aliases = useEditorStore((s) => s.aliases);
   const transitions = useEditorStore((s) => s.transitions);
   const report = useValidationReport();
+  const structure = useStructureChecks();
 
   const stats = useMemo(
     () => planStats(floorNodesOf(nodes, currentBuilding, currentFloor, showPortals), aliases, transitions),
@@ -75,7 +77,7 @@ const PlanStatsCard: React.FC = () => {
   const title = currentBuilding
     ? `${buildingMetas.get(currentBuilding)?.name ?? currentBuilding}, этаж ${currentFloor === null ? '' : floorLabel(buildingMetas.get(currentBuilding), currentFloor)}`
     : 'Территория кампуса';
-  const problems = report.errors.length + report.warnings.length;
+  const problems = report.errors.length + report.warnings.length + structure.length;
 
   return (
     <section aria-label="Обзор плана" className="editor-card">
@@ -127,7 +129,7 @@ const PlanStatsCard: React.FC = () => {
           <Icon name={report.errors.length > 0 ? 'errorCircle' : problems > 0 ? 'warning' : 'checkCircle'} />
           {problems === 0
             ? 'Проверка всей разметки: замечаний нет'
-            : `Проверка всей разметки: ошибок ${report.errors.length}, предупреждений ${report.warnings.length}`}
+            : `Проверка всей разметки: ошибок ${report.errors.length}, предупреждений ${report.warnings.length + structure.length}`}
         </button>
       </div>
     </section>
