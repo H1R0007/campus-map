@@ -28,6 +28,35 @@ export interface HistorySlice {
 
   undo: () => void;
   redo: () => void;
+
+  /**
+   * Правка из панели: всё, что панель записывает в историю, пока открыта её
+   * правка, сольётся в одну запись. Правка открывается первым вызовом и
+   * закрывается `closeSession`, записью «со стороны», отменой, сохранением.
+   *
+   * @param key чья правка: другая панель сначала закрывает прежнюю
+   * @param description как запись назовётся на кнопке отмены
+   */
+  runInSession: (key: string, description: string, fn: () => void) => void;
+  /** Применяет правку панели: её записи становятся одной; ничего не изменилось — записи нет вовсе. */
+  closeSession: () => void;
+  /** Возвращает всё, что сделано в панели с начала правки, и забывает эти записи. */
+  revertSession: () => void;
+}
+
+/**
+ * Отпечаток данных — чтобы понять, изменила ли правка панели хоть что-то.
+ * Галочку поставили и сняли — данные те же, и записи в истории быть не должно.
+ */
+function dataFingerprint(st: EditorStore): string {
+  return JSON.stringify([
+    [...st.nodes.values()],
+    st.transitions,
+    [...st.aliases.entries()],
+    [...st.aliasCategories.entries()],
+    [...st.aliasTranslations.entries()],
+    st.placeKinds,
+  ]);
 }
 
 /**
@@ -74,12 +103,69 @@ export const createHistorySlice: EditorSlice<HistorySlice> = (set, get) => ({
     }),
 
   undo: () => {
+    // Отмена при открытой правке панели отменяет её целиком.
+    get().closeSession();
     const entry = useHistoryStore.getState().undo();
     if (entry) applyEntry('undo', entry, set, get);
   },
 
   redo: () => {
+    get().closeSession();
     const entry = useHistoryStore.getState().redo();
     if (entry) applyEntry('redo', entry, set, get);
+  },
+
+  runInSession: (key, description, fn) => {
+    const history = useHistoryStore.getState();
+    if (history.session && history.session.key !== key) get().closeSession();
+
+    if (!useHistoryStore.getState().session) {
+      history.setOnForeignWrite(() => get().closeSession());
+      history.openSession({
+        key,
+        description,
+        startIndex: useHistoryStore.getState().currentIndex,
+        fingerprint: dataFingerprint(get()),
+        active: false,
+      });
+    }
+
+    useHistoryStore.getState().updateSession({ description, active: true });
+    try {
+      fn();
+    } finally {
+      useHistoryStore.getState().updateSession({ active: false });
+    }
+  },
+
+  closeSession: () => {
+    const history = useHistoryStore.getState();
+    const session = history.session;
+    if (!session) return;
+    history.endSession();
+
+    const count = useHistoryStore.getState().currentIndex - session.startIndex;
+    if (count <= 0) return;
+    if (dataFingerprint(get()) === session.fingerprint) {
+      useHistoryStore.getState().truncateTo(session.startIndex);
+      return;
+    }
+    useHistoryStore.getState().mergeFrom(session.startIndex, session.description);
+  },
+
+  revertSession: () => {
+    const history = useHistoryStore.getState();
+    const session = history.session;
+    if (!session) return;
+    history.endSession();
+
+    const { entries, currentIndex } = useHistoryStore.getState();
+    const done = entries.slice(session.startIndex + 1, currentIndex + 1).reverse();
+    if (done.length === 0) return;
+    set((s) => {
+      for (const entry of done) applyUndo(s, entry);
+    });
+    useHistoryStore.getState().truncateTo(session.startIndex);
+    get().showNotice(`Отменено: ${session.description}`);
   },
 });

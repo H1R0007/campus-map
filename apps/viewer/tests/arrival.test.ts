@@ -4,13 +4,14 @@ import type { BuildingMeta } from '@campus-map/core';
 import { useMapStore } from '../src/stores/mapStore';
 import { useRouteStore } from '../src/stores/routeStore';
 import { sheetModeOf } from '../src/stores/uiStore';
+import { EXIT_TARGET } from '../src/utils/placeKinds';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
  * Прибытие после последнего шага: «Обратно» и «К выходу» (запись 24).
  *
- * Фикстура (`graphFixture`): территория → корпус А, этажи 1 и 2. Выходы —
- * проходная и вход в корпус.
+ * Фикстура (`graphFixture`): территория → корпус А, этажи 1 и 2. Выход —
+ * вход в корпус: выходы не отмечают, навигатор находит их по входам.
  */
 
 const route = () => useRouteStore.getState();
@@ -18,8 +19,8 @@ const route = () => useRouteStore.getState();
 beforeEach(() => {
   const aliasManager = new AliasManager();
   aliasManager.load([
-    { id: 'campus_gate', names: ['Проходная'], category: 'exit' },
-    { id: 'a1_entrance', names: ['Вход в корпус А'], category: 'exit' },
+    { id: 'campus_gate', names: ['Проходная'] },
+    { id: 'a1_entrance', names: ['Вход в корпус А'] },
     { id: 'a2_room201', names: ['А-201'] },
   ]);
 
@@ -71,7 +72,7 @@ describe('прибытие', () => {
 
   it('«К выходу» ведёт от цели к ближайшему выходу', () => {
     arrive();
-    const result = route().continueToNearest('exit');
+    const result = route().continueToNearest(EXIT_TARGET);
 
     expect(result?.found).toBe(true);
     expect(route()).toMatchObject({ fromNodeId: 'a2_room201', toNodeId: 'a1_entrance', arrived: false });

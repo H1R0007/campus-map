@@ -67,18 +67,9 @@ export const en: Messages = {
 
   quick: {
     label: 'Nearby',
-    category: {
-      toilet: 'Toilet',
-      food: 'Canteen',
-      cloakroom: 'Cloakroom',
-      exit: 'Exit',
-    },
-    nearest: {
-      toilet: 'Nearest toilet',
-      food: 'Nearest canteen',
-      cloakroom: 'Nearest cloakroom',
-      exit: 'Nearest exit',
-    },
+    exit: 'Exit',
+    nearestOf: (name) => `${name} — nearest`,
+    nearestExit: 'Nearest exit',
     sameFloor: 'this floor',
     none: 'not found',
   },
@@ -105,12 +96,7 @@ export const en: Messages = {
       hint: 'Choose a place near you and the route will lead to the nearest one.',
     },
     hint: 'A room number, a name or what you need: “305”, “library”, “toilet”',
-    categoryTerms: {
-      toilet: ['toilet', 'restroom', 'bathroom', 'lavatory', 'wc'],
-      food: ['canteen', 'cafeteria', 'cafe', 'food', 'eat', 'lunch', 'coffee'],
-      cloakroom: ['cloakroom', 'coat check', 'wardrobe'],
-      exit: ['exit', 'way out', 'entrance'],
-    },
+    exitTerms: ['exit', 'way out'],
     nothingFound: (query) => `Nothing found for “${query}”`,
     close: 'Close search',
     clear: 'Clear search',
@@ -131,6 +117,12 @@ export const en: Messages = {
   },
 
   route: {
+    kindPlaces: {
+      show: (kind, count) => `${kind}: all places (${count})`,
+      title: (kind) => `${kind}: all places`,
+      current: 'selected',
+      marker: (place) => `${place} — route here`,
+    },
     title: 'Route',
     summaryLine: (summary) => `Route · ${summary}`,
     fromPlace: (place) => `From: ${place}`,

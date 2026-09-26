@@ -5,6 +5,7 @@ import type {
   BuildingMeta,
   CampusMeta,
   Graph,
+  PlaceKind,
   ViewScope,
 } from '@campus-map/core';
 
@@ -44,6 +45,8 @@ interface MapData {
   aliasManager: AliasManager;
   campusMeta: CampusMeta;
   buildingMetas: Map<string, BuildingMeta>;
+  /** Каталог видов: быстрые кнопки, значки и слова поиска мест (запись 44). */
+  placeKinds: readonly PlaceKind[];
 }
 
 interface MapState {
@@ -51,6 +54,7 @@ interface MapState {
   aliasManager: AliasManager | null;
   campusMeta: CampusMeta | null;
   buildingMetas: Map<string, BuildingMeta> | null;
+  placeKinds: readonly PlaceKind[];
 
   /**
    * Выбранный этаж. Единственный источник истины о том, что показано:
@@ -187,6 +191,7 @@ export const useMapStore = create<MapState>((set, get) => ({
   aliasManager: null,
   campusMeta: null,
   buildingMetas: null,
+  placeKinds: [],
 
   activeFloor: null,
   buildingFloors: {},

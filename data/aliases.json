@@ -15,8 +15,7 @@
             "Campus entrance"
           ]
         }
-      },
-      "category": "exit"
+      }
     },
     {
       "id": "campus_bus_stop",
@@ -70,8 +69,7 @@
             "Building A main entrance"
           ]
         }
-      },
-      "category": "exit"
+      }
     },
     {
       "id": "a1_entrance_yard",
@@ -85,8 +83,7 @@
             "Yard entrance"
           ]
         }
-      },
-      "category": "exit"
+      }
     },
     {
       "id": "a1_room101",
@@ -313,8 +310,7 @@
             "Building B entrance"
           ]
         }
-      },
-      "category": "exit"
+      }
     },
     {
       "id": "b1_library",
@@ -470,8 +466,7 @@
             "Building V entrance"
           ]
         }
-      },
-      "category": "exit"
+      }
     },
     {
       "id": "c1_gym",

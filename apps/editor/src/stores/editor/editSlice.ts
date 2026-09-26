@@ -1,18 +1,18 @@
-import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, DEFAULT_TRANSITION_TYPE, distance } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, CAMPUS_FLOOR, distance } from '@campus-map/core';
 import type { MapNode, PlaceCategory, PlaceKind, Transition, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
-import type { NeighborSnapshot, NodePosition } from '../historyStore';
+import type { AliasSnapshot, NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
 import type { AutoFixReport } from '../../utils/autoFix';
-import { PLACE_CATEGORY_LABELS, TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
-import { kindNameTemplate, visibleKinds } from '../../utils/placeKinds';
+import { TRANSITION_LABELS, nodesCount, plural } from '../../utils/labels';
+import { kindNameTemplate, placeKindName, visibleKinds } from '../../utils/placeKinds';
 import { nodeIdForKind, nodeIdProblem, planPrefix, rebaseNodeId, uniqueNodeId } from '../../utils/nodeIds';
 import { snapToNeighbours } from '../../utils/snapping';
 import type { SnapResult } from '../../utils/snapping';
 import { useCursorStore } from '../cursorStore';
 import { floorNodesOf } from './dataSlice';
-import { snapshotNeighbors } from './graphState';
-import { renameNodeEverywhere } from './historyApply';
+import { snapshotNeighbors, syncPortals } from './graphState';
+import { forgetPlace, renameNodeEverywhere, snapshotPlace } from './historyApply';
 import type { EditorSlice, EditorStore } from './types';
 
 /** План, на котором окажется точка: у территории оба поля `null`. */
@@ -78,10 +78,18 @@ export interface EditSlice {
   removeTransition: (fromId: string, toId: string) => void;
   updateTransitionType: (fromId: string, toId: string, type: TransitionType) => void;
   /**
-   * Ставит точку выбранного вида: название, связь, точка перехода, вид места
-   * и, если вид так велит, точки на всех этажах разом.
+   * Ставит точку выбранного вида: название, связь с ближайшей точкой плана
+   * или с предыдущей точкой линии, вид места для навигатора.
    */
   placeKindNode: (x: number, y: number, options?: { align?: boolean; linkToLast?: boolean }) => string;
+  /**
+   * Лестница или лифт сразу на всех этажах открытого корпуса — по выбранному
+   * в инструменте «Переход» типу. Соседние этажи связываются переходами.
+   *
+   * @returns id точки на открытом этаже; `null`, если выбранный тип так не
+   *          ставится (вход, переход между корпусами — только вручную)
+   */
+  placeTransitionStack: (x: number, y: number, options?: { align?: boolean; linkToLast?: boolean }) => string | null;
   setNodeAliases: (nodeId: string, names: string[]) => void;
   /** Вид места: туалет, еда, гардероб, выход — или ничего. */
   setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
@@ -98,7 +106,6 @@ export interface EditSlice {
   deleteSelected: () => void;
   duplicateSelected: () => void;
   moveSelectedBy: (dx: number, dy: number) => void;
-  setSelectedPortal: (isPortal: boolean) => void;
   connectSelectedChain: () => void;
 
   copySelected: () => void;
@@ -117,6 +124,31 @@ export interface EditSlice {
  * постановка обязаны совпадать до пикселя, иначе точка встанет не туда, куда
  * показывала линия выравнивания.
  */
+/** Что нужно знать о плане, чтобы решить, куда встанет точка по щелчку. */
+type PlacementState = Pick<
+  EditorStore,
+  'nodes' | 'currentBuilding' | 'currentFloor' | 'displayFilters' | 'gridSettings' | 'snapToGrid'
+>;
+
+/**
+ * Куда встанет точка по щелчку: выравнивание по соседям, затем сетка.
+ *
+ * Одна функция на подсказку и на постановку: призрак на карте обязан
+ * показывать ровно то место, куда точка встанет. Если сетка увела точку с
+ * линии соседа, линия выравнивания не показывается — ряда уже нет.
+ */
+export function placementPoint(state: PlacementState, x: number, y: number, align = true): SnapResult {
+  const aligned = alignToPlan(state, x, y, align);
+  const px = Math.round(state.snapToGrid(aligned.x));
+  const py = Math.round(state.snapToGrid(aligned.y));
+  return {
+    x: px,
+    y: py,
+    alignedX: aligned.alignedX && aligned.alignedX.x === px ? aligned.alignedX : null,
+    alignedY: aligned.alignedY && aligned.alignedY.y === py ? aligned.alignedY : null,
+  };
+}
+
 export function alignToPlan(
   state: Pick<EditorStore, 'nodes' | 'currentBuilding' | 'currentFloor' | 'displayFilters' | 'gridSettings'>,
   x: number,
@@ -172,6 +204,164 @@ function idMinter(nodes: Map<string, MapNode>) {
     used.add(id);
     return id;
   };
+}
+
+/**
+ * Переходы, которые ставятся стопкой — сразу на всех этажах корпуса. Лестницы
+ * и лифты на планах стоят друг под другом. Вход и переход между корпусами
+ * соединяют разные места, их владелец просил ставить руками.
+ */
+export const STACK_TRANSITIONS: readonly TransitionType[] = ['stairs', 'lift'];
+
+/** Что ставит щелчок: точку на открытом плане или стопку по этажам корпуса. */
+interface PlacementSpec {
+  /** По нему строится id: `a1_toilet`, `a2_stairs`. */
+  idKind: Pick<PlaceKind, 'id' | 'name'>;
+  /** Как действие называется на кнопке отмены. */
+  label: string;
+  point: { x: number; y: number };
+  /** Этажи, на которых встанут точки; `null` — территория. */
+  floors: (number | null)[];
+  isPortal: boolean;
+  /** Каким переходом связать соседние этажи стопки. */
+  transition: TransitionType | null;
+  /** Название, которое ставится сразу; `null` — без названия. */
+  name: string | null;
+  category: PlaceCategory | null;
+  /** Соединять с ближайшей точкой своего плана. */
+  connect: boolean;
+  /** С какой точкой связать вместо ближайшей: предыдущая точка линии или Shift. */
+  linkFrom: string | null;
+  /** Продолжать линию от новой точки. */
+  chain: boolean;
+}
+
+type StoreSet = Parameters<EditorSlice<EditSlice>>[0];
+type StoreGet = Parameters<EditorSlice<EditSlice>>[1];
+
+/**
+ * Ставит точки по описанию щелчка — одной записью отмены: после Ctrl+Z на
+ * плане не остаётся половины работы (точки без связи или названия без точки).
+ *
+ * @returns id точки на открытом плане: её выбирают и от неё продолжают линию
+ */
+function commitPlacement(set: StoreSet, get: StoreGet, spec: PlacementSpec): string {
+  const st = get();
+  const building = st.currentBuilding;
+  const floor = st.currentFloor;
+  const transitionsBefore = st.transitions.map((transition) => ({ ...transition }));
+
+  const created: MapNode[] = [];
+  const aliases: AliasSnapshot[] = [];
+  const categories: { id: string; category: PlaceCategory }[] = [];
+  const links: { nodeId: string; nearestId: string }[] = [];
+  const usedIds = new Set<string>();
+
+  for (const planFloor of spec.floors) {
+    const id = nodeIdForKind(spec.idKind, building, planFloor, (candidate) => st.nodes.has(candidate) || usedIds.has(candidate));
+    usedIds.add(id);
+    const node: MapNode = {
+      id,
+      x: spec.point.x,
+      y: spec.point.y,
+      building: planFloor === null ? CAMPUS_BUILDING_ID : (building ?? CAMPUS_BUILDING_ID),
+      floor: planFloor === null ? CAMPUS_FLOOR : planFloor,
+      neighbors: [],
+      isPortal: spec.isPortal,
+    };
+    created.push(node);
+
+    if (spec.name !== null) {
+      aliases.push({ id, names: [spec.name] });
+      if (spec.category !== null) categories.push({ id, category: spec.category });
+    }
+
+    // К чему цеплять, решается по тому, что на плане уже есть: точки стопки
+    // друг другу не соседи — они на разных этажах.
+    //
+    // Точка линии (коридор) цепляется к предыдущей точке линии, иначе она
+    // прилипала бы к ближайшей двери и коридор получался бы зигзагом.
+    // Shift+щелчок связывает с последней поставленной точкой: так в большом
+    // кабинете ставят вторую точку внутри, связанную с дверью. Связь с
+    // предыдущей — только в пределах плана: ребро сквозь перекрытие на карте
+    // не видно, а маршрут по нему шёл бы через потолок.
+    const linkNode = spec.linkFrom === null ? undefined : st.nodes.get(spec.linkFrom);
+    if (linkNode && linkNode.building === node.building && linkNode.floor === node.floor) {
+      links.push({ nodeId: id, nearestId: linkNode.id });
+    } else if (spec.connect) {
+      const nearest = nearestNodeOnPlan(st.nodes, node);
+      if (nearest) links.push({ nodeId: id, nearestId: nearest.id });
+    }
+  }
+
+  // Точка открытого плана: её выбирают, от неё продолжается линия, её id
+  // возвращается. У стопки это этаж на экране, а не нижний.
+  const primary = created[Math.max(0, spec.floors.indexOf(floor))];
+
+  const neighborsBefore = snapshotNeighbors(
+    st.nodes,
+    links.map((link) => link.nearestId)
+  );
+
+  // Переходы между соседними этажами стопки.
+  const newTransitions: Transition[] = [];
+  if (spec.transition !== null) {
+    for (let i = 0; i + 1 < created.length; i += 1) {
+      newTransitions.push({ fromNode: created[i].id, toNode: created[i + 1].id, type: spec.transition });
+    }
+  }
+
+  set((s) => {
+    for (const node of created) s.nodes.set(node.id, { ...node, neighbors: [] });
+
+    for (const { nodeId, nearestId } of links) {
+      const node = s.nodes.get(nodeId);
+      const nearest = s.nodes.get(nearestId);
+      if (!node || !nearest) continue;
+      node.neighbors.push(nearestId);
+      nearest.neighbors.push(nodeId);
+    }
+
+    s.transitions = [...s.transitions, ...newTransitions];
+    syncPortals(s);
+    for (const alias of aliases) s.aliases.set(alias.id, [...alias.names]);
+    for (const { id, category } of categories) s.aliasCategories.set(id, category);
+    s.selectedNodeIds = new Set([primary.id]);
+    s.chainLastNodeId = spec.chain ? primary.id : null;
+    s.lastPlacedNodeId = primary.id;
+  });
+
+  const after = get();
+  useHistoryStore.getState().push({
+    type: 'BATCH',
+    description:
+      created.length > 1
+        ? `${spec.label} на ${created.length} ${plural(created.length, ['этаже', 'этажах', 'этажах'])}`
+        : spec.label,
+    undoData: {
+      kind: 'placeKind',
+      nodeIds: created.map((node) => node.id),
+      neighborsBefore,
+      transitionsBefore,
+      chainBefore: st.chainLastNodeId,
+      lastPlacedBefore: st.lastPlacedNodeId,
+    },
+    redoData: {
+      kind: 'placeKind',
+      nodes: created.map((node) => ({ ...after.nodes.get(node.id)! })),
+      neighbors: snapshotNeighbors(after.nodes, [
+        ...created.map((node) => node.id),
+        ...links.map((link) => link.nearestId),
+      ]),
+      transitions: after.transitions.map((transition) => ({ ...transition })),
+      aliases,
+      categories,
+      chainAfter: spec.chain ? primary.id : null,
+      lastPlacedAfter: primary.id,
+    },
+  });
+
+  return primary.id;
 }
 
 export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
@@ -238,9 +428,9 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const transitionsBefore = [...st.transitions];
     const nodeSnapshot: MapNode = { ...node, neighbors: [...node.neighbors] };
 
-    // Алиасы живут отдельно от узла, поэтому снимаются своим слепком.
-    // Комментарий — поле самого узла и уходит вместе с `nodeSnapshot`.
-    const aliasesSnapshot = [...(st.aliases.get(nodeId) ?? [])];
+    // Названия, перевод и вид места живут отдельно от узла, поэтому снимаются
+    // своим слепком. Комментарий — поле самого узла и уходит с `nodeSnapshot`.
+    const place = snapshotPlace(st, nodeId);
 
     useHistoryStore.getState().push({
       type: 'REMOVE_NODE',
@@ -249,7 +439,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         node: nodeSnapshot,
         neighborsBefore,
         transitionsBefore,
-        aliases: aliasesSnapshot,
+        place,
       },
       redoData: { nodeId },
     });
@@ -260,7 +450,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       }
       s.transitions = s.transitions.filter((t) => t.fromNode !== nodeId && t.toNode !== nodeId);
       s.nodes.delete(nodeId);
-      s.aliases.delete(nodeId);
+      forgetPlace(s, nodeId);
+      syncPortals(s);
       s.selectedNodeIds.delete(nodeId);
       s.edgeStartNodeId = null;
       s.transitionStartNodeId = null;
@@ -445,6 +636,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
+      syncPortals(s);
     });
 
     return 'created';
@@ -467,6 +659,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
+      syncPortals(s);
     });
   },
 
@@ -489,156 +682,82 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     set((s) => {
       s.transitions = next;
+      syncPortals(s);
     });
   },
 
   /**
-   * Ставит точку выбранного вида — всё, что вид обещает, за один щелчок.
+   * Ставит точку выбранного вида — всё, что вид обещает, за один щелчок:
+   * название по шаблону, связь с ближайшей точкой плана или с предыдущей
+   * точкой линии, вид места для навигатора.
    *
-   * Что делает вид: даёт название по шаблону, цепляет точку к ближайшей на
-   * плане, отмечает точкой перехода, ставит вид места и, если вид «сразу на
-   * всех этажах», повторяет точку на каждом этаже корпуса и связывает
-   * соседние этажи переходами.
-   *
-   * Всё это — одна запись отмены: после Ctrl+Z на плане не остаётся половины
-   * работы (точки без связи или названия без точки).
-   *
-   * @returns id поставленной точки на открытом плане и название, которое
-   *          осталось дописать (шаблон с `{номер}`), либо `null`
+   * @returns id поставленной точки
    */
   placeKindNode: (x, y, options = {}) => {
     const st = get();
     const kind = visibleKinds(st.placeKinds).find((item) => item.id === st.activeKindId);
-    if (!kind) return st.addNode(x, y);
+    const point = placementPoint(st, x, y, options.align !== false);
+    // Вид могли удалить в окне «Все виды»: тогда ставится простая точка, но
+    // туда же, куда показывал призрак.
+    if (!kind) return st.addNode(point.x, point.y);
 
     const building = st.currentBuilding;
     const floor = st.currentFloor;
-    const aligned = alignToPlan(st, x, y, options.align !== false);
-    const snappedX = Math.round(st.snapToGrid(aligned.x));
-    const snappedY = Math.round(st.snapToGrid(aligned.y));
-
-    const transitionsBefore = st.transitions.map((transition) => ({ ...transition }));
-
-    // Этажи стопки: только у вида «сразу на всех этажах» и только в корпусе.
-    const floors =
-      kind.stack && building !== null && floor !== null
-        ? (st.buildingMetas.get(building)?.floors ?? []).map((meta) => meta.floor).sort((a, b) => a - b)
-        : [floor];
-
     const nameTemplate = kindNameTemplate(kind, building === null ? undefined : st.buildingMetas.get(building)?.name, floor);
     const wantsNumber = (kind.namePattern ?? '').includes('{номер}');
-    const created: MapNode[] = [];
-    const aliases: { id: string; names: string[] }[] = [];
-    const categories: { id: string; category: PlaceCategory }[] = [];
-    const newTransitions: Transition[] = [];
 
-    const links: { nodeId: string; nearestId: string }[] = [];
-
-    const usedIds = new Set<string>();
-    for (const planFloor of floors) {
-      const id = nodeIdForKind(kind, building, planFloor, (candidate) => st.nodes.has(candidate) || usedIds.has(candidate));
-      usedIds.add(id);
-      const node: MapNode = {
-        id,
-        x: snappedX,
-        y: snappedY,
-        building: planFloor === null ? CAMPUS_BUILDING_ID : (building ?? CAMPUS_BUILDING_ID),
-        floor: planFloor === null ? CAMPUS_FLOOR : planFloor,
-        neighbors: [],
-        isPortal: kind.isPortal === true,
-      };
-      created.push(node);
-
-      // Название ставится сразу, только если в шаблоне нечего дописывать:
-      // «Туалет» — готово, «А-3{номер}» ждёт номера от человека.
-      if (nameTemplate.length > 0 && !wantsNumber) {
-        aliases.push({ id, names: [nameTemplate] });
-        if (kind.category) categories.push({ id, category: kind.category });
-      }
-
-      // К чему цеплять, решается по тому, что на плане уже есть: новые точки
-      // стопки друг другу не соседи — они на разных этажах.
-      //
-      // У ведущего вида (коридор) следующая точка цепляется к предыдущей
-      // точке линии: иначе она прилипала бы к ближайшей двери и коридор
-      // получался бы зигзагом.
-      // Shift+щелчок связывает с последней поставленной точкой: так в
-      // большом кабинете ставят вторую точку внутри, связанную с дверью.
-      const chainFrom = options.linkToLast ? st.lastPlacedNodeId : kind.chain ? st.chainLastNodeId : null;
-      if (chainFrom !== null && st.nodes.has(chainFrom)) {
-        links.push({ nodeId: id, nearestId: chainFrom });
-      } else if (kind.connect) {
-        const nearest = nearestNodeOnPlan(st.nodes, node);
-        if (nearest) links.push({ nodeId: id, nearestId: nearest.id });
-      }
-    }
-
-    const neighborsBefore = snapshotNeighbors(
-      st.nodes,
-      links.map((link) => link.nearestId)
-    );
-
-    // Переходы между соседними этажами стопки — того типа, что у вида.
-    if (created.length > 1) {
-      const type = kind.transition ?? DEFAULT_TRANSITION_TYPE;
-      for (let i = 0; i + 1 < created.length; i += 1) {
-        newTransitions.push({ fromNode: created[i].id, toNode: created[i + 1].id, type });
-      }
-    }
-
-    set((s) => {
-      for (const node of created) s.nodes.set(node.id, { ...node, neighbors: [] });
-
-      // Связь с ближайшей точкой того же плана: дверь цепляется к коридору,
-      // лестница — к коридору своего этажа.
-      for (const { nodeId, nearestId } of links) {
-        const node = s.nodes.get(nodeId);
-        const nearest = s.nodes.get(nearestId);
-        if (!node || !nearest) continue;
-        node.neighbors.push(nearestId);
-        nearest.neighbors.push(nodeId);
-      }
-
-      s.transitions = [...s.transitions, ...newTransitions];
-      for (const alias of aliases) s.aliases.set(alias.id, [...alias.names]);
-      for (const { id, category } of categories) s.aliasCategories.set(id, category);
-      s.selectedNodeIds = new Set([created[0].id]);
-      // Линия продолжится от этой точки, пока вид ведущий.
-      s.chainLastNodeId = kind.chain ? created[0].id : null;
-      s.lastPlacedNodeId = created[0].id;
-    });
-
-    const after = get();
-    useHistoryStore.getState().push({
-      type: 'BATCH',
-      description:
-        created.length > 1
-          ? `${kind.name} на ${created.length} ${plural(created.length, ['этаже', 'этажах', 'этажах'])}`
-          : kind.name,
-      undoData: {
-        kind: 'placeKind',
-        nodeIds: created.map((node) => node.id),
-        neighborsBefore,
-        transitionsBefore,
-      },
-      redoData: {
-        kind: 'placeKind',
-        nodes: created.map((node) => ({ ...after.nodes.get(node.id)! })),
-        neighbors: snapshotNeighbors(after.nodes, [
-          ...created.map((node) => node.id),
-          ...links.map((link) => link.nearestId),
-        ]),
-        transitions: after.transitions.map((transition) => ({ ...transition })),
-        aliases,
-        categories,
-      },
+    const primary = commitPlacement(set, get, {
+      idKind: kind,
+      label: kind.name,
+      point,
+      floors: [floor],
+      isPortal: false,
+      transition: null,
+      // Название ставится сразу, только если дописывать нечего: «Туалет» —
+      // готово, «А-3…» ждёт номера от человека.
+      name: nameTemplate.length > 0 && !wantsNumber ? nameTemplate : null,
+      // Вид — место быстрого поиска: его id и есть вид места у точки.
+      category: kind.place ? kind.id : null,
+      connect: kind.connect === true,
+      linkFrom: options.linkToLast ? st.lastPlacedNodeId : kind.chain ? st.chainLastNodeId : null,
+      chain: kind.chain === true,
     });
 
     // Шаблон с номером — человеку остаётся дописать номер: курсор в поле
     // названия прямо в карточке, с уже подставленным началом.
-    if (wantsNumber) get().editNodeName(created[0].id, nameTemplate);
+    if (wantsNumber) get().editNodeName(primary, nameTemplate);
 
-    return created[0].id;
+    return primary;
+  },
+
+  placeTransitionStack: (x, y, options = {}) => {
+    const st = get();
+    const type = st.transitionType;
+    if (!STACK_TRANSITIONS.includes(type)) return null;
+
+    const building = st.currentBuilding;
+    const floor = st.currentFloor;
+    // Этажи стопки — все этажи открытого корпуса. Открытый этаж входит
+    // всегда — даже у корпуса, этажи которого в данных ещё не описаны: иначе
+    // щелчок не поставил бы ничего. На территории этажей нет: одна точка.
+    const buildingFloors =
+      building === null || floor === null ? [] : (st.buildingMetas.get(building)?.floors ?? []).map((meta) => meta.floor);
+    const floors: (number | null)[] =
+      floor !== null && buildingFloors.includes(floor) ? [...buildingFloors].sort((a, b) => a - b) : [floor];
+
+    return commitPlacement(set, get, {
+      idKind: { id: type, name: TRANSITION_LABELS[type] },
+      label: TRANSITION_LABELS[type],
+      point: placementPoint(st, x, y, options.align !== false),
+      floors,
+      isPortal: true,
+      transition: type,
+      name: null,
+      category: null,
+      connect: true,
+      linkFrom: options.linkToLast ? st.lastPlacedNodeId : null,
+      chain: false,
+    });
   },
 
   setNodeAliases: (nodeId, names) => {
@@ -669,6 +788,11 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
    * записывает их целиком — дальше видно, что именно лежит в данных.
    */
   setPlaceKinds: (kinds, description) => {
+    // Пустой каталог в состоянии означает «файла нет — показываем встроенные
+    // виды». Удалить последний вид значило бы показать встроенные, а на диске
+    // оставить прежний каталог: сохранение пустой каталог не пишет.
+    if (kinds.length === 0) return;
+
     const before = get().placeKinds;
     const after = kinds.map((kind) => ({ ...kind }));
     if (JSON.stringify(before) === JSON.stringify(after)) return;
@@ -700,7 +824,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'SET_CATEGORY',
-      description: category === null ? 'Снят вид места' : `Вид места: ${PLACE_CATEGORY_LABELS[category].toLowerCase()}`,
+      description: category === null ? 'Снят вид места' : `Вид места: ${placeKindName(get().placeKinds, category).toLowerCase()}`,
       undoData: { nodeId, category: previous },
       redoData: { nodeId, category },
     });
@@ -809,12 +933,13 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
 
   deleteSelected: () => {
-    const { selectedNodeIds, nodes, transitions, aliases } = get();
+    const st = get();
+    const { selectedNodeIds, nodes, transitions } = st;
     if (selectedNodeIds.size === 0) return;
 
     const ids = Array.from(selectedNodeIds);
     const deletedNodes: MapNode[] = [];
-    const deletedAliases: { id: string; names: string[] }[] = [];
+    const deletedPlaces: AliasSnapshot[] = [];
     const affected = new Set<string>();
 
     for (const id of ids) {
@@ -825,10 +950,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         for (const nb of node.neighbors) affected.add(nb);
       }
 
-      const nodeAliases = aliases.get(id);
-      if (nodeAliases && nodeAliases.length > 0) {
-        deletedAliases.push({ id, names: [...nodeAliases] });
-      }
+      const place = snapshotPlace(st, id);
+      if (place) deletedPlaces.push(place);
     }
 
     useHistoryStore.getState().push({
@@ -839,7 +962,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         nodes: deletedNodes,
         neighborsBefore: snapshotNeighbors(nodes, affected),
         transitionsBefore: [...transitions],
-        aliases: deletedAliases,
+        aliases: deletedPlaces,
       },
       redoData: { kind: 'deleteMultiple', nodeIds: ids },
     });
@@ -847,12 +970,13 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     set((s) => {
       for (const id of ids) {
         s.nodes.delete(id);
-        s.aliases.delete(id);
+        forgetPlace(s, id);
       }
       for (const [, n] of s.nodes) {
         n.neighbors = n.neighbors.filter((nb) => !ids.includes(nb));
       }
       s.transitions = s.transitions.filter((t) => !ids.includes(t.fromNode) && !ids.includes(t.toNode));
+      syncPortals(s);
       s.selectedNodeIds = new Set();
     });
   },
@@ -882,7 +1006,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         y: node.y + offset,
         building: node.building,
         floor: node.floor,
-        isPortal: node.isPortal,
+        // Переходы не копируются, поэтому и точкой перехода копия не будет.
+        isPortal: false,
         neighbors: [],
       });
     }
@@ -971,31 +1096,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
-  setSelectedPortal: (isPortal) => {
-    const { selectedNodeIds, nodes } = get();
-    if (selectedNodeIds.size === 0) return;
 
-    const ids = Array.from(selectedNodeIds);
-    const before: { nodeId: string; isPortal: boolean }[] = [];
-    for (const id of ids) {
-      const node = nodes.get(id);
-      if (node) before.push({ nodeId: id, isPortal: node.isPortal });
-    }
-
-    useHistoryStore.getState().push({
-      type: 'BATCH',
-      description: 'Изменён флаг портала',
-      undoData: { kind: 'setPortal', changes: before },
-      redoData: { kind: 'setPortal', nodeIds: ids, isPortal },
-    });
-
-    set((s) => {
-      for (const id of ids) {
-        const node = s.nodes.get(id);
-        if (node) node.isPortal = isPortal;
-      }
-    });
-  },
 
   connectSelectedChain: () => {
     const { selectedNodeIds, nodes } = get();
@@ -1079,7 +1180,8 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
         y: node.y + shiftY,
         building,
         floor,
-        isPortal: node.isPortal,
+        // Переходы не копируются, поэтому и точкой перехода копия не будет.
+        isPortal: false,
         neighbors: [],
       });
     }
@@ -1212,6 +1314,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
           }
         }
         s.transitions = fixedTransitions;
+        syncPortals(s);
       });
     }
 

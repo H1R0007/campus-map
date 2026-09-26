@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { messagesFor, useLanguage } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
+import { EXIT_TARGET, exitNodesOf } from '../../utils/placeKinds';
 import { nearestPlaceOf } from '../../utils/nearestPlace';
 import { nodeName, nodePlaceLabel } from '../../utils/placeLabels';
 import { Icon } from './Icon';
@@ -32,8 +33,8 @@ export const ArrivalCard: React.FC = () => {
   const messages = messagesFor(language);
 
   const exitReachable = useMemo(() => {
-    if (!graph || !aliasManager || toNodeId === null || aliasManager.getCategory(toNodeId) === 'exit') return false;
-    return nearestPlaceOf(graph, aliasManager, toNodeId, 'exit', options) !== null;
+    if (!graph || !aliasManager || toNodeId === null || exitNodesOf(graph).includes(toNodeId)) return false;
+    return nearestPlaceOf(graph, aliasManager, toNodeId, EXIT_TARGET, options) !== null;
   }, [graph, aliasManager, toNodeId, options]);
 
   if (!graph || !buildingMetas || toNodeId === null) return null;
@@ -73,7 +74,7 @@ export const ArrivalCard: React.FC = () => {
         {exitReachable && (
           <button
             type="button"
-            onClick={() => continueToNearest('exit')}
+            onClick={() => continueToNearest(EXIT_TARGET)}
             className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-gray-100 text-gray-800 font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
           >
             <Icon name="exit" className="flex-shrink-0 compact:hidden" />

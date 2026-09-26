@@ -1,12 +1,15 @@
 import React from 'react';
 import type { PlaceCategory, TransitionType } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
+import { useMapStore } from '../../stores/mapStore';
+import { findPlaceKind } from '../../utils/placeKinds';
 import { Icon } from './Icon';
+import { KindIcon } from './KindIcon';
 
 interface PlaceIconProps {
   /** Тип перехода, если место — лестница, лифт, вход или переход; иначе `null`. */
   transition: TransitionType | null;
-  /** Категория места: туалет, еда, гардероб, выход — значок категории вместо метки. */
+  /** Вид места из каталога — его значок вместо метки. */
   category?: PlaceCategory | null;
   size?: 'md' | 'lg';
   /** Классы значка — например, чтобы скрыть его на очень узком экране. */
@@ -15,11 +18,12 @@ interface PlaceIconProps {
 
 /**
  * Значок места: у точки перехода — значок и цвет её типа, как на плане; у
- * помещения — значок категории (туалет, еда, гардероб, выход) или метка в
+ * помещения — значок его вида из каталога (туалет, столовая, свой вид) или метка в
  * фирменном цвете. Декоративный: что это за место, говорит
  * подпись рядом.
  */
 export const PlaceIcon: React.FC<PlaceIconProps> = ({ transition, category = null, size = 'md', className = '' }) => {
+  const kind = findPlaceKind(useMapStore((s) => s.placeKinds), category);
   const box = size === 'lg' ? 'w-11 h-11' : 'w-9 h-9';
 
   if (transition !== null) {
@@ -39,7 +43,11 @@ export const PlaceIcon: React.FC<PlaceIconProps> = ({ transition, category = nul
       aria-hidden="true"
       className={`${box} flex-shrink-0 rounded-full flex items-center justify-center bg-selected text-accent ${className}`}
     >
-      <Icon name={category ?? 'pin'} size={size === 'lg' ? 22 : 18} />
+      {kind?.iconImage ? (
+        <KindIcon image={kind.iconImage} size={size === 'lg' ? 22 : 18} />
+      ) : (
+        <Icon name="pin" size={size === 'lg' ? 22 : 18} />
+      )}
     </span>
   );
 };

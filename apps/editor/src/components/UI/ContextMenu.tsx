@@ -76,12 +76,6 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
           separator,
           {
             kind: 'action',
-            label: node.isPortal ? 'Снять отметку «точка перехода»' : 'Отметить как точку перехода',
-            icon: 'star',
-            run: () => st.updateNode(id, { isPortal: !node.isPortal }),
-          },
-          {
-            kind: 'action',
             label: 'Копировать',
             shortcut: 'Ctrl+C',
             icon: 'copy',
@@ -113,8 +107,6 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         title: `Выбрано узлов: ${count}`,
         entries: [
           { kind: 'action', label: 'Соединить цепочкой', icon: 'link', run: () => st.connectSelectedChain() },
-          { kind: 'action', label: 'Отметить как точки перехода', icon: 'star', run: () => st.setSelectedPortal(true) },
-          { kind: 'action', label: 'Снять отметку «точка перехода»', icon: 'star', run: () => st.setSelectedPortal(false) },
           separator,
           { kind: 'action', label: 'Копировать', shortcut: 'Ctrl+C', icon: 'copy', run: () => st.copySelected() },
           { kind: 'action', label: 'Дублировать', shortcut: 'Ctrl+D', icon: 'duplicate', run: () => st.duplicateSelected() },

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../src/stores/editorStore';
 import { useHistoryStore } from '../src/stores/historyStore';
+import { placementPoint } from '../src/stores/editor/editSlice';
+import { datasetFromState } from '../src/stores/editor/graphState';
+import { datasetFiles } from '../src/utils/datasetFiles';
 import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
-import { dataSnapshot, loadFixture, openFloor, store } from './helpers/fixture';
+import { dataSnapshot, fixtureDataset, loadFixture, openFloor, store } from './helpers/fixture';
 
 /**
  * Отмена и повтор каждого действия правки.
@@ -27,6 +30,12 @@ const cases: Case[] = [
   { name: 'добавить узел', setup: () => openFloor(1), act: () => store().addNode(250, 150) },
   { name: 'удалить узел с алиасами, заметкой и переходом', act: () => store().removeNode('a1_room101') },
   { name: 'удалить узел перехода', act: () => store().removeNode('a1_stairs') },
+  { name: 'удалить узел с видом места и переводом', act: () => store().removeNode('campus_gate') },
+  {
+    name: 'удалить выделенные с видом места и переводом',
+    setup: () => select('campus_gate', 'a1_room101'),
+    act: () => store().deleteSelected(),
+  },
   {
     name: 'перетащить узел',
     act: () => {
@@ -34,7 +43,7 @@ const cases: Case[] = [
       store().commitMoveNode('a1_hall', 100, 120, 130, 140);
     },
   },
-  { name: 'изменить признак перехода', act: () => store().updateNode('a1_hall', { isPortal: true }) },
+  { name: 'изменить положение из карточки', act: () => store().updateNode('a1_hall', { x: 130, y: 140 }) },
   { name: 'добавить ребро', act: () => store().addEdge('a1_entrance', 'a1_room101') },
   { name: 'удалить ребро', act: () => store().removeEdge('a1_hall', 'a1_stairs') },
   { name: 'добавить переход', act: () => store().addTransition('a1_room101', 'a2_room201', 'lift') },
@@ -96,7 +105,6 @@ const cases: Case[] = [
     act: () => store().duplicateSelected(),
   },
   { name: 'сдвинуть выделенные', setup: () => select('a1_hall', 'a1_room101'), act: () => store().moveSelectedBy(5, -3) },
-  { name: 'сделать выделенные порталами', setup: () => select('a1_hall', 'a1_room101'), act: () => store().setSelectedPortal(true) },
   {
     name: 'соединить выделенные цепочкой',
     setup: () => select('a1_entrance', 'a1_room101', 'a1_stairs'),
@@ -243,7 +251,7 @@ describe('отмена показывает, где случилась прав�
 
   it('правку на открытом плане план не переключает', () => {
     openFloor(1);
-    store().updateNode('a1_hall', { isPortal: true });
+    store().updateNode('a1_hall', { x: 130 });
     store().undo();
     expect(store().currentFloor).toBe(1);
   });
@@ -341,5 +349,407 @@ describe('id новых точек говорят, что это', () => {
     store().duplicateSelected();
 
     expect(store().nodes.has('a1_room101_2')).toBe(true);
+  });
+});
+
+/** Все файлы датасета так, как их запишет сохранение. */
+const savedFiles = () => datasetFiles(datasetFromState(store()));
+
+/** План точки: корпус и этаж. */
+const planOf = (id: string) => {
+  const node = store().nodes.get(id);
+  return node ? `${node.building}:${node.floor}` : 'нет точки';
+};
+
+/** Связи, которые идут на другой план, — ребро сквозь перекрытие. */
+const crossPlanLinks = () =>
+  [...store().nodes.values()].flatMap((node) =>
+    node.neighbors.filter((other) => planOf(other) !== planOf(node.id)).map((other) => `${node.id}—${other}`)
+  );
+
+const useKind = (kindId: string) => {
+  store().setPlaceKinds([...BUILT_IN_PLACE_KINDS], 'Виды точек');
+  store().setActiveKind(kindId);
+};
+
+/** Инструмент «Переход» с выбранным типом: щелчок по пустому месту — стопка. */
+const pickTransition = (type: 'stairs' | 'lift' | 'entrance' | 'bridge') => {
+  store().setActiveTool('transition');
+  store().setTransitionType(type);
+};
+
+describe('удалённая точка уносит название, перевод и вид места', () => {
+  it('отмена удаления возвращает вид места, даже если id успела занять новая точка', () => {
+    openFloor(1);
+    useKind('toilet');
+    const toilet = store().placeKindNode(380, 20);
+    expect(store().aliasCategories.get(toilet)).toBe('toilet');
+
+    store().removeNode(toilet);
+    expect(store().placeKindNode(380, 60)).toBe(toilet);
+    store().undo();
+    store().undo();
+
+    expect(store().aliasCategories.get(toilet)).toBe('toilet');
+  });
+
+  it('точка под id удалённой не наследует её перевод и вид места', () => {
+    store().setNodeCategory('a1_room101', 'toilet');
+    store().removeNode('a1_room101');
+    expect(store().renameNode('a1_hall', 'a1_room101')).toBe(true);
+
+    expect(store().aliasTranslations.get('a1_room101')).toBeUndefined();
+    expect(store().aliasCategories.get('a1_room101')).toBeUndefined();
+  });
+});
+
+describe('щелчок кистью связывает точки только в пределах плана', () => {
+  it('у стопки выбрана и возвращена точка открытого этажа', () => {
+    openFloor(2);
+    pickTransition('stairs');
+    const id = store().placeTransitionStack(350, 180)!;
+
+    expect(planOf(id)).toBe('building_a:2');
+    expect([...store().selectedNodeIds]).toEqual([id]);
+  });
+
+  it('Shift+щелчок на другом этаже не тянет связь к точке прежнего этажа', () => {
+    openFloor(1);
+    useKind('toilet');
+    store().placeKindNode(380, 20);
+    openFloor(2);
+    store().setActiveKind('corridor');
+    store().placeKindNode(380, 20, { linkToLast: true });
+
+    expect(crossPlanLinks()).toEqual([]);
+  });
+
+  it('стопка с Shift связывает с предыдущей только точку своего этажа', () => {
+    openFloor(1);
+    useKind('corridor');
+    const corridor = store().placeKindNode(380, 190);
+    pickTransition('stairs');
+    const stairs = store().placeTransitionStack(390, 180, { linkToLast: true })!;
+
+    expect(crossPlanLinks()).toEqual([]);
+    expect(store().nodes.get(stairs)?.neighbors).toContain(corridor);
+  });
+
+  it('стопка у корпуса без описанных этажей ставит точку на открытом этаже', () => {
+    useEditorStore.setState((s) => {
+      s.buildingMetas.set('building_b', { id: 'building_b', name: 'Корпус Б', floors: [] });
+    });
+    useEditorStore.setState({ currentBuilding: 'building_b', currentFloor: 1 });
+    pickTransition('stairs');
+
+    const id = store().placeTransitionStack(50, 50)!;
+    expect(planOf(id)).toBe('building_b:1');
+  });
+});
+
+describe('отмена щелчка кистью продолжает линию', () => {
+  it('после отмены последней точки коридора следующая цепляется к предыдущей, а не к ближайшей', () => {
+    openFloor(1);
+    useKind('corridor');
+    store().placeKindNode(150, 190);
+    const previous = store().placeKindNode(200, 190);
+    store().placeKindNode(240, 190);
+    store().undo();
+
+    // Вплотную к лестнице: без восстановления линии точка прицепилась бы к ней.
+    const next = store().placeKindNode(296, 126, { align: false });
+    expect(store().nodes.get(next)?.neighbors).toEqual([previous]);
+  });
+});
+
+describe('переименование не переставляет записи в файлах', () => {
+  it('переименование и отмена дают те же файлы', () => {
+    const before = savedFiles();
+    store().renameNode('campus_gate', 'campus_main_gate');
+    store().undo();
+
+    expect(savedFiles()).toEqual(before);
+  });
+
+  it('переименованная запись названий остаётся на своём месте', () => {
+    const order = () => JSON.parse(savedFiles().get('aliases.json')!).aliases.map((entry: { id: string }) => entry.id);
+    const before = order();
+    store().renameNode('campus_gate', 'campus_main_gate');
+
+    expect(order()).toEqual(before.map((id: string) => (id === 'campus_gate' ? 'campus_main_gate' : id)));
+  });
+});
+
+describe('каталог видов', () => {
+  it('последний вид не удаляется: пустой каталог означал бы «файла нет»', () => {
+    store().setPlaceKinds([{ id: 'medpoint', name: 'Медпункт' }], 'Свой вид');
+    const entries = useHistoryStore.getState().entries.length;
+
+    store().setPlaceKinds([], 'Удалены все виды');
+
+    expect(store().placeKinds.map((kind) => kind.id)).toEqual(['medpoint']);
+    expect(useHistoryStore.getState().entries).toHaveLength(entries);
+  });
+});
+
+describe('черновик прежней версии редактора', () => {
+  it('без каталога видов открывается, а не падает', () => {
+    const old: Partial<ReturnType<typeof fixtureDataset>> = fixtureDataset();
+    delete old.placeKinds;
+
+    expect(() => store().loadData(old as ReturnType<typeof fixtureDataset>)).not.toThrow();
+    expect(store().placeKinds).toEqual([]);
+    expect(store().nodes.has('a1_hall')).toBe(true);
+  });
+});
+
+describe('призрак точки показывает, куда она встанет', () => {
+  const withGrid = () =>
+    useEditorStore.setState((s) => {
+      s.gridSettings.enabled = true;
+      s.gridSettings.snap = true;
+      s.gridSettings.size = 20;
+      s.gridSettings.alignToNeighbours = true;
+    });
+
+  it('сетка уводит точку с линии соседа — линии выравнивания нет, место то же', () => {
+    openFloor(1);
+    withGrid();
+    // Соседи стоят мимо клеток, на x = 103: щелчок у x = 105 выровнялся бы
+    // по ним, но сетка с клеткой 20 ставит точку на 100.
+    useEditorStore.setState((s) => {
+      s.nodes.get('a1_hall')!.x = 103;
+      s.nodes.get('a1_room101')!.x = 103;
+    });
+    const ghost = placementPoint(store(), 105, 157);
+    useKind('corridor');
+    const id = store().placeKindNode(105, 157);
+
+    const node = store().nodes.get(id)!;
+    expect({ x: node.x, y: node.y }).toEqual({ x: ghost.x, y: ghost.y });
+    expect(ghost.x).toBe(100);
+    expect(ghost.alignedX, 'линия ряда показана, хотя точка в ряд не встанет').toBeNull();
+  });
+
+  it('без выбранного вида точка встаёт туда же, куда показывал призрак', () => {
+    openFloor(1);
+    useEditorStore.setState((s) => {
+      s.gridSettings.alignToNeighbours = true;
+    });
+    const ghost = placementPoint(store(), 103, 157);
+    expect(ghost.alignedX).not.toBeNull();
+
+    store().setActiveKind('нет-такого-вида');
+    const id = store().placeKindNode(103, 157);
+    const node = store().nodes.get(id)!;
+
+    expect({ x: node.x, y: node.y }).toEqual({ x: ghost.x, y: ghost.y });
+  });
+});
+
+describe('«Узел» ставит места, «Переход» — лестницы и лифты', () => {
+  it('среди видов точек нет переходов', () => {
+    const ids = BUILT_IN_PLACE_KINDS.map((kind) => kind.id);
+    expect(ids).toEqual(['corridor', 'room', 'toilet', 'food', 'cloakroom']);
+  });
+
+  it('щелчок «Переходом» по пустому месту ставит лестницу на всех этажах, связанных переходами', () => {
+    openFloor(1);
+    pickTransition('stairs');
+    const entries = useHistoryStore.getState().entries.length;
+    const transitionsBefore = store().transitions.length;
+
+    const id = store().placeTransitionStack(360, 150)!;
+
+    const stack = [...store().nodes.values()].filter((node) => node.x === 360 && node.y === 150);
+    expect(stack.map((node) => node.floor).sort()).toEqual([1, 2]);
+    expect(stack.every((node) => node.isPortal)).toBe(true);
+    expect(planOf(id)).toBe('building_a:1');
+    expect(store().transitions).toHaveLength(transitionsBefore + 1);
+    expect(store().transitions.at(-1)?.type).toBe('stairs');
+    expect(useHistoryStore.getState().entries).toHaveLength(entries + 1);
+    // Точкам перехода имя не нужно: навигатор рисует их значком.
+    expect(stack.every((node) => !store().aliases.has(node.id))).toBe(true);
+  });
+
+  it('вход и переход между корпусами стопкой не ставятся — только вручную', () => {
+    openFloor(1);
+    const count = store().nodes.size;
+    for (const type of ['entrance', 'bridge'] as const) {
+      pickTransition(type);
+      expect(store().placeTransitionStack(360, 150)).toBeNull();
+    }
+    expect(store().nodes.size).toBe(count);
+  });
+
+  it('стопка лифта отменяется одним Ctrl+Z целиком', () => {
+    openFloor(2);
+    pickTransition('lift');
+    const before = dataSnapshot();
+    store().placeTransitionStack(360, 150);
+    store().undo();
+
+    expect(dataSnapshot()).toEqual(before);
+  });
+});
+
+/**
+ * «Точка перехода» — следствие переходов: ставить и снимать её руками не
+ * нужно, и разойтись с переходами она не может.
+ */
+describe('отметка «точка перехода» ставится по переходам', () => {
+  const portal = (id: string) => store().nodes.get(id)?.isPortal;
+
+  it('новый переход делает оба конца точками перехода, удаление — снимает', () => {
+    expect(portal('a1_room101')).toBe(false);
+    expect(portal('a2_room201')).toBe(false);
+
+    store().addTransition('a1_room101', 'a2_room201', 'lift');
+    expect(portal('a1_room101')).toBe(true);
+    expect(portal('a2_room201')).toBe(true);
+
+    store().removeTransition('a1_room101', 'a2_room201');
+    expect(portal('a1_room101')).toBe(false);
+    expect(portal('a2_room201')).toBe(false);
+  });
+
+  it('удаление точки снимает отметку с другого конца её перехода, отмена возвращает', () => {
+    expect(portal('a2_stairs')).toBe(true);
+    store().removeNode('a1_stairs');
+    expect(portal('a2_stairs')).toBe(false);
+
+    store().undo();
+    expect(portal('a2_stairs')).toBe(true);
+    expect(portal('a1_stairs')).toBe(true);
+  });
+
+  it('отмена перехода снимает отметку, повтор ставит', () => {
+    store().addTransition('a1_room101', 'a2_room201', 'lift');
+    store().undo();
+    expect(portal('a1_room101')).toBe(false);
+    store().redo();
+    expect(portal('a1_room101')).toBe(true);
+  });
+
+  it('копия точки перехода — обычная точка: переходы не копируются', () => {
+    openFloor(1);
+    select('a1_stairs');
+    store().duplicateSelected();
+
+    const copy = [...store().selectedNodeIds][0];
+    expect(copy).not.toBe('a1_stairs');
+    expect(portal(copy)).toBe(false);
+  });
+
+  it('расхождение в загруженных данных исправляется и называется', () => {
+    const dataset = fixtureDataset();
+    dataset.nodes = dataset.nodes.map((node) =>
+      node.id === 'a1_hall' ? { ...node, isPortal: true } : node.id === 'a1_stairs' ? { ...node, isPortal: false } : node
+    );
+    loadFixture(dataset);
+
+    expect(portal('a1_hall')).toBe(false);
+    expect(portal('a1_stairs')).toBe(true);
+    expect(store().loadWarnings.some((warning) => warning.includes('точка перехода'))).toBe(true);
+  });
+
+  it('согласованные данные загружаются без предупреждения', () => {
+    expect(store().loadWarnings.some((warning) => warning.includes('точка перехода'))).toBe(false);
+  });
+});
+
+/**
+ * Правка панели — одна запись истории. Владелец: «передумал несколько раз —
+ * и каждое передумывание приходится отменять отдельно».
+ */
+describe('правки из карточки точки — одной записью', () => {
+  const inCard = (fn: () => void) => store().runInSession('card:a1_room101', 'Точка «А-101»', fn);
+  const entryCount = () => useHistoryStore.getState().entries.length;
+
+  it('несколько правок — одна запись, одна отмена возвращает всё, повтор — всё', () => {
+    const before = dataSnapshot();
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeCategory('a1_room101', 'food'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().closeSession();
+
+    expect(entryCount()).toBe(entries + 1);
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Точка «А-101»');
+
+    const after = dataSnapshot();
+    store().undo();
+    expect(dataSnapshot()).toEqual(before);
+    store().redo();
+    expect(dataSnapshot()).toEqual(after);
+  });
+
+  it('галочку поставили и сняли — записи в истории нет', () => {
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeCategory('a1_room101', null));
+    store().closeSession();
+
+    expect(entryCount()).toBe(entries);
+  });
+
+  it('Ctrl+Z при открытой правке отменяет её целиком', () => {
+    const before = dataSnapshot();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().undo();
+
+    expect(dataSnapshot()).toEqual(before);
+  });
+
+  it('«Отменить изменения» возвращает всё и не оставляет записей', () => {
+    const before = dataSnapshot();
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeAliases('a1_room101', ['А-101', '101', 'Лаборатория']));
+    store().revertSession();
+
+    expect(dataSnapshot()).toEqual(before);
+    expect(entryCount()).toBe(entries);
+    expect(useHistoryStore.getState().canRedo()).toBe(false);
+  });
+
+  it('действие не из карточки закрывает её правку и пишется отдельной записью', () => {
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().addEdge('a1_entrance', 'a1_room101');
+
+    expect(entryCount()).toBe(entries + 2);
+    store().undo();
+    expect(store().nodes.get('a1_entrance')?.neighbors).not.toContain('a1_room101');
+    expect(store().aliasCategories.get('a1_room101')).toBe('toilet');
+  });
+
+  it('одна правка из карточки — обычная запись, не группа', () => {
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    store().closeSession();
+
+    const { entries, currentIndex } = useHistoryStore.getState();
+    expect(entries[currentIndex].type).toBe('SET_CATEGORY');
+  });
+
+  it('правка другой панели сначала применяет правку карточки', () => {
+    const entries = entryCount();
+
+    inCard(() => store().setNodeCategory('a1_room101', 'toilet'));
+    inCard(() => store().setNodeComment('a1_room101', 'новая заметка'));
+    store().runInSession('kinds', 'Виды точек', () =>
+      store().setPlaceKinds([...BUILT_IN_PLACE_KINDS, { id: 'medpoint', name: 'Медпункт' }], 'Свой вид')
+    );
+    store().closeSession();
+
+    expect(entryCount()).toBe(entries + 2);
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Свой вид');
   });
 });

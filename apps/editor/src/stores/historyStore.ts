@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
+import type { AliasEntry, MapNode, PlaceCategory, PlaceKind, Transition } from '@campus-map/core';
 
 /**
  * Контракт истории действий редактора и сам стек отмены.
@@ -21,16 +21,19 @@ export interface NodePosition {
   y: number;
 }
 
-/** Изменение признака портала у узла. */
-export interface PortalChange {
-  nodeId: string;
-  isPortal: boolean;
-}
-
-/** Слепок алиасов узла: алиасы живут отдельно от узла. */
+/**
+ * Слепок того, что о точке хранится отдельно от неё самой: названия, их
+ * переводы и вид места.
+ *
+ * Удаление уносит всё это вместе с точкой, отмена возвращает. Иначе новая
+ * точка, получившая освободившийся id, унаследовала бы чужой перевод и вид
+ * места, а отмена её постановки стёрла бы вид места удалённой.
+ */
 export interface AliasSnapshot {
   id: string;
   names: string[];
+  category?: PlaceCategory;
+  translations?: NonNullable<AliasEntry['translations']>;
 }
 
 /**
@@ -49,7 +52,6 @@ export type BatchUndoPayload =
       aliases?: AliasSnapshot[];
     }
   | { kind: 'moveMultiple'; positions: NodePosition[] }
-  | { kind: 'setPortal'; changes: PortalChange[] }
   | { kind: 'chainConnect'; neighborsBefore: NeighborSnapshot }
   | {
       kind: 'autofix';
@@ -71,6 +73,13 @@ export type BatchUndoPayload =
       nodeIds: string[];
       neighborsBefore: NeighborSnapshot;
       transitionsBefore: Transition[];
+      /**
+       * От какой точки шла линия и какая точка была поставлена последней до
+       * щелчка: после отмены линия продолжается от предыдущей точки, а не
+       * цепляется к ближайшей чужой.
+       */
+      chainBefore: string | null;
+      lastPlacedBefore: string | null;
     };
 
 /** Нагрузки повтора для составных действий. */
@@ -78,7 +87,6 @@ export type BatchRedoPayload =
   | { kind: 'line'; nodes: MapNode[] }
   | { kind: 'deleteMultiple'; nodeIds: string[] }
   | { kind: 'moveMultiple'; positions: NodePosition[] }
-  | { kind: 'setPortal'; nodeIds: string[]; isPortal: boolean }
   | { kind: 'chainConnect'; nodeIds: string[] }
   | {
       kind: 'autofix';
@@ -95,6 +103,8 @@ export type BatchRedoPayload =
       /** Названия и виды мест, которые подставил вид точки. */
       aliases: AliasSnapshot[];
       categories: { id: string; category: PlaceCategory }[];
+      chainAfter: string | null;
+      lastPlacedAfter: string;
     };
 
 /** Тип действия, по которому ветвится применение отмены и повтора. */
@@ -112,6 +122,7 @@ export type ActionType =
   | 'SET_CATEGORY'
   | 'SET_PLACE_KINDS'
   | 'RENAME_NODE'
+  | 'GROUP'
   | 'BATCH';
 
 /**
@@ -136,7 +147,8 @@ export type HistoryEntry =
         node: MapNode;
         neighborsBefore: NeighborSnapshot;
         transitionsBefore: Transition[];
-        aliases: string[];
+        /** Названия, перевод и вид места; `null`, если ничего этого не было. */
+        place: AliasSnapshot | null;
       };
       redoData: { nodeId: string };
     }
@@ -225,6 +237,19 @@ export type HistoryEntry =
       timestamp: number;
       undoData: BatchUndoPayload;
       redoData: BatchRedoPayload;
+    }
+  | {
+      /**
+       * Правки одной панели — карточки точки, окна видов — одной записью.
+       * Человек мог передумать несколько раз, а отмена возвращает всё, что
+       * он сделал в панели, разом. Отмена — записи в обратном порядке,
+       * повтор — в прямом.
+       */
+      type: 'GROUP';
+      description: string;
+      timestamp: number;
+      undoData: { entries: HistoryEntry[] };
+      redoData: { entries: HistoryEntry[] };
     };
 
 /**
@@ -246,6 +271,23 @@ export type HistoryEntryInput = DistributiveOmit<HistoryEntry, 'timestamp'>;
  * после отмены и новой правки позиция та же, а данные другие.
  */
 export type StoredEntry = HistoryEntry & { id: number };
+
+/**
+ * Открытая правка панели: записи, сделанные из панели после `startIndex`,
+ * сольются в одну, когда правка закроется.
+ */
+export interface EditSession {
+  /** Чья правка: `card:<ключ карточки>`, `kinds`. */
+  key: string;
+  /** Как запись назовётся на кнопке отмены. */
+  description: string;
+  /** Позиция в стеке перед первой правкой панели. */
+  startIndex: number;
+  /** Отпечаток данных до правки: если после неё данные те же, записи не будет. */
+  fingerprint: string;
+  /** Идёт запись из самой панели — её не считают записью «со стороны». */
+  active: boolean;
+}
 
 interface HistoryState {
   entries: StoredEntry[];
@@ -276,6 +318,23 @@ interface HistoryState {
   canRedo: () => boolean;
   getUndoDescription: () => string | null;
   getRedoDescription: () => string | null;
+
+  /** Открытая правка панели; `null` — правки пишутся по одной, как обычно. */
+  session: EditSession | null;
+  openSession: (session: EditSession) => void;
+  updateSession: (patch: Partial<Pick<EditSession, 'description' | 'active'>>) => void;
+  endSession: () => void;
+  /**
+   * Что сделать перед записью «со стороны» — действием на карте, клавишей,
+   * другой панелью, — пока открыта правка панели: закрыть её. Иначе чужое
+   * действие попало бы в запись панели.
+   */
+  onForeignWrite: (() => void) | null;
+  setOnForeignWrite: (handler: () => void) => void;
+  /** Сливает записи после `startIndex` в одну запись-группу. */
+  mergeFrom: (startIndex: number, description: string) => void;
+  /** Отбрасывает записи после `startIndex`, в том числе те, что можно было повторить. */
+  truncateTo: (startIndex: number) => void;
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
@@ -284,7 +343,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   maxEntries: 200,
   nextId: 1,
 
-  push: (entry) =>
+  push: (entry) => {
+    closeForeign(get);
     set((state) => {
       // Новое действие после отмены делает невозможным повтор того, что было
       // отменено, поэтому хвост за текущей позицией отбрасывается.
@@ -301,16 +361,19 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         currentIndex: newEntries.length - 1,
         nextId: state.nextId + 1,
       };
-    }),
+    });
+  },
 
-  replaceLast: (entry) =>
+  replaceLast: (entry) => {
+    closeForeign(get);
     set((state) => {
       if (state.currentIndex < 0) return state;
       const entries = state.entries.slice(0, state.currentIndex + 1);
       // Новый номер: данные после слияния другие, чем были у прежней записи.
       entries[state.currentIndex] = { ...entry, timestamp: Date.now(), id: state.nextId } as StoredEntry;
       return { entries, currentIndex: state.currentIndex, nextId: state.nextId + 1 };
-    }),
+    });
+  },
 
   undo: () => {
     const { entries, currentIndex } = get();
@@ -330,7 +393,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     return entry;
   },
 
-  clear: () => set({ entries: [], currentIndex: -1 }),
+  clear: () => set({ entries: [], currentIndex: -1, session: null }),
 
   stateId: () => {
     const { entries, currentIndex } = get();
@@ -349,4 +412,41 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     const { entries, currentIndex } = get();
     return currentIndex < entries.length - 1 ? entries[currentIndex + 1].description : null;
   },
+
+  session: null,
+  openSession: (session) => set({ session }),
+  updateSession: (patch) =>
+    set((state) => (state.session ? { session: { ...state.session, ...patch } } : state)),
+  endSession: () => set({ session: null }),
+
+  onForeignWrite: null,
+  setOnForeignWrite: (handler) => set({ onForeignWrite: handler }),
+
+  mergeFrom: (startIndex, description) =>
+    set((state) => {
+      const merged = state.entries.slice(startIndex + 1, state.currentIndex + 1);
+      if (merged.length < 2) return state;
+      const entries = state.entries.slice(0, startIndex + 1);
+      entries.push({
+        type: 'GROUP',
+        description,
+        timestamp: Date.now(),
+        id: state.nextId,
+        undoData: { entries: merged },
+        redoData: { entries: merged },
+      });
+      return { entries, currentIndex: entries.length - 1, nextId: state.nextId + 1 };
+    }),
+
+  truncateTo: (startIndex) =>
+    set((state) => {
+      const entries = state.entries.slice(0, Math.max(0, startIndex + 1));
+      return { entries, currentIndex: entries.length - 1 };
+    }),
 }));
+
+/** Запись «со стороны» при открытой правке панели сначала закрывает её. */
+function closeForeign(get: () => HistoryState): void {
+  const { session, onForeignWrite } = get();
+  if (session && !session.active) onForeignWrite?.();
+}

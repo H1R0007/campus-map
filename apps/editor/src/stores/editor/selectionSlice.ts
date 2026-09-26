@@ -25,6 +25,12 @@ export interface SelectionSlice {
   hoveredTransition: NodePair | null;
   selectionBox: SelectionBoxState | null;
   inlineEditNodeId: string | null;
+  /**
+   * Последнее переименование точки, в любую сторону — сделано, отменено или
+   * повторено. По нему карточка узнаёт, что выбрана та же точка под новым
+   * id, и не собирается заново.
+   */
+  lastRename: NodePair | null;
 
   toggleSelectNode: (nodeId: string, addToSelection?: boolean) => void;
   selectSingleNode: (nodeId: string) => void;
@@ -50,6 +56,7 @@ export interface SelectionSlice {
 export const createSelectionSlice: EditorSlice<SelectionSlice> = (set, get) => ({
   selectedNodeIds: new Set(),
   hoveredNodeId: null,
+  lastRename: null,
   hoveredEdge: null,
   hoveredTransition: null,
   selectionBox: null,

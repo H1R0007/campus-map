@@ -71,7 +71,7 @@ describe('круг «сохранить → открыть»', () => {
     expect(dataset.aliases.find((alias) => alias.id === 'a1_room101')?.translations).toEqual({
       en: { names: ['A-101'] },
     });
-    expect(dataset.aliases.find((alias) => alias.id === 'campus_gate')?.category).toBe('exit');
+    expect(dataset.aliases.find((alias) => alias.id === 'campus_gate')?.category).toBe('cloakroom');
     expect(dataset.buildingMetas[0].translations).toEqual({ en: { name: 'Building A' } });
     expect(dataset.buildingMetas[0].placement?.metersPerPixel).toBe(0.1);
   });
@@ -84,7 +84,17 @@ describe('круг «сохранить → открыть»', () => {
     store().setPlaceKinds(
       [
         ...BUILT_IN_PLACE_KINDS,
-        { id: 'medpoint', name: 'Медпункт', icon: 'note', namePattern: 'Медпункт', connect: true, category: 'exit' },
+        {
+          id: 'medpoint',
+          name: 'Медпункт',
+          nameEn: 'First aid',
+          icon: 'note',
+          searchTerms: ['врач'],
+          place: true,
+          quick: true,
+          namePattern: 'Медпункт',
+          connect: true,
+        },
       ],
       'Добавлен вид точки: Медпункт'
     );
@@ -97,13 +107,16 @@ describe('круг «сохранить → открыть»', () => {
     expect(dataset.placeKinds.at(-1)).toEqual({
       id: 'medpoint',
       name: 'Медпункт',
+      nameEn: 'First aid',
       icon: 'note',
+      searchTerms: ['врач'],
+      place: true,
+      quick: true,
       namePattern: 'Медпункт',
       connect: true,
-      category: 'exit',
     });
     // Встроенные виды тоже уходят в файл: дальше видно, что лежит в данных.
-    expect(dataset.placeKinds.map((kind) => kind.id)).toContain('stairs');
+    expect(dataset.placeKinds.map((kind) => kind.id)).toContain('toilet');
   });
 
   it('названия удалённых узлов не сохраняются', async () => {

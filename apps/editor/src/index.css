@@ -943,6 +943,125 @@ input[type='checkbox'] {
     color: var(--editor-bg);
 }
 
+/* Значок вида из данных: картинка — маска, цвет — цвет текста вокруг. */
+.editor-kind-icon {
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
+/* Окно видов: выбор значка открывается поверх него. */
+.editor-dialog--kinds {
+    position: relative;
+}
+
+/* Окошко выбора значка — поверх окна видов, в его границах. */
+.editor-icon-picker {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px;
+    border-radius: 16px;
+    background: var(--editor-panel);
+}
+
+.editor-icon-picker__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.editor-icon-picker__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.editor-icon-picker__title {
+    margin: 12px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.editor-icon-picker__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid var(--editor-border);
+    padding-top: 8px;
+}
+
+.editor-icon-picker__footer .editor-section__hint {
+    flex: 1 1 240px;
+    margin: 0;
+}
+
+/* Кнопка «Выбрать значок…» с самим значком. */
+.editor-icon-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Подтверждение удаления вида — строкой под ним, во всю ширину. */
+.editor-dialog--kinds .editor-list__row {
+    flex-wrap: wrap;
+}
+
+.editor-list__confirm {
+    flex-basis: 100%;
+    padding: 8px 4px 4px;
+}
+
+/* Выбор значка вида: сетка кнопок 44×44, выбранная — цветом акцента. */
+.editor-icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.editor-icon-choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    background: transparent;
+    color: var(--editor-text);
+    cursor: pointer;
+}
+
+.editor-icon-choice:hover {
+    background: var(--editor-hover);
+}
+
+.editor-icon-choice[aria-pressed='true'] {
+    background: var(--editor-highlight);
+    border-color: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+/* Группа выборов без рамки: подпись — обычная подсказка раздела. */
+.editor-fieldset {
+    min-width: 0;
+    margin: 0 0 8px;
+    padding: 0;
+    border: 0;
+}
+
 /* Кнопка-переключатель типа перехода: цвет типа задаётся переменной --chip. */
 .editor-chip {
     display: inline-flex;
@@ -1079,18 +1198,57 @@ input[type='checkbox'] {
     border-top: 1px solid var(--editor-border);
 }
 
+/* У заголовка с display: flex браузер не рисует треугольник раскрытия:
+   без своей стрелки блок выглядит простой надписью, и что он раскрывается,
+   не догадаться. */
 .editor-card__details > summary {
     display: flex;
     align-items: center;
+    gap: 6px;
     min-height: 44px;
+    padding: 0 4px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    list-style: none;
+}
+
+.editor-card__details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.editor-card__details > summary:hover {
+    background: var(--editor-hover);
+}
+
+.editor-card__chevron {
+    flex: none;
+    transition: transform 0.15s ease;
+}
+
+.editor-card__details[open] > summary .editor-card__chevron {
+    transform: rotate(90deg);
+}
+
+/* Полоса «изменения точки»: прилипает к низу колонки, пока правки не применены. */
+.editor-card__session {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding: 8px;
+    border-top: 1px solid var(--editor-highlight);
+    background: var(--editor-panel);
 }
 
 .editor-card__field {
     display: block;
     margin-bottom: 8px;
+}
+
+.editor-card__field > .editor-section__hint {
+    display: block;
+    margin-bottom: 4px;
 }
 
 .editor-section__hint--problem {

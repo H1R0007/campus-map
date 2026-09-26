@@ -6,10 +6,11 @@ import type {
   PathResult,
   PlaceCategory,
 } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, findNearest, scopeOfNode } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, findNearest, findPath, scopeOfNode } from '@campus-map/core';
 import { formatFloor, messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
+import { EXIT_TARGET, exitNodesOf, placeIdsOfKind } from './placeKinds';
 import { sameScope } from './routeFloors';
 import { formatDuration } from './routeInstructions';
 
@@ -32,6 +33,9 @@ export interface NearestPlace {
  * обзор маршрута объяснит, что мешает, и снимет запрет лестниц одной кнопкой, —
  * это полезнее молча недоступной кнопки.
  *
+ * Выход (`EXIT_TARGET`) — двери корпусов, а не отмеченные места; с территории
+ * выходить некуда — тогда `null`.
+ *
  * @returns `null`, если мест категории нет или ни до одного не дойти
  */
 export function nearestPlaceOf(
@@ -41,7 +45,9 @@ export function nearestPlaceOf(
   category: PlaceCategory,
   options: PathfindingOptions
 ): NearestPlace | null {
-  const targets = aliasManager.getIdsByCategory(category).filter((id) => id !== startId);
+  if (category === EXIT_TARGET && graph.getNode(startId)?.building === CAMPUS_BUILDING_ID) return null;
+  const candidates = category === EXIT_TARGET ? exitNodesOf(graph) : aliasManager.getIdsByCategory(category);
+  const targets = candidates.filter((id) => id !== startId);
   if (targets.length === 0) return null;
 
   const restricted = findNearest(graph, startId, targets, options);
@@ -49,6 +55,36 @@ export function nearestPlaceOf(
   if (!route.found) return null;
 
   return { nodeId: route.path[route.path.length - 1], route, reachable: restricted.found };
+}
+
+/** Место вида и маршрут до него от начала. */
+export interface PlaceChoice {
+  nodeId: string;
+  route: PathResult;
+}
+
+/**
+ * Все места вида от начала маршрута, ближайшее первым — «все столовые» после
+ * быстрой кнопки (запись 45). Человек не всегда хочет в ближайшую: в соседнем
+ * корпусе может быть та, что ему нужна.
+ *
+ * Места, до которых при выбранных ограничениях не дойти, не показываются:
+ * выбор среди них вёл бы к «маршрут не найден».
+ */
+export function placesOfKind(
+  graph: Graph,
+  aliasManager: AliasManager,
+  startId: string,
+  kind: PlaceCategory,
+  options: PathfindingOptions,
+  limit = 20
+): PlaceChoice[] {
+  return placeIdsOfKind(graph, aliasManager, kind)
+    .filter((id) => id !== startId)
+    .map((nodeId) => ({ nodeId, route: findPath(graph, startId, nodeId, options) }))
+    .filter((choice) => choice.route.found)
+    .sort((a, b) => a.route.cost - b.route.cost)
+    .slice(0, limit);
 }
 
 /**

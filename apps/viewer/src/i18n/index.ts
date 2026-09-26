@@ -1,5 +1,3 @@
-import { PLACE_CATEGORIES } from '@campus-map/core';
-import type { PlaceCategory } from '@campus-map/core';
 import { useSettingsStore } from '../stores/settingsStore';
 import { en } from './en';
 import { LANGUAGES } from './languages';
@@ -22,17 +20,13 @@ export function messagesFor(language: Language): Messages {
 }
 
 /**
- * Слова категорий мест на всех языках интерфейса — для поиска (`AliasManager`).
+ * Слова выхода на всех языках интерфейса — для поиска (`AliasManager`).
  *
- * Все языки сразу: студент набирает «toilet», не переключив интерфейс, — так же,
+ * Все языки сразу: студент набирает «exit», не переключив интерфейс, — так же,
  * как поиск находит место по имени на любом языке.
  */
-export function categoryTermsOfAllLanguages(): Record<PlaceCategory, string[]> {
-  const terms = {} as Record<PlaceCategory, string[]>;
-  for (const category of PLACE_CATEGORIES) {
-    terms[category] = LANGUAGES.flatMap((language) => MESSAGES[language].search.categoryTerms[category]);
-  }
-  return terms;
+export function exitTermsOfAllLanguages(): string[] {
+  return LANGUAGES.flatMap((language) => MESSAGES[language].search.exitTerms);
 }
 
 /** Текущий язык интерфейса — для подписей из данных, которым нужен код языка. */

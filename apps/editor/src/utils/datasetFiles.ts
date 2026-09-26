@@ -206,15 +206,16 @@ export function datasetFiles(dataset: Dataset): Map<string, string> {
             ({
               id: kind.id,
               name: kind.name,
+              nameEn: kind.nameEn,
               icon: kind.icon,
+              iconImage: kind.iconImage,
               color: kind.color,
+              searchTerms: kind.searchTerms,
+              place: kind.place,
+              quick: kind.quick,
               namePattern: kind.namePattern,
-              isPortal: kind.isPortal,
-              transition: kind.transition,
-              stack: kind.stack,
               connect: kind.connect,
               chain: kind.chain,
-              category: kind.category,
             }) satisfies EveryField<PlaceKind>
         ),
       })

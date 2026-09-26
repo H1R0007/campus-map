@@ -4,7 +4,8 @@ import type { BuildingMeta } from '@campus-map/core';
 import { useMapStore } from '../src/stores/mapStore';
 import { useRouteStore } from '../src/stores/routeStore';
 import { useUiStore } from '../src/stores/uiStore';
-import { nearestHint, nearestPlaceOf } from '../src/utils/nearestPlace';
+import { nearestHint, nearestPlaceOf, placesOfKind } from '../src/utils/nearestPlace';
+import { EXIT_TARGET } from '../src/utils/placeKinds';
 import { fixtureGraph } from './helpers/graphFixture';
 
 /**
@@ -23,7 +24,7 @@ function aliases(): AliasManager {
   manager.load([
     { id: 'a1_hall', names: ['Туалет у холла'], category: 'toilet' },
     { id: 'a2_room201', names: ['Туалет, 2 этаж'], category: 'toilet' },
-    { id: 'campus_gate', names: ['Проходная'], category: 'exit' },
+    { id: 'campus_gate', names: ['Проходная'] },
   ]);
   return manager;
 }
@@ -59,7 +60,11 @@ describe('nearestPlaceOf', () => {
 
   it('без мест категории — null', () => {
     expect(nearestPlaceOf(fixtureGraph(), aliases(), 'a1_hall', 'cloakroom', OPTIONS)).toBeNull();
-    expect(nearestPlaceOf(fixtureGraph(), aliases(), 'campus_gate', 'exit', OPTIONS)).toBeNull();
+  });
+
+  it('выход — ближайшая дверь корпуса; с территории выходить некуда', () => {
+    expect(nearestPlaceOf(fixtureGraph(), aliases(), 'a2_room201', EXIT_TARGET, OPTIONS)?.nodeId).toBe('a1_entrance');
+    expect(nearestPlaceOf(fixtureGraph(), aliases(), 'campus_gate', EXIT_TARGET, OPTIONS)).toBeNull();
   });
 });
 
@@ -125,5 +130,85 @@ describe('маршрут к ближайшему в сторе', () => {
 
     useUiStore.getState().openSearch('place');
     expect(useUiStore.getState().nearestCategory).toBeNull();
+  });
+});
+
+/**
+ * Все места вида после быстрой кнопки (запись 45): маршрут ведёт к
+ * ближайшему, а остальные места вида видны списком и на карте.
+ */
+describe('все места вида после быстрой кнопки', () => {
+  beforeEach(() => {
+    useMapStore.setState({
+      graph: fixtureGraph(),
+      aliasManager: aliases(),
+      campusMeta: { buildings: [{ id: 'building_a', name: 'Корпус А' }], mapSize: { width: 1200, height: 800 } },
+      buildingMetas: BUILDING_METAS,
+      activeFloor: null,
+      selectedNodeId: null,
+    });
+    useRouteStore.getState().clearRoute();
+    useRouteStore.setState({ options: { ...DEFAULT_PATHFINDING_OPTIONS } });
+  });
+
+  const route = () => useRouteStore.getState();
+
+  it('места вида — ближайшее первым, без самого начала', () => {
+    const places = placesOfKind(fixtureGraph(), aliases(), 'a2_stairs', 'toilet', OPTIONS);
+    expect(places.map((place) => place.nodeId)).toEqual(['a1_hall', 'a2_room201']);
+    expect(placesOfKind(fixtureGraph(), aliases(), 'a1_hall', 'toilet', OPTIONS).map((place) => place.nodeId)).toEqual([
+      'a2_room201',
+    ]);
+  });
+
+  it('порядок — по близости, а не по порядку записей в данных', () => {
+    // Туалет второго этажа записан первым, но с лестницы второго этажа холл
+    // первого ближе (см. «ведёт к месту с самым дешёвым маршрутом»).
+    const reversed = new AliasManager();
+    reversed.load([
+      { id: 'a2_room201', names: ['Туалет, 2 этаж'], category: 'toilet' },
+      { id: 'a1_hall', names: ['Туалет у холла'], category: 'toilet' },
+    ]);
+
+    expect(placesOfKind(fixtureGraph(), reversed, 'a2_stairs', 'toilet', OPTIONS).map((place) => place.nodeId)).toEqual([
+      'a1_hall',
+      'a2_room201',
+    ]);
+  });
+
+  it('места, до которых при ограничениях не дойти, не показываются', () => {
+    expect(placesOfKind(fixtureGraph(), aliases(), 'a1_hall', 'toilet', { ...OPTIONS, allowStairs: false })).toEqual([]);
+  });
+
+  it('выходы — двери корпусов', () => {
+    expect(placesOfKind(fixtureGraph(), aliases(), 'a2_room201', EXIT_TARGET, OPTIONS).map((place) => place.nodeId)).toEqual([
+      'a1_entrance',
+    ]);
+  });
+
+  it('быстрая кнопка запоминает вид; другое место того же вида — выбор продолжается', () => {
+    route().setPoint('from', 'campus_gate');
+    route().routeToNearest('toilet');
+    expect(route()).toMatchObject({ toNodeId: 'a1_hall', nearestKind: 'toilet' });
+
+    route().setPoint('to', 'a2_room201');
+    expect(route()).toMatchObject({ toNodeId: 'a2_room201', nearestKind: 'toilet' });
+    expect(route().currentRoute?.found).toBe(true);
+  });
+
+  it('цель другого вида, сброс и обмен точек заканчивают выбор', () => {
+    route().setPoint('from', 'campus_gate');
+    route().routeToNearest('toilet');
+    route().setPoint('to', 'a1_entrance');
+    expect(route().nearestKind).toBeNull();
+
+    route().routeToNearest('toilet');
+    route().clearRoute();
+    expect(route().nearestKind).toBeNull();
+
+    route().setPoint('from', 'campus_gate');
+    route().routeToNearest('toilet');
+    route().swapPoints();
+    expect(route().nearestKind).toBeNull();
   });
 });

@@ -477,6 +477,41 @@ button {
     color: #ffffff;
 }
 
+/* Место вида после быстрой кнопки — значок вида в круге цвета маршрута;
+   цель нажатия больше круга (запись 45). */
+.campus-marker--kind {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.campus-marker--kind span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    border: 2px solid rgb(var(--color-route));
+    background: rgb(var(--color-surface));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    color: rgb(var(--color-route));
+}
+
+.campus-marker--kind i {
+    display: block;
+    width: 18px;
+    height: 18px;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
 /* ===== Панель навигатора ===== */
 
 /* Шторка возвращается на место плавно после жеста; кто попросил систему не

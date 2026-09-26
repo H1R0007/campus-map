@@ -1,5 +1,4 @@
 import React from 'react';
-import { TransitionGlyph } from '@campus-map/mapkit';
 import type { PlaceKind } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { visibleKinds } from '../../utils/placeKinds';
@@ -9,11 +8,26 @@ import type { IconName } from '../UI/Icon';
 /** Сколько видов помещается в строку над картой; остальные — в окне «Все виды». */
 export const PALETTE_SIZE = 8;
 
-/** Значок вида: у видов с переходом — значок типа перехода, как на карте. */
-export const KindGlyph: React.FC<{ kind: PlaceKind; size?: number }> = ({ kind, size = 16 }) => {
-  if (kind.transition) return <TransitionGlyph type={kind.transition} size={size} />;
-  return <Icon name={(kind.icon ?? 'pin') as IconName} size={size} />;
-};
+/**
+ * Значок вида. Картинка из данных рисуется маской цветом текста вокруг — так
+ * значок подстраивается под тему и под нажатую кнопку, как и в навигаторе.
+ * Без картинки — прежний значок редактора по имени.
+ */
+export const KindGlyph: React.FC<{ kind: PlaceKind; size?: number }> = ({ kind, size = 16 }) =>
+  kind.iconImage ? (
+    <span
+      aria-hidden="true"
+      className="editor-kind-icon"
+      style={{
+        width: size,
+        height: size,
+        WebkitMaskImage: `url("${kind.iconImage}")`,
+        maskImage: `url("${kind.iconImage}")`,
+      }}
+    />
+  ) : (
+    <Icon name={(kind.icon ?? 'pin') as IconName} size={size} />
+  );
 
 /**
  * Виды точек в строке над картой.

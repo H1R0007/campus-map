@@ -26,7 +26,8 @@ export default {
       await v.open('/');
       // Без заданной точки свёрнутая шторка — только поиск: быстрые кнопки — в
       // поиске и в раскрытой шторке (запись 37).
-      const all = ['Ближайший туалет', 'Ближайшая столовая', 'Ближайший гардероб', 'Ближайший выход'];
+      // Названия видов — из каталога в данных (запись 44); выход — двери корпусов.
+      const all = ['Туалет — ближайшее место', 'Столовая — ближайшее место', 'Гардероб — ближайшее место', 'Ближайший выход'];
       assert.deepEqual(await quickLabels(), [], 'в свёрнутой шторке кнопок нет');
       await v.click('Развернуть панель');
       assert.deepEqual(await quickLabels(), all, 'кнопки в раскрытой шторке');
@@ -37,7 +38,7 @@ export default {
       assert.deepEqual(await quickLabels(SEARCH), all, 'кнопки в поиске');
       await shot('viewer-quick-idle');
 
-      await v.click('Ближайший туалет');
+      await v.click('Туалет — ближайшее место');
       await page.waitFor(`!!${SEARCH}`);
       assert.equal(await page.eval('document.activeElement?.placeholder'), 'Аудитория или место рядом с вами');
       assert.ok((await page.eval(`${SEARCH}.textContent`)).includes('Где вы сейчас?'));
@@ -56,7 +57,7 @@ export default {
     await step('QR у входа: время до места и маршрут без поиска', async () => {
       await v.open('/?at=a1_entrance');
       const [toilet] = await quickLabels();
-      assert.match(toilet, /^Ближайший туалет, ~\d+\sмин$/);
+      assert.match(toilet, /^Туалет — ближайшее место, ~\d+\sмин$/);
       await shot('viewer-quick-qr');
 
       await v.click(toilet);
@@ -73,6 +74,52 @@ export default {
       await v.click(exit);
       await routeShown();
       assert.match(new URL(await v.href()).searchParams.get('to') ?? '', /^a1_entrance/);
+    });
+
+    await step('все места вида: список в шторке и отметки на карте, выбор другого — маршрут туда', async () => {
+      // Владелец: человек не всегда хочет в ближайшую столовую — показать все
+      // сразу, и выбрать можно прямо с карты (запись 45).
+      await v.open('/?at=a1_entrance');
+      const [toilet] = await quickLabels();
+      await v.click(toilet);
+      await routeShown();
+      const to = async () => new URL(await v.href()).searchParams.get('to');
+      assert.equal(await to(), 'a1_toilet', 'быстрая кнопка должна вести к ближайшему');
+
+      // Свёрнутая шторка: кнопка списка всех мест вида.
+      const panelText = () => page.eval(`${PANEL}.textContent`);
+      assert.ok((await panelText()).includes('Туалет: все места (3)'), 'нет кнопки «Туалет: все места»');
+
+      // Карта: на втором этаже — отметка второго туалета, нажатие ведёт туда.
+      await v.click('Этаж 2');
+      await page.sleep(600);
+      const markers = () =>
+        page.eval(`[...document.querySelectorAll('.campus-marker--kind')].map((m) => m.getAttribute('title'))`);
+      const onFloor = await markers();
+      // Виден и соседний корпус: его туалет тоже отмечен. Выбранного сейчас
+      // места среди отметок нет — оно отмечено концом маршрута.
+      assert.ok(onFloor.includes('Туалет, 2 этаж корпуса А — проложить маршрут сюда'), `отметки: ${JSON.stringify(onFloor)}`);
+      assert.ok(!onFloor.some((title) => title.startsWith('Туалет, 1 этаж корпуса А')), 'выбранное место отмечено ещё раз');
+      await shot('viewer-quick-kind-map');
+      await page.eval(`[...document.querySelectorAll('.campus-marker--kind')].find((m) => m.getAttribute('title').startsWith('Туалет, 2 этаж')).click()`);
+      await page.sleep(600);
+      assert.equal(await to(), 'a2_toilet', 'нажатие на отметку не повело туда');
+
+      // Список: все три туалета, выбранный отмечен; выбор из списка — маршрут туда.
+      await v.click('Туалет: все места (3)');
+      await page.sleep(400);
+      const items = await page.eval(`[...document.querySelectorAll('[aria-labelledby="kind-places-title"] li button')].map((b) => ({
+        text: b.textContent.trim(),
+        current: b.getAttribute('aria-current'),
+      }))`);
+      assert.equal(items.length, 3, `в списке: ${JSON.stringify(items)}`);
+      assert.ok(items.find((item) => item.current === 'true')?.text.includes('2 этаж корпуса А'), 'в списке не отмечено выбранное место');
+      await shot('viewer-quick-kind-list');
+
+      await page.eval(`[...document.querySelectorAll('[aria-labelledby="kind-places-title"] li button')].find((b) => b.textContent.includes('корпуса Б')).click()`);
+      await page.sleep(600);
+      assert.equal(await to(), 'b1_toilet', 'выбор из списка не повёл туда');
+      assert.ok((await panelText()).includes('Туалет: все места'), 'после выбора другого туалета список пропал');
     });
 
     await step('когда цель уже задана, быстрых кнопок нет', async () => {

@@ -1,11 +1,22 @@
 import React, { useMemo } from 'react';
-import { PLACE_CATEGORIES } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, searchablePlaceKinds } from '@campus-map/core';
 import { messagesFor, useLanguage } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import { useUiStore } from '../../stores/uiStore';
 import { nearestHint, nearestPlaceOf } from '../../utils/nearestPlace';
+import { EXIT_TARGET, exitNodesOf, placeKindName } from '../../utils/placeKinds';
 import { Icon } from './Icon';
+import { KindIcon } from './KindIcon';
+
+/** Кнопка «Рядом»: вид места из каталога или выход. */
+interface QuickTarget {
+  id: string;
+  label: string;
+  /** Имя кнопки для диктора; видимая подпись входит в него (WCAG 2.5.3). */
+  spoken: string;
+  icon: React.ReactNode;
+}
 
 interface QuickPlacesProps {
   /** Вызывается перед построением маршрута — например, чтобы закрыть поиск. */
@@ -21,13 +32,16 @@ interface QuickPlacesProps {
  * идти или где это. Если, где человек, неизвестно, кнопка спрашивает об этом
  * поиском начала: открытый на карте этаж — не то место, где человек стоит.
  *
- * Кнопок категорий, которых нет в данных, нет. Категория, до мест которой от
- * начала не дойти вовсе, недоступна.
+ * Кнопки — виды мест каталога с быстрой кнопкой (запись 44), в порядке
+ * каталога, и выход — двери корпусов. Кнопок видов, мест которых нет в данных,
+ * нет. Вид, до мест которого от начала не дойти вовсе, недоступен. С
+ * территории выходить некуда — выхода там нет.
  */
 export const QuickPlaces: React.FC<QuickPlacesProps> = ({ onRoute }) => {
   const graph = useMapStore((s) => s.graph);
   const aliasManager = useMapStore((s) => s.aliasManager);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
+  const placeKinds = useMapStore((s) => s.placeKinds);
   const fromNodeId = useRouteStore((s) => s.fromNodeId);
   const options = useRouteStore((s) => s.options);
   const routeToNearest = useRouteStore((s) => s.routeToNearest);
@@ -35,11 +49,29 @@ export const QuickPlaces: React.FC<QuickPlacesProps> = ({ onRoute }) => {
   const language = useLanguage();
   const messages = messagesFor(language);
 
-  const categories = useMemo(
-    () =>
-      aliasManager ? PLACE_CATEGORIES.filter((category) => aliasManager.getIdsByCategory(category).length > 0) : [],
-    [aliasManager]
-  );
+  const targets = useMemo<QuickTarget[]>(() => {
+    if (!aliasManager || !graph) return [];
+    const kinds = searchablePlaceKinds(placeKinds)
+      .filter((kind) => kind.quick === true && aliasManager.getIdsByCategory(kind.id).length > 0)
+      .map((kind) => {
+        const label = placeKindName(kind, language);
+        return {
+          id: kind.id,
+          label,
+          spoken: messages.quick.nearestOf(label),
+          icon: kind.iconImage ? <KindIcon image={kind.iconImage} size={20} /> : <Icon name="pin" size={20} />,
+        };
+      });
+
+    const start = fromNodeId === null ? undefined : graph.getNode(fromNodeId);
+    const outside = start?.building === CAMPUS_BUILDING_ID;
+    const exit =
+      exitNodesOf(graph).length > 0 && !outside
+        ? [{ id: EXIT_TARGET, label: messages.quick.exit, spoken: messages.quick.nearestExit, icon: <Icon name="exit" size={20} /> }]
+        : [];
+    return [...kinds, ...exit];
+  }, [aliasManager, graph, placeKinds, language, messages, fromNodeId]);
+  const categories = useMemo(() => targets.map((target) => target.id), [targets]);
 
   // Поиск ближайшего — при смене начала или ограничений, а не по нажатию:
   // подсказка нужна до нажатия.
@@ -56,7 +88,8 @@ export const QuickPlaces: React.FC<QuickPlacesProps> = ({ onRoute }) => {
     // Уже 300 px — например, при увеличении текста в 200 % — в два ряда: в
     // четверть такого экрана подпись не помещается (запись 28).
     <ul aria-label={messages.quick.label} className="grid grid-cols-4 gap-2 compact:grid-cols-2">
-      {categories.map((category) => {
+      {targets.map((target) => {
+        const category = target.id;
         const place = nearest?.get(category) ?? null;
         const missing = nearest !== null && place === null;
         const hint = missing
@@ -64,8 +97,7 @@ export const QuickPlaces: React.FC<QuickPlacesProps> = ({ onRoute }) => {
           : place !== null && graph && buildingMetas && fromNodeId !== null
             ? nearestHint(graph, buildingMetas, fromNodeId, place, language)
             : null;
-        // Видимая подпись входит в имя кнопки для диктора (WCAG 2.5.3).
-        const label = messages.quick.nearest[category];
+        const label = target.spoken;
 
         return (
           <li key={category} className="min-w-0">
@@ -87,10 +119,10 @@ export const QuickPlaces: React.FC<QuickPlacesProps> = ({ onRoute }) => {
                 aria-hidden="true"
                 className="w-9 h-9 flex-shrink-0 rounded-full bg-selected text-accent flex items-center justify-center"
               >
-                <Icon name={category} size={20} />
+                {target.icon}
               </span>
               <span className="max-w-full truncate text-xs font-medium text-gray-800">
-                {messages.quick.category[category]}
+                {target.label}
               </span>
               {/* Две строки, а не обрезка: «Корпус Б, этаж 1» в кнопку шириной в
                   четверть телефона одной строкой не помещается. */}

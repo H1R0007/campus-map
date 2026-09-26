@@ -2,6 +2,7 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { campusDataPlugin } from '../../tooling/vite-plugin-campus-data.mjs';
+import { tablerIconsPlugin } from '../../tooling/vite-plugin-tabler-icons.mjs';
 
 /**
  * Базовый путь развёртывания — как в навигаторе.
@@ -44,6 +45,10 @@ export default defineConfig({
     // в режиме разработки — сохраняет правки прямо в него: команда разметки
     // запускает редактор из репозитория, а результат забирает git.
     campusDataPlugin({ sourceDir: dataDir, writable: true }),
+
+    // Библиотека значков для окна «Все виды» — только в редакторе и только
+    // при открытии выбора значка (запись 44).
+    tablerIconsPlugin({ packageDir: path.resolve(__dirname, 'node_modules/@tabler/icons') }),
   ],
 
   server: {

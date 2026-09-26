@@ -53,6 +53,34 @@ export function endpointIcon(kind: EndpointKind, language: Language): L.DivIcon 
  */
 const UNKNOWN_PORTAL_COLOR = '#64748B';
 
+const kindPlaceIcons = new Map<string, L.DivIcon>();
+
+/**
+ * Отметка места вида — «другие столовые» после быстрой кнопки (запись 45):
+ * значок вида в круге цвета маршрута. Нажатие ведёт туда, поэтому цель
+ * нажатия — 44 пикселя, хотя круг меньше.
+ *
+ * У выхода своего значка в каталоге нет — у него значок входа, как на плане.
+ */
+export function kindPlaceIcon(kind: string, image: string | null): L.DivIcon {
+  const key = `${kind}:${image ?? ''}`;
+  const cached = kindPlaceIcons.get(key);
+  if (cached) return cached;
+
+  const glyph = image
+    ? `<i style="-webkit-mask-image:url(&quot;${image}&quot;);mask-image:url(&quot;${image}&quot;)"></i>`
+    : transitionGlyphMarkup('entrance', 18);
+
+  const icon = L.divIcon({
+    className: 'campus-marker campus-marker--kind',
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    html: `<span>${glyph}</span>`,
+  });
+  kindPlaceIcons.set(key, icon);
+  return icon;
+}
+
 const portalIcons = new Map<TransitionType | 'unknown', L.DivIcon>();
 
 /**

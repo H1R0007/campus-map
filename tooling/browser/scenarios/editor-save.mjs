@@ -123,6 +123,32 @@ export default {
       assert.equal(aliasOf('a1_room102')?.category, undefined, 'отмена не убрала вид места из файла');
     });
 
+    await step('Ctrl+S из поля названия записывает и то, что набрано, но ещё не добавлено', async () => {
+      // Поля карточки пишут в данные при уходе фокуса. Ctrl+S из поля прежде
+      // сохранял данные без набранного, хотя на экране оно было видно.
+      const room = await e.nodePoint('a1_room102');
+      await e.click(room.x, room.y);
+      const field = await e.panelPoint('input[aria-label="Новое название"]');
+      await e.click(field.x, field.y);
+      await e.type('Проверка сохранения');
+      await e.key('s', { modifiers: MOD.ctrl });
+
+      const hasName = () => (aliasOf('a1_room102')?.names ?? []).includes('Проверка сохранения');
+      for (let i = 0; i < 40 && !hasName(); i++) await page.sleep(200);
+      assert.ok(hasName(), `набранное не попало в файл: ${JSON.stringify(aliasOf('a1_room102'))}`);
+      assert.equal(
+        await page.eval(`document.activeElement?.getAttribute('aria-label')`),
+        'Новое название',
+        'сохранение увело курсор из поля'
+      );
+
+      await page.eval('document.activeElement?.blur()');
+      await e.key('z', { modifiers: MOD.ctrl });
+      await e.press('Сохранить');
+      for (let i = 0; i < 40 && hasName(); i++) await page.sleep(200);
+      assert.ok(!hasName(), 'отмена не убрала название из файла');
+    });
+
     await step('чужую правку на диске редактор не затирает молча', async () => {
       // Файл меняет кто-то другой: соседняя вкладка, git, другой разметчик.
       const onDisk = graph();

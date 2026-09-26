@@ -1,7 +1,7 @@
 import React from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
-import { alignToPlan } from '../../stores/editor/editSlice';
+import { STACK_TRANSITIONS, placementPoint } from '../../stores/editor/editSlice';
 import { useCursorStore } from '../../stores/cursorStore';
 import { mapPalette } from '../../utils/themeColor';
 
@@ -13,6 +13,10 @@ import { mapPalette } from '../../utils/themeColor';
  */
 export const SnapPreview: React.FC = () => {
   const activeTool = useEditorStore((s) => s.activeTool);
+  // «Переход» ставит стопку по щелчку по пустому месту — и тоже выравнивает.
+  const stacking = useEditorStore(
+    (s) => s.activeTool === 'transition' && s.transitionStartNodeId === null && STACK_TRANSITIONS.includes(s.transitionType)
+  );
   const align = useEditorStore((s) => s.gridSettings.alignToNeighbours);
   const cursor = useCursorStore((s) => s.point);
   // Данные плана нужны целиком: подсказка обязана совпадать с тем, что
@@ -20,9 +24,9 @@ export const SnapPreview: React.FC = () => {
   const state = useEditorStore((s) => s);
   const palette = mapPalette();
 
-  if (activeTool !== 'node' || !align || !cursor) return null;
+  if ((activeTool !== 'node' && !stacking) || !align || !cursor) return null;
 
-  const snapped = alignToPlan(state, cursor.x, cursor.y);
+  const snapped = placementPoint(state, cursor.x, cursor.y);
   if (!snapped.alignedX && !snapped.alignedY) return null;
 
   const guide = { color: palette.draft, weight: 1, opacity: 0.9, dashArray: '4 6' };

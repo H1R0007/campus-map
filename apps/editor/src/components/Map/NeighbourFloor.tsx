@@ -25,6 +25,11 @@ const ghostEdgeClass = { add: (e: L.LeafletEvent) => (e.target as L.Path).getEle
  * начерчены в одной системе, всё совпадает само.
  *
  * Слой ничего не ловит мышью: щелчок сквозь кальку попадает в свой этаж.
+ *
+ * Точки и связи кальки — запомненные компоненты с неизменными ссылками, как
+ * слои своего этажа (запись 39): перетаскивание точки открытого этажа меняет
+ * список всех точек на каждом кадре, и без этого вся калька перерисовывалась
+ * бы вместе с ним, хотя на соседнем этаже ничего не менялось.
  */
 export const NeighbourFloor: React.FC = () => {
   const show = useEditorStore((s) => s.displayFilters.showNeighbourFloor);
@@ -69,11 +74,15 @@ export const NeighbourFloor: React.FC = () => {
     return result;
   }, [nodes]);
 
-  if (neighbour === null || currentBuilding === null || !meta) return null;
+  const floorMeta = neighbour === null ? undefined : meta?.floors.find((item) => item.floor === neighbour);
+  const width = floorMeta?.mapSize?.width;
+  const height = floorMeta?.mapSize?.height;
+  const bounds = useMemo(
+    () => (width === undefined || height === undefined ? null : L.latLngBounds([0, 0], [height, width])),
+    [width, height]
+  );
 
-  const floorMeta = meta.floors.find((item) => item.floor === neighbour);
-  const size = floorMeta?.mapSize;
-  const bounds = size ? L.latLngBounds([0, 0], [size.height, size.width]) : null;
+  if (neighbour === null || currentBuilding === null || !meta) return null;
 
   return (
     <>
@@ -86,33 +95,39 @@ export const NeighbourFloor: React.FC = () => {
         />
       )}
       {edges.map(({ key, a, b }) => (
-        <Polyline
-          key={`ghost-edge-${key}`}
-          positions={[
-            [a.y, a.x],
-            [b.y, b.x],
-          ]}
-          interactive={false}
-          eventHandlers={ghostEdgeClass}
-          pathOptions={{ color: palette.edge, weight: 2, opacity: 0.35 }}
-        />
+        <GhostEdge key={`ghost-edge-${key}`} a={a} b={b} color={palette.edge} />
       ))}
       {nodes.map((node) => (
-        <CircleMarker
-          key={`ghost-node-${node.id}`}
-          center={[node.y, node.x]}
-          radius={5}
-          interactive={false}
-          eventHandlers={ghostNodeClass}
-          pathOptions={{
-            color: node.isPortal ? palette.portal : palette.node,
-            fillColor: node.isPortal ? palette.portal : palette.node,
-            fillOpacity: 0.3,
-            opacity: 0.45,
-            weight: 1,
-          }}
-        />
+        <GhostNode key={`ghost-node-${node.id}`} node={node} color={node.isPortal ? palette.portal : palette.node} />
       ))}
     </>
   );
 };
+
+/**
+ * Связь кальки. Перерисовывается, только когда сдвинулся один из её концов:
+ * точки соседнего этажа при правке открытого остаются теми же объектами.
+ */
+const GhostEdge = React.memo(function GhostEdge({ a, b, color }: { a: MapNode; b: MapNode; color: string }) {
+  const positions = useMemo<L.LatLngTuple[]>(
+    () => [
+      [a.y, a.x],
+      [b.y, b.x],
+    ],
+    [a.x, a.y, b.x, b.y]
+  );
+  const pathOptions = useMemo(() => ({ color, weight: 2, opacity: 0.35 }), [color]);
+
+  return <Polyline positions={positions} interactive={false} eventHandlers={ghostEdgeClass} pathOptions={pathOptions} />;
+});
+
+/** Точка кальки. Перерисовывается, только когда изменилась сама точка. */
+const GhostNode = React.memo(function GhostNode({ node, color }: { node: MapNode; color: string }) {
+  const center = useMemo<L.LatLngTuple>(() => [node.y, node.x], [node.x, node.y]);
+  const pathOptions = useMemo(
+    () => ({ color, fillColor: color, fillOpacity: 0.3, opacity: 0.45, weight: 1 }),
+    [color]
+  );
+
+  return <CircleMarker center={center} radius={5} interactive={false} eventHandlers={ghostNodeClass} pathOptions={pathOptions} />;
+});

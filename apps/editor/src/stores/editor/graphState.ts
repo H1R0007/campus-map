@@ -61,6 +61,38 @@ export function buildGraphFromState(state: {
   return new Graph(state.nodes.values(), state.transitions, projection);
 }
 
+/**
+ * Держит отметку «точка перехода» в согласии с переходами.
+ *
+ * Отметка — не выбор человека, а следствие: точка участвует в переходе на
+ * другой этаж или в другой корпус. В данных владельца отметка и переходы
+ * совпадали всегда, а отдельная галочка в карточке только сбивала с толку —
+ * рядом с ней уже есть раздел «Переходы». Редактор пересчитывает отметку сам:
+ * после каждой правки, её отмены и при загрузке данных.
+ *
+ * Меняет только те точки, у которых отметка разошлась с переходами, — у
+ * остальных объекты те же, и слои карты не перерисовываются.
+ *
+ * @returns сколько точек пришлось поправить
+ */
+export function syncPortals(state: { nodes: Map<string, MapNode>; transitions: readonly Transition[] }): number {
+  const portals = new Set<string>();
+  for (const transition of state.transitions) {
+    portals.add(transition.fromNode);
+    portals.add(transition.toNode);
+  }
+
+  let fixed = 0;
+  for (const node of state.nodes.values()) {
+    const isPortal = portals.has(node.id);
+    if (node.isPortal !== isPortal) {
+      node.isPortal = isPortal;
+      fixed += 1;
+    }
+  }
+  return fixed;
+}
+
 /** Состояние редактора, из которого собирается датасет. */
 export interface DatasetState {
   nodes: ReadonlyMap<string, MapNode>;
