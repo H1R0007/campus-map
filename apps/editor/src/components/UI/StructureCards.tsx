@@ -3,6 +3,7 @@ import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import type { BuildingMeta, FloorMeta, PlanSource } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { usePlaceBuilding } from '../../hooks/usePlaceBuilding';
+import { openingFloorOf } from '../../stores/editor/viewSlice';
 import { parseFloorNumber } from '../../stores/editor/structureSlice';
 import { useHistoryStore } from '../../stores/historyStore';
 import { heldFile, planScopeKey } from '../../utils/planFiles';
@@ -165,6 +166,7 @@ export const FloorSection: React.FC<{ building: BuildingMeta; floor: FloorMeta }
         />
       </div>
       <PlanFacts scope={planScopeKey(building.id, floor.floor)} meta={floor} />
+      <FloorPlacementNote building={building} floor={floor} />
       <SessionBar sessionKey={sessionKey} what="этажа" />
       <div className="editor-card__actions">
         <PlanFileButton building={building.id} floor={floor.floor} />
@@ -376,6 +378,46 @@ const RedoPlanButton: React.FC<{ building: string | null; floor: number | null; 
     >
       Переделать план…
     </button>
+  );
+};
+
+/**
+ * Совмещение этажа с этажом входа: этажи одного корпуса бывают начерчены в
+ * разном масштабе или с разными полями, а лестницы должны стоять друг над
+ * другом (запись 53).
+ */
+const FloorPlacementNote: React.FC<{ building: BuildingMeta; floor: FloorMeta }> = ({ building, floor }) => {
+  const startPlacingFloor = useEditorStore((s) => s.startPlacingFloor);
+  const setFloorPlacement = useEditorStore((s) => s.setFloorPlacement);
+  const showNotice = useEditorStore((s) => s.showNotice);
+  const entrance = openingFloorOf(building);
+  if (entrance === null || floor.floor === entrance || building.placement?.originMeters === undefined) return null;
+  return (
+    <div className="editor-card__field">
+      <span className="editor-section__hint">
+        {floor.placement
+          ? `Этаж совмещён с этажом входа ${floorLabel(building, entrance)} отдельно от корпуса.`
+          : `Этаж стоит как этаж входа ${floorLabel(building, entrance)}. Если план начерчен в другом масштабе, лестницы разъедутся — совместите.`}
+      </span>
+      <div className="editor-card__actions">
+        <button
+          type="button"
+          className="editor-button editor-button--ghost"
+          onClick={() => {
+            const problem = startPlacingFloor(building.id, floor.floor);
+            if (problem) showNotice(problem, 'warn');
+          }}
+        >
+          <Icon name="layers" />
+          Совместить с этажом входа…
+        </button>
+        {floor.placement && (
+          <button type="button" className="editor-button editor-button--ghost" onClick={() => setFloorPlacement(building.id, floor.floor, null)}>
+            Как у корпуса
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 

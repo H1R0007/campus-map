@@ -4,8 +4,8 @@ import { CAMPUS_BUILDING_ID, MAX_FLOOR_LABEL_LENGTH, floorLabel } from '@campus-
 import type { BuildingMeta, MapNode, MapSize, PlanFormat, PlanPlacement, PlanSource } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import type { StructureSide } from '../historyStore';
-import { applySimilarity, planChange } from '../../import/planGeometry';
-import { rescalePlacement } from '../../import/placementMath';
+import { applySimilarity, composeSimilarity, invertSimilarity, planChange } from '../../import/planGeometry';
+import { placementOfWorld, rescalePlacement, worldOf } from '../../import/placementMath';
 import type { Similarity } from '../../import/planGeometry';
 import { plural } from '../../utils/labels';
 import { planScopeKey } from '../../utils/planFiles';
@@ -133,6 +133,22 @@ export interface StructureSlice {
    * пересчитываются.
    */
   setCampusScale: (metersPerPixel: number) => string | null;
+  /**
+   * Своя привязка этажа — поверх привязки корпуса: этаж начерчен в другом
+   * масштабе или с другими полями. `null` — снова как у корпуса.
+   */
+  setFloorPlacement: (
+    building: string,
+    floor: number,
+    placement: { metersPerPixel: number; originMeters: { x: number; y: number }; rotationDeg: number } | null
+  ) => void;
+}
+
+/** Привязка со всеми тремя полями или `null`. */
+function completePlacement(placement: PlanPlacement | undefined) {
+  return placement?.metersPerPixel !== undefined && placement.originMeters !== undefined && placement.rotationDeg !== undefined
+    ? { metersPerPixel: placement.metersPerPixel, originMeters: placement.originMeters, rotationDeg: placement.rotationDeg }
+    : null;
 }
 
 /** Высота этажа по умолчанию, метры: типичная для учебного корпуса. Её можно поправить в карточке корпуса. */
@@ -576,8 +592,19 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       const meta = get().buildingMetas.get(id);
       if (!meta) return;
       const placed = meta.placement?.originMeters !== undefined;
+      // Этажи со своей привязкой едут вместе с корпусом: тот же сдвиг, поворот
+      // и масштаб, что у корпуса.
+      const before = completePlacement(meta.placement);
+      const shift = before ? composeSimilarity(worldOf(placement), invertSimilarity(worldOf(before))) : null;
       commit(`Корпус «${meta.name}» ${placed ? 'передвинут' : 'поставлен'} на территорию`, [], (s) => {
         const target = s.buildingMetas.get(id)!;
+        if (shift && before) {
+          for (const floor of target.floors) {
+            if (!floor.placement) continue;
+            const own = completePlacement({ ...before, ...floor.placement });
+            if (own) floor.placement = placementOfWorld(composeSimilarity(shift, worldOf(own)));
+          }
+        }
         target.placement = {
           ...target.placement,
           metersPerPixel: placement.metersPerPixel,
@@ -587,6 +614,20 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
           floorHeightMeters: target.placement?.floorHeightMeters ?? DEFAULT_FLOOR_HEIGHT,
         };
       });
+    },
+
+    setFloorPlacement: (building, floor, placement) => {
+      const meta = get().buildingMetas.get(building);
+      if (!meta?.floors.some((item) => item.floor === floor)) return;
+      const label = floorLabel(meta, floor);
+      commit(
+        placement ? `Этаж ${label} корпуса «${meta.name}» совмещён с этажом входа` : `Этаж ${label} корпуса «${meta.name}» — как корпус`,
+        [],
+        (s) => {
+          const item = s.buildingMetas.get(building)!.floors.find((entry) => entry.floor === floor)!;
+          item.placement = placement ? { metersPerPixel: placement.metersPerPixel, originMeters: { ...placement.originMeters }, rotationDeg: placement.rotationDeg } : undefined;
+        }
+      );
     },
 
     setCampusScale: (metersPerPixel) => {

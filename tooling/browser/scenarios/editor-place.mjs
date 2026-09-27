@@ -68,6 +68,33 @@ export default {
       assert.ok(Math.abs(moved.x - expected.x) < 1.5 && Math.abs(moved.y - expected.y) < 1.5, `корпус не там: ${JSON.stringify(moved)} вместо ${JSON.stringify(expected)}`);
     });
 
+    await step('этаж совмещается с этажом входа, калька это учитывает', async () => {
+      await e.openFloor('Корпус А', 2);
+      await e.key('Escape');
+      await e.press('Совместить с этажом входа…');
+      assert.match(await barText('Совмещение этажей'), /Корпус А: этаж 2 поверх этажа входа 1/);
+      assert.match(await e.place(), /Корпус А \/ Этаж 1/);
+
+      const handle = await e.rect('.editor-place-handle--move');
+      const from = { x: handle.left + handle.width / 2, y: handle.top + handle.height / 2 };
+      await e.drag(from.x, from.y, from.x + 40, from.y + 20, { steps: 10 });
+      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение этажей"] button')].find((b) => b.textContent === 'Применить').click()`);
+      await page.sleep(300);
+      assert.equal(await barText('Совмещение этажей'), '', 'совмещение не закрылось');
+
+      await e.key('s', { modifiers: MOD.ctrl });
+      await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 15_000);
+      const floor2 = meta('building_a').floors.find((floor) => floor.floor === 2);
+      assert.ok(floor2.placement?.originMeters, 'у этажа нет своей привязки');
+
+      // Калька первого этажа на втором — по привязкам, повёрнутым планом-слоем.
+      await e.openFloor('Корпус А', 2);
+      await e.toggleFilter('Соседний этаж бледно');
+      await page.waitFor(`!!document.querySelector('.campus-placed-plan.editor-ghost-plan')`, 10_000);
+      await e.toggleFilter('Соседний этаж бледно');
+      await e.press('Территория кампуса');
+    });
+
     await step('новый масштаб территории оставляет корпуса на месте картинки', async () => {
       const before = await buildingRect('building_b');
       await e.press('Уточнить масштаб…');

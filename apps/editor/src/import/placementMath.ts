@@ -82,6 +82,16 @@ export function withScaleAndRotation(frame: Similarity, planSize: MapSize, scale
   return { ...next, tx: center.x - moved.x, ty: center.y - moved.y };
 }
 
+/** Привязка как подобие «пиксель плана → метры территории». */
+export function worldOf(placement: Required<Pick<PlanPlacement, 'metersPerPixel' | 'originMeters' | 'rotationDeg'>>): Similarity {
+  return frameOf(placement, 1);
+}
+
+/** Подобие «пиксель плана → метры» как привязка для данных. */
+export function placementOfWorld(world: Similarity): Required<Pick<PlanPlacement, 'metersPerPixel' | 'originMeters' | 'rotationDeg'>> {
+  return placementOf(world, 1);
+}
+
 /**
  * Масштаб территории изменился: привязки корпусов пересчитываются так, чтобы
  * корпуса остались на тех же местах картинки территории.

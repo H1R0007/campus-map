@@ -129,6 +129,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
 
   setCurrentFloor: (floor) =>
     set((state) => {
+      if (state.placing?.mode === 'floor' && floor !== state.currentFloor) state.placing = null;
       state.currentFloor = floor;
       state.selectedNodeIds = new Set();
       state.edgeStartNodeId = null;

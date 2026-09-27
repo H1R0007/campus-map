@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { openingFloorOf } from '../../stores/editor/viewSlice';
 import { placingFit } from '../../stores/editor/placeSlice';
 import { rotationOf, scaleOf } from '../../import/planGeometry';
 import { withScaleAndRotation } from '../../import/placementMath';
@@ -16,7 +17,6 @@ const parse = (text: string) => Number(text.trim().replace(',', '.').replace(/[�
 export const PlacementBar: React.FC = () => {
   const placing = useEditorStore((s) => s.placing);
   const meta = useEditorStore((s) => (s.placing ? s.buildingMetas.get(s.placing.building) : undefined));
-  const campusMpp = useEditorStore((s) => s.campusMeta?.metersPerPixel);
   const setPlacingFrame = useEditorStore((s) => s.setPlacingFrame);
   const setPairMode = useEditorStore((s) => s.setPairMode);
   const placingRemovePair = useEditorStore((s) => s.placingRemovePair);
@@ -24,14 +24,18 @@ export const PlacementBar: React.FC = () => {
   const cancelPlacing = useEditorStore((s) => s.cancelPlacing);
 
   const fit = useMemo(() => (placing ? placingFit(placing.pairs) : null), [placing]);
-  const mpp = placing && campusMpp !== undefined ? scaleOf(placing.frame) * campusMpp : 0;
+  // Метров в пикселе того, что под планом: территории или этажа входа.
+  const baseMpp = placing?.baseMpp ?? 1;
+  const mpp = placing ? scaleOf(placing.frame) * baseMpp : 0;
   const angle = placing ? rotationOf(placing.frame) : 0;
   const [mppText, setMppText] = useState('');
   const [angleText, setAngleText] = useState('');
   useEffect(() => setMppText(human(mpp, 4)), [mpp]);
   useEffect(() => setAngleText(human(angle, 1)), [angle]);
 
-  if (!placing || !meta || campusMpp === undefined) return null;
+  if (!placing || !meta) return null;
+  const floorMode = placing.mode === 'floor';
+  const entrance = floorMode ? floorLabel(meta, openingFloorOf(meta) ?? 0) : '';
 
   const commit = () => {
     const nextMpp = parse(mppText);
@@ -41,7 +45,7 @@ export const PlacementBar: React.FC = () => {
       setAngleText(human(angle, 1));
       return;
     }
-    setPlacingFrame(withScaleAndRotation(placing.frame, placing.planSize, nextMpp / campusMpp, nextAngle));
+    setPlacingFrame(withScaleAndRotation(placing.frame, placing.planSize, nextMpp / baseMpp, nextAngle));
   };
   const field = (label: string, value: string, change: (text: string) => void, suffix: string) => (
     <label className="editor-place-field">
@@ -63,24 +67,32 @@ export const PlacementBar: React.FC = () => {
     </label>
   );
 
-  const instruction = placing.pairMode
-    ? placing.pendingFrom
-      ? 'Теперь щёлкните то же место на территории.'
-      : 'Щёлкните приметное место на плане корпуса — угол, выступ, вход, — затем то же место на территории. Две пары ставят корпус, третья и дальше уточняют.'
-    : 'Тяните корпус за середину, поворачивайте за верхнюю ручку, растягивайте за угол. Для точности — «По парам точек».';
+  const instruction = floorMode
+    ? placing.pairMode
+      ? placing.pendingFrom
+        ? `Теперь щёлкните то же место на этаже ${entrance}.`
+        : `Щёлкните приметное место на плане этажа ${floorLabel(meta, placing.floor)} — лестницу, угол, колонну, — затем то же место на этаже ${entrance} под ним. Две пары совмещают этажи.`
+      : `План этажа ${floorLabel(meta, placing.floor)} поверх этажа входа ${entrance}: совместите лестницы и стены — тяните, поворачивайте, растягивайте или «По парам точек».`
+    : placing.pairMode
+      ? placing.pendingFrom
+        ? 'Теперь щёлкните то же место на территории.'
+        : 'Щёлкните приметное место на плане корпуса — угол, выступ, вход, — затем то же место на территории. Две пары ставят корпус, третья и дальше уточняют.'
+      : 'Тяните корпус за середину, поворачивайте за верхнюю ручку, растягивайте за угол. Для точности — «По парам точек».';
 
   return (
-    <section className="editor-align-bar" aria-label="Постановка корпуса">
+    <section className="editor-align-bar" aria-label={floorMode ? 'Совмещение этажей' : 'Постановка корпуса'}>
       <h2 className="editor-align-bar__title">
-        {meta.name} на территории — план этажа {floorLabel(meta, placing.floor)}
+        {floorMode
+          ? `${meta.name}: этаж ${floorLabel(meta, placing.floor)} поверх этажа входа ${entrance}`
+          : `${meta.name} на территории — план этажа ${floorLabel(meta, placing.floor)}`}
       </h2>
       <p className="editor-align-bar__text" role="status">
         {instruction}
       </p>
       {!placing.pairMode && (
         <div className="editor-card__row">
-          {field('Масштаб плана корпуса: 1 пикс. =', mppText, setMppText, 'м')}
-          {field('Поворот', angleText, setAngleText, '°')}
+          {field(floorMode ? 'Масштаб плана этажа: 1 пикс. =' : 'Масштаб плана корпуса: 1 пикс. =', mppText, setMppText, 'м')}
+          {field(floorMode ? 'Поворот относительно этажа входа' : 'Поворот', angleText, setAngleText, '°')}
         </div>
       )}
       {placing.pairs.length > 0 && (
@@ -88,7 +100,7 @@ export const PlacementBar: React.FC = () => {
           {placing.pairs.map((_, index) => (
             <li key={index}>
               Пара {index + 1}
-              {fit && ` — расхождение ${human(fit.residuals[index] * campusMpp, 2)} м`}
+              {fit && ` — расхождение ${human(fit.residuals[index] * baseMpp, 2)} м`}
               <button type="button" className="editor-link-button" onClick={() => placingRemovePair(index)}>
                 убрать
               </button>
@@ -97,7 +109,7 @@ export const PlacementBar: React.FC = () => {
         </ol>
       )}
       {fit && placing.pairs.length > 2 && (
-        <p className="editor-align-bar__text">Среднее расхождение {human(fit.rms * campusMpp, 2)} м</p>
+        <p className="editor-align-bar__text">Среднее расхождение {human(fit.rms * baseMpp, 2)} м</p>
       )}
       <div className="editor-card__actions">
         <button type="button" className="editor-button editor-button--ghost" onClick={() => setPairMode(!placing.pairMode)}>

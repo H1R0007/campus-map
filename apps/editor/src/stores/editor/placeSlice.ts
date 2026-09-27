@@ -1,8 +1,8 @@
 import { resolvePlanPlacement } from '@campus-map/core';
 import type { MapSize } from '@campus-map/core';
-import { applySimilarity, fitSimilarity, invertSimilarity } from '../../import/planGeometry';
+import { applySimilarity, composeSimilarity, fitSimilarity, invertSimilarity } from '../../import/planGeometry';
 import type { Point, Similarity } from '../../import/planGeometry';
-import { frameOf, initialFrame, placementOf } from '../../import/placementMath';
+import { frameOf, initialFrame, placementOf, placementOfWorld, worldOf } from '../../import/placementMath';
 import { openingFloorOf } from './viewSlice';
 import type { EditorSlice } from './types';
 
@@ -26,9 +26,16 @@ export interface PlacePair {
 }
 
 export interface Placing {
+  /**
+   * Что ставим: корпус — на территорию (план этажа входа поверх территории)
+   * или этаж — на этаж входа своего корпуса (план этажа поверх него).
+   */
+  mode: 'building' | 'floor';
   building: string;
-  /** Этаж, план которого ставим, — этаж входа. */
+  /** Этаж, план которого ставим: этаж входа для корпуса, сам этаж — для этажа. */
   floor: number;
+  /** Метров в пикселе того, что под планом: территории или этажа входа. */
+  baseMpp: number;
   planSize: MapSize;
   /** Пиксель плана → пиксель территории. */
   frame: Similarity;
@@ -54,6 +61,13 @@ export interface PlaceSlice {
    * @returns текст проблемы или `null`
    */
   startPlacing: (building: string, view: { center: Point; width: number }) => string | null;
+  /**
+   * Совместить этаж с этажом входа: открывается этаж входа, поверх —
+   * план этажа.
+   *
+   * @returns текст проблемы или `null`
+   */
+  startPlacingFloor: (building: string, floor: number) => string | null;
   setPlacingFrame: (frame: Similarity) => void;
   setPairMode: (on: boolean) => void;
   /** Щелчок по карте территории в режиме пар. */
@@ -98,7 +112,41 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
       s.currentFloor = null;
       s.selectedNodeIds = new Set();
       s.activeTool = 'select';
-      s.placing = { building, floor, planSize, frame, pairMode: false, pairs: [], pendingFrom: null };
+      s.placing = { mode: 'building', building, floor, baseMpp: campusMpp, planSize, frame, pairMode: false, pairs: [], pendingFrom: null };
+    });
+    return null;
+  },
+
+  startPlacingFloor: (building, floor) => {
+    const meta = get().buildingMetas.get(building);
+    const entrance = openingFloorOf(meta);
+    if (!meta || entrance === null) return 'Корпуса нет';
+    if (floor === entrance) return 'Этаж входа — основа корпуса: он ставится на территорию вместе с корпусом';
+    const base = resolvePlanPlacement(meta, meta.floors.find((item) => item.floor === entrance)!);
+    const floorMeta = meta.floors.find((item) => item.floor === floor);
+    const own = floorMeta ? resolvePlanPlacement(meta, floorMeta) : null;
+    if (!base || !own) return 'Сначала поставьте корпус на территорию: этажи совмещаются относительно него';
+    // Пиксель этажа → метры → пиксель этажа входа.
+    const frame = composeSimilarity(invertSimilarity(worldOf(base)), worldOf(own));
+
+    set((s) => {
+      s.measuring = null;
+      s.alignment = null;
+      s.currentBuilding = building;
+      s.currentFloor = entrance;
+      s.selectedNodeIds = new Set();
+      s.activeTool = 'select';
+      s.placing = {
+        mode: 'floor',
+        building,
+        floor,
+        baseMpp: base.metersPerPixel,
+        planSize: floorMeta!.mapSize ?? { width: 1000, height: 700 },
+        frame,
+        pairMode: false,
+        pairs: [],
+        pendingFrom: null,
+      };
     });
     return null;
   },
@@ -141,9 +189,18 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     }),
 
   applyPlacing: () => {
-    const { placing, campusMeta } = get();
-    if (!placing || campusMeta?.metersPerPixel === undefined) return;
-    get().placeBuilding(placing.building, placementOf(placing.frame, campusMeta.metersPerPixel));
+    const { placing, campusMeta, buildingMetas } = get();
+    if (!placing) return;
+    if (placing.mode === 'building') {
+      if (campusMeta?.metersPerPixel === undefined) return;
+      get().placeBuilding(placing.building, placementOf(placing.frame, campusMeta.metersPerPixel));
+    } else {
+      const meta = buildingMetas.get(placing.building);
+      const entrance = openingFloorOf(meta);
+      const base = meta && entrance !== null ? resolvePlanPlacement(meta, meta.floors.find((item) => item.floor === entrance)!) : null;
+      if (!base) return;
+      get().setFloorPlacement(placing.building, placing.floor, placementOfWorld(composeSimilarity(worldOf(base), placing.frame)));
+    }
     set((s) => {
       s.placing = null;
     });

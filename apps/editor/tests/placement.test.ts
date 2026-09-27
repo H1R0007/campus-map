@@ -137,3 +137,72 @@ describe('масштаб территории', () => {
     expect(store().applyMeasuring(-5)).toMatch(/положительное/);
   });
 });
+
+describe('совмещение этажа с этажом входа', () => {
+  const world = (floor: number, x: number, y: number) => {
+    const { campusMeta, buildingMetas } = store();
+    return createCampusProjection(campusMeta!, buildingMetas.values()).toWorld({ building: 'building_a', floor, x, y })!;
+  };
+
+  it('открывается этаж входа, поверх — план этажа; без своей привязки — один в один', () => {
+    expect(store().startPlacingFloor('building_a', 2)).toBeNull();
+    expect([store().currentBuilding, store().currentFloor]).toEqual(['building_a', 1]);
+    const { frame, mode, floor } = store().placing!;
+    expect([mode, floor]).toEqual(['floor', 2]);
+    expect(frame.a).toBeCloseTo(1, 9);
+    expect(frame.b).toBeCloseTo(0, 9);
+    expect(frame.tx).toBeCloseTo(0, 6);
+  });
+
+  it('этаж встаёт туда, где его показали поверх этажа входа', () => {
+    store().startPlacingFloor('building_a', 2);
+    // План второго этажа вдвое мельче и сдвинут относительно первого.
+    const frame = { a: 0.5, b: 0, tx: 20, ty: 10 };
+    store().setPlacingFrame(frame);
+    store().applyPlacing();
+
+    expect(useHistoryStore.getState().entries[0].description).toBe('Этаж 2 корпуса «Корпус А» совмещён с этажом входа');
+    // Точка этажа 2 и то место этажа 1, куда она легла, — одно место территории.
+    const upstairs = world(2, 100, 60);
+    const below = world(1, 0.5 * 100 + 20, 0.5 * 60 + 10);
+    expect(upstairs.x).toBeCloseTo(below.x, 6);
+    expect(upstairs.y).toBeCloseTo(below.y, 6);
+  });
+
+  it('корпус передвинули — этаж со своей привязкой едет вместе с ним', () => {
+    store().startPlacingFloor('building_a', 2);
+    store().setPlacingFrame({ a: 0.5, b: 0, tx: 20, ty: 10 });
+    store().applyPlacing();
+    const before = { upstairs: world(2, 100, 60), below: world(1, 70, 40) };
+
+    store().startPlacing('building_a', VIEW);
+    const turned = { ...store().placing!.frame, tx: store().placing!.frame.tx + 50 };
+    store().setPlacingFrame(turned);
+    store().applyPlacing();
+
+    const after = { upstairs: world(2, 100, 60), below: world(1, 70, 40) };
+    expect(after.upstairs.x - after.below.x).toBeCloseTo(before.upstairs.x - before.below.x, 6);
+    expect(after.upstairs.y - after.below.y).toBeCloseTo(before.upstairs.y - before.below.y, 6);
+    expect(after.below.x).not.toBeCloseTo(before.below.x, 3);
+  });
+
+  it('«Как у корпуса» снимает свою привязку', () => {
+    store().setFloorPlacement('building_a', 2, { metersPerPixel: 0.2, originMeters: { x: 1, y: 2 }, rotationDeg: 5 });
+    store().setFloorPlacement('building_a', 2, null);
+    expect(store().buildingMetas.get('building_a')!.floors[1].placement).toBeUndefined();
+  });
+
+  it('этаж входа и неподставленный корпус — с объяснением', () => {
+    expect(store().startPlacingFloor('building_a', 1)).toMatch(/Этаж входа/);
+    const dataset = fixtureDataset();
+    delete dataset.buildingMetas[0].placement!.originMeters;
+    loadFixture(dataset);
+    expect(store().startPlacingFloor('building_a', 2)).toMatch(/Сначала поставьте корпус/);
+  });
+
+  it('другой этаж открыли — совмещение закончилось', () => {
+    store().startPlacingFloor('building_a', 2);
+    store().setCurrentFloor(2);
+    expect(store().placing).toBeNull();
+  });
+});

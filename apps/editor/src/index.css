@@ -2207,3 +2207,4 @@ input[type='checkbox'] {
 .editor-guide__title {
     font-weight: 600;
 }
+.editor-ghost-plan { opacity: 0.18; }
