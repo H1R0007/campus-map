@@ -9,6 +9,8 @@ import { StructureView } from '../UI/PlanOverview';
 import { ProblemsView } from '../UI/ProblemsView';
 import { RouteView } from '../UI/RouteView';
 import { ColumnResizer } from './ColumnResizer';
+import { OperationPanel } from '../UI/OperationPanel';
+import { useOperationTitle } from '../../hooks/useOperationTitle';
 
 const CHECK_TABS: { id: CheckTab; label: string }[] = [
   { id: 'problems', label: 'Замечания' },
@@ -21,6 +23,9 @@ const CHECK_TABS: { id: CheckTab; label: string }[] = [
  * - «Планы и корпуса» — свойства территории, корпуса, этажа;
  * - «Разметка» — свойства выбранной точки, без выбора — цифры плана;
  * - «Проверка» — замечания и проверка маршрута на двух вкладках.
+ *
+ * Пока идёт операция — размещение, совмещение, замер, — колонка отдана её
+ * пошаговой панели (запись 64) и не сворачивается: в ней «Готово» и «Отмена».
  *
  * Колонка закреплена сбоку: карта сужается, а не прячется под панелью
  * (запись 39).
@@ -36,8 +41,9 @@ export const Inspector: React.FC = () => {
   const report = useValidationReport();
   const structure = useStructureChecks();
   const tabRefs = useRef<Record<CheckTab, HTMLButtonElement | null>>({ problems: null, route: null });
+  const operation = useOperationTitle();
 
-  if (collapsed) {
+  if (collapsed && !operation) {
     return (
       <aside aria-label="Инспектор" className="editor-inspector editor-inspector--collapsed">
         <button
@@ -73,7 +79,9 @@ export const Inspector: React.FC = () => {
     <aside aria-label="Инспектор" className="editor-inspector" ref={columnRef} style={width ? { width } : undefined}>
       <ColumnResizer column="inspector" edge="left" label="Ширина инспектора" columnRef={columnRef} />
       <div className="editor-tabs">
-        {workspace === 'check' ? (
+        {operation ? (
+          <h2 className="editor-column-header__title editor-tabs__title">{operation}</h2>
+        ) : workspace === 'check' ? (
           <div role="tablist" aria-label="Проверка" className="flex flex-1" onKeyDown={onTabKeyDown}>
             {CHECK_TABS.map((t) => (
               <button
@@ -102,6 +110,7 @@ export const Inspector: React.FC = () => {
         ) : (
           <h2 className="editor-column-header__title editor-tabs__title">Свойства</h2>
         )}
+        {!operation && (
         <button
           type="button"
           className="editor-icon-button self-center"
@@ -112,18 +121,25 @@ export const Inspector: React.FC = () => {
         >
           <Icon name="chevronRight" size={20} />
         </button>
+        )}
       </div>
 
       <div
         id="inspector-panel"
-        role={workspace === 'check' ? 'tabpanel' : 'region'}
-        aria-labelledby={workspace === 'check' ? `inspector-tab-${checkTab}` : undefined}
-        aria-label={workspace === 'check' ? undefined : 'Свойства'}
+        role={workspace === 'check' && !operation ? 'tabpanel' : 'region'}
+        aria-labelledby={workspace === 'check' && !operation ? `inspector-tab-${checkTab}` : undefined}
+        aria-label={operation ?? (workspace === 'check' ? undefined : 'Свойства')}
         className="editor-tabpanel"
       >
-        {workspace === 'plans' && <StructureView />}
-        {workspace === 'markup' && <PropertiesView />}
-        {workspace === 'check' && (checkTab === 'problems' ? <ProblemsView /> : <RouteView />)}
+        {operation ? (
+          <OperationPanel />
+        ) : (
+          <>
+            {workspace === 'plans' && <StructureView />}
+            {workspace === 'markup' && <PropertiesView />}
+            {workspace === 'check' && (checkTab === 'problems' ? <ProblemsView /> : <RouteView />)}
+          </>
+        )}
       </div>
     </aside>
   );

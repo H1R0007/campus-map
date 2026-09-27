@@ -5,7 +5,8 @@ import { edgeKey, planFormatOf, resolvePlanPlacement } from '@campus-map/core';
 import { PlacedPlan, ensurePane } from '@campus-map/mapkit';
 import { applySimilarity, composeSimilarity, invertSimilarity, rotationOf, scaleOf } from '../../import/planGeometry';
 import { worldOf } from '../../import/placementMath';
-import { BUILDINGS_PANE } from './panes';
+import { REFERENCE_PANE } from './panes';
+import { useLineArt } from '../../overlay/lineArtImage';
 import type { MapNode } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
@@ -21,9 +22,11 @@ const ghostNodeClass = { add: (e: L.LeafletEvent) => (e.target as L.Path).getEle
 const ghostEdgeClass = { add: (e: L.LeafletEvent) => (e.target as L.Path).getElement()?.classList.add('editor-ghost-edge') };
 
 /**
- * Соседний этаж бледно поверх открытого — «калька».
+ * «Сравнить с этажом» (запись 65): стены соседнего этажа — красными линиями
+ * поверх открытого, его точки и связи — бледно. Раньше план соседнего этажа
+ * просвечивал полупрозрачно, и заливки двух планов смешивались в кашу.
  *
- * Нужна, чтобы лестницы, лифты и туалеты вставали друг над другом от этажа
+ * Нужно, чтобы лестницы, лифты и туалеты вставали друг над другом от этажа
  * к этажу, а расхождение планов было видно сразу. Привязка к метрике для
  * этого не нужна: калька рисуется в координатах плана, и если этажи корпуса
  * начерчены в одной системе, всё совпадает само.
@@ -110,6 +113,7 @@ export const NeighbourFloor: React.FC = () => {
 
   const floorMeta = neighbour === null ? undefined : meta?.floors.find((item) => item.floor === neighbour);
   const plan = usePlanUrl(currentBuilding, neighbour);
+  const lines = useLineArt(plan.url, neighbour === null ? null : 'lines', undefined, floorMeta?.mapSize);
   const width = floorMeta?.mapSize?.width;
   const height = floorMeta?.mapSize?.height;
   const bounds = useMemo(
@@ -121,9 +125,9 @@ export const NeighbourFloor: React.FC = () => {
 
   return (
     <>
-      {relative && plan.url !== null && (
+      {relative && lines !== null && (
         <PlacedPlan
-          url={plan.url}
+          url={lines}
           format={planFormatOf(floorMeta)}
           placement={{ metersPerPixel: scaleOf(relative), originMeters: { x: relative.tx, y: relative.ty }, rotationDeg: rotationOf(relative) }}
           fallbackSize={floorMeta?.mapSize}
@@ -132,13 +136,8 @@ export const NeighbourFloor: React.FC = () => {
           reportStatus={false}
         />
       )}
-      {!relative && bounds && plan.url !== null && (
-        <ImageOverlay
-          url={plan.url}
-          bounds={bounds}
-          opacity={0.18}
-          interactive={false}
-        />
+      {!relative && bounds && lines !== null && (
+        <ImageOverlay url={lines} bounds={bounds} pane={ghostPane(map)} className="editor-ghost-plan" interactive={false} />
       )}
       {edges.map(({ key, a, b }) => (
         <GhostEdge key={`ghost-edge-${key}`} a={a} b={b} color={palette.edge} />
@@ -178,8 +177,8 @@ const GhostNode = React.memo(function GhostNode({ node, color }: { node: MapNode
   return <CircleMarker center={center} radius={5} interactive={false} eventHandlers={ghostNodeClass} pathOptions={pathOptions} />;
 });
 
-/** Pane кальки: над подложкой, под точками открытого этажа. */
+/** Pane соседнего этажа: над планом открытого, под его точками. */
 function ghostPane(map: L.Map): string {
-  ensurePane(map, BUILDINGS_PANE.name, BUILDINGS_PANE.zIndex);
-  return BUILDINGS_PANE.name;
+  ensurePane(map, REFERENCE_PANE.name, REFERENCE_PANE.zIndex);
+  return REFERENCE_PANE.name;
 }

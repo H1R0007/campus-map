@@ -43,7 +43,7 @@ export default {
 
     await step('«Передвинуть…» кладёт корпус с ручками поверх территории', async () => {
       await e.press('Изменить размещение: Корпус А');
-      assert.match(await barText('Постановка корпуса'), /Корпус А на территории — план этажа 1/);
+      assert.match(await barText('Размещение корпуса'), /Корпус А на территории — план этажа 1/);
       assert.equal(await page.eval(`document.querySelectorAll('.editor-place-handle').length`), 3);
       assert.ok(await page.eval(`!!document.querySelector('.campus-placed-plan.editor-placing-plan')`), 'нет плана, который ставят');
     });
@@ -57,9 +57,9 @@ export default {
       await e.drag(from.x, from.y, from.x + 60, from.y + 30, { steps: 12 });
       await shot('editor-place-moved');
 
-      await page.eval(`[...document.querySelectorAll('[aria-label="Постановка корпуса"] button')].find((b) => b.textContent === 'Применить').click()`);
+      await page.eval(`[...document.querySelectorAll('[aria-label="Размещение корпуса"] button')].find((b) => b.textContent.trim() === 'Готово').click()`);
       await page.sleep(300);
-      assert.equal(await barText('Постановка корпуса'), '', 'постановка не закрылась');
+      assert.equal(await barText('Размещение корпуса'), '', 'постановка не закрылась');
       await e.key('s', { modifiers: MOD.ctrl });
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 15_000);
 
@@ -79,7 +79,7 @@ export default {
       const handle = await e.rect('.editor-place-handle--move');
       const from = { x: handle.left + handle.width / 2, y: handle.top + handle.height / 2 };
       await e.drag(from.x, from.y, from.x + 40, from.y + 20, { steps: 10 });
-      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение этажей"] button')].find((b) => b.textContent === 'Применить').click()`);
+      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение этажей"] button')].find((b) => b.textContent.trim() === 'Готово').click()`);
       await page.sleep(300);
       assert.equal(await barText('Совмещение этажей'), '', 'совмещение не закрылось');
 
@@ -92,9 +92,9 @@ export default {
       await e.openFloor('Корпус А', 2);
       // Что показывать на карте — в «Разметке» (запись 60).
       await e.mode('Разметка');
-      await e.toggleFilter('Соседний этаж бледно');
+      await e.compareFloor('below');
       await page.waitFor(`!!document.querySelector('.campus-placed-plan.editor-ghost-plan')`, 10_000);
-      await e.toggleFilter('Соседний этаж бледно');
+      await e.compareFloor('none');
       await e.mode('Планы и корпуса');
       await e.press('Территория');
     });

@@ -83,8 +83,8 @@ export default {
       await page.eval(`[...document.querySelectorAll('[role="dialog"] button')].at(-1).click()`);
       await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 30_000);
 
-      assert.match(await barText(), /Совмещение точек с новым планом — Корпус Б, этаж 2/);
-      assert.match(await barText(), /Щёлкните точку, затем место на новом плане/);
+      assert.match(await barText(), /Новый план — Корпус Б, этаж 2/);
+      assert.match(await barText(), /Щёлкните точку, которая стоит не на своём месте/);
       await shot('editor-align-start');
     });
 
@@ -123,8 +123,8 @@ export default {
       const thirdPoint = await e.nodePoint(third, { allowCovered: true });
       await e.click(thirdPoint.x, thirdPoint.y);
       await e.click(onOther.x, onOther.y);
-      assert.equal(await page.eval(`document.querySelectorAll('.editor-align-bar__pairs li').length`), 3, 'щелчок по другой точке не поставил выбранную');
-      await page.eval(`[...document.querySelectorAll('.editor-align-bar__pairs li')].at(-1).querySelector('button').click()`);
+      assert.equal(await page.eval(`document.querySelectorAll('.editor-operation__pairs li').length`), 3, 'щелчок по другой точке не поставил выбранную');
+      await page.eval(`[...document.querySelectorAll('.editor-operation__pairs li')].at(-1).querySelector('button').click()`);
       await page.sleep(200);
 
       const ghosts = await page.eval(`document.querySelectorAll('path[stroke-dasharray="2 3"]').length`);
@@ -134,7 +134,7 @@ export default {
     });
 
     await step('«Применить» двигает все точки этажа, отмена возвращает', async () => {
-      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение точек с планом"] button')].find((b) => b.textContent === 'Применить').click()`);
+      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение точек с планом"] button')].find((b) => b.textContent.trim() === 'Готово').click()`);
       await page.sleep(400);
       assert.equal(await barText(), '', 'совмещение не закрылось');
       const moved = await nodeXY(expected.id);

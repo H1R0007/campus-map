@@ -16,7 +16,7 @@ export function openingFloorOf(meta: BuildingMeta | undefined): number | null {
 }
 
 export interface DisplayFilters {
-  /** Соседний этаж бледно поверх открытого — «калька». */
+  /** «Сравнить с этажом»: соседний этаж красными стенами поверх открытого (запись 65). */
   showNeighbourFloor: boolean;
   /** Какой этаж показывать калькой: ниже (`true`) или выше. */
   neighbourFloorBelow: boolean;

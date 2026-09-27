@@ -368,14 +368,16 @@ export default {
       assert.deepEqual(await e.nodeIds(), before);
     });
 
-    await step('калька: соседний этаж виден бледно и не ловит щелчки', async () => {
+    await step('«Сравнить с этажом»: соседний этаж виден и не ловит щелчки', async () => {
       const ghosts = () => page.eval(`document.querySelectorAll('.editor-ghost-node').length`);
       assert.equal(await ghosts(), 0, 'калька включена без спроса');
 
       // На первом этаже соседний снизу — не существует, поэтому берём этаж выше.
-      await e.toggleFilter('Соседний этаж бледно');
-      await page.sleep(400);
-      assert.ok((await ghosts()) > 0, 'калька не появилась');
+      await e.compareFloor('above');
+      assert.ok((await ghosts()) > 0, 'соседний этаж не появился');
+      await page.waitFor(`!!document.querySelector('img.editor-ghost-plan')`, 10_000);
+      // Соседний этаж — посчитанными линиями, а не полупрозрачным планом (запись 65).
+      assert.match(await page.eval(`document.querySelector('img.editor-ghost-plan').src`), /^blob:/, 'соседний этаж — самим планом, а не линиями');
 
       // Перетаскивание точки своего этажа не перерисовывает кальку: точки
       // соседнего этажа при этом не меняются.
@@ -431,9 +433,8 @@ export default {
       await e.key('Escape', { keyCode: 27 });
 
       await shot('editor-kinds-ghost');
-      await e.toggleFilter('Соседний этаж бледно');
-      await page.sleep(300);
-      assert.equal(await ghosts(), 0, 'калька осталась после выключения');
+      await e.compareFloor('none');
+      assert.equal(await ghosts(), 0, 'соседний этаж остался после выключения');
     });
 
     await step('удаление вида, у которого есть точки, — только после предупреждения', async () => {

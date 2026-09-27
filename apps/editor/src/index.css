@@ -1661,6 +1661,21 @@ input[type='checkbox'] {
     color: var(--editor-text-muted);
 }
 
+/* Поле в строку: подпись слева, список справа — в колонке «Показывать». */
+.editor-field--inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px;
+}
+
+.editor-field--inline .editor-field__label {
+    margin: 0;
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
 .editor-field__problem {
     display: block;
     margin-top: 4px;
@@ -2554,9 +2569,64 @@ input[type='checkbox'] {
 
 /* --- Корпуса на территории и их постановка (запись 50) --- */
 
+/* План, который размещают, — целиком: эталон ложится поверх линиями (запись 62). */
 .editor-placing-plan {
-    opacity: 0.6;
-    outline: 2px solid var(--editor-map-handle);
+    opacity: 1;
+}
+
+/* Линии эталона не ловят мышь: щелчок проходит к карте — ставит булавку. */
+.editor-reference-lines {
+    pointer-events: none;
+}
+
+/* Булавка (запись 63): оранжевая кнопка с белой каймой и тёмной серединой. */
+.editor-place-pin span {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border: 3px solid #ffffff;
+    border-radius: 9999px;
+    background: var(--editor-map-handle-alt);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), inset 0 0 0 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Шторка: вертикальная черта поверх карты с ручкой посередине. */
+.editor-swipe {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 650;
+    width: 16px;
+    margin-left: -8px;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.editor-swipe::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 7px;
+    width: 2px;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.editor-swipe__handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 9999px;
+    background: #ffffff;
+    color: #1f2328;
+    font-size: 15px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
 .editor-campus-building {
@@ -2579,6 +2649,12 @@ input[type='checkbox'] {
 
 .editor-place-handle--rotate span {
     border-radius: 9999px;
+    background: var(--editor-map-handle-alt);
+    cursor: grab;
+}
+
+/* Ручка «довернуть вокруг булавки»: оранжевая, как булавка. */
+.editor-place-handle--turn span {
     background: var(--editor-map-handle-alt);
     cursor: grab;
 }
@@ -2680,3 +2756,165 @@ input[type='checkbox'] {
     font-weight: 600;
 }
 .editor-ghost-plan { opacity: 0.18; }
+
+/* --- Пошаговые панели операций (запись 64) --- */
+
+.editor-operation {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px 16px;
+}
+
+.editor-operation__subject {
+    margin: 0;
+    font-weight: 600;
+}
+
+.editor-operation__note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--editor-text-muted);
+}
+
+.editor-operation__keys {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-operation__keys kbd {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--editor-accent);
+    color: var(--editor-text);
+    font: 500 12px ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.editor-operation__footer {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-operation__pairs {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+}
+
+.editor-operation__pairs li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.editor-operation__pair--bad {
+    color: var(--editor-warn);
+}
+
+/* Шаги: номер в кружке или галочка, заголовок, что делать. */
+.editor-steps {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.editor-steps__item {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 10px;
+}
+
+.editor-steps__mark {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--editor-border);
+    border-radius: 9999px;
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+.editor-steps__item--now .editor-steps__mark {
+    border-color: var(--editor-highlight);
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.editor-steps__item--done .editor-steps__mark {
+    border-color: var(--editor-success);
+    background: var(--editor-success);
+    color: var(--editor-on-accent);
+}
+
+.editor-steps__body {
+    display: grid;
+    gap: 2px;
+}
+
+.editor-steps__title {
+    font-weight: 600;
+}
+
+.editor-steps__item--later .editor-steps__title {
+    color: var(--editor-text-muted);
+    font-weight: 400;
+}
+
+.editor-steps__text {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--editor-text-muted);
+}
+
+/* Выбор кнопками в ряд: «Контур · Все стены · Шторка». */
+.editor-segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--editor-bg);
+}
+
+.editor-segmented__item {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-segmented__item:hover {
+    color: var(--editor-text);
+}
+
+.editor-segmented__item[aria-checked='true'] {
+    background: var(--editor-accent);
+    color: var(--editor-text);
+    box-shadow: inset 0 -2px 0 var(--editor-focus);
+}
+
+.editor-field--range {
+    margin-top: 10px;
+}
+
+.editor-field--range input[type='range'] {
+    width: 100%;
+    accent-color: var(--editor-highlight);
+}

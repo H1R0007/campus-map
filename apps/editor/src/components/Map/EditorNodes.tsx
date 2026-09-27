@@ -255,7 +255,7 @@ export const EditorNodes: React.FC = () => {
       if (st.measuring || st.placing) {
         const { lat, lng } = map.mouseEventToLatLng(dom);
         if (st.measuring) st.measureClick(Math.round(lng * 10) / 10, Math.round(lat * 10) / 10);
-        else if (st.placing?.pairMode) st.placingClick(Math.round(lng * 10) / 10, Math.round(lat * 10) / 10);
+        else st.setPlacingPin({ x: Math.round(lng * 10) / 10, y: Math.round(lat * 10) / 10 });
         return;
       }
 

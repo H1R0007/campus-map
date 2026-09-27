@@ -353,7 +353,8 @@ const MapEventHandler: React.FC = () => {
         return;
       }
       if (st.placing) {
-        if (st.placing.pairMode) st.placingClick(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        // Щелчок по карте ставит булавку — или переставляет её (запись 63).
+        st.setPlacingPin({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
         return;
       }
 
@@ -481,6 +482,9 @@ export const EditorMap: React.FC = () => {
   const campusMeta = useEditorStore((s) => s.campusMeta);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const theme = useEditorStore((s) => s.theme);
+  // На время размещения и замера точки, связи и подписи убраны: здесь
+  // совмещают планы, а точки только мешают (запись 62).
+  const planOperation = useEditorStore((s) => s.placing !== null || s.measuring !== null);
 
   // Корпус без этажей показывает территорию: разметки на нём нет, а поверх
   // карты — предложение добавить этажи (`PlanStatus`).
@@ -512,17 +516,21 @@ export const EditorMap: React.FC = () => {
           строятся заново, сама карта и её вид остаются (запись 56). */}
       <React.Fragment key={theme}>
       <CampusBuildings />
-      <NeighbourFloor />
-      <GridOverlay />
-      <EditorEdges />
-      <EditorTransitions />
-      <RouteOverlay />
-      <ChainPreview />
-      <SnapPreview />
-      <LineToolPreview />
-      <SelectionBox />
-      <EditorNodes />
-      <AliasLabels />
+      {!planOperation && (
+        <>
+          <NeighbourFloor />
+          <GridOverlay />
+          <EditorEdges />
+          <EditorTransitions />
+          <RouteOverlay />
+          <ChainPreview />
+          <SnapPreview />
+          <LineToolPreview />
+          <SelectionBox />
+          <EditorNodes />
+          <AliasLabels />
+        </>
+      )}
       <AlignmentLayer />
       <PlacementLayer />
       <MeasureLayer />

@@ -1,7 +1,7 @@
 import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
-import { InfoTip } from '../UI/Field';
+import { FieldLabel, InfoTip } from '../UI/Field';
 
 /**
  * Что показывать на карте: подписи, точки переходов, связи, подсветка
@@ -58,26 +58,28 @@ export const DisplayOptions: React.FC = () => {
           checked={displayFilters.showTransitions}
           onChange={(v) => setDisplayFilters({ showTransitions: v })}
         />
-        <Check
-          label="Соседний этаж бледно"
-          info="План и точки соседнего этажа видны сквозь открытый — удобно ставить лестницы и туалеты друг над другом."
-          checked={displayFilters.showNeighbourFloor}
-          onChange={(v) => setDisplayFilters({ showNeighbourFloor: v })}
-        />
-        {displayFilters.showNeighbourFloor && (
-          <label className="editor-check">
-            <span className="editor-check__text">Какой этаж показывать</span>
-            <select
-              value={displayFilters.neighbourFloorBelow ? 'below' : 'above'}
-              onChange={(e) => setDisplayFilters({ neighbourFloorBelow: e.target.value === 'below' })}
-              aria-label="Какой этаж показывать бледно"
-              className="editor-input editor-input--narrow"
-            >
-              <option value="below">ниже</option>
-              <option value="above">выше</option>
-            </select>
-          </label>
-        )}
+        <div className="editor-field editor-field--inline">
+          <FieldLabel
+            label="Сравнить с этажом"
+            htmlFor="compare-floor"
+            info="Стены соседнего этажа — красным поверх открытого, его точки — бледно: видно, стоят ли лестницы и туалеты друг над другом."
+          />
+          <select
+            id="compare-floor"
+            value={!displayFilters.showNeighbourFloor ? 'none' : displayFilters.neighbourFloorBelow ? 'below' : 'above'}
+            onChange={(e) =>
+              setDisplayFilters(
+                e.target.value === 'none' ? { showNeighbourFloor: false } : { showNeighbourFloor: true, neighbourFloorBelow: e.target.value === 'below' }
+              )
+            }
+            aria-label="Сравнить с этажом"
+            className="editor-input editor-input--narrow"
+          >
+            <option value="none">нет</option>
+            <option value="below">ниже</option>
+            <option value="above">выше</option>
+          </select>
+        </div>
       </section>
 
       <section className="editor-section" aria-labelledby="highlight-title">

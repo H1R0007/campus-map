@@ -1,6 +1,6 @@
 import { resolvePlanPlacement } from '@campus-map/core';
 import type { MapSize } from '@campus-map/core';
-import { applySimilarity, composeSimilarity, fitSimilarity, invertSimilarity, scaleOf } from '../../import/planGeometry';
+import { applySimilarity, composeSimilarity, invertSimilarity, scaleOf } from '../../import/planGeometry';
 import type { Point, Similarity } from '../../import/planGeometry';
 import { frameOf, initialFrame, placementOf, placementOfWorld, withScaleAndRotation, worldOf } from '../../import/placementMath';
 import { planMetersPerPixel } from '../../import/scale';
@@ -10,20 +10,30 @@ import type { EditorSlice } from './types';
 /**
  * Постановка корпуса на территорию и масштаб территории (запись 50).
  *
- * Постановка: план этажа входа лежит поверх территории полупрозрачно, его
- * тащат, вращают и растягивают за ручки или задают числами; для точности —
- * пары «место на плане корпуса — то же место на территории», как при
- * совмещении. «Применить» — одна правка: привязка корпуса в метрах.
+ * Постановка: план этажа входа лежит поверх территории целиком, а
+ * территория — красными линиями поверх него (запись 62); план тащат,
+ * вращают и растягивают за ручки или задают числами; для точности —
+ * булавка (запись 63): приколоть угол здания и довернуть план вокруг него.
+ * «Готово» — одна правка: привязка корпуса в метрах.
  *
  * Масштаб территории: два места на её плане и расстояние между ними в
  * метрах. Без него метров нет вовсе — и корпус не поставить.
  */
 
-export interface PlacePair {
-  /** Место на плане корпуса, пиксели плана. */
-  from: Point;
-  /** То же место на территории, пиксели территории. */
-  to: Point;
+/**
+ * Как показывать наложение (запись 62): эталон — то, по чему равняются
+ * (территория или этаж входа), — поверх плана красным.
+ *
+ * - `contour` — внешний контур эталона (для этажей);
+ * - `lines` — все линии эталона: стены этажа или границы на территории;
+ * - `swipe` — шторка: слева эталон, справа план, без линий.
+ */
+export type OverlayShow = 'contour' | 'lines' | 'swipe';
+
+/** Булавка: точка плана и где она стоит на эталоне. */
+export interface Pin {
+  plan: Point;
+  at: Point;
 }
 
 export interface Placing {
@@ -45,11 +55,13 @@ export interface Placing {
   planSize: MapSize;
   /** Пиксель плана → пиксель территории. */
   frame: Similarity;
-  /** Щелчки ставят пары. */
-  pairMode: boolean;
-  pairs: PlacePair[];
-  /** Место на плане выбрано, ждём то же место на территории. */
-  pendingFrom: Point | null;
+  /** Булавка: план доворачивают вокруг неё (запись 63). */
+  pin: Pin | null;
+  show: OverlayShow;
+  /** Чувствительность линий, 0…1: у бледного скана линии светлее. */
+  strength: number;
+  /** Пока зажат пробел, виден только эталон. */
+  peek: boolean;
 }
 
 export interface Measuring {
@@ -75,10 +87,11 @@ export interface PlaceSlice {
    */
   startPlacingFloor: (building: string, floor: number) => string | null;
   setPlacingFrame: (frame: Similarity) => void;
-  setPairMode: (on: boolean) => void;
-  /** Щелчок по карте территории в режиме пар. */
-  placingClick: (x: number, y: number) => void;
-  placingRemovePair: (index: number) => void;
+  /** Приколоть булавку в этом месте эталона; `null` — открепить. */
+  setPlacingPin: (at: Point | null) => void;
+  setPlacingShow: (show: OverlayShow) => void;
+  setPlacingStrength: (strength: number) => void;
+  setPlacingPeek: (peek: boolean) => void;
   applyPlacing: () => void;
   cancelPlacing: () => void;
 
@@ -89,10 +102,21 @@ export interface PlaceSlice {
   cancelMeasuring: () => void;
 }
 
-/** Постановка по парам: с двух пар — подобие по ним. */
-export function placingFit(pairs: readonly PlacePair[]) {
-  return fitSimilarity(pairs.map((pair) => ({ from: pair.from, to: pair.to })));
+/**
+ * Растягивать ли план вокруг булавки: нет, если масштаб известен и у плана
+ * (по чертежу), и у того, что под ним.
+ */
+export function placingAllowsScale(placing: Pick<Placing, 'planMpp' | 'baseMpp'>): boolean {
+  return placing.planMpp === null || placing.baseMpp === null;
 }
+
+/** Показ по умолчанию: для этажей — контур этажа входа, для корпуса — линии территории. */
+const overlayDefaults = (mode: Placing['mode']) => ({
+  pin: null,
+  show: (mode === 'floor' ? 'contour' : 'lines') as OverlayShow,
+  strength: 0.5,
+  peek: false,
+});
 
 export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
   placing: null,
@@ -134,9 +158,7 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
         planMpp,
         planSize,
         frame,
-        pairMode: false,
-        pairs: [],
-        pendingFrom: null,
+        ...overlayDefaults('building'),
       };
     });
     return null;
@@ -175,9 +197,7 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
         planMpp: floorMpp,
         planSize: floorMeta!.mapSize ?? { width: 1000, height: 700 },
         frame,
-        pairMode: false,
-        pairs: [],
-        pendingFrom: null,
+        ...overlayDefaults('floor'),
       };
     });
     return null;
@@ -185,39 +205,36 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
 
   setPlacingFrame: (frame) =>
     set((s) => {
-      if (s.placing) s.placing.frame = frame;
-    }),
-
-  setPairMode: (on) =>
-    set((s) => {
       if (!s.placing) return;
-      s.placing.pairMode = on;
-      s.placing.pendingFrom = null;
-    }),
-
-  placingClick: (x, y) => {
-    const placing = get().placing;
-    if (!placing?.pairMode) return;
-    set((s) => {
-      const target = s.placing!;
-      if (target.pendingFrom === null) {
-        // Первый щелчок — место на плане корпуса: оно под курсором сейчас.
-        target.pendingFrom = applySimilarity(invertSimilarity(target.frame), { x, y });
-        return;
+      s.placing.frame = frame;
+      // Булавка — место плана на эталоне: если план ушёл с неё (сдвинули,
+      // задали числами), она больше не держит.
+      const pin = s.placing.pin;
+      if (pin) {
+        const at = applySimilarity(frame, pin.plan);
+        if (Math.hypot(at.x - pin.at.x, at.y - pin.at.y) > 0.5) s.placing.pin = null;
       }
-      target.pairs = [...target.pairs, { from: target.pendingFrom, to: { x, y } }];
-      target.pendingFrom = null;
-      const fit = placingFit(target.pairs);
-      if (fit) target.frame = fit.transform;
-    });
-  },
+    }),
 
-  placingRemovePair: (index) =>
+  setPlacingPin: (at) =>
     set((s) => {
       if (!s.placing) return;
-      s.placing.pairs = s.placing.pairs.filter((_, i) => i !== index);
-      const fit = placingFit(s.placing.pairs);
-      if (fit) s.placing.frame = fit.transform;
+      s.placing.pin = at === null ? null : { plan: applySimilarity(invertSimilarity(s.placing.frame), at), at };
+    }),
+
+  setPlacingShow: (show) =>
+    set((s) => {
+      if (s.placing) s.placing.show = show;
+    }),
+
+  setPlacingStrength: (strength) =>
+    set((s) => {
+      if (s.placing) s.placing.strength = Math.min(1, Math.max(0, strength));
+    }),
+
+  setPlacingPeek: (peek) =>
+    set((s) => {
+      if (s.placing && s.placing.peek !== peek) s.placing.peek = peek;
     }),
 
   applyPlacing: () => {

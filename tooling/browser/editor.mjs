@@ -294,6 +294,19 @@ export function editorHelpers(page, base) {
       await page.sleep(300);
     },
 
+    /** «Сравнить с этажом»: `none`, `below` или `above` (запись 65). */
+    async compareFloor(value) {
+      const ok = await page.eval(`(() => {
+        const select = document.querySelector('select[aria-label="Сравнить с этажом"]');
+        if (!select) return false;
+        select.value = ${JSON.stringify(value)};
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`);
+      if (!ok) throw new Error('нет списка «Сравнить с этажом»');
+      await page.sleep(400);
+    },
+
     /** Текст сообщения над картой или пустая строка. */
     notice: () => page.eval(`document.querySelector('.editor-notice')?.textContent ?? ''`),
 
