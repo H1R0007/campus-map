@@ -102,10 +102,10 @@ export const SandboxBanner: React.FC = () => {
         <b>Учебная копия.</b> Правки и сохранения остаются в копии, настоящие данные не меняются.
       </span>
       {error && <span className="editor-sandbox-banner__error">{error}</span>}
-      <button type="button" className="editor-button editor-button--ghost editor-button--small" onClick={() => setConfirm(true)}>
+      <button type="button" className="editor-button editor-button--ghost" onClick={() => setConfirm(true)}>
         Начать заново
       </button>
-      <button type="button" className="editor-button editor-button--ghost editor-button--small" onClick={() => void leaveSandbox()}>
+      <button type="button" className="editor-button editor-button--ghost" onClick={() => void leaveSandbox()}>
         Выйти из копии
       </button>
 

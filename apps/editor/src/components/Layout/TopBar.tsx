@@ -9,6 +9,7 @@ import { useStructureChecks } from '../../hooks/useStructureChecks';
 import { ConfirmDialog } from '../UI/ConfirmDialog';
 import { Icon } from '../UI/Icon';
 import { SandboxButton } from '../UI/Sandbox';
+import { SettingsMenu } from '../UI/SettingsMenu';
 import { SPACE } from '../../config/space';
 
 /**
@@ -182,6 +183,8 @@ export const TopBar: React.FC = () => {
         >
           <Icon name="help" size={20} />
         </button>
+
+        <SettingsMenu />
 
         <SandboxButton />
 

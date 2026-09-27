@@ -24,6 +24,7 @@ import { DATA_BASE_URL } from './config/dataBase';
 import { SPACE } from './config/space';
 import { fetchSandboxState, resetSandbox } from './utils/diskStore';
 import { isLeavingOnPurpose } from './utils/leavePage';
+import { watchSystemTheme } from './utils/theme';
 
 /**
  * Экран ошибки с возможностью перезагрузки.
@@ -100,7 +101,10 @@ const App: React.FC = () => {
   const isLoading = useEditorStore((s) => s.isLoading);
   const loadData = useEditorStore((s) => s.loadData);
   const initStorage = useEditorStore((s) => s.initStorage);
+  const syncSystemTheme = useEditorStore((s) => s.syncSystemTheme);
   useUnloadGuard();
+  // «Как в системе»: тема системы сменилась — сменилась и тема редактора.
+  useEffect(() => watchSystemTheme(syncSystemTheme), [syncSystemTheme]);
 
   useEffect(() => {
     // StrictMode монтирует эффект дважды; без флага отмены второй запуск

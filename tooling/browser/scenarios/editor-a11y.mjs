@@ -16,6 +16,9 @@ export default {
 
   async run({ page, base, step }) {
     await page.viewport(1600, 900, 1);
+    // Система — тёмная: тема «как в системе» открывается тёмной, светлая
+    // проверяется своим шагом (запись 56).
+    await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
     const e = editorHelpers(page, base);
 
     const checkContrast = async (where) => {
@@ -64,6 +67,7 @@ export default {
 
     await step('план, карточка узла и строка состояния: контраст и размеры', async () => {
       await e.open();
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'dark', 'тема не взята из системы');
       await e.openFloor('Корпус А', 1);
       await checkContrast('план без выбора');
       await checkSizes('план без выбора');
@@ -106,6 +110,44 @@ export default {
       await checkContrast('меню узла');
       await checkSizes('меню узла');
       await e.key('Escape', { keyCode: 27 });
+    });
+
+    await step('светлая тема (запись 56): контраст, выбор помнится после перезагрузки', async () => {
+      await e.press('Настройки');
+      await checkContrast('меню настроек');
+      await checkSizes('меню настроек');
+      await page.eval(`[...document.querySelectorAll('.editor-menu__option')].find((l) => l.textContent.includes('Светлая')).querySelector('input').click()`);
+      await page.sleep(300);
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'light');
+      await e.key('Escape', { keyCode: 27 });
+
+      await e.open();
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'light', 'светлая тема забыта после перезагрузки');
+      await e.openFloor('Корпус А', 1);
+      await checkContrast('светлая: план');
+      const room = await e.nodePoint('a1_room101');
+      await e.click(room.x, room.y);
+      await checkContrast('светлая: карточка узла');
+      for (const tab of ['Проверка', 'Маршрут']) {
+        await e.press(tab);
+        await checkContrast(`светлая: вкладка «${tab}»`);
+      }
+      await e.press('Свойства');
+      await e.key('F1', { keyCode: 112 });
+      await checkContrast('светлая: справка');
+      await e.key('Escape', { keyCode: 27 });
+
+      await e.press('Настройки');
+      await page.eval(`[...document.querySelectorAll('.editor-menu__option')].find((l) => l.textContent.includes('Как в системе')).querySelector('input').click()`);
+      await e.key('Escape', { keyCode: 27 });
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'dark', '«как в системе» не вернуло тёмную');
+
+      // Система сменила тему — редактор следом, без перезагрузки.
+      await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+      await page.sleep(300);
+      assert.equal(await page.eval('document.documentElement.dataset.theme'), 'light', 'тема не пошла за системой');
+      await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+      await page.sleep(300);
     });
 
     await step('экран ноутбука 1280×720: текст не бледнеет и кнопки не мельчают', async () => {

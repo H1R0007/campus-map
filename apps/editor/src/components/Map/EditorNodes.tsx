@@ -378,8 +378,8 @@ export const EditorNodes: React.FC = () => {
           strokeColor = palette.finishStroke;
         }
         if (isSelected) {
-          fillColor = palette.highlight;
-          strokeColor = palette.finishStroke;
+          fillColor = palette.selectedFill;
+          strokeColor = palette.selected;
         }
 
         let extraStroke: string | null = null;

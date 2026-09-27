@@ -7,6 +7,7 @@ import type { BuildingMeta, MapSize } from '@campus-map/core';
 import { useMap } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
 import { BUILDINGS_PANE } from './panes';
+import { mapPalette } from '../../utils/themeColor';
 import { openingFloorOf } from '../../stores/editor/viewSlice';
 import { usePlanUrl } from '../../hooks/usePlanUrl';
 import { applySimilarity, rotationOf, scaleOf } from '../../import/planGeometry';
@@ -122,6 +123,7 @@ const Handle: React.FC<{
 
 /** Корпус, который ставят: полупрозрачный план, рамка, ручки, пары. */
 export const PlacementLayer: React.FC = () => {
+  const palette = mapPalette();
   const placing = useEditorStore((s) => s.placing);
   const meta = useEditorStore((s) => (s.placing ? s.buildingMetas.get(s.placing.building) : undefined));
   const setPlacingFrame = useEditorStore((s) => s.setPlacingFrame);
@@ -136,10 +138,10 @@ export const PlacementLayer: React.FC = () => {
   return (
     <>
       <BuildingPlan meta={meta} floor={placing.floor} frame={frame} placing />
-      <Polygon positions={corners.map(latLng)} interactive={false} pathOptions={{ color: '#e94560', weight: 2, fill: false, dashArray: '6 4' }} />
+      <Polygon positions={corners.map(latLng)} interactive={false} pathOptions={{ color: palette.handle, weight: 2, fill: false, dashArray: '6 4' }} />
       {!placing.pairMode && (
         <>
-          <Polyline positions={[latLng(center), latLng(rotateAt)]} interactive={false} pathOptions={{ color: '#e94560', weight: 1 }} />
+          <Polyline positions={[latLng(center), latLng(rotateAt)]} interactive={false} pathOptions={{ color: palette.handle, weight: 1 }} />
           <Handle kind="move" at={center} onDrag={(start, now) => setPlacingFrame(moveFrame(start.frame, now.x - start.at.x, now.y - start.at.y))} />
           <Handle
             kind="rotate"
@@ -167,8 +169,8 @@ export const PlacementLayer: React.FC = () => {
         const from = applySimilarity(frame, pair.from);
         return (
           <React.Fragment key={index}>
-            <Polyline positions={[latLng(from), latLng(pair.to)]} interactive={false} pathOptions={{ color: '#e94560', weight: 2, dashArray: '4 3' }} />
-            <CircleMarker center={latLng(pair.to)} radius={7} interactive={false} pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#e94560', fillOpacity: 1 }}>
+            <Polyline positions={[latLng(from), latLng(pair.to)]} interactive={false} pathOptions={{ color: palette.handle, weight: 2, dashArray: '4 3' }} />
+            <CircleMarker center={latLng(pair.to)} radius={7} interactive={false} pathOptions={{ color: palette.markerStroke, weight: 2, fillColor: palette.handle, fillOpacity: 1 }}>
               <Tooltip permanent direction="right" offset={[8, 0]} className="editor-align-tip">
                 {index + 1}
               </Tooltip>
@@ -181,7 +183,7 @@ export const PlacementLayer: React.FC = () => {
           center={latLng(applySimilarity(frame, placing.pendingFrom))}
           radius={10}
           interactive={false}
-          pathOptions={{ color: '#e94560', weight: 3, fillOpacity: 0, dashArray: '4 3' }}
+          pathOptions={{ color: palette.handle, weight: 3, fillOpacity: 0, dashArray: '4 3' }}
         />
       )}
     </>
@@ -199,15 +201,16 @@ function cornersOf(frame: Similarity, size: MapSize): Point[] {
 
 /** Замер масштаба территории: две точки и линия между ними. */
 export const MeasureLayer: React.FC = () => {
+  const palette = mapPalette();
   const measuring = useEditorStore((s) => s.measuring);
   if (!measuring) return null;
   const [a, b] = measuring.points;
   return (
     <>
       {measuring.points.map((point, index) => (
-        <CircleMarker key={index} center={latLng(point)} radius={6} interactive={false} pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#e94560', fillOpacity: 1 }} />
+        <CircleMarker key={index} center={latLng(point)} radius={6} interactive={false} pathOptions={{ color: palette.markerStroke, weight: 2, fillColor: palette.handle, fillOpacity: 1 }} />
       ))}
-      {a && b && <Polyline positions={[latLng(a), latLng(b)]} interactive={false} pathOptions={{ color: '#e94560', weight: 3 }} />}
+      {a && b && <Polyline positions={[latLng(a), latLng(b)]} interactive={false} pathOptions={{ color: palette.handle, weight: 3 }} />}
     </>
   );
 };

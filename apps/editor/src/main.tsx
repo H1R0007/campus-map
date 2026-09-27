@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
 import { SPACE } from './config/space';
+import { readLayoutPrefs } from './utils/layoutPrefs';
+import { applyTheme, resolveTheme } from './utils/theme';
 import './index.css';
 
 /**
@@ -16,6 +18,9 @@ import './index.css';
 // Вкладка с учебной копией подписана иначе: две вкладки редактора рядом
 // не должны путаться (запись 55).
 if (SPACE === 'sandbox') document.title = `Учебная копия — ${document.title}`;
+
+// Тема — до первого кадра: иначе экран мигнёт тёмным перед светлым (запись 56).
+applyTheme(resolveTheme(readLayoutPrefs().theme));
 
 const container = document.getElementById('root');
 if (!container) {

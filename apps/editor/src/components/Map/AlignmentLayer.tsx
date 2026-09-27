@@ -4,6 +4,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { alignmentFit } from '../../stores/editor/alignSlice';
 import { applySimilarity } from '../../import/planGeometry';
+import { mapPalette } from '../../utils/themeColor';
 
 /**
  * Совмещение на карте (запись 49): пара — пунктир от точки к месту, где она
@@ -11,6 +12,7 @@ import { applySimilarity } from '../../import/planGeometry';
  * плана, — бледными кружками: ошибку в паре видно до «Применить».
  */
 export const AlignmentLayer: React.FC = () => {
+  const palette = mapPalette();
   const alignment = useEditorStore((s) => s.alignment);
   const nodes = useEditorStore((s) => s.nodes);
 
@@ -36,7 +38,7 @@ export const AlignmentLayer: React.FC = () => {
           center={[at.y, at.x]}
           radius={5}
           interactive={false}
-          pathOptions={{ color: '#22c55e', weight: 2, fillOpacity: 0, dashArray: '2 3' }}
+          pathOptions={{ color: palette.start, weight: 2, fillOpacity: 0, dashArray: '2 3' }}
         />
       ))}
       {alignment.pairs.map((pair, index) => {
@@ -50,13 +52,13 @@ export const AlignmentLayer: React.FC = () => {
                 [pair.to.y, pair.to.x],
               ]}
               interactive={false}
-              pathOptions={{ color: '#e94560', weight: 2, dashArray: '6 4' }}
+              pathOptions={{ color: palette.handle, weight: 2, dashArray: '6 4' }}
             />
             <CircleMarker
               center={[pair.to.y, pair.to.x]}
               radius={7}
               interactive={false}
-              pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#e94560', fillOpacity: 1 }}
+              pathOptions={{ color: palette.markerStroke, weight: 2, fillColor: palette.handle, fillOpacity: 1 }}
             >
               <Tooltip permanent direction="right" offset={[8, 0]} className="editor-align-tip">
                 {index + 1}
@@ -70,7 +72,7 @@ export const AlignmentLayer: React.FC = () => {
           center={[pending.y, pending.x]}
           radius={13}
           interactive={false}
-          pathOptions={{ color: '#e94560', weight: 3, fillOpacity: 0, dashArray: '4 3' }}
+          pathOptions={{ color: palette.handle, weight: 3, fillOpacity: 0, dashArray: '4 3' }}
         />
       )}
     </>

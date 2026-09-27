@@ -1,37 +1,60 @@
 /**
- * Раскладка экрана редактора, которую помнит браузер: свёрнуты ли колонки.
+ * Раскладка экрана редактора, которую помнит браузер: свёрнуты ли колонки,
+ * их ширина, тема.
  *
  * Это удобство одного человека на одном компьютере, а не данные: хранилище
  * может быть недоступно (приватное окно, запрет сайтам хранить данные), и
- * тогда редактор просто открывается с развёрнутыми колонками.
+ * тогда редактор просто открывается как по умолчанию.
  */
+
+/** Тема: как в системе, тёмная или светлая (запись 56). */
+export type ThemeChoice = 'system' | 'dark' | 'light';
+
 export interface LayoutPrefs {
   structureCollapsed: boolean;
   inspectorCollapsed: boolean;
+  /** Ширина колонки структуры, CSS-пиксели; `null` — по умолчанию. */
+  structureWidth: number | null;
+  /** Ширина правой колонки, CSS-пиксели; `null` — по умолчанию. */
+  inspectorWidth: number | null;
+  theme: ThemeChoice;
 }
 
 const KEY = 'campus-editor:layout';
 
-const DEFAULTS: LayoutPrefs = { structureCollapsed: false, inspectorCollapsed: false };
+const DEFAULTS: LayoutPrefs = {
+  structureCollapsed: false,
+  inspectorCollapsed: false,
+  structureWidth: null,
+  inspectorWidth: null,
+  theme: 'system',
+};
+
+const widthOf = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : null;
 
 export function readLayoutPrefs(): LayoutPrefs {
   try {
     const raw = globalThis.localStorage?.getItem(KEY);
     if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw) as Partial<LayoutPrefs>;
+    const parsed = JSON.parse(raw) as Partial<Record<keyof LayoutPrefs, unknown>>;
     return {
       structureCollapsed: parsed.structureCollapsed === true,
       inspectorCollapsed: parsed.inspectorCollapsed === true,
+      structureWidth: widthOf(parsed.structureWidth),
+      inspectorWidth: widthOf(parsed.inspectorWidth),
+      theme: parsed.theme === 'dark' || parsed.theme === 'light' ? parsed.theme : 'system',
     };
   } catch {
     return DEFAULTS;
   }
 }
 
-export function writeLayoutPrefs(prefs: LayoutPrefs): void {
+/** Запоминает часть раскладки; остальное — как было. */
+export function updateLayoutPrefs(patch: Partial<LayoutPrefs>): void {
   try {
-    globalThis.localStorage?.setItem(KEY, JSON.stringify(prefs));
+    globalThis.localStorage?.setItem(KEY, JSON.stringify({ ...readLayoutPrefs(), ...patch }));
   } catch {
-    // Не запомнили — откроется развёрнутым; работе это не мешает.
+    // Не запомнили — откроется как по умолчанию; работе это не мешает.
   }
 }

@@ -1,4 +1,7 @@
-import { readLayoutPrefs, writeLayoutPrefs } from '../../utils/layoutPrefs';
+import { readLayoutPrefs, updateLayoutPrefs } from '../../utils/layoutPrefs';
+import type { ThemeChoice } from '../../utils/layoutPrefs';
+import { applyTheme, resolveTheme } from '../../utils/theme';
+import type { ResolvedTheme } from '../../utils/theme';
 import type { EditorSlice } from './types';
 
 /**
@@ -78,6 +81,13 @@ export interface PanelSlice {
   structureCollapsed: boolean;
   /** Правая колонка (инспектор) свёрнута в полоску. */
   inspectorCollapsed: boolean;
+  /** Ширина левой колонки, CSS-пиксели; `null` — по умолчанию. */
+  structureWidth: number | null;
+  /** Ширина правой колонки, CSS-пиксели; `null` — по умолчанию. */
+  inspectorWidth: number | null;
+  /** Выбранная тема и та, что сейчас на экране (запись 56). */
+  themeChoice: ThemeChoice;
+  theme: ResolvedTheme;
   searchOpen: boolean;
   /** Открыта справка по мыши и клавишам. */
   helpOpen: boolean;
@@ -108,6 +118,11 @@ export interface PanelSlice {
   setInspectorTab: (tab: InspectorTab, expand?: boolean) => void;
   setStructureCollapsed: (collapsed: boolean) => void;
   setInspectorCollapsed: (collapsed: boolean) => void;
+  /** Ширина колонки; `null` — вернуть ширину по умолчанию. */
+  setColumnWidth: (column: 'structure' | 'inspector', width: number | null) => void;
+  setThemeChoice: (choice: ThemeChoice) => void;
+  /** Тема системы сменилась, пока выбрано «как в системе». */
+  syncSystemTheme: () => void;
   setSearchOpen: (open: boolean) => void;
   setHelpOpen: (open: boolean) => void;
   setKindsOpen: (open: boolean) => void;
@@ -136,6 +151,10 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   inspectorTab: 'properties',
   structureCollapsed: readLayoutPrefs().structureCollapsed,
   inspectorCollapsed: readLayoutPrefs().inspectorCollapsed,
+  structureWidth: readLayoutPrefs().structureWidth,
+  inspectorWidth: readLayoutPrefs().inspectorWidth,
+  themeChoice: readLayoutPrefs().theme,
+  theme: resolveTheme(readLayoutPrefs().theme),
   searchOpen: false,
   helpOpen: false,
   kindsOpen: false,
@@ -164,14 +183,41 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     set((s) => {
       s.structureCollapsed = collapsed;
     });
-    writeLayoutPrefs({ structureCollapsed: collapsed, inspectorCollapsed: get().inspectorCollapsed });
+    updateLayoutPrefs({ structureCollapsed: collapsed });
   },
 
   setInspectorCollapsed: (collapsed) => {
     set((s) => {
       s.inspectorCollapsed = collapsed;
     });
-    writeLayoutPrefs({ structureCollapsed: get().structureCollapsed, inspectorCollapsed: collapsed });
+    updateLayoutPrefs({ inspectorCollapsed: collapsed });
+  },
+
+  setColumnWidth: (column, width) => {
+    set((s) => {
+      if (column === 'structure') s.structureWidth = width;
+      else s.inspectorWidth = width;
+    });
+    updateLayoutPrefs(column === 'structure' ? { structureWidth: width } : { inspectorWidth: width });
+  },
+
+  setThemeChoice: (choice) => {
+    const theme = resolveTheme(choice);
+    applyTheme(theme);
+    set((s) => {
+      s.themeChoice = choice;
+      s.theme = theme;
+    });
+    updateLayoutPrefs({ theme: choice });
+  },
+
+  syncSystemTheme: () => {
+    if (get().themeChoice !== 'system') return;
+    const theme = resolveTheme('system');
+    applyTheme(theme);
+    set((s) => {
+      s.theme = theme;
+    });
   },
 
   setSearchOpen: (open) =>

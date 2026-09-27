@@ -3,66 +3,70 @@
 @tailwind utilities;
 
 /*
- * Тема редактора объявлена только здесь. Tailwind-классы `*-editor-*`
- * ссылаются на эти переменные (см. tailwind.config.js), поэтому менять
- * оформление можно в одном месте.
+ * Тема редактора объявлена только здесь (запись 56). Tailwind-классы
+ * `*-editor-*` ссылаются на эти переменные (см. tailwind.config.js), поэтому
+ * менять оформление можно в одном месте.
  *
- * Статусные цвета (успех / предупреждение / ошибка) намеренно не вынесены в
- * переменные: часть зелёного и янтарного в компонентах приходит из
- * `TRANSITION_COLORS` пакета mapkit и принадлежит типу перехода, а не теме.
- * Смешивать их в одном наборе переменных значит создать ложную связь.
+ * Две темы: тёмная графитовая (по умолчанию) и светлая. Тема — атрибут
+ * `data-theme` у `<html>` (`utils/theme.ts`); без него — тёмная. Акцент один —
+ * синий: кнопки, выбор, вкладки. Красный остаётся за удалением и ошибками.
+ *
+ * Цвета типов переходов сюда не входят: они приходят из `TRANSITION_COLORS`
+ * пакета mapkit, общие с навигатором, и принадлежат типу перехода, а не теме.
  */
-:root {
-    --editor-bg: #0b1020;
-    --editor-panel: #0f172a; /* slate-900 */
-    --editor-accent: #111c33;
+:root,
+:root[data-theme='dark'] {
+    --editor-bg: #1b1c1f;
+    --editor-panel: #232428;
+    /* Приподнятая поверхность: выбранный пункт, открытая вкладка, поле. */
+    --editor-accent: #2e3036;
     --editor-border: rgba(255, 255, 255, 0.08);
-    /*
-     * Акцент. Темнее прежнего #e94560: на нём стоит белый текст («Сохранить»,
-     * открытый этаж, выбранный инструмент), и контраст должен быть не ниже
-     * 4,5:1 — у прежнего было 3,8:1.
-     */
-    --editor-highlight: #d32f4a;
-    --editor-text: rgba(255, 255, 255, 0.92);
-    --editor-text-muted: rgba(255, 255, 255, 0.55);
+    /* Акцент. На нём белый текст, контраст 5,2:1. */
+    --editor-highlight: #2563eb;
+    --editor-text: #e6e7ea;
+    --editor-text-muted: #a0a4ad;
     /* Текст и значки поверх цветной заливки: акцента, типа перехода. */
     --editor-on-accent: #ffffff;
     /* Опасное действие — текст, а не заливка. */
-    --editor-danger: #fca5a5;
+    --editor-danger: #f87171;
     /* Подсветка пункта под курсором или в фокусе. */
-    --editor-hover: rgba(255, 255, 255, 0.08);
-    /* Подложка подписей на карте: читается и на светлом плане, и на тёмном фоне. */
+    --editor-hover: rgba(255, 255, 255, 0.06);
+    /* Подписи на карте: тёмная подложка и белый текст в обеих темах — план светлый. */
     --editor-label-bg: rgba(0, 0, 0, 0.78);
+    --editor-label-text: #ffffff;
     --editor-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-    /* Состояния: предупреждение, успех, ошибка (заливка значков и счётчиков). */
-    --editor-warn: #fbbf24;
-    --editor-success: #22c55e;
-    --editor-error: #ef4444;
+    /* Состояния: предупреждение, успех, ошибка. */
+    --editor-warn: #e0a43a;
+    --editor-success: #34c46a;
+    --editor-error: #ef5350;
     /* Полоса выбранной вкладки и рамка поля в фокусе. */
-    --editor-focus: #e94560;
+    --editor-focus: #4c8dff;
     /* Затемнение под окном и полоса прокрутки. */
-    --editor-backdrop: rgba(0, 0, 0, 0.65);
+    --editor-backdrop: rgba(0, 0, 0, 0.6);
     --editor-scrollbar: rgba(255, 255, 255, 0.12);
-    --editor-scrollbar-hover: rgba(255, 255, 255, 0.18);
+    --editor-scrollbar-hover: rgba(255, 255, 255, 0.2);
 
     /*
      * Карта. Leaflet пишет цвет в атрибуты SVG, и слои читают эти токены
      * значением (`themeColor`), поэтому здесь — цвета, а не ссылки на другие
      * переменные.
      */
-    --editor-map-bg: #0a0f1e;
-    --editor-map-node: #6366f1;
-    --editor-map-node-stroke: #4f46e5;
+    --editor-map-bg: #161719;
+    --editor-map-node: #3b82f6;
+    --editor-map-node-stroke: #1d4ed8;
     --editor-map-portal: #f59e0b;
-    --editor-map-portal-stroke: #d97706;
-    /* Начало: первый узел связи, начало маршрута. */
+    --editor-map-portal-stroke: #b45309;
+    /* Выбранная точка: тёмно-синяя с жёлтой обводкой — видна на любом плане. */
+    --editor-map-selected-fill: #1e3a8a;
+    --editor-map-selected: #facc15;
+    /* Начало: первая точка связи, начало маршрута. */
     --editor-map-start: #22c55e;
-    --editor-map-start-stroke: #16a34a;
-    /* Конец маршрута и обводка выбранного узла. */
+    --editor-map-start-stroke: #15803d;
+    /* Конец маршрута. */
     --editor-map-finish: #ef4444;
-    --editor-map-finish-stroke: #dc2626;
+    --editor-map-finish-stroke: #b91c1c;
     --editor-map-route: #8b5cf6;
-    --editor-map-route-stroke: #7c3aed;
+    --editor-map-route-stroke: #6d28d9;
     --editor-map-marker-stroke: #ffffff;
     --editor-map-edge: #4b5563;
     --editor-map-edge-hover: #60a5fa;
@@ -75,11 +79,45 @@
     --editor-map-draft: #60a5fa;
     --editor-map-draft-point: #93c5fd;
     --editor-map-grid: rgba(255, 255, 255, 0.12);
+    /* Ручки и отметки операций: постановка корпуса, совмещение, замер. */
+    --editor-map-handle: #2563eb;
+    --editor-map-handle-alt: #f59e0b;
 
     /* Учебная копия: полоса над редактором. */
-    --editor-sandbox-bg: rgba(217, 164, 65, 0.14);
-    --editor-sandbox-border: rgba(217, 164, 65, 0.35);
+    --editor-sandbox-bg: rgba(224, 164, 58, 0.14);
+    --editor-sandbox-border: rgba(224, 164, 58, 0.35);
     --editor-sandbox-text: #f0d49a;
+}
+
+:root[data-theme='light'] {
+    --editor-bg: #e9ebef;
+    --editor-panel: #f7f8fa;
+    --editor-accent: #e3e6eb;
+    --editor-border: rgba(15, 23, 42, 0.12);
+    --editor-highlight: #2563eb;
+    --editor-text: #1f2328;
+    --editor-text-muted: #5b6270;
+    --editor-on-accent: #ffffff;
+    --editor-danger: #b3261e;
+    --editor-hover: rgba(15, 23, 42, 0.06);
+    --editor-label-bg: rgba(17, 24, 39, 0.82);
+    --editor-label-text: #ffffff;
+    --editor-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    --editor-warn: #b7791f;
+    --editor-success: #15803d;
+    --editor-error: #d32f2f;
+    --editor-focus: #2563eb;
+    --editor-backdrop: rgba(15, 23, 42, 0.35);
+    --editor-scrollbar: rgba(15, 23, 42, 0.18);
+    --editor-scrollbar-hover: rgba(15, 23, 42, 0.3);
+
+    --editor-map-bg: #d8dce2;
+    --editor-map-line-hover: #0f172a;
+    --editor-map-grid: rgba(15, 23, 42, 0.12);
+
+    --editor-sandbox-bg: #fdf1d8;
+    --editor-sandbox-border: #eccb86;
+    --editor-sandbox-text: #7a4f06;
 }
 
 *,
@@ -319,12 +357,6 @@ input[type='checkbox'] {
     color: var(--editor-danger);
 }
 
-.editor-button--small {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 13px;
-    border-radius: 6px;
-}
 
 .editor-dialog__actions {
     display: flex;
@@ -968,27 +1000,86 @@ input[type='checkbox'] {
     background: var(--editor-hover);
 }
 
+/*
+ * Счётчик рядом с подписью: число спокойным цветом и точка состояния перед
+ * ним. Яркая плашка тянула взгляд сильнее, чем стоит замечание (запись 56).
+ */
 .editor-badge {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: 9999px;
+    gap: 5px;
     font-size: 12px;
-    font-weight: 700;
-    color: var(--editor-on-accent);
+    font-weight: 600;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-badge::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
     background: var(--editor-text-muted);
 }
 
-.editor-badge--error {
+.editor-badge--error::before {
     background: var(--editor-error);
 }
 
-.editor-badge--warn {
+.editor-badge--warn::before {
     background: var(--editor-warn);
-    color: var(--editor-bg);
+}
+
+/* --- Меню настроек в шапке --- */
+
+.editor-menu {
+    position: relative;
+}
+
+.editor-menu__popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 2500;
+    min-width: 200px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+}
+
+.editor-menu__title {
+    margin: 0 4px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-menu__options {
+    display: grid;
+    gap: 2px;
+}
+
+.editor-menu__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-menu__option:hover {
+    background: var(--editor-hover);
+}
+
+.editor-menu__option input {
+    accent-color: var(--editor-highlight);
 }
 
 /* Значок вида из данных: картинка — маска, цвет — цвет текста вокруг. */
@@ -2113,8 +2204,8 @@ input[type='checkbox'] {
 }
 
 .editor-align-tip {
-    background: #e94560;
-    color: #ffffff;
+    background: var(--editor-map-handle);
+    color: var(--editor-on-accent);
     border: 0;
     font-weight: 700;
 }
@@ -2123,7 +2214,7 @@ input[type='checkbox'] {
 
 .editor-placing-plan {
     opacity: 0.6;
-    outline: 2px solid #e94560;
+    outline: 2px solid var(--editor-map-handle);
 }
 
 .editor-campus-building {
@@ -2136,7 +2227,7 @@ input[type='checkbox'] {
     height: 22px;
     border: 3px solid #ffffff;
     border-radius: 9999px;
-    background: #e94560;
+    background: var(--editor-map-handle);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -2146,7 +2237,7 @@ input[type='checkbox'] {
 
 .editor-place-handle--rotate span {
     border-radius: 9999px;
-    background: #f59e0b;
+    background: var(--editor-map-handle-alt);
     cursor: grab;
 }
 

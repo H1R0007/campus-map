@@ -471,6 +471,7 @@ export const EditorMap: React.FC = () => {
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const campusMeta = useEditorStore((s) => s.campusMeta);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
+  const theme = useEditorStore((s) => s.theme);
 
   // Корпус без этажей показывает территорию: разметки на нём нет, а поверх
   // карты — предложение добавить этажи (`PlanStatus`).
@@ -492,14 +493,15 @@ export const EditorMap: React.FC = () => {
       maxZoom={6}
       zoomControl
       doubleClickZoom={false}
-      overlayOpacity={0.6}
       imagePane={EDITOR_UNDERLAY}
     >
       <CameraController />
       <MapResizeWatcher />
       <KeyboardHandler />
 
-      {/* overlays order */}
+      {/* Слои читают цвета темы значением: сменили тему — слои
+          строятся заново, сама карта и её вид остаются (запись 56). */}
+      <React.Fragment key={theme}>
       <CampusBuildings />
       <NeighbourFloor />
       <GridOverlay />
@@ -515,6 +517,7 @@ export const EditorMap: React.FC = () => {
       <AlignmentLayer />
       <PlacementLayer />
       <MeasureLayer />
+      </React.Fragment>
 
       <MapEventHandler />
     </PixelMap>
