@@ -28,6 +28,9 @@ npm-debug.log*
 # Cache
 .cache/
 
+# Временные файлы конфига Vite: их оставляет сервер, остановленный на полуслове
+*.timestamp-*.mjs
+
 # TypeScript incremental build info
 *.tsbuildinfo
 
