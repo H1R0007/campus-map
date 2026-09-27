@@ -6,12 +6,14 @@
  * см. `tooling/vite-plugin-campus-data.mjs`), и правки сразу попадают в
  * `data/`, откуда их видит навигатор и забирает git. У развёрнутого редактора
  * таких адресов нет — там остаётся архив.
+ *
+ * В учебной копии (запись 55) те же запросы идут по её адресам
+ * (`config/space.ts`) и пишут в копию.
  */
 
+import { CONTROL_URL, SANDBOX_CONTROL_URL } from '../config/space';
 import type { HeldFile } from './planFiles';
 import type { SaveFile } from './saveFiles';
-
-const CONTROL_URL = `${import.meta.env.BASE_URL}__campus`;
 
 /** Отпечатки файлов данных на диск на момент чтения: путь → хеш содержимого. */
 export type FileHashes = Record<string, string>;
@@ -61,6 +63,44 @@ export async function fetchDiskManifest(): Promise<DiskManifest | null> {
   } catch {
     // Нет служебных адресов — редактор просто работает без сохранения на диск.
     return null;
+  }
+}
+
+/** Учебная копия: есть ли она и когда создана (миллисекунды). */
+export interface SandboxState {
+  exists: boolean;
+  createdAt: number | null;
+}
+
+/**
+ * Состояние учебной копии.
+ *
+ * @returns `null`, если копии здесь не бывает: редактор открыт не из репозитория
+ */
+export async function fetchSandboxState(): Promise<SandboxState | null> {
+  try {
+    const response = await fetch(`${SANDBOX_CONTROL_URL}/state`, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const body = (await response.json()) as Partial<SandboxState>;
+    return { exists: body.exists === true, createdAt: typeof body.createdAt === 'number' ? body.createdAt : null };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Делает свежую учебную копию настоящих данных; прежние пробы пропадают.
+ *
+ * @returns текст ошибки или `null`
+ */
+export async function resetSandbox(): Promise<string | null> {
+  try {
+    const response = await fetch(`${SANDBOX_CONTROL_URL}/reset`, { method: 'POST', headers: { 'X-Campus-Editor': '1' } });
+    if (response.ok) return null;
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    return body.error ?? `Сервер ответил ${response.status}`;
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : 'Сервер не ответил';
   }
 }
 

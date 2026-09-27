@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
+import { SPACE } from './config/space';
 import './index.css';
 
 /**
@@ -11,6 +12,10 @@ import './index.css';
  * `index.html`: редактор должен открываться в локальной сети вуза без
  * доступа к внешним сервисам.
  */
+
+// Вкладка с учебной копией подписана иначе: две вкладки редактора рядом
+// не должны путаться (запись 55).
+if (SPACE === 'sandbox') document.title = `Учебная копия — ${document.title}`;
 
 const container = document.getElementById('root');
 if (!container) {

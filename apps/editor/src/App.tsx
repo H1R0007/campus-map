@@ -18,8 +18,12 @@ import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
 import { HelpDialog } from './components/UI/HelpDialog';
 import { KindsDialog } from './components/UI/KindsDialog';
+import { SandboxBanner } from './components/UI/Sandbox';
 import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
+import { SPACE } from './config/space';
+import { fetchSandboxState, resetSandbox } from './utils/diskStore';
+import { isLeavingOnPurpose } from './utils/leavePage';
 
 /**
  * Экран ошибки с возможностью перезагрузки.
@@ -80,6 +84,8 @@ function useUnloadGuard(): void {
     if (!unsaved) return;
 
     const handler = (event: BeforeUnloadEvent) => {
+      // В учебную копию и обратно редактор уходит сам, записав черновик.
+      if (isLeavingOnPurpose()) return;
       event.preventDefault();
       event.returnValue = '';
     };
@@ -103,6 +109,16 @@ const App: React.FC = () => {
 
     const load = async () => {
       try {
+        // Учебную копию открыли адресом, а самой копии нет (её убрали
+        // вручную) — делаем её, иначе загружать нечего.
+        if (SPACE === 'sandbox') {
+          const sandbox = await fetchSandboxState();
+          if (sandbox && !sandbox.exists) {
+            const failure = await resetSandbox();
+            if (failure) throw new Error(`Учебная копия не создана: ${failure}`);
+          }
+        }
+
         // Загрузка и нормализация датасета — задача ядра. Собственный обход
         // файлов здесь дублировал `loadDataset`, отличался от него поведением
         // на ошибках и глушил их пустыми `catch {}`: отсутствующий этаж или
@@ -177,6 +193,7 @@ const App: React.FC = () => {
       {/* Карта в середине, всё остальное — в закреплённых колонках вокруг:
           ни одна панель не лежит поверх плана (запись 39). */}
       <div className="editor-shell">
+        <SandboxBanner />
         <TopBar />
         <div className="editor-body">
           <StructurePanel />

@@ -1,9 +1,11 @@
 import { datasetUrl } from '@campus-map/core';
 import { DATA_BASE_URL } from '../../config/dataBase';
+import { SPACE, spaceHref } from '../../config/space';
 import { clearDraft, readDraft, writeDraft } from '../../utils/draftStorage';
 import type { EditorDraft } from '../../utils/draftStorage';
-import { fetchDiskManifest, saveFilesToDisk, uploadToDisk } from '../../utils/diskStore';
-import type { FileHashes, SaveOutcome } from '../../utils/diskStore';
+import { fetchDiskManifest, fetchSandboxState, resetSandbox, saveFilesToDisk, uploadToDisk } from '../../utils/diskStore';
+import type { FileHashes, SandboxState, SaveOutcome } from '../../utils/diskStore';
+import { leavePage, reloadPage } from '../../utils/leavePage';
 import { heldFiles, holdFile, planFilesByHash, restoreHeldFiles } from '../../utils/planFiles';
 import { isPlanFile, planSave } from '../../utils/saveFiles';
 import { plural } from '../../utils/labels';
@@ -66,6 +68,20 @@ export interface StorageSlice {
   dismissDraft: () => void;
   /** Отложить решение: черновик остаётся до следующего открытия. */
   keepDraft: () => void;
+
+  /** Учебная копия (запись 55); `null` — здесь её не бывает (редактор не из репозитория). */
+  sandbox: SandboxState | null;
+  /**
+   * Открыть учебную копию. `fresh` — начать с чистой копии настоящих данных.
+   * Несохранённое записывается в черновик и вернётся с этими данными.
+   *
+   * @returns текст ошибки, если копию не удалось сделать
+   */
+  enterSandbox: (fresh: boolean) => Promise<string | null>;
+  /** Выйти из учебной копии к настоящим данным. */
+  leaveSandbox: () => Promise<void>;
+  /** В копии: выбросить пробы и начать с чистой копии. */
+  restartSandbox: () => Promise<string | null>;
 }
 
 export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
@@ -77,6 +93,7 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
   saving: false,
   saveRequest: 0,
   draftFound: null,
+  sandbox: null,
 
   requestSave: () =>
     set((s) => {
@@ -104,6 +121,9 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
 
     const draft = await readDraft();
     if (draft) set((s) => { s.draftFound = draft; });
+
+    const sandbox = manifest ? await fetchSandboxState() : null;
+    set((s) => { s.sandbox = sandbox; });
 
     startDraftAutosave(get);
   },
@@ -143,7 +163,7 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
         get().showNotice(
           outcome.written.length === 0 && deleted === 0
             ? 'Сохранять нечего: файлы данных уже такие'
-            : `Сохранено в data/: файлов ${outcome.written.length}` +
+            : `Сохранено в ${SPACE === 'sandbox' ? 'учебную копию' : 'data/'}: файлов ${outcome.written.length}` +
                 (deleted > 0 ? `, удалено ${deleted} ${plural(deleted, ['файл', 'файла', 'файлов'])}` : '')
         );
       } else if (outcome.kind === 'conflict') {
@@ -220,6 +240,30 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
   keepDraft: () => {
     set((s) => { s.draftFound = null; });
   },
+
+  enterSandbox: async (fresh) => {
+    const current = get().sandbox;
+    if (fresh || !current?.exists) {
+      const error = await resetSandbox();
+      if (error) return error;
+    }
+    await writeDraftNow(get());
+    leavePage(spaceHref('sandbox'));
+    return null;
+  },
+
+  leaveSandbox: async () => {
+    await writeDraftNow(get());
+    leavePage(spaceHref('main'));
+  },
+
+  restartSandbox: async () => {
+    const error = await resetSandbox();
+    if (error) return error;
+    await clearDraft();
+    reloadPage();
+    return null;
+  },
 });
 
 /** Что сделать с файлами, чтобы на диске оказалось состояние редактора. */
@@ -290,20 +334,26 @@ function startDraftAutosave(get: () => EditorStore): void {
   useHistoryStore.subscribe(() => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
-      const state = get();
-      const unsaved = useHistoryStore.getState().stateId() !== state.savedStateId;
-
-      if (unsaved) {
-        void writeDraft({
-          savedAt: Date.now(),
-          dataset: datasetFromState(state),
-          base: state.diskHashes,
-          planFiles: [...state.planFiles.entries()],
-          heldFiles: heldFiles(),
-        });
-      } else {
-        void clearDraft();
-      }
+      void writeDraftNow(get());
     }, DRAFT_DELAY_MS);
+  });
+}
+
+/**
+ * Черновик — сейчас: есть несохранённое — записать, нет — убрать прежний.
+ * Перед уходом в учебную копию и обратно запись не ждёт паузы в правках.
+ */
+async function writeDraftNow(state: EditorStore): Promise<void> {
+  const unsaved = useHistoryStore.getState().stateId() !== state.savedStateId;
+  if (!unsaved) {
+    await clearDraft();
+    return;
+  }
+  await writeDraft({
+    savedAt: Date.now(),
+    dataset: datasetFromState(state),
+    base: state.diskHashes,
+    planFiles: [...state.planFiles.entries()],
+    heldFiles: heldFiles(),
   });
 }

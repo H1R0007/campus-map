@@ -42,6 +42,14 @@ const uploadsDir = process.env.CAMPUS_UPLOADS_DIR
   ? path.resolve(process.cwd(), process.env.CAMPUS_UPLOADS_DIR)
   : undefined;
 
+/**
+ * Учебная копия данных (запись 55): пробовать правки без риска. Лежит в
+ * `.local/`, вне git; в проверках подменяется, как и каталог данных.
+ */
+const sandboxDir = process.env.CAMPUS_SANDBOX_DIR
+  ? path.resolve(process.cwd(), process.env.CAMPUS_SANDBOX_DIR)
+  : path.resolve(__dirname, '../../.local/sandbox');
+
 export default defineConfig({
   base,
 
@@ -57,7 +65,7 @@ export default defineConfig({
     // Редактор читает тот же датасет из корня монорепо, что и навигатор, и —
     // в режиме разработки — сохраняет правки прямо в него: команда разметки
     // запускает редактор из репозитория, а результат забирает git.
-    campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, writable: true }),
+    campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, sandboxDir, writable: true }),
 
     // Библиотека значков для окна «Все виды» — только в редакторе и только
     // при открытии выбора значка (запись 44).

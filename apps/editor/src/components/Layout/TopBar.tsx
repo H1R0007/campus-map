@@ -8,6 +8,8 @@ import { useValidationReport } from '../../hooks/useValidationReport';
 import { useStructureChecks } from '../../hooks/useStructureChecks';
 import { ConfirmDialog } from '../UI/ConfirmDialog';
 import { Icon } from '../UI/Icon';
+import { SandboxButton } from '../UI/Sandbox';
+import { SPACE } from '../../config/space';
 
 /**
  * Шапка редактора: отмена, проверка, поиск и файлы.
@@ -181,6 +183,8 @@ export const TopBar: React.FC = () => {
           <Icon name="help" size={20} />
         </button>
 
+        <SandboxButton />
+
         <div className="editor-topbar__group" role="group" aria-label="Файлы">
           <input
             ref={fileRef}
@@ -221,7 +225,7 @@ export const TopBar: React.FC = () => {
               onClick={() => void handleSave('disk')}
               disabled={saving || !unsaved}
               className="editor-button editor-button--primary"
-              title={`Сохранить в ${diskDataDir ?? 'data/'} (Ctrl+S)`}
+              title={SPACE === 'sandbox' ? 'Сохранить в учебную копию (Ctrl+S)' : `Сохранить в ${diskDataDir ?? 'data/'} (Ctrl+S)`}
             >
               <Icon name={saving ? 'refresh' : 'checkCircle'} className={saving ? 'animate-spin' : undefined} />
               Сохранить

@@ -29,6 +29,7 @@ import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorProperties from './browser/scenarios/editor-properties.mjs';
 import editorRoute from './browser/scenarios/editor-route.mjs';
 import editorSave from './browser/scenarios/editor-save.mjs';
+import editorSandbox from './browser/scenarios/editor-sandbox.mjs';
 import editorStructure from './browser/scenarios/editor-structure.mjs';
 import editorImport from './browser/scenarios/editor-import.mjs';
 import editorAlign from './browser/scenarios/editor-align.mjs';
@@ -66,6 +67,7 @@ const SCENARIOS = [
   editorProperties,
   editorRoute,
   editorSave,
+  editorSandbox,
   editorStructure,
   editorImport,
   editorAlign,
@@ -199,18 +201,20 @@ async function startIsolatedData(app) {
   const dataDir = path.join(root, 'data');
   const sourcesDir = path.join(root, 'data-sources');
   const uploadsDir = path.join(root, 'uploads');
+  const sandboxDir = path.join(root, 'sandbox');
   cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
 
   const server = await startVite({
     app,
     mode: 'dev',
-    env: { CAMPUS_DATA_DIR: dataDir, CAMPUS_SOURCES_DIR: sourcesDir, CAMPUS_UPLOADS_DIR: uploadsDir },
+    env: { CAMPUS_DATA_DIR: dataDir, CAMPUS_SOURCES_DIR: sourcesDir, CAMPUS_UPLOADS_DIR: uploadsDir, CAMPUS_SANDBOX_DIR: sandboxDir },
   });
 
   return {
     port: server.port,
     dataDir,
     sourcesDir,
+    sandboxDir,
     stop() {
       server.stop();
       try {
@@ -231,12 +235,12 @@ async function startIsolatedData(app) {
  *
  * Сценарию с `isolatedData` достаётся свой сервер на копии `data/` и путь к
  * ней (`dataDir`): он проверяет сохранение, читая файлы с диска, и не трогает
- * канонический датасет. Исходники планов у такого сервера тоже свои
- * (`sourcesDir`).
+ * канонический датасет. Исходники планов и учебная копия у такого сервера
+ * тоже свои (`sourcesDir`, `sandboxDir`).
  *
  * @returns {Promise<string | null>} текст провала или `null`
  */
-async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir }) {
+async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir, sandboxDir }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
 
@@ -258,7 +262,7 @@ async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, 
   };
 
   try {
-    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir });
+    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir, sandboxDir });
     return null;
   } catch (error) {
     return error.stack ?? String(error);
@@ -318,6 +322,7 @@ async function main() {
           stopServer: server.stop,
           dataDir: isolated?.dataDir,
           sourcesDir: isolated?.sourcesDir,
+          sandboxDir: isolated?.sandboxDir,
         });
 
         isolated?.stop();

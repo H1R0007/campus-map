@@ -75,6 +75,11 @@
     --editor-map-draft: #60a5fa;
     --editor-map-draft-point: #93c5fd;
     --editor-map-grid: rgba(255, 255, 255, 0.12);
+
+    /* Учебная копия: полоса над редактором. */
+    --editor-sandbox-bg: rgba(217, 164, 65, 0.14);
+    --editor-sandbox-border: rgba(217, 164, 65, 0.35);
+    --editor-sandbox-text: #f0d49a;
 }
 
 *,
@@ -285,6 +290,40 @@ input[type='checkbox'] {
 
 .editor-dialog__text--warn {
     color: var(--editor-danger);
+}
+
+.editor-dialog__text--lead {
+    color: var(--editor-text);
+}
+
+/* --- Учебная копия (запись 55) --- */
+
+/* Полоса над редактором, пока открыта копия: заметная, но спокойная. */
+.editor-sandbox-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
+    background: var(--editor-sandbox-bg);
+    border-bottom: 1px solid var(--editor-sandbox-border);
+    color: var(--editor-sandbox-text);
+    font-size: 13px;
+}
+
+.editor-sandbox-banner__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-sandbox-banner__error {
+    color: var(--editor-danger);
+}
+
+.editor-button--small {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 13px;
+    border-radius: 6px;
 }
 
 .editor-dialog__actions {

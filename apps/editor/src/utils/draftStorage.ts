@@ -1,4 +1,5 @@
 import type { Dataset } from '@campus-map/core';
+import { SPACE } from '../config/space';
 import type { HeldFile } from './planFiles';
 
 /**
@@ -16,7 +17,8 @@ import type { HeldFile } from './planFiles';
 
 const DB_NAME = 'campus-map-editor';
 const STORE = 'drafts';
-const KEY = 'current';
+/** У учебной копии свой черновик: пробы не должны предлагаться к восстановлению в настоящих данных. */
+const KEY = SPACE === 'sandbox' ? 'sandbox' : 'current';
 const VERSION = 1;
 
 export interface EditorDraft {

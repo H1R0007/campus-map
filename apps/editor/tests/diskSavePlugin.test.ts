@@ -30,13 +30,14 @@ let root: string;
 let dataDir: string;
 let sourcesDir: string;
 let uploadsDir: string;
+let sandboxDir: string;
 let server: ViteDevServer;
 let origin: string;
 
 const EDITOR = { 'X-Campus-Editor': '1' };
 
 function resetData() {
-  for (const directory of [dataDir, sourcesDir, uploadsDir]) {
+  for (const directory of [dataDir, sourcesDir, uploadsDir, sandboxDir]) {
     rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
   const files: Record<string, Buffer | string> = {
@@ -82,6 +83,7 @@ beforeAll(async () => {
   dataDir = path.join(root, 'data');
   sourcesDir = path.join(root, 'data-sources');
   uploadsDir = path.join(root, 'uploads');
+  sandboxDir = path.join(root, 'sandbox');
   resetData();
 
   // Своё пустое приложение и без слежения за файлами: на Windows слежение
@@ -93,7 +95,7 @@ beforeAll(async () => {
     root: app,
     logLevel: 'silent',
     server: { host: '127.0.0.1', port: 0, watch: null },
-    plugins: [campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, writable: true })],
+    plugins: [campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, sandboxDir, writable: true })],
   });
   await server.listen();
   origin = `http://127.0.0.1:${(server.httpServer!.address() as AddressInfo).port}`;
@@ -254,5 +256,107 @@ describe('чтение исходника', () => {
     expect((await fetch(`${origin}/__campus/sources/${PDF_NAME}`)).status).toBe(403);
     expect((await fetch(`${origin}/__campus/sources/${sha256('нет').slice(0, 16)}.pdf`, { headers: EDITOR })).status).toBe(404);
     expect((await fetch(`${origin}/__campus/sources/meta.json`, { headers: EDITOR })).status).toBe(400);
+  });
+});
+
+describe('учебная копия (запись 55)', () => {
+  const SANDBOX = '/__campus/sandbox';
+  const sandboxFile = (relative: string) => path.join(sandboxDir, 'data', relative);
+
+  async function state(): Promise<{ exists: boolean; createdAt: number | null }> {
+    return (await fetch(`${origin}${SANDBOX}/state`)).json();
+  }
+
+  async function reset(headers: Record<string, string> = EDITOR) {
+    return fetch(`${origin}${SANDBOX}/reset`, { method: 'POST', headers });
+  }
+
+  async function saveTo(prefix: string, body: Record<string, unknown>) {
+    const response = await fetch(`${origin}${prefix}/save`, {
+      method: 'POST',
+      headers: { ...EDITOR, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: response.status, body: await response.json() };
+  }
+
+  it('создаётся копией настоящих данных и отдаётся по своему адресу', async () => {
+    expect(await state()).toEqual({ exists: false, createdAt: null });
+
+    expect((await reset()).status).toBe(200);
+    const after = await state();
+    expect(after.exists).toBe(true);
+    expect(typeof after.createdAt).toBe('number');
+    expect(readFileSync(sandboxFile('buildings/b/floors/2/map.png'))).toEqual(PLAN_2);
+
+    const served = await fetch(`${origin}${SANDBOX}/data/buildings/b/floors/2/map.png`);
+    expect(served.status).toBe(200);
+    expect(Buffer.from(await served.arrayBuffer())).toEqual(PLAN_2);
+    // Выход из копии к настоящим данным закодированным «..» — отказ.
+    expect((await fetch(`${origin}${SANDBOX}/data/%2e%2e%2f%2e%2e%2f%2e%2e%2fdata/campus/meta.json`)).status).toBe(403);
+  });
+
+  it('сохранение в копию не трогает настоящие данные', async () => {
+    await reset();
+    const { files: base } = await (await fetch(`${origin}${SANDBOX}/manifest`, { headers: EDITOR })).json();
+    await upload(NEW_PLAN);
+
+    const { status } = await saveTo(SANDBOX, {
+      files: {
+        'campus/meta.json': { text: '{"name":"копия"}' },
+        'buildings/b/floors/2/map.webp': { upload: sha256(NEW_PLAN) },
+      },
+      delete: ['buildings/b/floors/2/map.png', 'buildings/c/floors/1/map.png'],
+      base,
+    });
+    expect(status).toBe(200);
+
+    expect(readFileSync(sandboxFile('campus/meta.json'), 'utf8')).toBe('{"name":"копия"}');
+    expect(readFileSync(sandboxFile('buildings/b/floors/2/map.webp'))).toEqual(NEW_PLAN);
+    expect(existsSync(sandboxFile('buildings/b/floors/2/map.png'))).toBe(false);
+
+    // Настоящие данные — как были.
+    expect(read('campus/meta.json').toString()).toBe('{}');
+    expect(read('buildings/b/floors/2/map.png')).toEqual(PLAN_2);
+    expect(exists('buildings/c/floors/1/map.png')).toBe(true);
+    expect(exists('buildings/b/floors/2/map.webp')).toBe(false);
+  });
+
+  it('читает настоящие исходники, а новые кладёт к себе', async () => {
+    await reset();
+    mkdirSync(sourcesDir, { recursive: true });
+    writeFileSync(path.join(sourcesDir, PDF_NAME), PDF);
+
+    const read = await fetch(`${origin}${SANDBOX}/sources/${PDF_NAME}`, { headers: EDITOR });
+    expect(read.status).toBe(200);
+    const { sources } = await (await fetch(`${origin}${SANDBOX}/manifest`, { headers: EDITOR })).json();
+    expect(sources).toContain(PDF_NAME);
+
+    const other = Buffer.from('%PDF-1.7 другой оригинал');
+    const otherName = `${sha256(other).slice(0, 16)}.pdf`;
+    await upload(other);
+    const { status } = await saveTo(SANDBOX, { files: {}, base: {}, sources: { [otherName]: { upload: sha256(other) } } });
+    expect(status).toBe(200);
+    expect(existsSync(path.join(sandboxDir, 'data-sources', otherName))).toBe(true);
+    expect(existsSync(path.join(sourcesDir, otherName))).toBe(false);
+  });
+
+  it('«Начать заново» возвращает копию к настоящим данным', async () => {
+    await reset();
+    writeFileSync(sandboxFile('campus/meta.json'), '{"правка":"в копии"}');
+    writeFileSync(path.join(sandboxDir, 'лишний.txt'), 'остаётся — вне данных копии');
+
+    expect((await reset()).status).toBe(200);
+    expect(readFileSync(sandboxFile('campus/meta.json'), 'utf8')).toBe('{}');
+  });
+
+  it('сбросить копию можно только с этой машины и только со страницы редактора', async () => {
+    expect((await reset({})).status).toBe(403);
+    expect(await state()).toEqual({ exists: false, createdAt: null });
+  });
+
+  it('копия не может лежать внутри данных или вокруг них', () => {
+    expect(() => campusDataPlugin({ sourceDir: dataDir, sandboxDir: path.join(dataDir, 'sandbox'), writable: true })).toThrow(/пересекается/);
+    expect(() => campusDataPlugin({ sourceDir: dataDir, sandboxDir: root, writable: true })).toThrow(/пересекается/);
   });
 });

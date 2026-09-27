@@ -1,4 +1,4 @@
-import { DATA_ROOT } from '@campus-map/core';
+import { SPACE_DATA_URL } from './space';
 
 /**
  * Базовый URL каталога данных.
@@ -9,7 +9,10 @@ import { DATA_ROOT } from '@campus-map/core';
  * дороже, чем держать их рядом с потребителем. Единственная настоящая
  * константа — `DATA_ROOT` — уже живёт в ядре и импортируется обоими.
  *
+ * У редактора данные бывают двух видов — настоящие и учебная копия
+ * (`config/space.ts`, запись 55); адрес зависит от того, с чем он открыт.
+ *
  * Подробности о том, зачем базовый путь вообще нужен, — в
  * `apps/viewer/src/config/dataBase.ts`.
  */
-export const DATA_BASE_URL = `${import.meta.env.BASE_URL}${DATA_ROOT}`;
+export const DATA_BASE_URL = SPACE_DATA_URL;
