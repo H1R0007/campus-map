@@ -1518,10 +1518,33 @@ input[type='checkbox'] {
     border-top: 1px solid var(--editor-border);
 }
 
+/* Заголовок секции карточки: мелко, заглавными, как в инспекторах редакторов (запись 61). */
 .editor-card__heading {
     margin: 0 0 6px;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+/* Опасная зона внизу карточки: удаление — отдельно от остальных действий. */
+.editor-card__danger {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--editor-border);
+}
+
+/* Состояние строкой: «размещён», «не задан». */
+.editor-state--ok {
+    color: var(--editor-success);
+}
+
+.editor-state--warn {
+    color: var(--editor-warn);
 }
 
 /* Заголовок раздела карточки с пояснением ⓘ. */

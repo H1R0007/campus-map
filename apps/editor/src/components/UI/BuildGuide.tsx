@@ -62,7 +62,7 @@ export const BuildGuide: React.FC = () => {
       done: campusMpp !== undefined,
       status: campusMpp === undefined ? 'Не задан' : `1 пикс. = ${String(Math.round(campusMpp * 10000) / 10000).replace('.', ',')} м`,
       hint: 'Два места на плане территории и расстояние между ними в метрах: без масштаба навигатор не покажет время в пути. Если у плана корпуса есть масштаб чертежа («1:200»), масштаб территории найдётся сам, когда поставите этот корпус.',
-      action: { label: campusMpp === undefined ? 'Задать масштаб…' : 'Уточнить…', run: startMeasuring },
+      action: { label: campusMpp === undefined ? 'Измерить масштаб…' : 'Уточнить…', run: startMeasuring },
     },
     {
       title: 'Размещение корпусов',

@@ -183,3 +183,22 @@ export const CheckRow: React.FC<{
     {info && <InfoTip about={label}>{info}</InfoTip>}
   </div>
 );
+
+/**
+ * Секция карточки: заголовок, необязательное пояснение ⓘ и содержимое
+ * (запись 61). Карточки собираются из секций — одинаково во всех режимах.
+ */
+export const Section: React.FC<{ title: string; label?: string; info?: React.ReactNode; children: React.ReactNode }> = ({
+  title,
+  label,
+  info,
+  children,
+}) => (
+  <section className="editor-card__section" aria-label={label ?? title}>
+    <div className="editor-card__heading-row">
+      <h3 className="editor-card__heading">{title}</h3>
+      {info && <InfoTip about={title}>{info}</InfoTip>}
+    </div>
+    {children}
+  </section>
+);

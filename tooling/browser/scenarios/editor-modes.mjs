@@ -42,6 +42,16 @@ export default {
       assert.match(await left(), /Загрузить планы/);
       assert.doesNotMatch(await left(), /Показывать на карте/);
       assert.ok(await has('section[aria-label="Этаж и корпус"]'), 'справа нет свойств этажа и корпуса');
+      // Свойства — секциями, удаление — отдельно в самом низу (запись 61).
+      const card = await page.eval(`(() => {
+        const card = document.querySelector('section[aria-label="Этаж и корпус"]');
+        const sections = [...card.querySelectorAll('.editor-card__section')].map((s) => s.getAttribute('aria-label'));
+        const last = card.lastElementChild;
+        return { sections, lastIsDanger: last?.getAttribute('aria-label') === 'Удаление', danger: [...last.querySelectorAll('button')].map((b) => b.textContent.trim()) };
+      })()`);
+      assert.deepEqual(card.sections.slice(0, 3), ['Этаж: основное', 'Этаж: план', 'Корпус: основное'], JSON.stringify(card.sections));
+      assert.ok(card.lastIsDanger, 'удаление не в самом низу карточки');
+      assert.deepEqual(card.danger, ['Удалить этаж…', 'Удалить корпус…']);
       assert.doesNotMatch(await e.status(), /Щелчок — выбрать/, 'подсказка инструмента вне «Разметки»');
       await shot('editor-modes-plans');
 

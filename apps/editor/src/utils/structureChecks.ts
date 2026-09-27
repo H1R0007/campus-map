@@ -46,7 +46,7 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
     issues.push({
       text: 'Масштаб территории не задан: без него навигатор не показывает время в пути, а корпуса не разместить',
       action: { kind: 'measure' },
-      actionLabel: 'Задать масштаб…',
+      actionLabel: 'Измерить масштаб…',
       navigator: true,
     });
   }

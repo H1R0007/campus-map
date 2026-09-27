@@ -7,7 +7,7 @@ import { useStructureChecks } from '../../hooks/useStructureChecks';
 import { planStats } from '../../utils/planStats';
 import { plural } from '../../utils/labels';
 import { Icon } from './Icon';
-import { BuildingSection, CampusPlanSection, FloorSection } from './StructureCards';
+import { BuildingSection, CampusPlanSection, DangerZone, FloorSection } from './StructureCards';
 import { BuildGuide } from './BuildGuide';
 
 /**
@@ -43,6 +43,7 @@ export const StructureView: React.FC = () => {
       </header>
       {floor && <FloorSection key={`${building.id}/${floor.floor}`} building={building} floor={floor} />}
       <BuildingSection key={building.id} building={building} />
+      <DangerZone building={building} floor={floor} />
     </section>
   );
 };

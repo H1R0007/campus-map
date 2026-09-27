@@ -42,7 +42,7 @@ export default {
     });
 
     await step('«Передвинуть…» кладёт корпус с ручками поверх территории', async () => {
-      await e.press('Изменить размещение…');
+      await e.press('Изменить размещение: Корпус А');
       assert.match(await barText('Постановка корпуса'), /Корпус А на территории — план этажа 1/);
       assert.equal(await page.eval(`document.querySelectorAll('.editor-place-handle').length`), 3);
       assert.ok(await page.eval(`!!document.querySelector('.campus-placed-plan.editor-placing-plan')`), 'нет плана, который ставят');
