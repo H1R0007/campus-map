@@ -79,7 +79,8 @@
     /* Черновые построения: линия, рамка выделения, сетка. */
     --editor-map-draft: #60a5fa;
     --editor-map-draft-point: #93c5fd;
-    --editor-map-grid: rgba(255, 255, 255, 0.12);
+    /* Сетка видна и на светлом плане, и на тёмном фоне вокруг него. */
+    --editor-map-grid: rgba(59, 130, 246, 0.35);
     /* Ручки и отметки операций: постановка корпуса, совмещение, замер. */
     --editor-map-handle: #2563eb;
     --editor-map-handle-alt: #f59e0b;
@@ -115,7 +116,7 @@
 
     --editor-map-bg: #d8dce2;
     --editor-map-line-hover: #0f172a;
-    --editor-map-grid: rgba(15, 23, 42, 0.12);
+    --editor-map-grid: rgba(37, 99, 235, 0.3);
 
     --editor-sandbox-bg: #fdf1d8;
     --editor-sandbox-border: #eccb86;
@@ -1097,7 +1098,9 @@ input[type='checkbox'] {
     background: var(--editor-hover);
 }
 
-.editor-check input {
+/* Только сам флажок или переключатель: поле числа в строке — своей ширины. */
+.editor-check input[type='checkbox'],
+.editor-check input[type='radio'] {
     width: 18px;
     height: 18px;
     flex: none;

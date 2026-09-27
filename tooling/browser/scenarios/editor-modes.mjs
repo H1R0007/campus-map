@@ -34,6 +34,32 @@ export default {
       assert.match(await right(), /Свойства/);
     });
 
+    await step('сетка: поле клетки показывает число, линии заметны на светлом плане', async () => {
+      await e.toggleFilter('Включить сетку');
+      const field = await page.eval(`(() => {
+        const input = [...document.querySelectorAll('label')].find((l) => l.textContent.includes('Клетка'))?.querySelector('input');
+        if (!input) return null;
+        return { width: input.getBoundingClientRect().width, value: input.value };
+      })()`);
+      assert.ok(field && field.width >= 60, `поле клетки сжато: ${JSON.stringify(field)}`);
+      assert.ok(Number(field.value) > 0, 'в поле клетки нет числа');
+
+      // Линия сетки на белом плане: цвет не белый и не почти прозрачный — в
+      // обеих темах («как в системе» идёт за темой системы).
+      for (const scheme of ['dark', 'light']) {
+        await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
+        await page.sleep(400);
+        const stroke = await page.eval(`(() => {
+          const path = [...document.querySelectorAll('.leaflet-overlay-pane path')].find((p) => !p.dataset.nodeId && !p.dataset.edge && p.getAttribute('stroke-width') === '1');
+          return path ? path.getAttribute('stroke') : null;
+        })()`);
+        assert.ok(stroke, 'линий сетки нет');
+        const [r, g, b, a = 1] = stroke.match(/[\d.]+/g).map(Number);
+        assert.ok(a >= 0.25 && !(r > 230 && g > 230 && b > 230), `сетку не видно на светлом плане (${scheme}): ${stroke}`);
+      }
+      await e.toggleFilter('Включить сетку');
+    });
+
     await step('«Планы и корпуса»: свойства этажа и корпуса, точки бледные и не ловят щелчки', async () => {
       await e.mode('Планы и корпуса');
       assert.equal(await pressedMode(), 'Планы и корпуса');
