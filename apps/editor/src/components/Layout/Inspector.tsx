@@ -7,6 +7,7 @@ import { Icon } from '../UI/Icon';
 import { PropertiesView } from '../UI/PropertiesView';
 import { ProblemsView } from '../UI/ProblemsView';
 import { RouteView } from '../UI/RouteView';
+import { ColumnResizer } from './ColumnResizer';
 
 const TABS: { id: InspectorTab; label: string }[] = [
   { id: 'properties', label: 'Свойства' },
@@ -27,6 +28,8 @@ export const Inspector: React.FC = () => {
   const setTab = useEditorStore((s) => s.setInspectorTab);
   const collapsed = useEditorStore((s) => s.inspectorCollapsed);
   const setCollapsed = useEditorStore((s) => s.setInspectorCollapsed);
+  const width = useEditorStore((s) => s.inspectorWidth);
+  const columnRef = useRef<HTMLElement>(null);
   const report = useValidationReport();
   const structure = useStructureChecks();
   const tabRefs = useRef<Record<InspectorTab, HTMLButtonElement | null>>({ properties: null, problems: null, route: null });
@@ -64,7 +67,8 @@ export const Inspector: React.FC = () => {
   const problems = report.errors.length + report.warnings.length + structure.length;
 
   return (
-    <aside aria-label="Инспектор" className="editor-inspector">
+    <aside aria-label="Инспектор" className="editor-inspector" ref={columnRef} style={width ? { width } : undefined}>
+      <ColumnResizer column="inspector" edge="left" label="Ширина инспектора" columnRef={columnRef} />
       <div className="editor-tabs">
         <div role="tablist" aria-label="Разделы инспектора" className="flex flex-1" onKeyDown={onTabKeyDown}>
           {TABS.map((t) => (

@@ -134,7 +134,7 @@ const KeyboardHandler: React.FC = () => {
       // двигают выбранный узел за спиной у человека.
       if (
         (ARROW_STEPS[code] || code === 'Home' || code === 'End') &&
-        target?.closest?.('[role="tablist"], [role="listbox"], [role="radiogroup"]')
+        target?.closest?.('[role="tablist"], [role="listbox"], [role="radiogroup"], [role="separator"]')
       ) {
         return;
       }
@@ -172,6 +172,11 @@ const KeyboardHandler: React.FC = () => {
 
       if (ctrl) {
         switch (code) {
+          // Как в VS Code: спрятать или показать левую колонку (запись 57).
+          case 'KeyB':
+            e.preventDefault();
+            st.setStructureCollapsed(!st.structureCollapsed);
+            return;
           case 'KeyZ':
             e.preventDefault();
             if (e.shiftKey) st.redo();

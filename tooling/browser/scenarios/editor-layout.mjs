@@ -167,5 +167,57 @@ export default {
       await e.press('Развернуть инспектор');
       assert.ok(await e.rect('[role="tablist"]'), 'инспектор не развернулся');
     });
+
+    await step('край колонки тянут мышью; ширина помнится, двойной щелчок возвращает как было (запись 57)', async () => {
+      const sidebar = () => e.rect('nav[aria-label="Структура кампуса"]');
+      const inspector = () => e.rect('aside[aria-label="Инспектор"]');
+      const map = () => e.rect('.leaflet-container');
+      const edge = (label) => e.rect(`[role="separator"][aria-label="${label}"]`);
+
+      const before = { sidebar: (await sidebar()).width, inspector: (await inspector()).width, map: (await map()).width };
+      const left = await edge('Ширина структуры');
+      await e.drag(left.left + left.width / 2, left.top + 300, left.left + left.width / 2 + 120, left.top + 300);
+      const right = await edge('Ширина инспектора');
+      await e.drag(right.left + right.width / 2, right.top + 300, right.left + right.width / 2 - 100, right.top + 300);
+
+      const wide = { sidebar: (await sidebar()).width, inspector: (await inspector()).width, map: (await map()).width };
+      assert.ok(Math.abs(wide.sidebar - (before.sidebar + 120)) <= 2, `структура не стала шире на 120: ${before.sidebar} → ${wide.sidebar}`);
+      assert.ok(Math.abs(wide.inspector - (before.inspector + 100)) <= 2, `инспектор не стал шире на 100: ${before.inspector} → ${wide.inspector}`);
+      assert.ok(wide.map < before.map - 200, `карта не уступила место: ${before.map} → ${wide.map}`);
+      await shot('editor-layout-resized');
+
+      // Уже самой узкой не бывает: край держит предел.
+      const narrow = await edge('Ширина структуры');
+      await e.drag(narrow.left + 3, narrow.top + 300, narrow.left - 600, narrow.top + 300);
+      assert.equal(Math.round((await sidebar()).width), 200, 'структура ужалась ниже предела');
+
+      await e.open();
+      assert.equal(Math.round((await sidebar()).width), 200, 'ширина структуры забыта после перезагрузки');
+      assert.ok(Math.abs((await inspector()).width - wide.inspector) <= 2, 'ширина инспектора забыта после перезагрузки');
+
+      // Стрелки на крае — тот же шаг с клавиатуры.
+      await page.eval(`document.querySelector('[role="separator"][aria-label="Ширина структуры"]').focus()`);
+      await e.key('ArrowRight');
+      await e.key('ArrowRight');
+      assert.equal(Math.round((await sidebar()).width), 232, 'стрелки не меняют ширину');
+
+      const reset = async (label) => {
+        const box = await edge(label);
+        await e.dblclick(box.left + box.width / 2, box.top + 300);
+      };
+      await reset('Ширина структуры');
+      await reset('Ширина инспектора');
+      assert.equal(Math.round((await sidebar()).width), Math.round(before.sidebar), 'двойной щелчок не вернул ширину структуры');
+      assert.equal(Math.round((await inspector()).width), Math.round(before.inspector), 'двойной щелчок не вернул ширину инспектора');
+    });
+
+    await step('Ctrl+B прячет и возвращает левую колонку', async () => {
+      const empty = await e.emptyMapPoint();
+      await e.click(empty.x, empty.y);
+      await e.key('b', { modifiers: MOD.ctrl });
+      assert.ok(await e.rect('button[aria-label="Развернуть структуру"]'), 'Ctrl+B не спрятал структуру');
+      await e.key('b', { modifiers: MOD.ctrl });
+      assert.ok(await e.rect('[role="separator"][aria-label="Ширина структуры"]'), 'Ctrl+B не вернул структуру');
+    });
   },
 };

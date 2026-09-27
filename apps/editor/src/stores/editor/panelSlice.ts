@@ -118,8 +118,11 @@ export interface PanelSlice {
   setInspectorTab: (tab: InspectorTab, expand?: boolean) => void;
   setStructureCollapsed: (collapsed: boolean) => void;
   setInspectorCollapsed: (collapsed: boolean) => void;
-  /** Ширина колонки; `null` — вернуть ширину по умолчанию. */
-  setColumnWidth: (column: 'structure' | 'inspector', width: number | null) => void;
+  /**
+   * Ширина колонки; `null` — вернуть ширину по умолчанию. `remember` —
+   * запомнить в браузере: во время перетаскивания края не нужно.
+   */
+  setColumnWidth: (column: 'structure' | 'inspector', width: number | null, remember?: boolean) => void;
   setThemeChoice: (choice: ThemeChoice) => void;
   /** Тема системы сменилась, пока выбрано «как в системе». */
   syncSystemTheme: () => void;
@@ -193,12 +196,12 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     updateLayoutPrefs({ inspectorCollapsed: collapsed });
   },
 
-  setColumnWidth: (column, width) => {
+  setColumnWidth: (column, width, remember = true) => {
     set((s) => {
       if (column === 'structure') s.structureWidth = width;
       else s.inspectorWidth = width;
     });
-    updateLayoutPrefs(column === 'structure' ? { structureWidth: width } : { inspectorWidth: width });
+    if (remember) updateLayoutPrefs(column === 'structure' ? { structureWidth: width } : { inspectorWidth: width });
   },
 
   setThemeChoice: (choice) => {

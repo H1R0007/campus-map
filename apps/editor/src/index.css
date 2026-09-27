@@ -593,11 +593,62 @@ input[type='checkbox'] {
 
 .editor-sidebar,
 .editor-inspector {
+    position: relative;
     flex: none;
     display: flex;
     flex-direction: column;
     min-height: 0;
     background: var(--editor-panel);
+}
+
+/*
+ * Край колонки, который тянут мышью (запись 57): полоска у самой границы,
+ * под курсором и при перетаскивании — линия акцента.
+ */
+.editor-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 5;
+    width: 6px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.editor-resizer--right {
+    right: 0;
+}
+
+.editor-resizer--left {
+    left: 0;
+}
+
+.editor-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: transparent;
+    transition: background-color 120ms;
+}
+
+.editor-resizer--right::after {
+    right: 0;
+}
+
+.editor-resizer--left::after {
+    left: 0;
+}
+
+.editor-resizer:hover::after,
+.editor-resizer:active::after,
+.editor-resizer:focus-visible::after {
+    background: var(--editor-focus);
+}
+
+.editor-resizer:focus-visible {
+    outline: none;
 }
 
 .editor-sidebar {

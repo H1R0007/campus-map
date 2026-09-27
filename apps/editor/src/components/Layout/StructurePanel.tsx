@@ -1,10 +1,11 @@
-import React, { useDeferredValue, useMemo, useState } from 'react';
+import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { nextBuildingName } from '../../stores/editor/structureSlice';
 import { Icon } from '../UI/Icon';
 import { AddFloorForm } from '../UI/StructureCards';
 import { DisplayOptions } from './DisplayOptions';
+import { ColumnResizer } from './ColumnResizer';
 
 /** Ключ плана для подсчёта узлов: корпус и этаж. */
 const planKey = (building: string, floor: number) => `${building}:${floor}`;
@@ -19,6 +20,8 @@ const planKey = (building: string, floor: number) => `${building}:${floor}`;
 export const StructurePanel: React.FC = () => {
   const collapsed = useEditorStore((s) => s.structureCollapsed);
   const setCollapsed = useEditorStore((s) => s.setStructureCollapsed);
+  const width = useEditorStore((s) => s.structureWidth);
+  const columnRef = useRef<HTMLElement>(null);
 
   if (collapsed) {
     return (
@@ -38,7 +41,7 @@ export const StructurePanel: React.FC = () => {
   }
 
   return (
-    <nav aria-label="Структура кампуса" className="editor-sidebar">
+    <nav aria-label="Структура кампуса" className="editor-sidebar" ref={columnRef} style={width ? { width } : undefined}>
       <div className="editor-column-header">
         <span className="editor-column-header__title">Структура</span>
         <button
@@ -57,6 +60,7 @@ export const StructurePanel: React.FC = () => {
         <PlanTree />
         <DisplayOptions />
       </div>
+      <ColumnResizer column="structure" edge="right" label="Ширина структуры" columnRef={columnRef} />
     </nav>
   );
 };
