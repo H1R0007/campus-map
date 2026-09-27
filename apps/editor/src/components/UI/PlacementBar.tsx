@@ -24,8 +24,9 @@ export const PlacementBar: React.FC = () => {
   const cancelPlacing = useEditorStore((s) => s.cancelPlacing);
 
   const fit = useMemo(() => (placing ? placingFit(placing.pairs) : null), [placing]);
-  // Метров в пикселе того, что под планом: территории или этажа входа.
-  const baseMpp = placing?.baseMpp ?? 1;
+  // Метров в пикселе того, что под планом: территории или этажа входа. Если
+  // масштаб территории ещё не задан — тот, что получится по этому корпусу.
+  const baseMpp = placing ? (placing.baseMpp ?? (placing.planMpp ?? 0) / scaleOf(placing.frame)) : 1;
   const mpp = placing ? scaleOf(placing.frame) * baseMpp : 0;
   const angle = placing ? rotationOf(placing.frame) : 0;
   const [mppText, setMppText] = useState('');
@@ -89,7 +90,25 @@ export const PlacementBar: React.FC = () => {
       <p className="editor-align-bar__text" role="status">
         {instruction}
       </p>
-      {!placing.pairMode && (
+      {placing.baseMpp === null && (
+        <p className="editor-align-bar__text">
+          Масштаб территории ещё не задан — он найдётся по этому корпусу: его план в своём размере (по масштабу чертежа),
+          растяните его точно по очертаниям корпуса на плане территории.
+        </p>
+      )}
+      {placing.planMpp !== null && placing.baseMpp !== null && Math.abs(mpp / placing.planMpp - 1) > 0.01 && (
+        <p className="editor-align-bar__text">
+          По масштабу чертежа 1 пикс. = {human(placing.planMpp, 4)} м, сейчас — {human(mpp, 4)} м.{' '}
+          <button
+            type="button"
+            className="editor-link-button"
+            onClick={() => setPlacingFrame(withScaleAndRotation(placing.frame, placing.planSize, placing.planMpp! / placing.baseMpp!, angle))}
+          >
+            вернуть масштаб чертежа
+          </button>
+        </p>
+      )}
+      {!placing.pairMode && placing.baseMpp !== null && (
         <div className="editor-card__row">
           {field(floorMode ? 'Масштаб плана этажа: 1 пикс. =' : 'Масштаб плана корпуса: 1 пикс. =', mppText, setMppText, 'м')}
           {field(floorMode ? 'Поворот относительно этажа входа' : 'Поворот', angleText, setAngleText, '°')}

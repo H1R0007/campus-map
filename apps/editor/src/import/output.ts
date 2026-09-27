@@ -28,6 +28,15 @@ export interface PlanRecipe {
   rotation: number;
   /** Область повёрнутого листа; `null` — весь лист. */
   crop: Box | null;
+  /** Знаменатель масштаба чертежа: 200 для «1:200». */
+  scaleRatio?: number;
+}
+
+/** Метров местности в единице листа — по масштабу чертежа; `undefined` — неизвестно. */
+export function metersPerUnitOf(sheet: Pick<ImportSheet, 'unitMeters' | 'realScale'>, scaleRatio: number | undefined): number | undefined {
+  if (!sheet.unitMeters) return undefined;
+  if (sheet.realScale) return sheet.unitMeters;
+  return scaleRatio && scaleRatio > 0 ? sheet.unitMeters * scaleRatio : undefined;
 }
 
 export interface PlanPreview {
@@ -112,6 +121,7 @@ export async function makePlan(sheet: ImportSheet, recipe: PlanRecipe): Promise<
     pageSize: { width: round(sheet.size.width), height: round(sheet.size.height) },
     ...(recipe.rotation !== 0 ? { rotation: recipe.rotation } : {}),
     ...(recipe.crop ? { crop: { x: round(recipe.crop.x), y: round(recipe.crop.y), width: round(recipe.crop.width), height: round(recipe.crop.height) } } : {}),
+    ...(metersPerUnitOf(sheet, recipe.scaleRatio) !== undefined ? { metersPerUnit: metersPerUnitOf(sheet, recipe.scaleRatio) } : {}),
   };
   return { key, format: preview.format, mapSize: preview.size, source };
 }

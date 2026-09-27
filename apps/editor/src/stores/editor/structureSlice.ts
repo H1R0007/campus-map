@@ -126,7 +126,12 @@ export interface StructureSlice {
    * Ставит корпус на территорию: привязка корпуса — для всех его этажей, у
    * которых нет своей. Высоты этажей, если их не было, — по умолчанию.
    */
-  placeBuilding: (id: string, placement: { metersPerPixel: number; originMeters: { x: number; y: number }; rotationDeg: number }) => void;
+  placeBuilding: (
+    id: string,
+    placement: { metersPerPixel: number; originMeters: { x: number; y: number }; rotationDeg: number },
+    /** Масштаб территории, найденный по этому корпусу (запись 54), — в ту же правку. */
+    campusScale?: number
+  ) => void;
   /**
    * Масштаб территории: метров в пикселе её плана. Корпуса, уже стоящие на
    * территории, остаются на тех же местах картинки — их привязки
@@ -588,7 +593,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       return { problem: null, align };
     },
 
-    placeBuilding: (id, placement) => {
+    placeBuilding: (id, placement, campusScale) => {
       const meta = get().buildingMetas.get(id);
       if (!meta) return;
       const placed = meta.placement?.originMeters !== undefined;
@@ -597,6 +602,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       const before = completePlacement(meta.placement);
       const shift = before ? composeSimilarity(worldOf(placement), invertSimilarity(worldOf(before))) : null;
       commit(`Корпус «${meta.name}» ${placed ? 'передвинут' : 'поставлен'} на территорию`, [], (s) => {
+        if (campusScale !== undefined && s.campusMeta) s.campusMeta.metersPerPixel = Math.round(campusScale * 1e7) / 1e7;
         const target = s.buildingMetas.get(id)!;
         if (shift && before) {
           for (const floor of target.floors) {

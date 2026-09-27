@@ -206,3 +206,52 @@ describe('совмещение этажа с этажом входа', () => {
     expect(store().placing).toBeNull();
   });
 });
+
+describe('масштаб чертежа при постановке', () => {
+  /** План этажа из PDF 1:200 — масштаб чертежа известен. */
+  const scaledPlan = {
+    key: 'sha1:' + '7'.repeat(40),
+    format: 'png' as const,
+    mapSize: { width: 4000, height: 2827 },
+    source: { file: '0123456789abcdef.pdf', page: 1, pageSize: { width: 842, height: 595 }, metersPerUnit: (0.0254 / 72) * 200 },
+  };
+  const planMpp = (842 * (0.0254 / 72) * 200) / 4000;
+
+  it('новый корпус с масштабом чертежа встаёт в своём размере', () => {
+    store().addBuilding('Корпус Г');
+    store().addFloor('building_g', { floor: 1, plan: scaledPlan });
+    store().startPlacing('building_g', VIEW);
+    const { frame, planMpp: known } = store().placing!;
+    expect(known).toBeCloseTo(planMpp, 9);
+    expect(Math.hypot(frame.a, frame.b)).toBeCloseTo(planMpp / 0.5, 9);
+  });
+
+  it('масштаб территории неизвестен — он находится по корпусу, одной правкой', () => {
+    const dataset = fixtureDataset();
+    delete dataset.campusMeta.metersPerPixel;
+    loadFixture(dataset);
+    store().addBuilding('Корпус Г');
+    store().addFloor('building_g', { floor: 1, plan: scaledPlan });
+    const entries = useHistoryStore.getState().entries.length;
+
+    expect(store().startPlacing('building_g', VIEW)).toBeNull();
+    expect(store().placing!.baseMpp).toBeNull();
+    // Человек растянул план корпуса по очертаниям на плане территории.
+    store().setPlacingFrame({ a: 0.1, b: 0, tx: 100, ty: 50 });
+    store().applyPlacing();
+
+    expect(store().campusMeta!.metersPerPixel).toBeCloseTo(planMpp / 0.1, 6);
+    expect(store().buildingMetas.get('building_g')!.placement!.metersPerPixel).toBeCloseTo(planMpp, 6);
+    expect(useHistoryStore.getState().entries.length).toBe(entries + 1);
+    store().undo();
+    expect(store().campusMeta!.metersPerPixel).toBeUndefined();
+  });
+
+  it('этаж с масштабом чертежа совмещается в масштабе этажа входа', () => {
+    store().setPlan('building_a', 1, scaledPlan);
+    store().setPlan('building_a', 2, { ...scaledPlan, mapSize: { width: 2000, height: 1414 } });
+    store().startPlacingFloor('building_a', 2);
+    // План второго этажа вдвое мельче в точках — его пиксель вдвое крупнее.
+    expect(store().placing!.frame.a).toBeCloseTo(2, 9);
+  });
+});

@@ -43,6 +43,7 @@ describe('исходник плана в загрузчике', () => {
       pageSize: { width: 842, height: 595 },
       rotation: 90,
       crop: { x: 10, y: 20, width: 500, height: 400 },
+      metersPerUnit: 0.0705556,
     };
     const { campus, floor, warnings } = await load({ file: 'a1b2c3d4.jpg', pageSize: { width: 4000, height: 3000 } }, full);
 
@@ -74,6 +75,7 @@ describe('исходник плана в загрузчике', () => {
     ['поворот не число', { file: PDF, pageSize: { width: 1, height: 1 }, rotation: 'вправо' }],
     ['обрезка нулевой ширины', { file: PDF, pageSize: { width: 1, height: 1 }, crop: { x: 0, y: 0, width: 0, height: 5 } }],
     ['обрезка без поля', { file: PDF, pageSize: { width: 1, height: 1 }, crop: { x: 0, y: 0, width: 5 } }],
+    ['масштаб листа нулевой', { file: PDF, pageSize: { width: 1, height: 1 }, metersPerUnit: 0 }],
   ])('битая запись (%s) отбрасывается целиком с предупреждением', async (_why, source) => {
     const { floor, warnings } = await load(undefined, source);
     expect(floor).toBeUndefined();

@@ -154,6 +154,10 @@ export default {
       assert.match(text, /Этаж 2 — по заголовку листа «Корпус А\. План 2-го этажа»/);
       assert.match(text, /У этажа 2 уже есть план — новый заменит его\. Точки этажа сохранят прежние координаты/);
       assert.match(text, /Поля обрезаны сами/);
+      // Масштаб — по надписи в штампе листа.
+      assert.equal(await page.eval(`document.querySelector('[aria-label="Масштаб чертежа"]')?.value`), '200');
+      assert.match(text, /По надписи на листе «Масштаб 1:200»/);
+      assert.match(text, /1 точка = 0,0\d+ м/);
       const crop = (await page.eval(`document.querySelector('.editor-crop__box').dataset.crop`)).split(',').map(Number);
       // Лист A4 альбомный — 842 × 595 пунктов; обрезанное меньше.
       assert.ok(crop[2] < 842 && crop[3] < 595 && crop[2] > 400, `обрезка ${crop}`);
@@ -214,6 +218,7 @@ export default {
       assert.equal(second.planFormat, 'png');
       assert.equal(second.source.page, 2);
       assert.ok(second.source.crop, 'обрезка не записана');
+      assert.ok(Math.abs(second.source.metersPerUnit - (0.0254 / 72) * 200) < 1e-6, `масштаб чертежа не записан: ${second.source.metersPerUnit}`);
       assert.ok(existsSync(path.join(dataDir, 'buildings/building_a/floors/2/map.png')), 'нет плана второго этажа');
       assert.ok(!existsSync(path.join(dataDir, 'buildings/building_a/floors/2/map.svg')), 'старый план этажа остался');
 

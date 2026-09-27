@@ -37,6 +37,8 @@ export interface Piece {
   notes: string[];
   /** Переделка плана из того же листа: точки пересчитаются сами. */
   redo?: boolean;
+  /** Знаменатель масштаба чертежа, как в поле: «200» для 1:200; пусто — неизвестен. */
+  scaleText?: string;
 }
 
 let nextPiece = 1;

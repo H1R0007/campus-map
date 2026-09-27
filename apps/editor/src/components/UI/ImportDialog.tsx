@@ -8,7 +8,7 @@ import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { guessPlace } from '../../import/guess';
 import { checkPieces, floorFromText, importSummary, initialPiece, pieceId, rotatePiece } from '../../import/importModel';
 import type { BuildingChoice, Piece, PieceTarget } from '../../import/importModel';
-import { makePlan, previewPlan } from '../../import/output';
+import { makePlan, metersPerUnitOf, previewPlan } from '../../import/output';
 import { rotatedPage } from '../../import/planGeometry';
 import { IMPORT_ACCEPT, displayName, readImportFiles } from '../../import/readers';
 import type { ImportSheet, ReadProblem } from '../../import/readers';
@@ -76,7 +76,8 @@ const ImportWindow: React.FC = () => {
       const redo = request.preset.redo;
       const added = await Promise.all(
         read.sheets.map(async (sheet): Promise<Piece> => {
-          if (!redo) return initialPiece(sheet.id, guessPlace(sheet.clues), metas, request.preset);
+          const scaleText = sheet.drawingScale ? String(sheet.drawingScale.ratio) : '';
+          if (!redo) return { ...initialPiece(sheet.id, guessPlace(sheet.clues), metas, request.preset), scaleText };
           // Переделка плана: тот лист того же файла — с прежними рамкой и
           // поворотом, остальные листы пропускаются.
           const same = (await digestOf(sheet.blob)).sha256.startsWith(redo.file.split('.')[0]) && sheet.page === redo.page;
@@ -96,6 +97,7 @@ const ImportWindow: React.FC = () => {
             target,
             notes: ['Тот же лист, что у плана сейчас: поправьте рамку или поворот'],
             redo: true,
+            scaleText,
           };
         })
       );
@@ -163,7 +165,7 @@ const ImportWindow: React.FC = () => {
       for (const [index, piece] of toAdd.entries()) {
         setBusy(`Готовлю план ${index + 1} из ${toAdd.length}…`);
         const sheet = sheets.find((item) => item.id === piece.sheetId)!;
-        const made = await makePlan(sheet, { rotation: piece.rotation, crop: piece.crop });
+        const made = await makePlan(sheet, { rotation: piece.rotation, crop: piece.crop, scaleRatio: Number(piece.scaleText) || undefined });
         const plan: PlanInput = { key: made.key, format: made.format, mapSize: made.mapSize, source: made.source };
         const target = piece.target;
         if (target.kind === 'campus') campus = plan;
@@ -427,6 +429,7 @@ const PieceEditor: React.FC<{
   };
 
   const result = previewPlan(sheet, { rotation: piece.rotation, crop: piece.crop });
+  const metersPerUnit = metersPerUnitOf(sheet, Number(piece.scaleText) || undefined);
 
   return (
     <section aria-label={`Лист: ${displayName(sheet)}`} className="editor-import__piece">
@@ -579,8 +582,34 @@ const PieceEditor: React.FC<{
       <p className="editor-section__hint">
         {piece.trimmed ? 'Поля обрезаны сами — поправьте рамку, если план задело. ' : ''}
         Получится: {result.format.toUpperCase()}, {result.size.width} × {result.size.height} точек
-        {result.asIs ? ' — файл как есть' : ''}.
+        {result.asIs ? ' — файл как есть' : ''}
+        {metersPerUnit ? `, 1 точка = ${String(Math.round((metersPerUnit / result.scale) * 10000) / 10000).replace('.', ',')} м` : ''}.
       </p>
+      {sheet.unitMeters !== undefined && (
+        sheet.realScale ? (
+          <p className="editor-section__hint">Чертёж в натуральную величину: масштаб известен сам — корпус встанет на территорию в своём размере.</p>
+        ) : (
+          <label className="editor-card__field">
+            <span className="editor-section__hint">Масштаб чертежа</span>
+            <span className="editor-place-field__row">
+              1 :
+              <input
+                aria-label="Масштаб чертежа"
+                className="editor-input editor-input--narrow"
+                inputMode="numeric"
+                value={piece.scaleText ?? ''}
+                placeholder="200"
+                onChange={(e) => onChange((current) => ({ ...current, scaleText: e.target.value.replace(/[^\d]/g, '') }))}
+              />
+            </span>
+            <span className="editor-section__hint">
+              {sheet.drawingScale && piece.scaleText === String(sheet.drawingScale.ratio)
+                ? `По надписи на листе «${sheet.drawingScale.text}» — корпус встанет на территорию в своём размере`
+                : 'Если масштаб указан на листе, впишите его — корпус встанет на территорию в своём размере. Не знаете — оставьте пустым'}
+            </span>
+          </label>
+        )
+      )}
 
     </section>
   );

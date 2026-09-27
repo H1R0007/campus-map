@@ -120,6 +120,7 @@ function sourceForFile(source: PlanSource | undefined): PlanSource | undefined {
     pageSize: source.pageSize,
     rotation: source.rotation,
     crop: source.crop,
+    metersPerUnit: source.metersPerUnit,
   } satisfies EveryField<PlanSource>;
 }
 

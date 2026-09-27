@@ -8,6 +8,7 @@ import type { Clue } from '../src/import/guess';
 import { clampBox, contentBox } from '../src/import/trim';
 import { composeSvgPlan, dxfToSvg, svgPageSize } from '../src/import/vector';
 import { previewPlan } from '../src/import/output';
+import { PDF_POINT_METERS, drawingScaleFrom, dxfUnitMeters, planMetersPerPixel, tiffPixelMeters } from '../src/import/scale';
 import type { DxfEntity } from '../src/import/vector';
 
 /**
@@ -229,5 +230,39 @@ describe('каким получится план', () => {
     expect(previewPlan(sheet('svg', 'svg', 2400, 1200), whole)).toEqual({ format: 'svg', size: { width: 2400, height: 1200 }, scale: 1, asIs: false });
     expect(previewPlan(sheet('svg', 'svg', 600, 300), whole).size).toEqual({ width: 1500, height: 750 });
     expect(previewPlan(sheet('dxf', 'dxf', 64, 24), whole)).toMatchObject({ format: 'svg', size: { width: 3000, height: 1125 } });
+  });
+});
+
+describe('масштаб чертежа', () => {
+  it('по надписи на листе: «Масштаб 1:200», «М 1:500», одиночное «1:100»', () => {
+    expect(drawingScaleFrom(['Кафедра АХЧ', 'Масштаб 1:200'])).toEqual({ ratio: 200, text: 'Масштаб 1:200' });
+    expect(drawingScaleFrom(['М 1 : 500'])).toEqual({ ratio: 500, text: 'М 1 : 500' });
+    expect(drawingScaleFrom(['План', '1:100'])).toEqual({ ratio: 100, text: '1:100' });
+  });
+
+  it('разные «1:…» без слова «масштаб», время и дроби — не масштаб', () => {
+    expect(drawingScaleFrom(['1:100', '1:200'])).toBeNull();
+    expect(drawingScaleFrom(['Открыто 1:30'])).toEqual({ ratio: 30, text: '1:30' });
+    expect(drawingScaleFrom(['1:5'])).toBeNull();
+    expect(drawingScaleFrom(['1:200.5'])).toBeNull();
+  });
+
+  it('единицы DXF и разрешение скана', () => {
+    expect(dxfUnitMeters(4)).toBe(0.001);
+    expect(dxfUnitMeters(6)).toBe(1);
+    expect(dxfUnitMeters(undefined)).toBeUndefined();
+    expect(tiffPixelMeters(300, 2)).toBeCloseTo(0.0254 / 300, 12);
+    expect(tiffPixelMeters(100, 3)).toBeCloseTo(0.0001, 12);
+    expect(tiffPixelMeters(300, 1)).toBeUndefined();
+  });
+
+  it('метров в пикселе плана — по листу, обрезке и размеру плана', () => {
+    // A4 в пунктах, масштаб 1:200, план — 4000 точек по ширине всего листа.
+    const source = { file: '0123456789abcdef.pdf', pageSize: { width: 842, height: 595 }, metersPerUnit: PDF_POINT_METERS * 200 };
+    const mpp = planMetersPerPixel({ source, mapSize: { width: 4000, height: 2827 } })!;
+    // Лист 842 пт ≈ 297 мм бумаги ≈ 59,4 м местности на 4000 точек.
+    expect(mpp * 4000).toBeCloseTo(842 * PDF_POINT_METERS * 200, 6);
+    expect(mpp * 4000).toBeCloseTo(59.4, 1);
+    expect(planMetersPerPixel({ source: { ...source, metersPerUnit: undefined }, mapSize: { width: 1, height: 1 } })).toBeNull();
   });
 });

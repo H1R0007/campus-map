@@ -83,6 +83,7 @@ describe('круг «сохранить → открыть»', () => {
       pageSize: { width: 842, height: 595 },
       rotation: 90,
       crop: { x: 10, y: 20, width: 500, height: 400 },
+      metersPerUnit: 0.0705556,
     };
     const campusSource = { file: 'a1b2c3d4e5f60718.jpg', pageSize: { width: 4000, height: 3000 } };
     useEditorStore.setState((s) => {
@@ -98,7 +99,7 @@ describe('круг «сохранить → открыть»', () => {
     expect(dataset.campusMeta.source).toEqual(campusSource);
     // Поля — в порядке формата, чтобы правка давала понятную разницу в git.
     const meta = JSON.parse(files.get('buildings/building_a/meta.json')!);
-    expect(Object.keys(meta.floors[0].source)).toEqual(['file', 'name', 'page', 'pageSize', 'rotation', 'crop']);
+    expect(Object.keys(meta.floors[0].source)).toEqual(['file', 'name', 'page', 'pageSize', 'rotation', 'crop', 'metersPerUnit']);
   });
 
   it('переводы и категории, которые редактор не правит, не теряются', async () => {

@@ -4,6 +4,7 @@ import type { Clue } from './guess';
 import { rotatedPage } from './planGeometry';
 import type { Box } from './trim';
 import { composeSvgPlan, dxfToSvg, svgPageSize } from './vector';
+import { PDF_POINT_METERS, drawingScaleFrom, dxfUnitMeters, tiffPixelMeters } from './scale';
 import type { DxfEntity } from './vector';
 
 /**
@@ -47,6 +48,15 @@ export interface ImportSheet {
   svg?: string;
   /** У TIFF в одну краску — план из линий: такой лучше хранить в PNG. */
   bilevel?: boolean;
+  /**
+   * Метров в единице листа (запись 54): на бумаге — пункт PDF, точка скана
+   * по его разрешению; у DXF — на местности (`realScale`).
+   */
+  unitMeters?: number;
+  /** Чертёж в натуральную величину: единица листа — уже метры местности, без масштаба. */
+  realScale?: boolean;
+  /** Масштаб чертежа по надписи на листе. */
+  drawingScale?: { ratio: number; text: string } | null;
   /**
    * Рисует повёрнутый лист или его область (`crop` — в единицах повёрнутого
    * листа) в масштабе `scale` точек холста на единицу листа.
@@ -236,6 +246,8 @@ async function readPdf(blob: Blob, name: string, ext: string): Promise<ImportShe
       pageCount: document.numPages,
       kind: 'pdf',
       size: { width: viewport.width, height: viewport.height },
+      unitMeters: PDF_POINT_METERS,
+      drawingScale: drawingScaleFrom(items.map((item) => item.text)),
       clues: [...textClues(items), ...fileClue(name)],
       labels,
       render: async (rotation, crop, scale) => {
@@ -321,6 +333,7 @@ async function readTiff(blob: Blob, name: string, ext: string): Promise<ImportSh
       clues: fileClue(name),
       labels: [],
       bilevel: tiffTag(ifd, 't258') === 1,
+      unitMeters: tiffPixelMeters(tiffTag(ifd, 't282'), tiffTag(ifd, 't296')),
       render: async (rotation: number, crop: Box | null, scale: number) => {
         const image = await decoded();
         return renderByTransform(size, rotation, crop, scale, (context) => context.drawImage(image, 0, 0, size.width, size.height));
@@ -345,7 +358,16 @@ async function svgImage(svg: string): Promise<HTMLImageElement> {
   }
 }
 
-function vectorSheet(blob: Blob, name: string, ext: string, kind: 'svg' | 'dxf', svg: string, size: MapSize, texts: { text: string; size: number; x: number; y: number }[]): ImportSheet {
+function vectorSheet(
+  blob: Blob,
+  name: string,
+  ext: string,
+  kind: 'svg' | 'dxf',
+  svg: string,
+  size: MapSize,
+  texts: { text: string; size: number; x: number; y: number }[],
+  unitMeters?: number
+): ImportSheet {
   // Для рисования — тот же лист с явным размером: у SVG без width/height
   // картинка иначе получила бы 300 × 150.
   const drawable = composeSvgPlan(svg, size, 0, null, 1).svg;
@@ -360,6 +382,7 @@ function vectorSheet(blob: Blob, name: string, ext: string, kind: 'svg' | 'dxf',
     kind,
     size,
     svg,
+    ...(unitMeters !== undefined ? { unitMeters, realScale: true } : {}),
     clues: [...textClues(texts), ...fileClue(name)],
     labels: texts.map(({ text, x, y }) => ({ text, x, y })),
     render: async (rotation, crop, scale) => {
@@ -400,7 +423,8 @@ async function readDxf(blob: Blob, name: string, ext: string): Promise<ImportShe
       'dxf',
       drawing.svg,
       drawing.size,
-      drawing.texts.map((text) => ({ text: text.text, size: text.height, x: text.x, y: text.y }))
+      drawing.texts.map((text) => ({ text: text.text, size: text.height, x: text.x, y: text.y })),
+      dxfUnitMeters((parsed as { header?: Record<string, unknown> } | null)?.header?.$INSUNITS)
     ),
   ];
 }

@@ -197,6 +197,12 @@ function readPlanSource(value: unknown, where: string, warnings: string[]): Plan
     source.crop = { x, y, width, height };
   }
 
+  if (raw.metersPerUnit !== undefined) {
+    const metersPerUnit = asStrictNumber(raw.metersPerUnit);
+    if (metersPerUnit === undefined || metersPerUnit <= 0) return fail('масштаб листа — не положительное число');
+    source.metersPerUnit = metersPerUnit;
+  }
+
   return source;
 }
 

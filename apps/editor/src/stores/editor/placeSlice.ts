@@ -1,8 +1,9 @@
 import { resolvePlanPlacement } from '@campus-map/core';
 import type { MapSize } from '@campus-map/core';
-import { applySimilarity, composeSimilarity, fitSimilarity, invertSimilarity } from '../../import/planGeometry';
+import { applySimilarity, composeSimilarity, fitSimilarity, invertSimilarity, scaleOf } from '../../import/planGeometry';
 import type { Point, Similarity } from '../../import/planGeometry';
-import { frameOf, initialFrame, placementOf, placementOfWorld, worldOf } from '../../import/placementMath';
+import { frameOf, initialFrame, placementOf, placementOfWorld, withScaleAndRotation, worldOf } from '../../import/placementMath';
+import { planMetersPerPixel } from '../../import/scale';
 import { openingFloorOf } from './viewSlice';
 import type { EditorSlice } from './types';
 
@@ -34,8 +35,13 @@ export interface Placing {
   building: string;
   /** Этаж, план которого ставим: этаж входа для корпуса, сам этаж — для этажа. */
   floor: number;
-  /** Метров в пикселе того, что под планом: территории или этажа входа. */
-  baseMpp: number;
+  /**
+   * Метров в пикселе того, что под планом: территории или этажа входа.
+   * `null` — масштаб территории неизвестен и найдётся по этому корпусу.
+   */
+  baseMpp: number | null;
+  /** Метров в пикселе плана по масштабу чертежа (запись 54); `null` — неизвестно. */
+  planMpp: number | null;
   planSize: MapSize;
   /** Пиксель плана → пиксель территории. */
   frame: Similarity;
@@ -97,13 +103,21 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     const meta = st.buildingMetas.get(building);
     if (!meta) return 'Корпуса нет';
     const campusMpp = st.campusMeta?.metersPerPixel;
-    if (campusMpp === undefined) return 'Сначала задайте масштаб территории: два места и расстояние между ними';
     const floor = openingFloorOf(meta);
     if (floor === null) return 'У корпуса нет этажей — ставить нечего';
     const floorMeta = meta.floors.find((item) => item.floor === floor)!;
+    const planMpp = planMetersPerPixel(floorMeta);
+    // Без масштаба территории корпус с масштабом чертежа сам задаёт его.
+    if (campusMpp === undefined && planMpp === null) {
+      return 'Сначала задайте масштаб территории: два места и расстояние между ними';
+    }
     const planSize = floorMeta.mapSize ?? { width: 1000, height: 700 };
-    const resolved = resolvePlanPlacement(meta, floorMeta);
-    const frame = resolved ? frameOf(resolved, campusMpp) : initialFrame(planSize, view);
+    const resolved = campusMpp === undefined ? null : resolvePlanPlacement(meta, floorMeta);
+    let frame = resolved ? frameOf(resolved, campusMpp!) : initialFrame(planSize, view);
+    // Новый корпус с масштабом чертежа — сразу в своём размере.
+    if (!resolved && planMpp !== null && campusMpp !== undefined) {
+      frame = withScaleAndRotation(frame, planSize, planMpp / campusMpp, 0);
+    }
 
     set((s) => {
       s.measuring = null;
@@ -112,7 +126,18 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
       s.currentFloor = null;
       s.selectedNodeIds = new Set();
       s.activeTool = 'select';
-      s.placing = { mode: 'building', building, floor, baseMpp: campusMpp, planSize, frame, pairMode: false, pairs: [], pendingFrom: null };
+      s.placing = {
+        mode: 'building',
+        building,
+        floor,
+        baseMpp: campusMpp ?? null,
+        planMpp,
+        planSize,
+        frame,
+        pairMode: false,
+        pairs: [],
+        pendingFrom: null,
+      };
     });
     return null;
   },
@@ -126,8 +151,14 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     const floorMeta = meta.floors.find((item) => item.floor === floor);
     const own = floorMeta ? resolvePlanPlacement(meta, floorMeta) : null;
     if (!base || !own) return 'Сначала поставьте корпус на территорию: этажи совмещаются относительно него';
-    // Пиксель этажа → метры → пиксель этажа входа.
-    const frame = composeSimilarity(invertSimilarity(worldOf(base)), worldOf(own));
+    // Пиксель этажа → метры → пиксель этажа входа. Этаж без своей привязки,
+    // но с масштабом чертежа — сразу в масштабе этажа входа.
+    let frame = composeSimilarity(invertSimilarity(worldOf(base)), worldOf(own));
+    const floorMpp = planMetersPerPixel(floorMeta);
+    const entranceMpp = planMetersPerPixel(meta.floors.find((item) => item.floor === entrance));
+    if (!floorMeta?.placement && floorMpp !== null && entranceMpp !== null) {
+      frame = { a: floorMpp / entranceMpp, b: 0, tx: 0, ty: 0 };
+    }
 
     set((s) => {
       s.measuring = null;
@@ -141,6 +172,7 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
         building,
         floor,
         baseMpp: base.metersPerPixel,
+        planMpp: floorMpp,
         planSize: floorMeta!.mapSize ?? { width: 1000, height: 700 },
         frame,
         pairMode: false,
@@ -192,8 +224,16 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     const { placing, campusMeta, buildingMetas } = get();
     if (!placing) return;
     if (placing.mode === 'building') {
-      if (campusMeta?.metersPerPixel === undefined) return;
-      get().placeBuilding(placing.building, placementOf(placing.frame, campusMeta.metersPerPixel));
+      if (campusMeta?.metersPerPixel !== undefined) {
+        get().placeBuilding(placing.building, placementOf(placing.frame, campusMeta.metersPerPixel));
+      } else if (placing.planMpp !== null) {
+        // Масштаб территории — по корпусу: его план в своём размере растянут
+        // по очертаниям на плане территории.
+        const campusScale = placing.planMpp / scaleOf(placing.frame);
+        get().placeBuilding(placing.building, placementOf(placing.frame, campusScale), campusScale);
+      } else {
+        return;
+      }
     } else {
       const meta = buildingMetas.get(placing.building);
       const entrance = openingFloorOf(meta);
