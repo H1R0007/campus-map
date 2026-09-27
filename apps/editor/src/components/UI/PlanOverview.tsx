@@ -11,60 +11,53 @@ import { BuildingSection, CampusPlanSection, FloorSection } from './StructureCar
 import { BuildGuide } from './BuildGuide';
 
 /**
- * Обзор открытого плана — вкладка «Свойства», когда ничего не выбрано.
- *
- * Отвечает на вопросы разметчика, не открывая отдельных панелей: сколько на
- * плане узлов, у скольких есть названия, нет ли узлов без связей и не
- * распался ли план на несвязанные части. Прежняя плавающая «Статистика»
- * смешивала цифры кампуса и этажа и закрывала кнопку «Маршрут».
- *
- * Ниже — карточки этажа и корпуса: номер, подпись, названия, удаление
- * (запись 47). У корпуса без этажей — только они.
+ * Режим «Планы и корпуса» (запись 60): свойства того, что открыто в
+ * структуре, — территории, корпуса или этажа (запись 47). На территории —
+ * ещё и «Как собрать карту»; у корпуса без этажей — только корпус.
  */
-export const PlanOverview: React.FC = () => {
+export const StructureView: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const building = useEditorStore((s) => (currentBuilding === null ? undefined : s.buildingMetas.get(currentBuilding)));
   const floor = currentFloor === null ? undefined : building?.floors.find((item) => item.floor === currentFloor);
 
-  if (building && !floor) {
+  if (!building) {
     return (
-      <section aria-label="Обзор корпуса" className="editor-card">
-        <header className="editor-card__header">
-          <h2 className="editor-card__title">{building.name}</h2>
-          <p className="editor-card__place">Этажей пока нет. Первый этаж добавляется на карте или кнопкой «Этаж» в структуре.</p>
-        </header>
-        <BuildingSection building={building} />
-      </section>
+      <>
+        <BuildGuide />
+        <section aria-label="Территория" className="editor-card">
+          <header className="editor-card__header">
+            <h2 className="editor-card__title">Территория</h2>
+          </header>
+          <CampusPlanSection />
+        </section>
+      </>
     );
   }
 
   return (
-    <>
-      {!building && <BuildGuide />}
-      <PlanStatsCard />
-      {building && floor ? (
-        <section aria-label="Этаж и корпус" className="editor-card">
-          <FloorSection key={`${building.id}/${floor.floor}`} building={building} floor={floor} />
-          <BuildingSection key={building.id} building={building} />
-        </section>
-      ) : (
-        <section aria-label="Территория" className="editor-card">
-          <CampusPlanSection />
-        </section>
-      )}
-    </>
+    <section aria-label={floor ? 'Этаж и корпус' : 'Корпус'} className="editor-card">
+      <header className="editor-card__header">
+        <h2 className="editor-card__title">{floor ? `Этаж ${floorLabel(building, floor.floor)}` : building.name}</h2>
+        <p className="editor-card__place">{floor ? building.name : 'Этажей пока нет'}</p>
+      </header>
+      {floor && <FloorSection key={`${building.id}/${floor.floor}`} building={building} floor={floor} />}
+      <BuildingSection key={building.id} building={building} />
+    </section>
   );
 };
 
-/** Цифры открытого плана и итог проверки. */
-const PlanStatsCard: React.FC = () => {
+/**
+ * Режим «Разметка» без выбранной точки: цифры открытого плана и итог
+ * проверки — сколько точек, у скольких есть названия, не распался ли план.
+ */
+export const PlanStatsCard: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const setDisplayFilters = useEditorStore((s) => s.setDisplayFilters);
-  const setInspectorTab = useEditorStore((s) => s.setInspectorTab);
+  const openCheck = useEditorStore((s) => s.openCheck);
   const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
   const aliases = useEditorStore((s) => s.aliases);
   const transitions = useEditorStore((s) => s.transitions);
@@ -113,7 +106,7 @@ const PlanStatsCard: React.FC = () => {
                   className="editor-button editor-button--ghost mt-2"
                   onClick={() => setDisplayFilters({ highlightOrphans: true })}
                 >
-                  Подсветить узлы без связей
+                  Подсветить точки без связей
                 </button>
               )}
             </div>
@@ -126,7 +119,7 @@ const PlanStatsCard: React.FC = () => {
         <button
           type="button"
           className="editor-button editor-button--ghost editor-button--block"
-          onClick={() => setInspectorTab('problems')}
+          onClick={() => openCheck('problems')}
         >
           <Icon name={report.errors.length > 0 ? 'errorCircle' : problems > 0 ? 'warning' : 'checkCircle'} />
           {problems === 0

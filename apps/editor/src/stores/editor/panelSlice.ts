@@ -36,14 +36,18 @@ export interface EditorNotice {
 }
 
 /**
- * Вкладка инспектора — правой колонки редактора.
+ * Режим работы (запись 60) — как рабочие пространства профессиональных
+ * редакторов: у каждого занятия свой набор панелей.
  *
- * - `properties` — выбранное на карте (без выбора — обзор плана);
- * - `problems` — проверка данных;
- * - `route` — проверка маршрута. Метка идёт по маршруту, только пока
- *   открыта эта вкладка.
+ * - `plans` — «Планы и корпуса»: территория, корпуса, этажи, файлы планов,
+ *   размещение и масштаб; точки на карте бледные и не ловят щелчки;
+ * - `markup` — «Разметка»: точки, связи, переходы, инструменты;
+ * - `check` — «Проверка»: замечания и проверка маршрута.
  */
-export type InspectorTab = 'properties' | 'problems' | 'route';
+export type Workspace = 'plans' | 'markup' | 'check';
+
+/** Вкладка режима «Проверка»: замечания или маршрут. Метка идёт по маршруту, только пока он открыт. */
+export type CheckTab = 'problems' | 'route';
 
 /**
  * Для чего открыто окно «Планы из файлов»: план этажа или территории, этажи
@@ -76,7 +80,8 @@ export interface ImportRequest {
  * над планом, живёт в закреплённых колонках по бокам (запись 39).
  */
 export interface PanelSlice {
-  inspectorTab: InspectorTab;
+  workspace: Workspace;
+  checkTab: CheckTab;
   /** Левая колонка (структура и «Показывать») свёрнута в полоску. */
   structureCollapsed: boolean;
   /** Правая колонка (инспектор) свёрнута в полоску. */
@@ -115,7 +120,13 @@ export interface PanelSlice {
    * кнопка «Проверка» разворачивает, а щелчок по узлу на карте — нет, чтобы
    * не отнимать место у карты, которое человек освободил сам.
    */
-  setInspectorTab: (tab: InspectorTab, expand?: boolean) => void;
+  /**
+   * Сменить режим. Вне «Разметки» инструмент — «Выбор»; в «Планах и
+   * корпусах» выбор точек снимается: точки там не правят.
+   */
+  setWorkspace: (workspace: Workspace) => void;
+  /** Открыть «Проверку» на нужной вкладке и развернуть правую колонку. */
+  openCheck: (tab?: CheckTab) => void;
   setStructureCollapsed: (collapsed: boolean) => void;
   setInspectorCollapsed: (collapsed: boolean) => void;
   /**
@@ -151,7 +162,8 @@ export interface PanelSlice {
 }
 
 export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
-  inspectorTab: 'properties',
+  workspace: readLayoutPrefs().workspace,
+  checkTab: 'problems',
   structureCollapsed: readLayoutPrefs().structureCollapsed,
   inspectorCollapsed: readLayoutPrefs().inspectorCollapsed,
   structureWidth: readLayoutPrefs().structureWidth,
@@ -175,11 +187,24 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   notice: null,
   searchHistory: [],
 
-  setInspectorTab: (tab, expand = true) => {
-    if (expand && get().inspectorCollapsed) get().setInspectorCollapsed(false);
+  setWorkspace: (workspace) => {
+    const st = get();
+    if (workspace !== 'markup' && st.activeTool !== 'select') st.setActiveTool('select');
+    if (workspace === 'plans' && st.selectedNodeIds.size > 0) st.clearSelection();
     set((s) => {
-      s.inspectorTab = tab;
+      s.workspace = workspace;
     });
+    updateLayoutPrefs({ workspace });
+  },
+
+  openCheck: (tab) => {
+    get().setWorkspace('check');
+    if (get().inspectorCollapsed) get().setInspectorCollapsed(false);
+    if (tab) {
+      set((s) => {
+        s.checkTab = tab;
+      });
+    }
   },
 
   setStructureCollapsed: (collapsed) => {
@@ -249,8 +274,9 @@ export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
     }),
 
   editNodeName: (nodeId, draft = '') => {
+    get().setWorkspace('markup');
     get().selectSingleNode(nodeId);
-    get().setInspectorTab('properties');
+    if (get().inspectorCollapsed) get().setInspectorCollapsed(false);
     set((s) => {
       s.nameEditNodeId = nodeId;
       s.nameEditDraft = draft;

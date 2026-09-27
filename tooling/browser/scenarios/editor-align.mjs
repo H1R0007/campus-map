@@ -34,7 +34,9 @@ export default {
       return { x: Number(match[1]), y: Number(match[2]) };
     };
     /** Координаты точки — из карточки. */
+    // Координаты — в свойствах точки, а они в «Разметке» (запись 60).
     const nodeXY = async (id) => {
+      await e.mode('Разметка');
       const point = await e.nodePoint(id, { allowCovered: true });
       await e.click(point.x, point.y);
       await page.eval(`document.querySelector('[aria-label="Свойства точки"] details')?.setAttribute('open', '')`);
@@ -71,6 +73,7 @@ export default {
         thirdAt: await nodeXY(third.id),
       };
 
+      await e.mode('Планы и корпуса');
       await e.press('Заменить план…');
       const { root } = await page.send('DOM.getDocument', { depth: 1 });
       const { nodeId } = await page.send('DOM.querySelector', { nodeId: root.nodeId, selector: 'input[data-import-files]' });
@@ -154,6 +157,7 @@ export default {
       assert.ok(source.crop, 'план сделан с обрезкой полей');
       const beforeRedo = await nodeXY(before.first);
 
+      await e.mode('Планы и корпуса');
       await e.press('Изменить обрезку…');
       await page.waitFor(`!!document.querySelector('.editor-import__piece')`, 30_000);
       assert.match(await page.eval(`document.querySelector('.editor-import__piece').textContent`), /Точки этажа пересчитаются вместе с планом/);

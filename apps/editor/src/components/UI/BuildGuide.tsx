@@ -25,7 +25,7 @@ export const BuildGuide: React.FC = () => {
   const startMeasuring = useEditorStore((s) => s.startMeasuring);
   const setCurrentBuilding = useEditorStore((s) => s.setCurrentBuilding);
   const setCurrentFloor = useEditorStore((s) => s.setCurrentFloor);
-  const setInspectorTab = useEditorStore((s) => s.setInspectorTab);
+  const openCheck = useEditorStore((s) => s.openCheck);
   const requestSave = useEditorStore((s) => s.requestSave);
   const place = usePlaceBuilding();
   const structure = useStructureChecks();
@@ -101,7 +101,7 @@ export const BuildGuide: React.FC = () => {
       done: problems === 0,
       status: problems === 0 ? 'Замечаний нет' : `Замечаний: ${problems}`,
       hint: 'Проверка скажет, чего не хватит навигатору; «Сохранить» (Ctrl+S) запишет всё в data/.',
-      action: problems > 0 ? { label: 'Открыть проверку', run: () => setInspectorTab('problems') } : { label: 'Сохранить', run: requestSave },
+      action: problems > 0 ? { label: 'Открыть проверку', run: () => openCheck('problems') } : { label: 'Сохранить', run: requestSave },
     },
   ];
 

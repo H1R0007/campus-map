@@ -32,6 +32,7 @@ export default {
     await step('маршрут строится щелчками по узлам', async () => {
       await e.open();
       await e.openFloor('Корпус А', 1);
+      await e.mode('Проверка');
       await e.press('Маршрут');
 
       const start = await e.nodePoint('a1_room101');
@@ -52,8 +53,8 @@ export default {
       assert.notEqual(second.at, first.at, 'метка стоит на месте');
     });
 
-    await step('на другой вкладке метка стоит, а линия остаётся', async () => {
-      await e.press('Свойства');
+    await step('в другом режиме метка стоит, а линия остаётся', async () => {
+      await e.mode('Разметка');
       await page.sleep(300);
       const first = await marker();
       assert.ok(first.line, 'линия маршрута пропала вместе с вкладкой');
@@ -64,8 +65,19 @@ export default {
     });
 
     await step('маршрут через этажи не переключает план сам', async () => {
+      await e.mode('Проверка');
       await e.press('Маршрут');
       await e.press('Сброс');
+
+      // Маршрут ждёт первую точку, но вне «Проверки» щелчок по точке выбирает
+      // её, а не начинает маршрут (запись 60).
+      await e.mode('Разметка');
+      const other = await e.nodePoint('a1_room102');
+      await e.click(other.x, other.y);
+      assert.equal(await e.propertiesNodeId(), 'a1_room102', 'щелчок в «Разметке» ушёл в маршрут');
+      await e.key('Escape');
+      await e.mode('Проверка');
+      await e.press('Маршрут');
 
       const start = await e.nodePoint('a1_room101');
       await e.click(start.x, start.y);

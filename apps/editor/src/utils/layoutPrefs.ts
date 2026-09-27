@@ -10,6 +10,9 @@
 /** Тема: как в системе, тёмная или светлая (запись 56). */
 export type ThemeChoice = 'system' | 'dark' | 'light';
 
+/** Режим работы (запись 60); тип — `Workspace` в `panelSlice`, здесь — без зависимости от стора. */
+export type WorkspacePref = 'plans' | 'markup' | 'check';
+
 export interface LayoutPrefs {
   structureCollapsed: boolean;
   inspectorCollapsed: boolean;
@@ -18,6 +21,8 @@ export interface LayoutPrefs {
   /** Ширина правой колонки, CSS-пиксели; `null` — по умолчанию. */
   inspectorWidth: number | null;
   theme: ThemeChoice;
+  /** Последний режим: редактор открывается там, где работали. */
+  workspace: WorkspacePref;
 }
 
 const KEY = 'campus-editor:layout';
@@ -28,6 +33,7 @@ const DEFAULTS: LayoutPrefs = {
   structureWidth: null,
   inspectorWidth: null,
   theme: 'system',
+  workspace: 'markup',
 };
 
 const widthOf = (value: unknown): number | null =>
@@ -44,6 +50,7 @@ export function readLayoutPrefs(): LayoutPrefs {
       structureWidth: widthOf(parsed.structureWidth),
       inspectorWidth: widthOf(parsed.inspectorWidth),
       theme: parsed.theme === 'dark' || parsed.theme === 'light' ? parsed.theme : 'system',
+      workspace: parsed.workspace === 'plans' || parsed.workspace === 'check' ? parsed.workspace : 'markup',
     };
   } catch {
     return DEFAULTS;

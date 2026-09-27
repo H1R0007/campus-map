@@ -22,7 +22,7 @@ export const SearchPanel: React.FC = () => {
   const addToSearchHistory = useEditorStore((s) => s.addToSearchHistory);
   const clearSearchHistory = useEditorStore((s) => s.clearSearchHistory);
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
-  const setInspectorTab = useEditorStore((s) => s.setInspectorTab);
+  const setWorkspace = useEditorStore((s) => s.setWorkspace);
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -47,12 +47,12 @@ export const SearchPanel: React.FC = () => {
     (nodeId: string) => {
       addToSearchHistory(query);
       centerOnNode(nodeId);
-      // Найденное показывается карточкой, даже если справа была проверка.
-      setInspectorTab('properties', false);
+      // Найденная точка — в «Разметке»: там её свойства (запись 60).
+      setWorkspace('markup');
       setSearchOpen(false);
       setQuery('');
     },
-    [query, addToSearchHistory, centerOnNode, setInspectorTab, setSearchOpen]
+    [query, addToSearchHistory, centerOnNode, setWorkspace, setSearchOpen]
   );
 
   const onKeyDown = (e: React.KeyboardEvent) => {

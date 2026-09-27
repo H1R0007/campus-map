@@ -116,6 +116,7 @@ export default {
     });
 
     await step('окно открывается пустым и принимает файлы', async () => {
+      await e.mode('Планы и корпуса');
       await e.press('Загрузить планы…');
       assert.match(await page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`), /Перетащите сюда планы/);
 

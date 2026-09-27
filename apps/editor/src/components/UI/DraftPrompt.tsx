@@ -50,7 +50,7 @@ export const DraftPrompt: React.FC = () => {
           Осталась несохранённая работа
         </h2>
         <p className="editor-dialog__text">
-          Редактор записал её в браузере {savedAtLabel(draft.savedAt)}: узлов {draft.dataset.nodes.length},
+          Редактор записал её в браузере {savedAtLabel(draft.savedAt)}: точек {draft.dataset.nodes.length},
           переходов {draft.dataset.transitions.length}. Восстановить и продолжить?
         </p>
         {diskChanged && (

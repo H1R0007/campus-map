@@ -15,6 +15,7 @@ export const DisplayOptions: React.FC = () => {
   const setDisplayFilters = useEditorStore((s) => s.setDisplayFilters);
   const gridSettings = useEditorStore((s) => s.gridSettings);
   const setGridSettings = useEditorStore((s) => s.setGridSettings);
+  const workspace = useEditorStore((s) => s.workspace);
 
   // Счётчики считаются от самих данных и догоняют перетаскивание: через
   // стор это были три обхода плана на каждое движение мыши.
@@ -103,6 +104,7 @@ export const DisplayOptions: React.FC = () => {
         />
       </section>
 
+      {workspace === 'markup' && (
       <section className="editor-section" aria-labelledby="grid-title">
         <h2 id="grid-title" className="editor-section__title">
           Точность
@@ -140,6 +142,7 @@ export const DisplayOptions: React.FC = () => {
           </>
         )}
       </section>
+      )}
     </>
   );
 };

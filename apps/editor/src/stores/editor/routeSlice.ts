@@ -155,7 +155,7 @@ export const createRouteSlice: EditorSlice<RouteSlice> = (set, get) => ({
   pickRouteNode: (nodeId) => {
     const st = get();
     // Точки задаются щелчком, только пока вкладка маршрута видна.
-    if (!st.routePickMode || st.inspectorTab !== 'route' || st.inspectorCollapsed) return false;
+    if (!st.routePickMode || st.workspace !== 'check' || st.checkTab !== 'route' || st.inspectorCollapsed) return false;
 
     const node = st.nodes.get(nodeId);
     if (!node) return false;

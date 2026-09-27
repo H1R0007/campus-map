@@ -6,7 +6,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
-import { PlanOverview } from './PlanOverview';
+import { PlanStatsCard } from './PlanOverview';
 import { SessionBar } from './SessionBar';
 import { InfoTip } from './Field';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
@@ -48,8 +48,8 @@ function useCardKey(nodeId: string | null): string | null {
 }
 
 /**
- * Вкладка «Свойства» инспектора: карточка выбранного узла, сводка по
- * нескольким выбранным, а без выбора — обзор открытого плана.
+ * Правая колонка «Разметки»: свойства выбранной точки, сводка по нескольким
+ * выбранным, а без выбора — цифры открытого плана.
  */
 export const PropertiesView: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
@@ -96,7 +96,7 @@ export const PropertiesView: React.FC = () => {
     );
   }
 
-  return <PlanOverview />;
+  return <PlanStatsCard />;
 };
 
 /**
@@ -175,7 +175,7 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
             }}
           >
             <Icon name="trash" />
-            Удалить узел
+            Удалить точку
           </button>
           <button type="button" className="editor-button editor-button--ghost" onClick={onClose} title="Снять выбор (Esc)">
             Снять выбор

@@ -115,7 +115,7 @@ export default {
     });
 
     await step('«Проверка» называет, чего не хватит навигатору, и ведёт к исправлению', async () => {
-      await e.press('Проверка');
+      await e.mode('Проверка');
       const section = () => page.eval(`document.querySelector('[aria-label^="Корпуса, этажи и планы"]')?.textContent ?? ''`);
       assert.match(await section(), /Корпус «Корпус Г» не размещён на территории/);
       assert.match(await section(), /У этажа 1 корпуса «Корпус Г» нет плана/);
@@ -123,10 +123,10 @@ export default {
       await page.waitFor(`!!document.querySelector('.editor-dialog--import')`, 10_000);
       await e.key('Escape');
       await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 10_000);
-      await e.press('Свойства');
     });
 
     await step('удаление этажа перечисляет, что уйдёт', async () => {
+      await e.mode('Планы и корпуса');
       await e.openFloor('Корпус А', 2);
       await e.key('Escape');
       await e.press('Удалить этаж…');

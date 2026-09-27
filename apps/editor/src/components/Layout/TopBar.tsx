@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
+import type { Workspace } from '../../stores/editor/panelSlice';
 import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
 import { validateDataset } from '../../utils/validateData';
@@ -12,11 +13,18 @@ import { SandboxButton } from '../UI/Sandbox';
 import { SettingsMenu } from '../UI/SettingsMenu';
 import { SPACE } from '../../config/space';
 
+const WORKSPACES: { id: Workspace; label: string; title: string }[] = [
+  { id: 'plans', label: 'Планы и корпуса', title: 'Территория, корпуса, этажи, планы, размещение и масштаб' },
+  { id: 'markup', label: 'Разметка', title: 'Точки, связи и переходы' },
+  { id: 'check', label: 'Проверка', title: 'Замечания и проверка маршрута' },
+];
+
 /**
- * Шапка редактора: отмена, проверка, поиск и файлы.
+ * Шапка редактора: отмена, режимы работы, поиск и сохранение (запись 60).
  *
- * Инструменты ушли в колонку слева от карты, действия с выбранным — в строку
- * над картой; здесь остаётся то, что относится ко всей разметке сразу.
+ * Режимы — как рабочие пространства профессиональных редакторов: у каждого
+ * занятия свои панели. Сохранение — одна кнопка, архив — в её меню: в шапке
+ * не три кнопки файлов, а одна.
  */
 export const TopBar: React.FC = () => {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -30,7 +38,6 @@ export const TopBar: React.FC = () => {
   const unsaved = useUnsavedChanges();
   const loadData = useEditorStore((s) => s.loadData);
   const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
-  const setInspectorTab = useEditorStore((s) => s.setInspectorTab);
   const setHelpOpen = useEditorStore((s) => s.setHelpOpen);
 
   const undo = useEditorStore((s) => s.undo);
@@ -39,13 +46,6 @@ export const TopBar: React.FC = () => {
   // поверх плана для этого больше не нужен.
   const undoDescription = useHistoryStore((s) => s.getUndoDescription());
   const redoDescription = useHistoryStore((s) => s.getRedoDescription());
-
-  const report = useValidationReport();
-  const structure = useStructureChecks();
-  const errorCount = report.errors.length;
-  // Находки о корпусах и планах — среди предупреждений: они не ломают данные,
-  // но их заметит навигатор.
-  const warningCount = report.warnings.length + structure.length;
 
   const [isImporting, setIsImporting] = useState(false);
   const [pendingSave, setPendingSave] = useState<'disk' | 'archive' | null>(null);
@@ -103,20 +103,12 @@ export const TopBar: React.FC = () => {
       loadData(dataset, warnings);
       useEditorStore.getState().setCurrentBuilding(null);
     } catch (cause) {
-      alert(
-        'Ошибка импорта: ' +
-          (cause instanceof Error ? cause.message : 'не удалось прочитать архив')
-      );
+      alert('Ошибка импорта: ' + (cause instanceof Error ? cause.message : 'не удалось прочитать архив'));
     } finally {
       setIsImporting(false);
       if (fileRef.current) fileRef.current.value = '';
     }
   };
-
-  const checkLabel =
-    errorCount + warningCount === 0
-      ? 'Проверка: замечаний нет'
-      : `Проверка: ошибок ${errorCount}, предупреждений ${warningCount}`;
 
   return (
     <>
@@ -132,7 +124,7 @@ export const TopBar: React.FC = () => {
             title={undoDescription ? `Отменить: ${undoDescription} (Ctrl+Z)` : 'Отменять нечего'}
             aria-label={undoDescription ? `Отменить: ${undoDescription}` : 'Отменить'}
           >
-            <Icon name="undo" size={20} />
+            <Icon name="undo" size={18} />
           </button>
           <button
             type="button"
@@ -142,34 +134,15 @@ export const TopBar: React.FC = () => {
             title={redoDescription ? `Повторить: ${redoDescription} (Ctrl+Y)` : 'Повторять нечего'}
             aria-label={redoDescription ? `Повторить: ${redoDescription}` : 'Повторить'}
           >
-            <Icon name="redo" size={20} />
+            <Icon name="redo" size={18} />
           </button>
         </div>
 
+        <WorkspaceSwitch />
+
         <div className="editor-topbar__spacer" />
 
-        <button
-          type="button"
-          onClick={() => setInspectorTab('problems')}
-          className="editor-button editor-button--ghost"
-          title={checkLabel}
-          aria-label={checkLabel}
-        >
-          <Icon name={errorCount > 0 ? 'errorCircle' : warningCount > 0 ? 'warning' : 'checkCircle'} />
-          Проверка
-          {errorCount + warningCount > 0 && (
-            <span className={`editor-badge ${errorCount > 0 ? 'editor-badge--error' : 'editor-badge--warn'}`}>
-              {errorCount > 0 ? errorCount : warningCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="editor-button editor-button--ghost"
-          title="Поиск (Ctrl+F)"
-        >
+        <button type="button" onClick={() => setSearchOpen(true)} className="editor-button editor-button--ghost" title="Найти точку (Ctrl+F)">
           <Icon name="search" />
           Поиск
         </button>
@@ -181,60 +154,32 @@ export const TopBar: React.FC = () => {
           aria-label="Справка: мышь и клавиши"
           title="Справка: мышь и клавиши (F1)"
         >
-          <Icon name="help" size={20} />
+          <Icon name="help" size={18} />
         </button>
 
         <SettingsMenu />
-
         <SandboxButton />
 
-        <div className="editor-topbar__group" role="group" aria-label="Файлы">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".zip"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleImportFile(f);
-            }}
-          />
-
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={isImporting}
-            className="editor-button editor-button--ghost"
-            title="Открыть архив с данными вместо текущих"
-          >
-            <Icon name={isImporting ? 'refresh' : 'upload'} className={isImporting ? 'animate-spin' : undefined} />
-            Открыть архив
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void handleSave('archive')}
-            disabled={saving}
-            className={`editor-button ${diskSaveAvailable ? 'editor-button--ghost' : 'editor-button--primary'}`}
-            title="Скачать архив с данными"
-          >
-            <Icon name={saving ? 'refresh' : 'download'} className={saving ? 'animate-spin' : undefined} />
-            Скачать архив
-          </button>
-
-          {diskSaveAvailable && (
-            <button
-              type="button"
-              onClick={() => void handleSave('disk')}
-              disabled={saving || !unsaved}
-              className="editor-button editor-button--primary"
-              title={SPACE === 'sandbox' ? 'Сохранить в учебную копию (Ctrl+S)' : `Сохранить в ${diskDataDir ?? 'data/'} (Ctrl+S)`}
-            >
-              <Icon name={saving ? 'refresh' : 'checkCircle'} className={saving ? 'animate-spin' : undefined} />
-              Сохранить
-            </button>
-          )}
-        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".zip"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleImportFile(f);
+          }}
+        />
+        <SaveMenu
+          diskSaveAvailable={diskSaveAvailable}
+          saving={saving}
+          importing={isImporting}
+          unsaved={unsaved}
+          saveTitle={SPACE === 'sandbox' ? 'Сохранить в учебную копию (Ctrl+S)' : `Сохранить в ${diskDataDir ?? 'data/'} (Ctrl+S)`}
+          onSave={() => void handleSave('disk')}
+          onArchive={() => void handleSave('archive')}
+          onOpenArchive={() => fileRef.current?.click()}
+        />
       </header>
 
       <ConfirmDialog
@@ -258,15 +203,133 @@ export const TopBar: React.FC = () => {
       >
         <div className="space-y-3">
           {validation.errors.length > 0 && <ReportList kind="error" title="Ошибки" items={validation.errors} />}
-          {validation.warnings.length > 0 && (
-            <ReportList kind="warn" title="Предупреждения" items={validation.warnings} />
-          )}
-          {validation.navigator.length > 0 && (
-            <ReportList kind="warn" title="Что заметят в навигаторе" items={validation.navigator} />
-          )}
+          {validation.warnings.length > 0 && <ReportList kind="warn" title="Предупреждения" items={validation.warnings} />}
+          {validation.navigator.length > 0 && <ReportList kind="warn" title="Что заметят в навигаторе" items={validation.navigator} />}
         </div>
       </ConfirmDialog>
     </>
+  );
+};
+
+/** Режимы работы: «Планы и корпуса», «Разметка», «Проверка» (запись 60). */
+const WorkspaceSwitch: React.FC = () => {
+  const workspace = useEditorStore((s) => s.workspace);
+  const setWorkspace = useEditorStore((s) => s.setWorkspace);
+  const openCheck = useEditorStore((s) => s.openCheck);
+  const report = useValidationReport();
+  const structure = useStructureChecks();
+  const errors = report.errors.length;
+  const problems = errors + report.warnings.length + structure.length;
+
+  return (
+    <div className="editor-modes" role="group" aria-label="Режим работы">
+      {WORKSPACES.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className="editor-modes__item"
+          aria-pressed={workspace === item.id}
+          title={item.id === 'check' && problems > 0 ? `${item.title}: ошибок ${errors}, предупреждений ${problems - errors}` : item.title}
+          onClick={() => (item.id === 'check' ? openCheck() : setWorkspace(item.id))}
+        >
+          {item.label}
+          {item.id === 'check' && problems > 0 && (
+            <span className={`editor-badge ${errors > 0 ? 'editor-badge--error' : 'editor-badge--warn'}`}>{problems}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/**
+ * «Сохранить» и меню рядом: архив скачать и открыть. Где сохранения на диск
+ * нет (развёрнутый редактор), главная кнопка — «Скачать архив».
+ */
+const SaveMenu: React.FC<{
+  diskSaveAvailable: boolean;
+  saving: boolean;
+  importing: boolean;
+  unsaved: boolean;
+  saveTitle: string;
+  onSave: () => void;
+  onArchive: () => void;
+  onOpenArchive: () => void;
+}> = ({ diskSaveAvailable, saving, importing, unsaved, saveTitle, onSave, onArchive, onOpenArchive }) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      setOpen(false);
+      toggleRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointer, true);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }, [open]);
+
+  const pick = (run: () => void) => () => {
+    setOpen(false);
+    run();
+  };
+
+  return (
+    <div className="editor-menu editor-split" ref={rootRef}>
+      {diskSaveAvailable ? (
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving || !unsaved}
+          className="editor-button editor-button--primary editor-split__main"
+          title={saveTitle}
+        >
+          <Icon name={saving ? 'refresh' : 'checkCircle'} className={saving ? 'animate-spin' : undefined} />
+          Сохранить
+        </button>
+      ) : (
+        <button type="button" onClick={onArchive} disabled={saving} className="editor-button editor-button--primary editor-split__main" title="Скачать архив с данными">
+          <Icon name={saving ? 'refresh' : 'download'} className={saving ? 'animate-spin' : undefined} />
+          Скачать архив
+        </button>
+      )}
+      <button
+        ref={toggleRef}
+        type="button"
+        className="editor-button editor-button--primary editor-split__toggle"
+        aria-label="Ещё: архив"
+        title="Архив: скачать или открыть"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Icon name="chevronDown" size={14} />
+      </button>
+      {open && (
+        <div className="editor-menu__popover" role="group" aria-label="Архив">
+          {diskSaveAvailable && (
+            <button type="button" className="editor-menu__item" disabled={saving} onClick={pick(onArchive)}>
+              <Icon name="download" />
+              Скачать архив
+            </button>
+          )}
+          <button type="button" className="editor-menu__item" disabled={importing} onClick={pick(onOpenArchive)}>
+            <Icon name="upload" />
+            Открыть архив…
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 

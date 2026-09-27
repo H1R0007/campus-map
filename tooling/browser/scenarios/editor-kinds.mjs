@@ -230,7 +230,7 @@ export default {
     await step('«Переход»: щелчок по пустому месту ставит лестницу на всех этажах, связанных переходами', async () => {
       await e.press('Переход (T)');
       await e.press('Лестница');
-      assert.match(await e.toolbar(), /сразу на всех этажах/, 'подсказка не говорит, что делает щелчок по пустому месту');
+      assert.match(await e.status(), /на всех этажах корпуса/, 'подсказка не говорит, что делает щелчок по пустому месту');
 
       // Что было на соседнем этаже до щелчка: с ним и сравним стопку.
       await e.key('PageUp');
@@ -298,11 +298,11 @@ export default {
       assert.ok(!between(added[2], 'a1_corridor_3'), 'третья точка прилипла к чужой точке вместо линии');
 
       // Пока линия ведётся, строка над картой так и говорит.
-      assert.match(await e.toolbar(), /Ведём линию/, 'редактор не показывает, что линия ведётся');
+      assert.match(await e.status(), /Enter или Esc — закончить/, 'редактор не показывает, что линия ведётся');
 
       // Enter заканчивает линию: следующая точка начинает новую.
       await e.key('Enter', { keyCode: 13 });
-      assert.doesNotMatch(await e.toolbar(), /Ведём линию/, 'Enter не закончил линию');
+      assert.doesNotMatch(await e.status(), /Enter или Esc — закончить/, 'Enter не закончил линию');
       await e.click(start.x + 3 * step, start.y - 60);
       const afterEnter = (await e.nodeIds()).filter((id) => !before.includes(id) && !added.includes(id));
       assert.equal(afterEnter.length, 1);

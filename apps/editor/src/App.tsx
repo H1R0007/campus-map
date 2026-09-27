@@ -5,6 +5,7 @@ import { TopBar } from './components/Layout/TopBar';
 import { StructurePanel } from './components/Layout/StructurePanel';
 import { ToolRail } from './components/Layout/ToolRail';
 import { ToolOptions } from './components/Layout/ToolOptions';
+import { MapHeader } from './components/Layout/MapHeader';
 import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
 import { SearchPanel } from './components/UI/SearchPanel';
@@ -102,6 +103,10 @@ const App: React.FC = () => {
   const loadData = useEditorStore((s) => s.loadData);
   const initStorage = useEditorStore((s) => s.initStorage);
   const syncSystemTheme = useEditorStore((s) => s.syncSystemTheme);
+  const workspace = useEditorStore((s) => s.workspace);
+  // В «Планах и корпусах» точки бледные и не ловят щелчки — кроме
+  // совмещения точек с новым планом: там их и выбирают (запись 60).
+  const quietPoints = useEditorStore((s) => s.workspace === 'plans' && s.alignment === null);
   useUnloadGuard();
   // «Как в системе»: тема системы сменилась — сменилась и тема редактора.
   useEffect(() => watchSystemTheme(syncSystemTheme), [syncSystemTheme]);
@@ -201,10 +206,11 @@ const App: React.FC = () => {
         <TopBar />
         <div className="editor-body">
           <StructurePanel />
-          <ToolRail />
+          {workspace === 'markup' && <ToolRail />}
           <main className="editor-workspace" aria-label="Карта">
-            <ToolOptions />
-            <div className="editor-map-area">
+            <MapHeader />
+            {workspace === 'markup' && <ToolOptions />}
+            <div className={quietPoints ? 'editor-map-area editor-map-area--quiet' : 'editor-map-area'}>
               <EditorMap />
               <PlanStatus />
               <AlignmentBar />

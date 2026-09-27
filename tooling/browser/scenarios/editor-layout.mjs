@@ -41,34 +41,41 @@ export default {
       assert.deepEqual(await mapUncovered(), [], 'карточка узла лежит поверх карты');
       await shot('editor-layout');
 
-      for (const tab of ['Проверка', 'Маршрут']) {
+      await e.mode('Проверка');
+      for (const tab of ['Замечания', 'Маршрут']) {
         await e.press(tab);
         assert.equal(await selectedTab(), tab);
         assert.deepEqual(await mapUncovered(), [], `вкладка «${tab}» лежит поверх карты`);
       }
+      await e.mode('Разметка');
 
       await e.press('Переход (T)');
       assert.deepEqual(await mapUncovered(), [], 'параметры инструмента лежат поверх карты');
       await e.press('Выбор (V)');
     });
 
-    await step('щелчок по узлу показывает его карточку, даже если открыта проверка', async () => {
-      await e.press('Проверка');
+    await step('в «Проверке» точка выбирается щелчком, её свойства — в «Разметке» (запись 60)', async () => {
+      await e.mode('Проверка');
+      await e.press('Замечания');
       const room = await e.nodePoint('a1_room102');
       await e.click(room.x, room.y);
-      assert.equal(await selectedTab(), 'Свойства', 'инспектор остался на проверке');
-      assert.equal(await e.propertiesNodeId(), 'a1_room102');
+      assert.equal(await selectedTab(), 'Замечания', 'щелчок по точке увёл из «Проверки»');
+      assert.equal(await e.selectedCount(), 1, 'точка не выбрана');
+      await e.mode('Разметка');
+      assert.equal(await e.propertiesNodeId(), 'a1_room102', 'в «Разметке» нет свойств выбранной точки');
+      await e.mode('Проверка');
     });
 
     await step('вкладки инспектора переключаются стрелками', async () => {
       await page.eval(`document.querySelector('[role="tab"][aria-selected="true"]').focus()`);
       await e.key('ArrowRight');
-      assert.equal(await selectedTab(), 'Проверка');
+      assert.equal(await selectedTab(), 'Маршрут');
       assert.equal(await page.eval(`document.activeElement?.getAttribute('role')`), 'tab', 'фокус ушёл с вкладок');
       await e.key('ArrowLeft');
-      assert.equal(await selectedTab(), 'Свойства');
+      assert.equal(await selectedTab(), 'Замечания');
       // Узел А-102 выбран, но стрелки ушли вкладкам, а не ему.
       assert.match(await e.status(), /Правок: 0/, 'стрелки во вкладках сдвинули выбранный узел');
+      await e.mode('Разметка');
     });
 
     await step('экран ноутбука: карта не прыгает при выборе узла и смене инструмента', async () => {
@@ -165,7 +172,7 @@ export default {
       assert.ok(await e.rect('button[aria-label="Развернуть структуру"]'), 'структура развернулась после перезагрузки');
       await e.press('Развернуть структуру');
       await e.press('Развернуть инспектор');
-      assert.ok(await e.rect('[role="tablist"]'), 'инспектор не развернулся');
+      assert.ok(await e.rect('aside[aria-label="Инспектор"] .editor-tabs'), 'инспектор не развернулся');
     });
 
     await step('край колонки тянут мышью; ширина помнится, двойной щелчок возвращает как было (запись 57)', async () => {

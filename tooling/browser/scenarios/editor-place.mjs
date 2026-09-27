@@ -36,6 +36,7 @@ export default {
 
     await step('на территории видны поставленные корпуса', async () => {
       await e.open();
+      await e.mode('Планы и корпуса');
       await page.waitFor(`document.querySelectorAll('.campus-placed-plan.editor-campus-building').length === 3`, 15_000);
       await shot('editor-place-campus');
     });
@@ -89,9 +90,12 @@ export default {
 
       // Калька первого этажа на втором — по привязкам, повёрнутым планом-слоем.
       await e.openFloor('Корпус А', 2);
+      // Что показывать на карте — в «Разметке» (запись 60).
+      await e.mode('Разметка');
       await e.toggleFilter('Соседний этаж бледно');
       await page.waitFor(`!!document.querySelector('.campus-placed-plan.editor-ghost-plan')`, 10_000);
       await e.toggleFilter('Соседний этаж бледно');
+      await e.mode('Планы и корпуса');
       await e.press('Территория');
     });
 

@@ -17,7 +17,7 @@ export const RouteOverlay: React.FC = () => {
   const getNode = useEditorStore((s) => s.getNode);
   const palette = mapPalette();
   // Метка идёт, только пока вкладка маршрута видна.
-  const simulatorOpen = useEditorStore((s) => s.inspectorTab === 'route' && !s.inspectorCollapsed);
+  const simulatorOpen = useEditorStore((s) => s.workspace === 'check' && s.checkTab === 'route' && !s.inspectorCollapsed);
 
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);

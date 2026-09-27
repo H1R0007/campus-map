@@ -80,6 +80,18 @@ export function editorHelpers(page, base) {
       await page.sleep(400);
     },
 
+    /** Режим работы по подписи: «Планы и корпуса», «Разметка», «Проверка» (запись 60). */
+    async mode(label) {
+      const clicked = await page.eval(`(() => {
+        const button = [...document.querySelectorAll('.editor-modes__item')].find((b) => b.textContent.trim().startsWith(${JSON.stringify(label)}));
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`);
+      if (!clicked) throw new Error(`нет режима «${label}»`);
+      await page.sleep(400);
+    },
+
     /** Открывает план этажа корпуса через «Структуру». */
     async openFloor(building, floor) {
       await helpers.press(building);

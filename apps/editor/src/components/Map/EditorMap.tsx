@@ -427,6 +427,8 @@ const MapEventHandler: React.FC = () => {
     contextmenu: (e) => {
       const dom = e.originalEvent;
       dom.preventDefault();
+      // В «Планах и корпусах» меню точек и связей не к месту (запись 60).
+      if (useEditorStore.getState().workspace === 'plans') return;
       useEditorStore.getState().openContextMenu(dom.clientX, dom.clientY, {
         kind: 'map',
         x: Math.round(e.latlng.lng),

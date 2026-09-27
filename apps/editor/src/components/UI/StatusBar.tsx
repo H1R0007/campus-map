@@ -5,12 +5,12 @@ import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useCursorStore } from '../../stores/cursorStore';
 import { nodesCount } from '../../utils/labels';
+import { useToolHint } from '../../hooks/useToolHint';
 
 /**
- * Строка состояния: где мы, что выбрано, где курсор и сохранено ли.
- *
- * Что делает инструмент, подсказывает строка над картой (`ToolOptions`);
- * здесь — только состояние.
+ * Строка состояния: где мы, что выбрано, что делает инструмент и его
+ * клавиши, где курсор и сохранено ли (запись 60). Над картой — только
+ * инструмент и его параметры.
  */
 export const StatusBar: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
@@ -23,6 +23,7 @@ export const StatusBar: React.FC = () => {
   const editCount = useHistoryStore((s) => s.currentIndex + 1);
   const point = useCursorStore((s) => s.point);
   const zoom = useCursorStore((s) => s.zoom);
+  const hint = useToolHint();
 
   const planNodes = useMemo(
     () => floorNodesOf(nodes, currentBuilding, currentFloor, showPortals).length,
@@ -47,7 +48,9 @@ export const StatusBar: React.FC = () => {
       {!noPlan && <span>На плане: {nodesCount(planNodes)}</span>}
       {selectedCount > 0 && <span>Выбрано: {selectedCount}</span>}
 
-      <span className="editor-statusbar__spacer" />
+      <span className="editor-statusbar__hint" data-status-hint title={hint ?? undefined}>
+        {hint}
+      </span>
 
       <span className="editor-statusbar__coords" title="Точка плана под курсором, пиксели плана">
         {point ? `x ${point.x} · y ${point.y}` : 'курсор вне карты'}

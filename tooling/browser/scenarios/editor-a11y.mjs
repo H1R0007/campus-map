@@ -82,7 +82,6 @@ export default {
     });
 
     await step('пояснение ⓘ: открывается наведением и щелчком, читается, закрывается Escape (запись 58)', async () => {
-      await e.press('Свойства');
       const room = await e.nodePoint('a1_room101');
       await e.click(room.x, room.y);
       const info = await e.rect('button[aria-label="Пояснение: Названия"]');
@@ -104,12 +103,13 @@ export default {
     });
 
     await step('вкладки «Проверка» и «Маршрут», инструмент «Переход»', async () => {
-      for (const tab of ['Проверка', 'Маршрут']) {
+      await e.mode('Проверка');
+      for (const tab of ['Замечания', 'Маршрут']) {
         await e.press(tab);
         await checkContrast(`вкладка «${tab}»`);
         await checkSizes(`вкладка «${tab}»`);
       }
-      await e.press('Свойства');
+      await e.mode('Разметка');
 
       await e.press('Переход (T)');
       await checkContrast('инструмент «Переход»');
@@ -156,11 +156,14 @@ export default {
       const room = await e.nodePoint('a1_room101');
       await e.click(room.x, room.y);
       await checkContrast('светлая: карточка узла');
-      for (const tab of ['Проверка', 'Маршрут']) {
+      await e.mode('Проверка');
+      for (const tab of ['Замечания', 'Маршрут']) {
         await e.press(tab);
         await checkContrast(`светлая: вкладка «${tab}»`);
       }
-      await e.press('Свойства');
+      await e.mode('Планы и корпуса');
+      await checkContrast('светлая: «Планы и корпуса»');
+      await e.mode('Разметка');
       await e.key('F1', { keyCode: 112 });
       await checkContrast('светлая: справка');
       await e.key('Escape', { keyCode: 27 });

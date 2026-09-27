@@ -50,7 +50,7 @@ export default {
       const pictographs = await page.eval(`[...new Set(document.body.innerText.match(/\\p{Extended_Pictographic}/gu) ?? [])]`);
       assert.deepEqual(pictographs, [], `эмодзи на экране: ${pictographs.join(' ')}`);
 
-      await click('Поиск (Ctrl+F)');
+      await click('Поиск');
       const inSearch = await page.eval(`[...new Set(document.body.innerText.match(/\\p{Extended_Pictographic}/gu) ?? [])]`);
       assert.deepEqual(inSearch, [], `эмодзи в поиске: ${inSearch.join(' ')}`);
     });

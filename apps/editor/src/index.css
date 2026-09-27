@@ -587,6 +587,88 @@ input[type='checkbox'] {
     flex: 1;
 }
 
+/*
+ * Режимы работы (запись 60): «Планы и корпуса», «Разметка», «Проверка».
+ * Выбранный — приподнятой плашкой с полосой акцента снизу, как вкладки.
+ */
+.editor-modes {
+    display: flex;
+    gap: 2px;
+    margin-left: 12px;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--editor-bg);
+}
+
+.editor-modes__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-modes__item:hover {
+    color: var(--editor-text);
+    background: var(--editor-hover);
+}
+
+.editor-modes__item[aria-pressed='true'] {
+    color: var(--editor-text);
+    background: var(--editor-accent);
+    box-shadow: inset 0 -2px 0 var(--editor-focus);
+}
+
+/* «Сохранить» и стрелка меню — одна кнопка из двух частей. */
+.editor-split {
+    display: flex;
+}
+
+.editor-split > .editor-split__main {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.editor-split > .editor-split__toggle {
+    min-width: 32px;
+    padding: 0 8px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.editor-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.editor-menu__item:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+.editor-menu__item:disabled {
+    color: var(--editor-text-muted);
+    cursor: default;
+}
+
 .editor-body {
     flex: 1;
     display: flex;
@@ -804,6 +886,58 @@ input[type='checkbox'] {
     overflow: hidden;
 }
 
+/*
+ * «Планы и корпуса»: точки, связи и переходы видны, но бледные и не ловят
+ * щелчки — здесь правят планы, а не разметку (запись 60).
+ */
+.editor-map-area--quiet .leaflet-pane > svg path.leaflet-interactive {
+    pointer-events: none;
+}
+
+.editor-map-area--quiet .leaflet-overlay-pane path[data-node-id],
+.editor-map-area--quiet .leaflet-overlay-pane path[data-edge] {
+    opacity: 0.4;
+}
+
+/* Строка пути над картой: «Корпус А › Этаж 2». */
+.editor-mapbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 0 8px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-crumb {
+    min-height: 32px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-crumb:hover,
+.editor-crumb:focus-visible {
+    background: var(--editor-hover);
+    border-color: var(--editor-border);
+}
+
+.editor-crumb option {
+    background: var(--editor-panel);
+    color: var(--editor-text);
+}
+
+.editor-mapbar__sep,
+.editor-mapbar__empty {
+    color: var(--editor-text-muted);
+    font-size: 14px;
+}
+
 .editor-statusbar {
     display: flex;
     align-items: center;
@@ -825,6 +959,16 @@ input[type='checkbox'] {
 
 .editor-statusbar__spacer {
     flex: 1;
+}
+
+/* Подсказка инструмента: занимает свободное место и обрезается многоточием. */
+.editor-statusbar__hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--editor-text-muted);
 }
 
 .editor-statusbar__coords {
@@ -1285,6 +1429,16 @@ input[type='checkbox'] {
     display: flex;
     align-items: stretch;
     border-bottom: 1px solid var(--editor-border);
+}
+
+/* Заголовок правой колонки вне «Проверки»: там одна вкладка — «Свойства». */
+.editor-tabs__title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 16px;
 }
 
 .editor-tab {

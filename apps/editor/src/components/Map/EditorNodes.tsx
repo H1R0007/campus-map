@@ -280,10 +280,6 @@ export const EditorNodes: React.FC = () => {
       // Симулятор маршрута ждёт точку — щелчок выбирает её.
       if (st.pickRouteNode(node.id)) return;
 
-      // Выбранное на карте показывает карточку, даже если в инспекторе была
-      // открыта проверка или маршрут.
-      if (st.inspectorTab !== 'properties') st.setInspectorTab('properties', false);
-
       if (dom.shiftKey || dom.ctrlKey || dom.metaKey) {
         st.toggleSelectNode(node.id, true);
         return;

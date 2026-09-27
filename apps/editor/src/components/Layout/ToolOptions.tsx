@@ -2,13 +2,11 @@ import React from 'react';
 import { TRANSITION_TYPES } from '@campus-map/core';
 import type { TransitionType } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
-import { STACK_TRANSITIONS } from '../../stores/editor/editSlice';
 import { useEditorStore } from '../../stores/editorStore';
-import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
+import { TRANSITION_LABELS, nodesCount } from '../../utils/labels';
 import { Icon } from '../UI/Icon';
 import { TOOLS } from './tools';
 import { KindPalette } from './KindPalette';
-import { visibleKinds } from '../../utils/placeKinds';
 
 /** Короткие подписи типов на кнопках строки: инструмент уже называется «Переход». */
 const CHIP_LABELS: Record<TransitionType, string> = {
@@ -19,8 +17,9 @@ const CHIP_LABELS: Record<TransitionType, string> = {
 };
 
 /**
- * Строка над картой: что делает выбранный инструмент, простыми словами, и
- * его параметры — тип перехода, число узлов линии, действия с выбранным.
+ * Строка над картой: выбранный инструмент и его параметры — вид точки, тип
+ * перехода, число точек ряда, действия с выбранным. Что делает инструмент и
+ * его клавиши — в строке состояния (запись 60).
  *
  * Строка закреплена и не меняет высоту карты при смене инструмента; раньше
  * параметры линии открывались плавающей панелью поверх плана и перехватывали
@@ -44,12 +43,6 @@ export const ToolOptions: React.FC = () => {
   );
 };
 
-const Hint: React.FC<{ text: string }> = ({ text }) => (
-  <span className="editor-toolbar__hint" title={text}>
-    {text}
-  </span>
-);
-
 const SelectOptions: React.FC = () => {
   const count = useEditorStore((s) => s.selectedNodeIds.size);
   const clipboard = useEditorStore((s) => s.clipboard);
@@ -69,7 +62,6 @@ const SelectOptions: React.FC = () => {
   if (count === 0) {
     return (
       <>
-        <Hint text="Щелчок — выбрать точку, перетаскивание — сдвинуть, Shift и протянуть — рамка, правая кнопка — меню." />
         {pasteButton && <div className="editor-toolbar__options">{pasteButton}</div>}
       </>
     );
@@ -117,61 +109,17 @@ const SelectOptions: React.FC = () => {
   );
 };
 
-const NodeOptions: React.FC = () => {
-  const placeKinds = useEditorStore((s) => s.placeKinds);
-  const activeKindId = useEditorStore((s) => s.activeKindId);
-  const chainLastNodeId = useEditorStore((s) => s.chainLastNodeId);
-  const kind = visibleKinds(placeKinds).find((item) => item.id === activeKindId);
+const NodeOptions: React.FC = () => <KindPalette />;
 
-  const hint = !kind
-    ? 'Щелчок по карте ставит точку. Выберите вид точки.'
-    : kind.chain
-      ? chainLastNodeId
-        ? `Ведём линию «${kind.name}»: каждый щелчок — точка и связь с предыдущей. Enter или Esc — закончить.`
-        : `Щелчки ведут линию «${kind.name}»: каждая точка соединяется с предыдущей. Вид меняется цифрой.`
-      : `Щелчок по карте ставит точку вида «${kind.name}». Shift — связать с предыдущей, Alt — без выравнивания. Вид меняется цифрой.`;
-
-  return (
-    <>
-      <Hint text={hint} />
-      <KindPalette />
-    </>
-  );
-};
-
-const EdgeOptions: React.FC = () => {
-  const edgeStartNodeId = useEditorStore((s) => s.edgeStartNodeId);
-  const aliases = useEditorStore((s) => s.aliases);
-  return (
-    <Hint
-      text={
-        edgeStartNodeId
-          ? `Щелчок по второй точке соединит её с «${nodeTitle(edgeStartNodeId, aliases)}». Esc — отмена.`
-          : 'Щёлкните первую точку, затем вторую — между ними появится связь.'
-      }
-    />
-  );
-};
+/** У «Связи» параметров нет: что делать, говорит строка состояния. */
+const EdgeOptions: React.FC = () => null;
 
 const TransitionOptions: React.FC = () => {
   const transitionType = useEditorStore((s) => s.transitionType);
   const setTransitionType = useEditorStore((s) => s.setTransitionType);
-  const startId = useEditorStore((s) => s.transitionStartNodeId);
-  const start = useEditorStore((s) => (startId ? s.nodes.get(startId) : undefined));
-  const aliases = useEditorStore((s) => s.aliases);
-  const buildingMetas = useEditorStore((s) => s.buildingMetas);
-
-  // Начатый переход переживает смену этажа, поэтому подсказка называет, от
-  // какого узла и с какого плана он строится.
-  const hint = start
-    ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(start.id, aliases)}» (${nodePlaceLabel(start, buildingMetas)}): откройте другой этаж и щёлкните вторую точку. Esc — отмена.`
-    : STACK_TRANSITIONS.includes(transitionType)
-      ? 'Щелчок по пустому месту — сразу на всех этажах корпуса. По точке — вручную: точка, смена этажа, вторая точка.'
-      : 'Щелчок по точке, смена плана, щелчок по второй точке.';
 
   return (
     <>
-      <Hint text={hint} />
       <div className="editor-toolbar__options" role="group" aria-label="Тип перехода">
         {TRANSITION_TYPES.map((type) => (
           <button
@@ -200,15 +148,8 @@ const LineOptions: React.FC = () => {
   const lineConfirm = useEditorStore((s) => s.lineConfirm);
   const lineReset = useEditorStore((s) => s.lineReset);
 
-  const hint = !lineTool.start
-    ? 'Щелчок по карте — начало линии.'
-    : !lineTool.end
-      ? 'Щелчок по карте — конец линии.'
-      : 'Точки встанут на линию на равном расстоянии.';
-
   return (
     <>
-      <Hint text={hint} />
       {lineTool.start && (
         <div className="editor-toolbar__options" role="group" aria-label="Параметры линии">
           <label className="editor-check">

@@ -20,6 +20,7 @@ export const StructurePanel: React.FC = () => {
   const collapsed = useEditorStore((s) => s.structureCollapsed);
   const setCollapsed = useEditorStore((s) => s.setStructureCollapsed);
   const width = useEditorStore((s) => s.structureWidth);
+  const workspace = useEditorStore((s) => s.workspace);
   const columnRef = useRef<HTMLElement>(null);
 
   if (collapsed) {
@@ -55,9 +56,9 @@ export const StructurePanel: React.FC = () => {
         </button>
       </div>
       <div className="editor-column-body">
-        <ImportButton />
+        {workspace === 'plans' && <ImportButton />}
         <PlanTree />
-        <DisplayOptions />
+        {workspace !== 'plans' && <DisplayOptions />}
       </div>
       <ColumnResizer column="structure" edge="right" label="Ширина структуры" columnRef={columnRef} />
     </nav>

@@ -30,6 +30,7 @@ import editorProperties from './browser/scenarios/editor-properties.mjs';
 import editorRoute from './browser/scenarios/editor-route.mjs';
 import editorSave from './browser/scenarios/editor-save.mjs';
 import editorSandbox from './browser/scenarios/editor-sandbox.mjs';
+import editorModes from './browser/scenarios/editor-modes.mjs';
 import editorStructure from './browser/scenarios/editor-structure.mjs';
 import editorImport from './browser/scenarios/editor-import.mjs';
 import editorAlign from './browser/scenarios/editor-align.mjs';
@@ -68,6 +69,7 @@ const SCENARIOS = [
   editorRoute,
   editorSave,
   editorSandbox,
+  editorModes,
   editorStructure,
   editorImport,
   editorAlign,
@@ -243,6 +245,9 @@ async function startIsolatedData(app) {
 async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir, sandboxDir }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
+  // Настройки браузера (режим, тема, ширина колонок) у каждого сценария свои:
+  // иначе сценарий зависел бы от того, что оставил предыдущий.
+  await page.send('Storage.clearDataForOrigin', { origin: new URL(base).origin, storageTypes: 'local_storage' });
 
   const step = async (name, action) => {
     process.stdout.write(`    · ${name}\n`);
