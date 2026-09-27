@@ -147,6 +147,9 @@ export default {
 
       await e.open();
       assert.equal(await page.eval('document.documentElement.dataset.theme'), 'light', 'светлая тема забыта после перезагрузки');
+      await e.press('Территория');
+      await page.waitFor(`document.querySelectorAll('.transition-target').length > 0`, 8000);
+      await checkContrast('светлая: территория, подписи переходов на плашках');
       await e.openFloor('Корпус А', 1);
       await checkContrast('светлая: план');
       const room = await e.nodePoint('a1_room101');

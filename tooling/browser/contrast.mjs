@@ -6,6 +6,11 @@
  * 3:1 (WCAG 1.4.3). Выключенные элементы не меряются: их приглушённый вид —
  * это и есть сообщение «сейчас нельзя». Выражение выполняется в странице (`page.eval`) и
  * возвращает список нарушений.
+ *
+ * Текст на карте (`.leaflet-pane`) меряется, только если у него своя
+ * подложка — подпись на плашке: её фон почти непрозрачный, а под ним план
+ * любого цвета, поэтому контраст берётся худший — над белым и над чёрным.
+ * Текст прямо на плане не меряется: фон — картинка.
  */
 
 /** Выражение в странице: видимые тексты с недостаточным контрастом. */
@@ -46,7 +51,16 @@ export const LOW_CONTRAST = `(() => {
   const failures = [];
   for (const element of document.querySelectorAll('body *')) {
     const text = [...element.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(' ').trim();
-    if (!text || element.closest('.leaflet-pane, script, style')) continue;
+    if (!text || element.closest('script, style')) continue;
+    const pane = element.closest('.leaflet-pane');
+    let plate = null;
+    if (pane) {
+      for (let el = element; el && el !== pane; el = el.parentElement) {
+        const bg = parse(getComputedStyle(el).backgroundColor);
+        if (bg && bg.a >= 0.7) { plate = bg; break; }
+      }
+      if (!plate) continue;
+    }
     // Выключенные кнопки и поля WCAG не меряет (1.4.3, «неактивные элементы»):
     // они нарочно приглушены, и требовать от них контраста — требовать, чтобы
     // выключенное выглядело включённым.
@@ -61,11 +75,18 @@ export const LOW_CONTRAST = `(() => {
     if (opacity < 0.5) continue;
 
     const color = parse(style.color);
-    const background = backgroundOf(element);
-    const foreground = over({ ...color, a: color.a * opacity }, background);
-    const l1 = luminance(foreground);
-    const l2 = luminance(background);
-    const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    const contrastOn = (background) => {
+      const foreground = over({ ...color, a: color.a * opacity }, background);
+      const l1 = luminance(foreground);
+      const l2 = luminance(background);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+    const ratio = plate
+      ? Math.min(
+          contrastOn(over(plate, { r: 255, g: 255, b: 255, a: 1 })),
+          contrastOn(over(plate, { r: 0, g: 0, b: 0, a: 1 }))
+        )
+      : contrastOn(backgroundOf(element));
     const size = parseFloat(style.fontSize);
     const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
     if (ratio < (large ? 3 : 4.5)) {

@@ -71,7 +71,7 @@ export const NewBuildingDialog: React.FC<{ open: boolean; onClose: () => void }>
             aria-invalid={problem !== null}
             className="editor-input"
             value={name}
-            autoFocus
+            data-autofocus
             onChange={(event) => {
               setName(event.target.value);
               setProblem(null);
@@ -150,7 +150,7 @@ export const NewFloorDialog: React.FC<{ building: BuildingMeta | null; onClose: 
               className="editor-input"
               inputMode="decimal"
               value={number}
-              autoFocus
+              data-autofocus
               onChange={(event) => {
                 setNumber(event.target.value);
                 setProblem(null);

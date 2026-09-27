@@ -60,6 +60,7 @@ export default {
       assert.match(dialog, /Новый корпус/, 'окно «Новый корпус» не открылось');
       const suggested = await page.eval(`document.querySelector('[role="dialog"] input[aria-label="Название корпуса"]')?.value`);
       assert.equal(suggested, 'Корпус Г', 'не подсказана следующая буква');
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Название корпуса', 'фокус не в поле названия');
       await shot('editor-structure-new-building-dialog');
       await e.press('Создать');
 
@@ -80,6 +81,7 @@ export default {
       const dialog = () => page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`);
       assert.match(await dialog(), /Новый этаж · Корпус Г/);
       assert.equal(await page.eval(`document.querySelector('[role="dialog"] input[aria-label="Номер этажа"]')?.value`), '1');
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Номер этажа', 'фокус не в поле номера');
       await shot('editor-structure-new-floor-dialog');
       await page.eval(`[...document.querySelectorAll('[role="dialog"] label')].find((l) => l.textContent.includes('Без плана')).querySelector('input').click()`);
       await e.press('Создать');
