@@ -60,7 +60,7 @@ export const SandboxButton: React.FC = () => {
                 Начать с чистой копии
               </button>
             )}
-            <button type="button" className="editor-button editor-button--primary" disabled={busy} onClick={() => void enter(false)}>
+            <button type="button" className="editor-button editor-button--primary" disabled={busy} onClick={() => void enter(false)} data-autofocus>
               {sandbox.exists ? 'Продолжить в копии' : 'Открыть копию'}
             </button>
           </>
