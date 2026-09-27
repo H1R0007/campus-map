@@ -409,7 +409,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'ADD_NODE',
-      description: 'Добавлен узел',
+      description: 'Добавлена точка',
       undoData: { nodeId: id },
       redoData: { node },
     });
@@ -443,7 +443,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_NODE',
-      description: 'Удалён узел',
+      description: 'Удалена точка',
       undoData: {
         node: nodeSnapshot,
         neighborsBefore,
@@ -489,7 +489,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'MOVE_NODE',
-      description: 'Перемещение узла',
+      description: 'Перемещение точки',
       undoData: { nodeId, x: fromX, y: fromY },
       redoData: { nodeId, x: toX, y: toY },
     });
@@ -514,7 +514,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     if (after.length === 1) {
       history.push({
         type: 'MOVE_NODE',
-        description: 'Перемещение узла',
+        description: 'Перемещение точки',
         undoData: { ...before[0] },
         redoData: { ...after[0] },
       });
@@ -542,7 +542,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'UPDATE_NODE',
-      description: 'Изменение узла',
+      description: 'Изменение точки',
       undoData: { nodeId, updates: prev },
       redoData: { nodeId, updates },
     });
@@ -912,7 +912,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: 'Узел вставлен в связь',
+      description: 'Точка вставлена в связь',
       undoData: {
         kind: 'splitEdge',
         newNodeId: newId,
@@ -1261,7 +1261,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Линия: ${nodesCount(created.length)}`,
+      description: `Ряд точек: ${nodesCount(created.length)}`,
       undoData: { kind: 'line', nodeIds: created.map((n) => n.id) },
       redoData: { kind: 'line', nodes: created },
     });

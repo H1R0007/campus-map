@@ -55,7 +55,7 @@ export const BuildGuide: React.FC = () => {
           : `Корпусов ${buildings}, этажей ${facts.floors.length}` +
             (facts.withoutPlan.length > 0 ? `, без плана — ${facts.withoutPlan.length}` : ', у всех есть план'),
       hint: 'Перетащите файлы планов в любое место окна редактора: PDF, сканы, картинки, чертежи DXF, архивы ZIP. Корпуса и этажи появятся сами — редактор угадает их по имени файла и тексту на листе.',
-      action: { label: 'Планы из файлов…', run: () => openImport() },
+      action: { label: 'Загрузить планы…', run: () => openImport() },
     },
     {
       title: 'Масштаб территории',
@@ -65,16 +65,16 @@ export const BuildGuide: React.FC = () => {
       action: { label: campusMpp === undefined ? 'Задать масштаб…' : 'Уточнить…', run: startMeasuring },
     },
     {
-      title: 'Корпуса на территории',
+      title: 'Размещение корпусов',
       done: buildings > 0 && facts.unplaced.length === 0,
       status:
         facts.unplaced.length === 0
           ? buildings > 0
-            ? 'Все стоят на своих местах'
+            ? 'Все размещены'
             : 'Корпусов пока нет'
-          : `Не поставлено: ${facts.unplaced.map((meta) => meta.name).join(', ')}`,
-      hint: 'План корпуса ложится поверх территории — тяните и поворачивайте его за ручки или поставьте по парам точек.',
-      action: facts.unplaced[0] ? { label: `Поставить «${facts.unplaced[0].name}»…`, run: () => place(facts.unplaced[0].id) } : undefined,
+          : `Не размещены: ${facts.unplaced.map((meta) => meta.name).join(', ')}`,
+      hint: 'План корпуса ложится поверх территории: тяните и поворачивайте его за ручки или совместите по парам точек.',
+      action: facts.unplaced[0] ? { label: `Разместить «${facts.unplaced[0].name}»…`, run: () => place(facts.unplaced[0].id) } : undefined,
     },
     {
       title: 'Точки и связи',
@@ -85,7 +85,7 @@ export const BuildGuide: React.FC = () => {
             ? 'На всех этажах есть точки'
             : '—'
           : `Без точек: ${facts.withoutPoints.length} ${plural(facts.withoutPoints.length, ['этаж', 'этажа', 'этажей'])}`,
-      hint: 'Откройте этаж и ставьте точки инструментом «Узел» (N): вид точки выбирается в строке над картой, коридор — вид «Коридор».',
+      hint: 'Откройте этаж и ставьте точки инструментом «Точка» (N); вид точки выбирается в строке над картой, коридор — вид «Коридор».',
       action: firstWithoutPoints
         ? {
             label: `Открыть: ${firstWithoutPoints.meta.name}, этаж ${floorLabel(firstWithoutPoints.meta, firstWithoutPoints.floor)}`,

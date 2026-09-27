@@ -546,7 +546,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
         request.campus ? 'план территории' : '',
       ].filter(Boolean);
 
-      commit(`Планы из файлов: ${parts.join(', ')}`, moved, (s) => {
+      commit(`Загружены планы: ${parts.join(', ')}`, moved, (s) => {
         for (const [id, transform] of moves) {
           const node = s.nodes.get(id)!;
           const next = applySimilarity(transform, node);
@@ -601,7 +601,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       // и масштаб, что у корпуса.
       const before = completePlacement(meta.placement);
       const shift = before ? composeSimilarity(worldOf(placement), invertSimilarity(worldOf(before))) : null;
-      commit(`Корпус «${meta.name}» ${placed ? 'передвинут' : 'поставлен'} на территорию`, [], (s) => {
+      commit(`Корпус «${meta.name}» ${placed ? 'перемещён на территории' : 'размещён на территории'}`, [], (s) => {
         if (campusScale !== undefined && s.campusMeta) s.campusMeta.metersPerPixel = Math.round(campusScale * 1e7) / 1e7;
         const target = s.buildingMetas.get(id)!;
         if (shift && before) {

@@ -69,7 +69,7 @@ describe('постановка', () => {
 
     expect(store().placing).toBeNull();
     expect(useHistoryStore.getState().entries).toHaveLength(1);
-    expect(useHistoryStore.getState().entries[0].description).toBe('Корпус «Корпус А» передвинут на территорию');
+    expect(useHistoryStore.getState().entries[0].description).toBe('Корпус «Корпус А» перемещён на территории');
     const { campusMeta, buildingMetas } = store();
     const projection = createCampusProjection(campusMeta!, buildingMetas.values());
     const world = projection.toWorld({ building: 'building_a', floor: 1, x: 100, y: 120 })!;

@@ -114,7 +114,7 @@ export default {
         await page.sleep(800);
       };
 
-      await e.toggleFilter('Названия узлов');
+      await e.toggleFilter('Названия точек');
       assert.ok((await labels()) > 0, 'подписи не появились на открытом плане');
 
       // Дальше «плана целиком» карта не отдаляется, поэтому окно поуже: так
@@ -134,7 +134,7 @@ export default {
         back.push(await labels());
       }
       assert.ok((await labels()) > 0, `подписи не вернулись при приближении: ${JSON.stringify({ counts, back })}`);
-      await e.toggleFilter('Названия узлов');
+      await e.toggleFilter('Названия точек');
       await page.viewport(1600, 900, 1);
       await page.sleep(400);
     });

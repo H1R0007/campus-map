@@ -116,7 +116,7 @@ export default {
     });
 
     await step('окно открывается пустым и принимает файлы', async () => {
-      await e.press('Планы из файлов…');
+      await e.press('Загрузить планы…');
       assert.match(await page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`), /Перетащите сюда планы/);
 
       const { root } = await page.send('DOM.getDocument', { depth: 1 });
@@ -242,7 +242,7 @@ export default {
         !(await page.eval(`[...document.querySelectorAll('.editor-tree__label')].some((l) => l.textContent.trim() === 'Этаж −1')`)),
         'подвал остался после отмены'
       );
-      assert.match(await e.notice(), /Отменено: Планы из файлов/);
+      assert.match(await e.notice(), /Отменено: Загружены планы/);
     });
   },
 };

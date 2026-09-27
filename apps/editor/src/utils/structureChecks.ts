@@ -44,7 +44,7 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
 
   if (campusMeta && campusMpp === undefined) {
     issues.push({
-      text: 'Масштаб территории не задан: без метров навигатор не показывает время в пути и корпуса не поставить на территорию',
+      text: 'Масштаб территории не задан: без него навигатор не показывает время в пути, а корпуса не разместить',
       action: { kind: 'measure' },
       actionLabel: 'Задать масштаб…',
       navigator: true,
@@ -81,9 +81,9 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
               navigator: true,
             }
           : {
-              text: `Корпус «${meta.name}» не поставлен на территорию: пока он не на своём месте, время в пути пропадает во всём кампусе`,
+              text: `Корпус «${meta.name}» не размещён на территории: пока его нет на месте, навигатор не показывает время в пути во всём кампусе`,
               action: { kind: 'place', building: meta.id },
-              actionLabel: 'Поставить…',
+              actionLabel: 'Разместить…',
               navigator: true,
             }
       );

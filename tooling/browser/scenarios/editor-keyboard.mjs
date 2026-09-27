@@ -28,7 +28,7 @@ export default {
       const before = (await e.nodeIds()).length;
 
       await ru('т', 'KeyN');
-      assert.equal(await e.tool(), 'Узел', 'клавиша инструмента не сработала в русской раскладке');
+      assert.equal(await e.tool(), 'Точка', 'клавиша инструмента не сработала в русской раскладке');
 
       const empty = await e.emptyMapPoint();
       await e.click(empty.x, empty.y);

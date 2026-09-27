@@ -8,6 +8,7 @@ import { plural } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { Icon } from './Icon';
 import { IconPicker } from './IconPicker';
+import { CheckRow, FieldLabel } from './Field';
 
 /** Как называть поставленные точки — три понятных выбора вместо шаблона со скобками. */
 type Naming = 'kind' | 'room' | 'none';
@@ -350,8 +351,7 @@ const NamingChoice: React.FC<{
   <label className="editor-check">
     <input type="radio" name="kind-naming" checked={current === value} onChange={() => onChoose(value)} />
     <span className="editor-check__text">
-      {title}
-      <span className="editor-check__hint">{hint}</span>
+      {title} <span className="editor-check__example">· {hint}</span>
     </span>
   </label>
 );
@@ -372,113 +372,96 @@ const KindForm: React.FC<{
   <section className="editor-card__section" aria-label={editing ? 'Изменить вид точки' : 'Создать вид точки'}>
     <h3 className="editor-card__heading">{editing ? 'Изменить вид' : 'Новый вид'}</h3>
 
-    <label className="editor-card__field">
-      <span className="editor-section__hint">Название вида</span>
+    <label className="editor-field">
+      <span className="editor-field__label">Название вида</span>
       <input
         value={draft.name}
         onChange={(e) => onChange({ ...draft, name: e.target.value })}
-        placeholder="Например: Медпункт"
+        placeholder="например, Медпункт"
         aria-label="Название вида"
         className="editor-input"
       />
     </label>
 
-    <label className="editor-card__field">
-      <span className="editor-section__hint">Название по-английски — для английской версии навигатора</span>
+    <div className="editor-field">
+      <FieldLabel label="Название по-английски" info="Для английской версии навигатора." />
       <input
         value={draft.nameEn ?? ''}
         onChange={(e) => onChange({ ...draft, nameEn: e.target.value })}
-        placeholder="Например: First aid"
+        placeholder="например, First aid"
         aria-label="Название по-английски"
         className="editor-input"
       />
-    </label>
+    </div>
 
-    <div className="editor-card__field">
-      <span className="editor-section__hint">Значок — его видят и разметчик, и студент в навигаторе</span>
+    <div className="editor-field">
+      <FieldLabel label="Значок" info="Его видят и разметчик на карте, и студент в навигаторе." />
       <button ref={iconButtonRef} type="button" className="editor-button editor-icon-pick" onClick={onPickIcon}>
         <KindGlyph kind={draft} size={24} />
         {draft.iconImage || draft.icon ? 'Сменить значок…' : 'Выбрать значок…'}
       </button>
     </div>
 
-    <label className="editor-check">
-      <input
-        type="checkbox"
-        checked={draft.place === true}
-        onChange={(e) => onChange({ ...draft, place: e.target.checked || undefined })}
-      />
-      <span className="editor-check__text">
-        Место для быстрого поиска
-        <span className="editor-check__hint">навигатор находит ближайшее такое место и показывает его значок</span>
-      </span>
-    </label>
+    <CheckRow
+      label="Место для быстрого поиска"
+      info="Навигатор находит ближайшее такое место и показывает его значок."
+      checked={draft.place === true}
+      onChange={(value) => onChange({ ...draft, place: value || undefined })}
+    />
 
     {draft.place && (
       <>
-        <label className="editor-check">
-          <input
-            type="checkbox"
-            checked={draft.quick === true}
-            onChange={(e) => onChange({ ...draft, quick: e.target.checked || undefined })}
-          />
-          <span className="editor-check__text">
-            Кнопка в навигаторе
-            <span className="editor-check__hint">
-              кнопка «Рядом» на шторке навигатора; порядок кнопок — как в списке видов
-            </span>
-          </span>
-        </label>
+        <CheckRow
+          label="Кнопка в навигаторе"
+          info="Кнопка «Рядом» на шторке навигатора. Порядок кнопок — как в списке видов."
+          checked={draft.quick === true}
+          onChange={(value) => onChange({ ...draft, quick: value || undefined })}
+        />
 
-        <label className="editor-card__field">
-          <span className="editor-section__hint">Другие слова, по которым ищут, — через запятую</span>
+        <div className="editor-field">
+          <FieldLabel label="Слова для поиска" info="Другие слова, по которым ищут это место, — через запятую." />
           <input
             value={termsText}
             onChange={(e) => onTerms(e.target.value)}
-            placeholder="Например: врач, медкабинет, first aid"
+            placeholder="например, врач, медкабинет, first aid"
             aria-label="Слова для поиска"
             className="editor-input"
           />
-        </label>
+        </div>
       </>
     )}
 
     <fieldset className="editor-fieldset">
-      <legend className="editor-section__hint">Какое название получит поставленная точка</legend>
+      <legend className="editor-field__label">Название новой точки</legend>
       <NamingChoice
         value="kind"
         current={naming}
         onChoose={onNaming}
         title="Как у вида"
-        hint={`каждая точка сразу называется «${draft.name.trim() || 'Медпункт'}»`}
+        hint={`«${draft.name.trim() || 'Медпункт'}»`}
       />
       <NamingChoice
         value="room"
         current={naming}
         onChoose={onNaming}
         title="Номер помещения"
-        hint="в поле названия уже «А-1», останется дописать номер: «А-107»"
+        hint="«А-1…» — дописать номер"
       />
       <NamingChoice
         value="none"
         current={naming}
         onChoose={onNaming}
         title="Без названия"
-        hint="как у коридора: точка нужна только для маршрута"
+        hint="как у коридора, только для маршрута"
       />
     </fieldset>
 
-    <label className="editor-check">
-      <input
-        type="checkbox"
-        checked={draft.connect === true}
-        onChange={(e) => onChange({ ...draft, connect: e.target.checked || undefined })}
-      />
-      <span className="editor-check__text">
-        Соединять с ближайшей точкой плана
-        <span className="editor-check__hint">точка сразу связана с коридором — отдельно щёлкать «Связь» не нужно</span>
-      </span>
-    </label>
+    <CheckRow
+      label="Соединять с ближайшей точкой плана"
+      info="Новая точка сразу связана с коридором — отдельно щёлкать «Связь» не нужно."
+      checked={draft.connect === true}
+      onChange={(value) => onChange({ ...draft, connect: value || undefined })}
+    />
 
     <div className="editor-card__actions">
       <button type="button" className="editor-button editor-button--primary" onClick={onSave} disabled={draft.name.trim().length === 0}>

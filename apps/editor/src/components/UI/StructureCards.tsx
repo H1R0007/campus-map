@@ -13,6 +13,7 @@ import { plural } from '../../utils/labels';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from './Icon';
 import { SessionBar } from './SessionBar';
+import { CommitField, FieldLabel } from './Field';
 
 /**
  * Карточки этажа, корпуса и плана территории — вкладка «Свойства», когда
@@ -34,68 +35,6 @@ function useSessionEdit(sessionKey: string, description: string) {
   );
   return useCallback((fn: () => void) => runInSession(sessionKey, description, fn), [runInSession, sessionKey, description]);
 }
-
-/**
- * Поле карточки: правка применяется по Enter и при уходе из поля, Escape
- * возвращает прежнее. Отказ стора показывается под полем.
- */
-const Field: React.FC<{
-  label: string;
-  value: string;
-  hint: string;
-  placeholder?: string;
-  inputMode?: 'text' | 'decimal';
-  /** @returns текст проблемы или `null` */
-  onCommit: (value: string) => string | null;
-}> = ({ label, value, hint, placeholder, inputMode = 'text', onCommit }) => {
-  const [text, setText] = useState(value);
-  const [problem, setProblem] = useState<string | null>(null);
-  const id = React.useId();
-
-  useEffect(() => {
-    setText(value);
-    setProblem(null);
-  }, [value]);
-
-  const commit = () => {
-    if (text === value) {
-      setProblem(null);
-      return;
-    }
-    setProblem(onCommit(text));
-  };
-
-  return (
-    <label className="editor-card__field">
-      <span className="editor-section__hint">{label}</span>
-      <input
-        aria-label={label}
-        aria-invalid={problem !== null}
-        aria-describedby={`${id}-hint`}
-        value={text}
-        placeholder={placeholder}
-        inputMode={inputMode}
-        onChange={(e) => {
-          setText(e.target.value);
-          setProblem(null);
-        }}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') commit();
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            setText(value);
-            setProblem(null);
-          }
-        }}
-        className="editor-input"
-      />
-      <span id={`${id}-hint`} className={problem === null ? 'editor-section__hint' : 'editor-section__hint editor-section__hint--problem'}>
-        {problem ?? hint}
-      </span>
-    </label>
-  );
-};
 
 /** Что за план: формат, размер, откуда взят, сохранён ли. */
 const PlanFacts: React.FC<{ scope: string; meta: Pick<FloorMeta, 'mapSize' | 'planFormat' | 'source'> | undefined }> = ({ scope, meta }) => {
@@ -150,18 +89,20 @@ export const FloorSection: React.FC<{ building: BuildingMeta; floor: FloorMeta }
         Этаж
       </h3>
       <div className="editor-card__row">
-        <Field
-          label="Номер этажа"
+        <CommitField
+          label="Номер"
+          ariaLabel="Номер этажа"
           value={String(floor.floor)}
           inputMode="decimal"
-          hint="−1 — подвал, 0 — цоколь, 1.5 — антресоль между 1 и 2"
+          info="Порядок этажей в корпусе: подвал −1, цоколь 0, антресоль между 1 и 2 — 1.5."
           onCommit={(text) => change({ floor: parseFloorNumber(text) })}
         />
-        <Field
-          label="Подпись на кнопке"
+        <CommitField
+          label="Подпись"
+          ariaLabel="Подпись этажа"
           value={floor.label ?? ''}
           placeholder={floorLabel(undefined, floor.floor)}
-          hint="Как на табличках: 1А, Ц. Пусто — номер"
+          info="Как этаж подписан на кнопке в навигаторе: «1А», «Ц». Пусто — номер."
           onCommit={(text) => change({ label: text })}
         />
       </div>
@@ -204,21 +145,23 @@ export const BuildingSection: React.FC<{ building: BuildingMeta }> = ({ building
       <h3 id="building-card-title" className="editor-card__heading">
         Корпус
       </h3>
-      <Field
-        label="Название корпуса"
+      <CommitField
+        label="Название"
+        ariaLabel="Название корпуса"
         value={building.name}
-        hint="Так корпус называется в навигаторе и в поиске"
         onCommit={(text) => change({ name: text })}
       />
-      <Field
-        label="Название корпуса по-английски"
+      <CommitField
+        label="Название по-английски"
+        ariaLabel="Название корпуса по-английски"
         value={building.translations?.en?.name ?? ''}
-        hint="Для навигатора на английском. Пусто — показывается русское"
+        placeholder="например, Building A"
+        info="Для английской версии навигатора. Пусто — показывается русское название."
         onCommit={(text) => change({ nameEn: text })}
       />
       {floors.length > 0 && (
-        <label className="editor-card__field">
-          <span className="editor-section__hint">Этаж входа</span>
+        <div className="editor-field">
+          <FieldLabel label="Этаж входа" info="Этот этаж навигатор открывает первым, когда выбирают корпус." />
           <select
             aria-label="Этаж входа"
             className="editor-input"
@@ -232,27 +175,29 @@ export const BuildingSection: React.FC<{ building: BuildingMeta }> = ({ building
               </option>
             ))}
           </select>
-          <span className="editor-section__hint">Этот этаж навигатор открывает, когда выбирают корпус</span>
-        </label>
+        </div>
       )}
       {building.placement?.originMeters !== undefined && (
         <div className="editor-card__row">
-          <Field
+          <CommitField
             label="Высота этажа, м"
             value={String(building.placement.floorHeightMeters ?? '')}
             inputMode="decimal"
-            hint="Для времени в пути по лестнице"
+            placeholder="3,6"
+            info="Нужна, чтобы считать время в пути по лестницам."
             onCommit={(text) => {
               const value = Number(text.replace(',', '.'));
               if (!(value > 0)) return 'Высота этажа — положительное число метров';
               return change({ placement: { ...building.placement, floorHeightMeters: value } });
             }}
           />
-          <Field
-            label="Пол 1 этажа над землёй, м"
+          <CommitField
+            label="Отметка 1 этажа, м"
+            ariaLabel="Отметка первого этажа, м"
             value={String(building.placement.baseElevationMeters ?? '')}
             inputMode="decimal"
-            hint="0 — вход с уровня земли"
+            placeholder="0"
+            info="Высота пола первого этажа над землёй. 0 — вход с уровня земли."
             onCommit={(text) => {
               const value = Number(text.replace(',', '.').replace(/[−–—]/g, '-'));
               if (!Number.isFinite(value)) return 'Отметка — число метров';
@@ -303,11 +248,11 @@ const TerritorySection: React.FC = () => {
               <span className="editor-list__main">
                 <span className="editor-list__text">
                   <span className="editor-list__name">{meta.name}</span>
-                  <span className="editor-list__sub">{placed ? 'стоит на территории' : 'не поставлен — навигатор не знает, где он'}</span>
+                  <span className="editor-list__sub">{placed ? 'размещён на территории' : 'не размещён — навигатор не знает, где он'}</span>
                 </span>
               </span>
               <button type="button" className="editor-button editor-button--ghost" onClick={() => place(meta.id)} disabled={meta.floors.length === 0}>
-                {placed ? 'Передвинуть…' : 'Поставить…'}
+                {placed ? 'Изменить размещение…' : 'Разместить…'}
               </button>
             </li>
           );
@@ -376,7 +321,7 @@ const RedoPlanButton: React.FC<{ building: string | null; floor: number | null; 
       onClick={() => void redo()}
       title="Открыть тот же лист присланного файла: поправить рамку или поворот, точки пересчитаются сами"
     >
-      Переделать план…
+      Изменить обрезку…
     </button>
   );
 };
@@ -429,7 +374,7 @@ const PlaceButton: React.FC<{ building: BuildingMeta }> = ({ building }) => {
   return (
     <button type="button" className="editor-button editor-button--ghost" onClick={() => place(building.id)}>
       <Icon name="map" />
-      {placed ? 'Передвинуть на территории…' : 'Поставить на территорию…'}
+      {placed ? 'Изменить размещение…' : 'Разместить на территории…'}
     </button>
   );
 };
@@ -471,64 +416,6 @@ const PlanFileButton: React.FC<{ building: string | null; floor: number | null }
       <Icon name="upload" />
       {hasPlan ? 'Заменить план…' : 'Добавить план…'}
     </button>
-  );
-};
-
-/** Этаж, которого ещё нет: номер и кнопка. */
-export const AddFloorForm: React.FC<{ building: BuildingMeta; onDone?: () => void; autoFocus?: boolean }> = ({
-  building,
-  onDone,
-  autoFocus,
-}) => {
-  const addFloor = useEditorStore((s) => s.addFloor);
-  const suggested = building.floors.length === 0 ? 1 : Math.floor(Math.max(...building.floors.map((floor) => floor.floor))) + 1;
-  const [text, setText] = useState(String(suggested));
-  const [problem, setProblem] = useState<string | null>(null);
-
-  const submit = () => {
-    const result = addFloor(building.id, { floor: parseFloorNumber(text) });
-    setProblem(result);
-    if (result === null) onDone?.();
-  };
-
-  return (
-    <form
-      className="editor-card__row"
-      aria-label={`Новый этаж: ${building.name}`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <label className="editor-card__field flex-1">
-        <span className="editor-section__hint">Номер нового этажа</span>
-        <input
-          aria-label="Номер нового этажа"
-          aria-invalid={problem !== null}
-          className="editor-input"
-          inputMode="decimal"
-          value={text}
-          autoFocus={autoFocus}
-          onChange={(e) => {
-            setText(e.target.value);
-            setProblem(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              onDone?.();
-            }
-          }}
-        />
-        <span className={problem === null ? 'editor-section__hint' : 'editor-section__hint editor-section__hint--problem'}>
-          {problem ?? 'Пустой этаж без плана: план можно добавить потом'}
-        </span>
-      </label>
-      <button type="submit" className="editor-button editor-button--primary self-start mt-5">
-        <Icon name="plus" />
-        Добавить
-      </button>
-    </form>
   );
 };
 

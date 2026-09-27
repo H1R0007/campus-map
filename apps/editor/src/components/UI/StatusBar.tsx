@@ -32,7 +32,7 @@ export const StatusBar: React.FC = () => {
   const buildingName = currentBuilding === null ? '' : (buildingMetas.get(currentBuilding)?.name ?? currentBuilding);
   const place =
     currentBuilding === null
-      ? 'Территория кампуса'
+      ? 'Территория'
       : currentFloor === null
         ? `${buildingName} / этажей нет`
         : `${buildingName} / Этаж ${floorLabel(buildingMetas.get(currentBuilding), currentFloor)}`;

@@ -214,10 +214,10 @@ export const RouteView: React.FC = () => {
             Выбирать точки щелчком по карте
             <span className="editor-check__hint">
               {!routePickMode
-                ? 'выключено: щелчок выбирает узел, точки — поиском'
+                ? 'выключено: щелчок по карте выбирает точку, начало и конец — поиском'
                 : routePickTarget === 'from' || !route.fromNodeId
-                  ? 'щёлкните узел — начало маршрута'
-                  : 'щёлкните узел — конец маршрута'}
+                  ? 'щёлкните точку — начало маршрута'
+                  : 'щёлкните точку — конец маршрута'}
             </span>
           </span>
         </label>
@@ -369,7 +369,7 @@ export const RouteView: React.FC = () => {
                         <span className="editor-list__name">
                           {idx + 1}. {nodeTitle(id, aliases)}
                         </span>
-                        <span className="editor-list__sub">{n ? nodePlaceLabel(n, buildingMetas) : 'узла нет'}</span>
+                        <span className="editor-list__sub">{n ? nodePlaceLabel(n, buildingMetas) : 'точки нет'}</span>
                       </span>
                     </button>
                   </li>
@@ -410,8 +410,8 @@ const RoutePointField: React.FC<{
           disabled={!!chosen}
           onFocus={onFocus}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Название или щелчок по узлу"
-          aria-label={`${label}: название узла`}
+          placeholder="Название или щелчок по точке"
+          aria-label={`${label}: название точки`}
           className="editor-input"
         />
         {chosen && (
@@ -421,7 +421,7 @@ const RoutePointField: React.FC<{
         )}
       </div>
       {!chosen && results.length > 0 && (
-        <ul className="editor-list editor-route-field__results" aria-label={`${label}: найденные узлы`}>
+        <ul className="editor-list editor-route-field__results" aria-label={`${label}: найденные точки`}>
           {results.map((n) => (
             <li key={n.id} className="editor-list__row">
               <button type="button" className="editor-list__main" onClick={() => onPick(n.id)}>

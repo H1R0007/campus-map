@@ -9,7 +9,7 @@ import { repoRoot } from '../../lib/vite-server.mjs';
  *
  * План этажа с точками заменяют картинкой другого масштаба — редактор сам
  * предлагает совместить. Две пары «точка — её место» двигают все точки этажа,
- * одна отмена возвращает. «Переделать план…» с другой рамкой того же листа
+ * одна отмена возвращает. «Изменить обрезку…» с другой рамкой того же листа
  * пересчитывает точки сам, без пар.
  */
 
@@ -37,7 +37,7 @@ export default {
     const nodeXY = async (id) => {
       const point = await e.nodePoint(id, { allowCovered: true });
       await e.click(point.x, point.y);
-      await page.eval(`document.querySelector('[aria-label="Свойства узла"] details')?.setAttribute('open', '')`);
+      await page.eval(`document.querySelector('[aria-label="Свойства точки"] details')?.setAttribute('open', '')`);
       await page.sleep(200);
       const xy = { x: Number(await e.panelValue('Координата X')), y: Number(await e.panelValue('Координата Y')) };
       await e.key('Escape');
@@ -147,14 +147,14 @@ export default {
       await e.key('y', { modifiers: MOD.ctrl });
     });
 
-    await step('«Переделать план…» с другой рамкой — точки пересчитываются сами', async () => {
+    await step('«Изменить обрезку…» с другой рамкой — точки пересчитываются сами', async () => {
       await e.key('s', { modifiers: MOD.ctrl });
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 30_000);
       const source = JSON.parse(readFileSync(path.join(dataDir, 'buildings/building_b/meta.json'), 'utf8')).floors.find((floor) => floor.floor === 2).source;
       assert.ok(source.crop, 'план сделан с обрезкой полей');
       const beforeRedo = await nodeXY(before.first);
 
-      await e.press('Переделать план…');
+      await e.press('Изменить обрезку…');
       await page.waitFor(`!!document.querySelector('.editor-import__piece')`, 30_000);
       assert.match(await page.eval(`document.querySelector('.editor-import__piece').textContent`), /Точки этажа пересчитаются вместе с планом/);
       // Лист открылся с той рамкой, с которой план сделан.

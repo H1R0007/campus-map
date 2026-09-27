@@ -53,7 +53,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         entries: [
           {
             kind: 'action',
-            label: 'Соединить связью с другим узлом',
+            label: 'Соединить связью с другой точкой',
             icon: 'link',
             run: () => {
               st.setActiveTool('edge');
@@ -95,7 +95,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
             },
           },
           separator,
-          { kind: 'action', label: 'Удалить узел', shortcut: 'Delete', icon: 'trash', danger: true, run: () => st.removeNode(id) },
+          { kind: 'action', label: 'Удалить точку', shortcut: 'Delete', icon: 'trash', danger: true, run: () => st.removeNode(id) },
         ],
       };
     }
@@ -104,7 +104,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
       const count = target.nodeIds.filter((id) => st.nodes.has(id)).length;
       if (count === 0) return null;
       return {
-        title: `Выбрано узлов: ${count}`,
+        title: `Выбрано точек: ${count}`,
         entries: [
           { kind: 'action', label: 'Соединить цепочкой', icon: 'link', run: () => st.connectSelectedChain() },
           separator,
@@ -113,7 +113,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
           separator,
           {
             kind: 'action',
-            label: `Удалить узлы: ${count}`,
+            label: `Удалить точки: ${count}`,
             shortcut: 'Delete',
             icon: 'trash',
             danger: true,
@@ -130,7 +130,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         title: 'Связь',
         subtitle: `${nodeTitle(from, st.aliases)} — ${nodeTitle(to, st.aliases)}`,
         entries: [
-          { kind: 'action', label: 'Вставить узел посередине', icon: 'plus', run: () => st.splitEdge(from, to) },
+          { kind: 'action', label: 'Вставить точку посередине', icon: 'plus', run: () => st.splitEdge(from, to) },
           {
             kind: 'action',
             label: 'Выделить оба конца',
@@ -201,7 +201,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         title: 'Карта',
         subtitle: `Точка плана ${x}, ${y}`,
         entries: [
-          { kind: 'action', label: 'Поставить узел здесь', icon: 'plus', run: () => st.addNode(x, y) },
+          { kind: 'action', label: 'Поставить точку здесь', icon: 'plus', run: () => st.addNode(x, y) },
           {
             kind: 'action',
             label: 'Вставить скопированное сюда',
@@ -219,7 +219,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
             },
           },
           separator,
-          { kind: 'action', label: 'Выделить все узлы плана', shortcut: 'Ctrl+A', icon: 'select', run: () => st.selectAll() },
+          { kind: 'action', label: 'Выделить все точки плана', shortcut: 'Ctrl+A', icon: 'select', run: () => st.selectAll() },
           { kind: 'action', label: 'Показать план целиком', icon: 'map', run: () => st.requestFitPlan() },
         ],
       };

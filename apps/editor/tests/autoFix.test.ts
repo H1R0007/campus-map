@@ -69,7 +69,7 @@ describe('autoFixDataset', () => {
     p.nodes.get('a1_hall')!.neighbors.push('ghost', 'a1_stairs');
     const lines = autoFixSummary(autoFixDataset(p).report);
     expect(lines).toEqual([
-      { text: 'Убрано ссылок на несуществующие узлы', count: 1 },
+      { text: 'Убрано ссылок на несуществующие точки', count: 1 },
       { text: 'Убрано повторов в связях', count: 1 },
     ]);
   });

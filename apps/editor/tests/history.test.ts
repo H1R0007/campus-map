@@ -246,7 +246,7 @@ describe('отмена показывает, где случилась прав�
 
     select('a1_hall', 'a1_room101', 'a1_stairs');
     store().moveSelectedBy(5, 0);
-    expect(useHistoryStore.getState().getUndoDescription()).toBe('Перемещено: 3 узла');
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Перемещено: 3 точки');
   });
 
   it('правку на открытом плане план не переключает', () => {

@@ -3,7 +3,7 @@ import { floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { planScopeKey } from '../../utils/planFiles';
 import { Icon } from './Icon';
-import { AddFloorForm } from './StructureCards';
+import { NewFloorDialog } from './AddDialogs';
 
 /**
  * Что сказать поверх карты, когда плана нет (записи 47, 52).
@@ -24,6 +24,7 @@ export const PlanStatus: React.FC = () => {
   const hasPlan = useEditorStore((s) => s.planFiles.has(scope));
   /** Планы, которые человек решил размечать без файла, — до перезагрузки страницы. */
   const [withoutPlan, setWithoutPlan] = useState<ReadonlySet<string>>(new Set());
+  const [addingFloor, setAddingFloor] = useState(false);
 
   if (building && currentFloor === null) {
     return (
@@ -31,8 +32,8 @@ export const PlanStatus: React.FC = () => {
         <div className="editor-plan-status__box">
           <h2 className="editor-dialog__title">{building.name}: этажей пока нет</h2>
           <p className="editor-section__hint">
-            Добавьте этажи из файлов планов — перетащите их сюда или выберите кнопкой. Корпус и этаж редактор угадает по
-            имени файла и тексту на листе. Или добавьте пустой этаж и поставьте план потом.
+            Перетащите файлы планов сюда или выберите их кнопкой: номер этажа редактор определит по имени файла и тексту на
+            листе.
           </p>
           <button
             type="button"
@@ -40,9 +41,13 @@ export const PlanStatus: React.FC = () => {
             onClick={() => openImport([], { building: building.id })}
           >
             <Icon name="upload" />
-            Этажи из файлов…
+            Загрузить планы этажей…
           </button>
-          <AddFloorForm building={building} />
+          <button type="button" className="editor-button editor-button--ghost editor-button--block" onClick={() => setAddingFloor(true)}>
+            <Icon name="plus" />
+            Добавить этаж вручную…
+          </button>
+          <NewFloorDialog building={addingFloor ? building : null} onClose={() => setAddingFloor(false)} />
         </div>
       </div>
     );

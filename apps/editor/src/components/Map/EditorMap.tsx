@@ -117,7 +117,9 @@ const KeyboardHandler: React.FC = () => {
         st.helpOpen ||
         st.searchOpen ||
         st.kindsOpen ||
-        target?.closest?.('[role="menu"], [role="dialog"]')
+        target?.closest?.('[role="menu"], [role="dialog"]') ||
+        // Открытое пояснение ⓘ и меню настроек закрываются своим Escape.
+        target?.closest?.('.editor-info[aria-expanded="true"], .editor-menu')
       ) {
         return;
       }

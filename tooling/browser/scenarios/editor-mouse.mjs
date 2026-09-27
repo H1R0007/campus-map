@@ -107,10 +107,10 @@ export default {
 
       const menus = await e.menus();
       assert.equal(menus.length, 1, `открыто меню: ${menus.length}`);
-      assert.ok(menus[0].items.includes('Вставить узел посередине'), JSON.stringify(menus[0]));
+      assert.ok(menus[0].items.includes('Вставить точку посередине'), JSON.stringify(menus[0]));
       await shot('editor-edge-menu');
 
-      await e.menuPick('Вставить узел посередине');
+      await e.menuPick('Вставить точку посередине');
       assert.equal((await e.nodeIds()).length, nodesBefore + 1, 'узел не вставлен');
       assert.equal((await e.menus()).length, 0, 'меню закрылось');
       await e.key('z', { modifiers: MOD.ctrl });
@@ -122,7 +122,7 @@ export default {
       await e.click(room.x, room.y, { button: 'right' });
       const [menu] = await e.menus();
       assert.ok(menu?.label.startsWith('А-103'), `заголовок меню: ${menu?.label}`);
-      await e.menuPick('Удалить узел');
+      await e.menuPick('Удалить точку');
       assert.ok(!(await e.nodeIds()).includes('a1_room103'), 'узел не удалён');
       await e.key('z', { modifiers: MOD.ctrl });
       assert.ok((await e.nodeIds()).includes('a1_room103'), 'отмена вернула узел');
@@ -132,7 +132,7 @@ export default {
       const room = await e.nodePoint('a1_room103');
       await e.click(room.x, room.y, { button: 'right' });
       const focused = () => page.eval(`document.activeElement?.closest('[role="menu"]') ? document.activeElement.textContent.trim() : null`);
-      assert.equal(await focused(), 'Соединить связью с другим узлом', 'фокус — на первом пункте меню');
+      assert.equal(await focused(), 'Соединить связью с другой точкой', 'фокус — на первом пункте меню');
       await e.key('ArrowDown');
       assert.equal(await focused(), 'Вход в корпус', 'стрелка перевела фокус на следующий пункт');
       await e.key('Delete');
@@ -149,7 +149,7 @@ export default {
       const nodesBefore = await e.nodeIds();
       const empty = await e.emptyMapPoint();
       await e.click(empty.x, empty.y, { button: 'right' });
-      await e.menuPick('Поставить узел здесь');
+      await e.menuPick('Поставить точку здесь');
       const added = (await e.nodeIds()).filter((id) => !nodesBefore.includes(id));
       assert.equal(added.length, 1, 'узел не поставлен');
       const point = await e.nodePoint(added[0]);

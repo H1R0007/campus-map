@@ -42,6 +42,8 @@ export default {
           const box = (el.type === 'checkbox' || el.type === 'radio') ? (el.closest('label') ?? el) : el;
           const r = box.getBoundingClientRect();
           if (r.width < 1 || r.height < 1) continue;
+          // Значок ⓘ рядом с подписью — 24×24, наименьшая цель по WCAG 2.2 (запись 58).
+          if (el.classList.contains('editor-info') && r.width >= 24 && r.height >= 24) continue;
           if (getComputedStyle(el).visibility === 'hidden') continue;
           if (r.height < 44 || r.width < 24) small.push(label(el) + ': ' + Math.round(r.width) + 'x' + Math.round(r.height));
         }
@@ -76,6 +78,28 @@ export default {
       await e.click(room.x, room.y);
       await checkContrast('карточка узла');
       await checkSizes('карточка узла');
+    });
+
+    await step('пояснение ⓘ: открывается наведением и щелчком, читается, закрывается Escape (запись 58)', async () => {
+      await e.press('Свойства');
+      const room = await e.nodePoint('a1_room101');
+      await e.click(room.x, room.y);
+      const info = await e.rect('button[aria-label="Пояснение: Названия"]');
+      assert.ok(info, 'нет ⓘ у названий');
+      await e.click(info.left + info.width / 2, info.top + info.height / 2);
+      const tip = () => page.eval(`document.querySelector('.editor-info__tip[role="tooltip"]')?.textContent ?? ''`);
+      assert.match(await tip(), /главное/, 'пояснение не открылось');
+      await checkContrast('пояснение ⓘ');
+      await e.key('Escape', { keyCode: 27 });
+      assert.equal(await tip(), '', 'Escape не закрыл пояснение');
+      assert.equal(await e.propertiesNodeId(), 'a1_room101', 'Escape в пояснении снял выбор точки');
+
+      // Меню настроек закрывается своим Escape и выбор не трогает.
+      await e.press('Настройки');
+      await page.eval(`document.querySelector('.editor-menu__option input')?.focus()`);
+      await e.key('Escape', { keyCode: 27 });
+      assert.equal(await page.eval(`document.querySelector('.editor-menu__popover') === null`), true, 'Escape не закрыл меню настроек');
+      assert.equal(await e.propertiesNodeId(), 'a1_room101', 'Escape в меню настроек снял выбор точки');
     });
 
     await step('вкладки «Проверка» и «Маршрут», инструмент «Переход»', async () => {

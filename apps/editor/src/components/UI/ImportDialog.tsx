@@ -216,7 +216,7 @@ const ImportWindow: React.FC = () => {
       >
         <div className="editor-help__head">
           <h2 id="import-title" className="editor-dialog__title">
-            Планы из файлов
+            Загрузка планов
           </h2>
           <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть окно планов">
             <Icon name="close" />

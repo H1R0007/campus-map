@@ -69,7 +69,7 @@ const SelectOptions: React.FC = () => {
   if (count === 0) {
     return (
       <>
-        <Hint text="Щелчок — выбрать узел, перетаскивание — сдвинуть, Shift и протянуть — рамка, правая кнопка — меню." />
+        <Hint text="Щелчок — выбрать точку, перетаскивание — сдвинуть, Shift и протянуть — рамка, правая кнопка — меню." />
         {pasteButton && <div className="editor-toolbar__options">{pasteButton}</div>}
       </>
     );
@@ -85,7 +85,7 @@ const SelectOptions: React.FC = () => {
               type="button"
               className="editor-button editor-button--accent"
               onClick={connectSelectedChain}
-              title="Соединить выбранные узлы связями по порядку выбора"
+              title="Соединить выбранные точки связями по порядку выбора"
               aria-label="Соединить цепочкой"
             >
               <Icon name="link" />
@@ -146,8 +146,8 @@ const EdgeOptions: React.FC = () => {
     <Hint
       text={
         edgeStartNodeId
-          ? `Щелчок по второму узлу соединит его с «${nodeTitle(edgeStartNodeId, aliases)}». Esc — отмена.`
-          : 'Щелчок по первому узлу, затем по второму — между ними появится связь.'
+          ? `Щелчок по второй точке соединит её с «${nodeTitle(edgeStartNodeId, aliases)}». Esc — отмена.`
+          : 'Щёлкните первую точку, затем вторую — между ними появится связь.'
       }
     />
   );
@@ -164,7 +164,7 @@ const TransitionOptions: React.FC = () => {
   // Начатый переход переживает смену этажа, поэтому подсказка называет, от
   // какого узла и с какого плана он строится.
   const hint = start
-    ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(start.id, aliases)}» (${nodePlaceLabel(start, buildingMetas)}): откройте другой этаж и щёлкните второй узел. Esc — отмена.`
+    ? `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(start.id, aliases)}» (${nodePlaceLabel(start, buildingMetas)}): откройте другой этаж и щёлкните вторую точку. Esc — отмена.`
     : STACK_TRANSITIONS.includes(transitionType)
       ? 'Щелчок по пустому месту — сразу на всех этажах корпуса. По точке — вручную: точка, смена этажа, вторая точка.'
       : 'Щелчок по точке, смена плана, щелчок по второй точке.';
@@ -204,7 +204,7 @@ const LineOptions: React.FC = () => {
     ? 'Щелчок по карте — начало линии.'
     : !lineTool.end
       ? 'Щелчок по карте — конец линии.'
-      : 'Узлы встанут на линию на равном расстоянии.';
+      : 'Точки встанут на линию на равном расстоянии.';
 
   return (
     <>
@@ -212,7 +212,7 @@ const LineOptions: React.FC = () => {
       {lineTool.start && (
         <div className="editor-toolbar__options" role="group" aria-label="Параметры линии">
           <label className="editor-check">
-            <span className="editor-check__text">Узлов</span>
+            <span className="editor-check__text">Точек</span>
             <input
               type="number"
               min={2}

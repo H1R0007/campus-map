@@ -1,6 +1,7 @@
 import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
+import { InfoTip } from '../UI/Field';
 
 /**
  * Что показывать на карте: подписи, точки переходов, связи, подсветка
@@ -38,27 +39,27 @@ export const DisplayOptions: React.FC = () => {
           Показывать на карте
         </h2>
         <Check
-          label="Названия узлов"
-          hint="видны, когда план приближен"
+          label="Названия точек"
+          info="Подписи видны, когда план приближен настолько, что они не слипаются."
           checked={displayFilters.showAliasLabels}
           onChange={(v) => setDisplayFilters({ showAliasLabels: v })}
         />
         <Check
           label="Точки переходов"
-          hint="лестницы, лифты, входы"
+          info="Лестницы, лифты и входы на этом плане."
           checked={displayFilters.showPortals}
           onChange={(v) => setDisplayFilters({ showPortals: v })}
         />
         <Check label="Связи" checked={displayFilters.showEdges} onChange={(v) => setDisplayFilters({ showEdges: v })} />
         <Check
           label="Переходы"
-          hint="между этажами и корпусами"
+          info="Отметки переходов на другие этажи и корпуса."
           checked={displayFilters.showTransitions}
           onChange={(v) => setDisplayFilters({ showTransitions: v })}
         />
         <Check
           label="Соседний этаж бледно"
-          hint="чтобы лестницы и туалеты вставали друг над другом"
+          info="План и точки соседнего этажа видны сквозь открытый — удобно ставить лестницы и туалеты друг над другом."
           checked={displayFilters.showNeighbourFloor}
           onChange={(v) => setDisplayFilters({ showNeighbourFloor: v })}
         />
@@ -108,7 +109,7 @@ export const DisplayOptions: React.FC = () => {
         </h2>
         <Check
           label="Выравнивать по соседним точкам"
-          hint="новая точка встаёт в один ряд с соседней; Alt при щелчке — без выравнивания"
+          info="Новая точка встаёт в один ряд с соседней. Alt при щелчке — без выравнивания."
           checked={gridSettings.alignToNeighbours}
           onChange={(v) => setGridSettings({ alignToNeighbours: v })}
         />
@@ -117,7 +118,7 @@ export const DisplayOptions: React.FC = () => {
           <>
             <Check label="Показывать сетку" checked={gridSettings.visible} onChange={(v) => setGridSettings({ visible: v })} />
             <Check
-              label="Притягивать узлы к сетке"
+              label="Притягивать точки к сетке"
               checked={gridSettings.snap}
               onChange={(v) => setGridSettings({ snap: v })}
             />
@@ -143,19 +144,26 @@ export const DisplayOptions: React.FC = () => {
   );
 };
 
+/** Флажок; пояснение — за ⓘ рядом, а не строкой под подписью (запись 58). */
 const Check: React.FC<{
   label: string;
-  hint?: string;
+  info?: string;
   count?: number;
   checked: boolean;
   onChange: (value: boolean) => void;
-}> = ({ label, hint, count, checked, onChange }) => (
-  <label className="editor-check">
-    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    <span className="editor-check__text">
-      {label}
-      {hint && <span className="editor-check__hint">{hint}</span>}
-    </span>
-    {count !== undefined && <span className="editor-check__count">{count}</span>}
-  </label>
-);
+}> = ({ label, info, count, checked, onChange }) => {
+  const box = (
+    <label className="editor-check">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="editor-check__text">{label}</span>
+      {count !== undefined && <span className="editor-check__count">{count}</span>}
+    </label>
+  );
+  if (!info) return box;
+  return (
+    <div className="editor-check-row">
+      {box}
+      <InfoTip about={label}>{info}</InfoTip>
+    </div>
+  );
+};

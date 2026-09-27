@@ -78,7 +78,7 @@ export const SearchPanel: React.FC = () => {
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Поиск узла"
+        aria-label="Поиск точки"
         className="editor-search"
         onClick={(e) => e.stopPropagation()}
       >
@@ -128,7 +128,7 @@ export const SearchPanel: React.FC = () => {
           )}
 
           {hits.length > 0 && (
-            <ul id="editor-search-results" role="listbox" aria-label="Найденные узлы" className="editor-list">
+            <ul id="editor-search-results" role="listbox" aria-label="Найденные точки" className="editor-list">
               {hits.map((hit, i) => {
                 const title = nodeTitle(hit.node.id, aliases);
                 return (

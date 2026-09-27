@@ -215,7 +215,7 @@ export const EditorNodes: React.FC = () => {
         if (!startId) {
           st.setTransitionStartNode(nodeId);
           st.showNotice(
-            `${TRANSITION_LABELS[type]} от «${nodeTitle(nodeId, st.aliases)}». Выберите второй узел — этаж или корпус можно переключить.`
+            `${TRANSITION_LABELS[type]} от «${nodeTitle(nodeId, st.aliases)}». Выберите вторую точку — этаж или корпус можно переключить.`
           );
           return;
         }
@@ -228,9 +228,9 @@ export const EditorNodes: React.FC = () => {
             `${TRANSITION_LABELS[type]}: «${nodeTitle(startId, st.aliases)}» — «${nodeTitle(nodeId, st.aliases)}»`
           );
         } else if (result === 'samePlan') {
-          st.showNotice('Оба узла на одном плане: их соединяет связь, а не переход.', 'warn');
+          st.showNotice('Обе точки на одном плане: их соединяет связь, а не переход.', 'warn');
         } else if (result === 'exists') {
-          st.showNotice('Переход между этими узлами уже есть.', 'warn');
+          st.showNotice('Переход между этими точками уже есть.', 'warn');
         }
         return;
       }

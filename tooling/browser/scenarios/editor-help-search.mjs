@@ -62,7 +62,7 @@ export default {
     const search = async (query) => {
       await e.key('f', { modifiers: MOD.ctrl });
       const d = await dialog();
-      assert.equal(d?.label, 'Поиск узла');
+      assert.equal(d?.label, 'Поиск точки');
       assert.ok(d.focusInside, 'фокус не в поле поиска');
       await e.type(query);
       await page.sleep(200);

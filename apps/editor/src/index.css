@@ -968,6 +968,11 @@ input[type='checkbox'] {
     color: var(--editor-text-muted);
 }
 
+/* Короткий пример у варианта выбора: «Как у вида · «Медпункт»». */
+.editor-check__example {
+    color: var(--editor-text-muted);
+}
+
 .editor-check__count {
     font-size: 12px;
     color: var(--editor-text-muted);
@@ -1363,6 +1368,18 @@ input[type='checkbox'] {
     font-weight: 600;
 }
 
+/* Заголовок раздела карточки с пояснением ⓘ. */
+.editor-card__heading-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+
+.editor-card__heading-row > .editor-card__heading {
+    margin: 0;
+}
+
 .editor-card__row {
     display: flex;
     align-items: center;
@@ -1444,6 +1461,98 @@ input[type='checkbox'] {
 
 .editor-section__hint--problem {
     color: var(--editor-danger);
+}
+
+/* --- Поле и пояснение ⓘ (запись 58) --- */
+
+.editor-field {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.editor-field__label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-field__problem {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--editor-danger);
+}
+
+/*
+ * Значок ⓘ: цель нажатия 24×24 — наименьшая по WCAG 2.2 (2.5.8); он стоит
+ * рядом с подписью, а не вместо кнопки действия.
+ */
+.editor-info {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    cursor: help;
+}
+
+.editor-info span {
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid currentColor;
+    border-radius: 9999px;
+    font: 600 10px/1 Georgia, serif;
+    font-style: italic;
+}
+
+.editor-info:hover,
+.editor-info[aria-expanded="true"] {
+    color: var(--editor-text);
+}
+
+.editor-info__tip {
+    position: fixed;
+    z-index: 4000;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+    color: var(--editor-text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+/* Выбор из вариантов в окне: «с планом или без». */
+.editor-choice {
+    margin: 8px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+/* Флажок с пояснением: ⓘ рядом со строкой флажка, не внутри неё. */
+.editor-check-row {
+    display: flex;
+    align-items: center;
+}
+
+.editor-check-row > .editor-check {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-check-row > .editor-info {
+    margin-right: 4px;
 }
 
 .editor-input--id {

@@ -1,9 +1,8 @@
 import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
-import { nextBuildingName } from '../../stores/editor/structureSlice';
 import { Icon } from '../UI/Icon';
-import { AddFloorForm } from '../UI/StructureCards';
+import { NewBuildingDialog, NewFloorDialog } from '../UI/AddDialogs';
 import { DisplayOptions } from './DisplayOptions';
 import { ColumnResizer } from './ColumnResizer';
 
@@ -65,7 +64,7 @@ export const StructurePanel: React.FC = () => {
   );
 };
 
-/** «Планы из файлов»: присланные PDF, сканы, чертежи — сразу в этажи и корпуса. */
+/** «Загрузить планы»: присланные PDF, сканы, чертежи — сразу в этажи и корпуса. */
 const ImportButton: React.FC = () => {
   const openImport = useEditorStore((s) => s.openImport);
   return (
@@ -77,7 +76,7 @@ const ImportButton: React.FC = () => {
         title="PDF, сканы, картинки, чертежи DXF, архивы ZIP. Файлы можно просто перетащить на редактор"
       >
         <Icon name="upload" />
-        Планы из файлов…
+        Загрузить планы…
       </button>
     </div>
   );
@@ -103,6 +102,7 @@ const PlanTree: React.FC = () => {
 
   const buildings = Array.from(buildingMetas.values());
   const [addingFloor, setAddingFloor] = useState<string | null>(null);
+  const addingFloorTo = addingFloor === null ? null : (buildingMetas.get(addingFloor) ?? null);
 
   return (
     <ul className="editor-tree" aria-label="Планы">
@@ -114,7 +114,7 @@ const PlanTree: React.FC = () => {
           onClick={() => setCurrentBuilding(null)}
         >
           <Icon name="map" />
-          <span className="editor-tree__label">Территория кампуса</span>
+          <span className="editor-tree__label">Территория</span>
           <NodeCount count={counts.get(CAMPUS_BUILDING_ID) ?? 0} />
         </button>
       </li>
@@ -153,20 +153,15 @@ const PlanTree: React.FC = () => {
                   </li>
                 ))}
                 <li>
-                  {addingFloor === building.id ? (
-                    <div className="editor-tree__form">
-                      <AddFloorForm building={building} autoFocus onDone={() => setAddingFloor(null)} />
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="editor-tree__item editor-tree__item--add"
-                      onClick={() => setAddingFloor(building.id)}
-                    >
-                      <Icon name="plus" />
-                      <span className="editor-tree__label">Этаж</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="editor-tree__item editor-tree__item--add"
+                    onClick={() => setAddingFloor(building.id)}
+                    title={`Новый этаж корпуса «${building.name}»`}
+                  >
+                    <Icon name="plus" />
+                    <span className="editor-tree__label">Этаж</span>
+                  </button>
                 </li>
               </ul>
             )}
@@ -177,97 +172,29 @@ const PlanTree: React.FC = () => {
       <li>
         <AddBuilding />
       </li>
+      <NewFloorDialog building={addingFloorTo} onClose={() => setAddingFloor(null)} />
     </ul>
   );
 };
 
-/**
- * Новый корпус: имя с подсказанной следующей буквой. Корпус появляется
- * пустым и сразу открывается — дальше добавляются этажи.
- */
+/** «+ Корпус» — окно «Новый корпус» с подсказанной следующей буквой. */
 const AddBuilding: React.FC = () => {
-  const addBuilding = useEditorStore((s) => s.addBuilding);
-  const [name, setName] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-
-  if (name === null) {
-    return (
-      <button
-        type="button"
-        className="editor-tree__item editor-tree__item--add"
-        onClick={() => setName(nextBuildingName(useEditorStore.getState().buildingMetas.values()))}
-      >
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="editor-tree__item editor-tree__item--add" onClick={() => setOpen(true)} title="Новый корпус">
         <Icon name="plus" />
         <span className="editor-tree__label">Корпус</span>
       </button>
-    );
-  }
-
-  const submit = () => {
-    const result = addBuilding(name);
-    if ('problem' in result) {
-      setProblem(result.problem);
-      return;
-    }
-    setName(null);
-    setProblem(null);
-  };
-
-  return (
-    <form
-      className="editor-tree__form"
-      aria-label="Новый корпус"
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <label className="editor-card__field">
-        <span className="editor-section__hint">Название нового корпуса</span>
-        <input
-          aria-label="Название нового корпуса"
-          aria-invalid={problem !== null}
-          className="editor-input"
-          value={name}
-          autoFocus
-          onChange={(e) => {
-            setName(e.target.value);
-            setProblem(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.stopPropagation();
-              setName(null);
-              setProblem(null);
-            }
-          }}
-        />
-        {problem !== null && <span className="editor-section__hint editor-section__hint--problem">{problem}</span>}
-      </label>
-      <div className="editor-card__actions">
-        <button type="submit" className="editor-button editor-button--primary">
-          <Icon name="plus" />
-          Добавить
-        </button>
-        <button
-          type="button"
-          className="editor-button editor-button--ghost"
-          onClick={() => {
-            setName(null);
-            setProblem(null);
-          }}
-        >
-          Отмена
-        </button>
-      </div>
-    </form>
+      <NewBuildingDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 };
 
-/** Число узлов плана; для экранного диктора — со словом «узлов». */
+/** Число точек плана; для экранного диктора — со словом «точек». */
 const NodeCount: React.FC<{ count: number }> = ({ count }) => (
   <span className="editor-tree__count">
-    <span className="sr-only">узлов: </span>
+    <span className="sr-only">точек: </span>
     {count}
   </span>
 );

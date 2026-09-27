@@ -78,19 +78,19 @@ const PlanStatsCard: React.FC = () => {
 
   const title = currentBuilding
     ? `${buildingMetas.get(currentBuilding)?.name ?? currentBuilding}, этаж ${currentFloor === null ? '' : floorLabel(buildingMetas.get(currentBuilding), currentFloor)}`
-    : 'Территория кампуса';
+    : 'Территория';
   const problems = report.errors.length + report.warnings.length + structure.length;
 
   return (
     <section aria-label="Обзор плана" className="editor-card">
       <header className="editor-card__header">
         <h2 className="editor-card__title">{title}</h2>
-        <p className="editor-card__place">Щёлкните по узлу на карте — здесь появятся его названия, связи и переходы.</p>
+        <p className="editor-card__place">Выберите точку на карте, чтобы увидеть её свойства.</p>
       </header>
 
       <div className="editor-card__section">
         <dl className="editor-facts">
-          <dt>Узлов</dt>
+          <dt>Точек</dt>
           <dd>{stats.nodes}</dd>
           <dt>С названием</dt>
           <dd>{stats.named}</dd>
@@ -118,7 +118,7 @@ const PlanStatsCard: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="editor-callout editor-callout--ok">Все узлы плана связаны между собой.</div>
+            <div className="editor-callout editor-callout--ok">Все точки плана связаны между собой.</div>
           ))}
       </div>
 

@@ -39,8 +39,8 @@ describe('validateDataset', () => {
     const p = params();
     p.nodes.get('a1_hall')!.neighbors.push('a1_hall', 'a1_stairs');
     const { errors, warnings } = validateDataset(p);
-    expect(errors).toEqual(['Узел «a1_hall» указан соседом самому себе']);
-    expect(warnings).toEqual(['У узла «a1_hall» один и тот же сосед указан несколько раз']);
+    expect(errors).toEqual(['Точка «a1_hall» связана сама с собой']);
+    expect(warnings).toEqual(['У точки «a1_hall» одна и та же связь записана несколько раз']);
   });
 
   it('переход к несуществующему узлу — ошибка по каждому концу', () => {
@@ -54,7 +54,7 @@ describe('validateDataset', () => {
     p.nodes.set('a5_ghost', { id: 'a5_ghost', building: 'building_a', floor: 5, x: 0, y: 0, isPortal: false, neighbors: [] });
     const { errors } = validateDataset(p);
     expect(errors).toHaveLength(1);
-    expect(errors[0]).toContain('этаж 5');
+    expect(errors[0]).toContain('этажу 5');
   });
 
   it('переход внутри одного плана — предупреждение', () => {

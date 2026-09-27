@@ -33,7 +33,7 @@ export default {
       await e.open();
       await e.openFloor('Корпус А', 1);
 
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       const kinds = await palette();
       assert.ok(kinds.includes('Коридор') && kinds.includes('Помещение'), `в палитре: ${JSON.stringify(kinds)}`);
       // Лестница, лифт и вход — переходы: их ставит инструмент «Переход».
@@ -51,7 +51,7 @@ export default {
       await e.press('Выбор (V)');
       assert.equal(await e.tool(), 'Выбор');
       await e.key('2', { code: 'Digit2' });
-      assert.equal(await e.tool(), 'Узел', 'цифра должна брать инструмент, которым ставят точки');
+      assert.equal(await e.tool(), 'Точка', 'цифра должна брать инструмент, которым ставят точки');
       assert.equal(await activeKind(), 'Помещение');
     });
 
@@ -150,7 +150,7 @@ export default {
     });
 
     await step('щелчок кистью «Туалет» ставит точку с названием, связью и видом места', async () => {
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       await e.key('3', { code: 'Digit3' });
       assert.equal(await activeKind(), 'Туалет');
 
@@ -270,7 +270,7 @@ export default {
       await e.click(empty2.x, empty2.y);
       assert.deepEqual(await e.nodeIds(), before, 'вход поставлен стопкой, хотя его ставят вручную');
       assert.match(await e.notice(), /вручную/);
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
     });
 
     await step('кисть «Коридор» ведёт линию: каждая точка связана с предыдущей', async () => {
@@ -438,7 +438,7 @@ export default {
 
     await step('удаление вида, у которого есть точки, — только после предупреждения', async () => {
       // Владелец: удаление с предупреждением — «это ОЧЕНЬ важно».
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       await page.eval(`[...document.querySelectorAll('[aria-label="Вид точки"] button')].find((b) => b.textContent.trim() === 'Лаборатория').click()`);
       assert.equal(await activeKind(), 'Лаборатория');
       const before = await e.nodeIds();
@@ -470,14 +470,14 @@ export default {
       await e.click(point.x, point.y);
       assert.equal(
         await page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim()`),
-        'Обычное место',
+        'Без вида',
         'у места остался вид, которого больше нет'
       );
 
       // Одна отмена возвращает и вид, и его место.
       await e.key('Escape', { keyCode: 27 });
       await e.key('z', { modifiers: MOD.ctrl });
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       assert.ok((await palette()).includes('Лаборатория'), 'отмена не вернула вид');
       await e.press('Выбор (V)');
       await e.click(point.x, point.y);
