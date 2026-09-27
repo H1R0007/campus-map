@@ -2755,7 +2755,10 @@ input[type='checkbox'] {
 .editor-guide__title {
     font-weight: 600;
 }
-.editor-ghost-plan { opacity: 0.18; }
+/* Стены соседнего этажа — линиями, почти без прозрачности: заливок у них нет (запись 65). */
+.editor-ghost-plan {
+    opacity: 0.85;
+}
 
 /* --- Пошаговые панели операций (запись 64) --- */
 

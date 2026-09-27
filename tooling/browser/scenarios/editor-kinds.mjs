@@ -378,6 +378,8 @@ export default {
       await page.waitFor(`!!document.querySelector('img.editor-ghost-plan')`, 10_000);
       // Соседний этаж — посчитанными линиями, а не полупрозрачным планом (запись 65).
       assert.match(await page.eval(`document.querySelector('img.editor-ghost-plan').src`), /^blob:/, 'соседний этаж — самим планом, а не линиями');
+      const ghostOpacity = Number(await page.eval(`getComputedStyle(document.querySelector('img.editor-ghost-plan')).opacity`));
+      assert.ok(ghostOpacity >= 0.7, `стены соседнего этажа бледные: ${ghostOpacity}`);
 
       // Перетаскивание точки своего этажа не перерисовывает кальку: точки
       // соседнего этажа при этом не меняются.
