@@ -72,9 +72,17 @@ export default {
       await shot('editor-structure-new-building');
     });
 
-    await step('первый этаж открывается сразу; без плана — подсказка, точки ставятся', async () => {
+    await step('первый этаж открывается сразу; без плана — предложение файла, по желанию — пустое поле', async () => {
       await e.press('Добавить');
       assert.match(await e.place(), /Корпус Г/);
+      // Посередине карты — куда бросить файл плана; карта под ней закрыта.
+      const card = () => page.eval(`document.querySelector('[aria-label="План не добавлен"]')?.textContent ?? ''`);
+      assert.match(await card(), /У этажа 1 корпуса «Корпус Г» пока нет плана/);
+      assert.match(await card(), /Перетащите файл плана прямо сюда/);
+      await shot('editor-structure-no-plan');
+
+      await e.press('Размечать без плана');
+      assert.equal(await card(), '', 'карточка не убралась');
       assert.match(await page.eval(`document.querySelector('.editor-plan-status')?.textContent ?? ''`), /У этажа нет плана/);
 
       await e.key('n');

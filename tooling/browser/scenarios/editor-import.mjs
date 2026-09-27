@@ -89,8 +89,33 @@ export default {
     };
     const detailHint = () => page.eval(`document.querySelector('.editor-import__piece')?.textContent ?? ''`);
 
-    await step('окно открывается пустым и принимает файлы', async () => {
+    await step('файл, брошенный мышью, открывает окно; подсказка «Отпустите» не остаётся', async () => {
       await e.open();
+      /** Перетаскивание файлов мышью — как из проводника. */
+      const dragFiles = async (x, y, names) => {
+        const data = { items: [], files: names.map((name) => path.join(fixtures, name)), dragOperationsMask: 1 };
+        await page.send('Input.dispatchDragEvent', { type: 'dragEnter', x, y, data });
+        await page.send('Input.dispatchDragEvent', { type: 'dragOver', x, y, data });
+        await page.sleep(150);
+        assert.ok(await page.eval(`!!document.querySelector('.editor-drop')`), 'нет подсказки «Отпустите»');
+        await page.send('Input.dispatchDragEvent', { type: 'drop', x, y, data });
+        await page.sleep(300);
+      };
+      const map = await e.rect('.leaflet-container');
+      await dragFiles(map.left + map.width / 2, map.top + map.height / 2, ['genplan.jpg']);
+      await page.waitFor(`document.querySelectorAll('.editor-import__item').length === 1`, 15_000);
+      assert.ok(!(await page.eval(`!!document.querySelector('.editor-drop')`)), 'подсказка осталась после броска на карту');
+
+      // Второй файл — прямо в открытое окно: окно забирает бросок себе.
+      const dialog = await e.rect('.editor-dialog--import');
+      await dragFiles(dialog.left + dialog.width / 2, dialog.top + dialog.height / 2, ['korpus-V-etazh-1.dxf']);
+      await page.waitFor(`document.querySelectorAll('.editor-import__item').length === 2`, 15_000);
+      assert.ok(!(await page.eval(`!!document.querySelector('.editor-drop')`)), 'подсказка осталась после броска в окно');
+      await e.key('Escape');
+      await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 10_000);
+    });
+
+    await step('окно открывается пустым и принимает файлы', async () => {
       await e.press('Планы из файлов…');
       assert.match(await page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`), /Перетащите сюда планы/);
 

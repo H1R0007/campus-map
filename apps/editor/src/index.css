@@ -2142,3 +2142,68 @@ input[type='checkbox'] {
     padding: 8px 0;
     border-bottom: 1px solid var(--editor-border);
 }
+
+/* Этаж без плана: карточка посередине — куда бросить файл (запись 52). */
+.editor-plan-status__box--drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    border: 2px dashed var(--editor-focus);
+    text-align: center;
+}
+
+/* «Как собрать карту» — шаги с состоянием и кнопкой (запись 52). */
+.editor-guide summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 16px 16px 8px;
+}
+
+.editor-guide__steps {
+    list-style: none;
+    margin: 0;
+    padding: 0 12px 12px;
+}
+
+.editor-guide__step {
+    display: flex;
+    gap: 10px;
+    padding: 8px 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-guide__step--next {
+    background: var(--editor-hover);
+    border-radius: 10px;
+}
+
+.editor-guide__mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 9999px;
+    border: 1px solid var(--editor-border);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.editor-guide__mark--done {
+    border-color: transparent;
+    color: var(--editor-success);
+}
+
+.editor-guide__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+}
+
+.editor-guide__title {
+    font-weight: 600;
+}

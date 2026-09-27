@@ -8,6 +8,7 @@ import { planStats } from '../../utils/planStats';
 import { plural } from '../../utils/labels';
 import { Icon } from './Icon';
 import { BuildingSection, CampusPlanSection, FloorSection } from './StructureCards';
+import { BuildGuide } from './BuildGuide';
 
 /**
  * Обзор открытого плана — вкладка «Свойства», когда ничего не выбрано.
@@ -40,6 +41,7 @@ export const PlanOverview: React.FC = () => {
 
   return (
     <>
+      {!building && <BuildGuide />}
       <PlanStatsCard />
       {building && floor ? (
         <section aria-label="Этаж и корпус" className="editor-card">

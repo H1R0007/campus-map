@@ -20,11 +20,16 @@ export function usePlanUrl(building: string | null, floor: number | null): { url
   return { url, key };
 }
 
-/** Прозрачная подложка нужного размера — для плана без файла: разметка на ней работает как обычно. */
+/**
+ * Пустое поле нужного размера — для плана без файла: светлый лист с
+ * пунктирной рамкой, чтобы было видно, куда встают точки.
+ */
 export function blankPlanUrl(size: { width: number; height: number } | undefined): string {
   const width = size?.width ?? 1200;
   const height = size?.height ?? 800;
+  const dash = Math.max(width, height) / 60;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"/>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+      `<rect width="${width}" height="${height}" fill="#e2e8f0" fill-opacity="0.12" stroke="#94a3b8" stroke-width="${dash / 4}" stroke-dasharray="${dash} ${dash / 2}"/></svg>`
   )}`;
 }
