@@ -7,8 +7,9 @@ import { LOW_CONTRAST } from '../contrast.mjs';
  *
  * Тем же мерилом, что и навигатор (записи 18 и 21): у видимого текста
  * контраст не ниже 4,5:1, у крупного — 3:1. Плюс размеры, о которых легко
- * забыть в плотном интерфейсе: у кнопок и полей сторона не меньше 44 пикселей
- * (палец и неточная мышь), у полей ввода шрифт не мельче 16 пикселей.
+ * забыть в плотном интерфейсе. Редактор — только для компьютера (запись 59):
+ * у кнопок и полей высота не меньше 32 пикселей, у значка ⓘ — 24 (наименьшая
+ * цель по WCAG 2.2), у полей ввода шрифт не мельче 13 пикселей.
  */
 export default {
   app: 'editor',
@@ -45,19 +46,19 @@ export default {
           // Значок ⓘ рядом с подписью — 24×24, наименьшая цель по WCAG 2.2 (запись 58).
           if (el.classList.contains('editor-info') && r.width >= 24 && r.height >= 24) continue;
           if (getComputedStyle(el).visibility === 'hidden') continue;
-          if (r.height < 44 || r.width < 24) small.push(label(el) + ': ' + Math.round(r.width) + 'x' + Math.round(r.height));
+          if (r.height < 32 || r.width < 24) small.push(label(el) + ': ' + Math.round(r.width) + 'x' + Math.round(r.height));
         }
         return small;
       })()`);
 
-    /** Поля ввода с мелким шрифтом: на телефоне такое поле браузер увеличивает сам. */
+    /** Поля ввода с мелким шрифтом: читать и набирать в них трудно. */
     const smallText = () =>
       page.eval(`(() => {
         const small = [];
         for (const el of document.querySelectorAll('input, textarea, select')) {
           if (el.type === 'checkbox' || el.type === 'radio' || el.type === 'range' || el.type === 'file' || el.hidden) continue;
           const size = Number.parseFloat(getComputedStyle(el).fontSize);
-          if (size < 16) small.push((el.getAttribute('aria-label') ?? el.placeholder ?? el.name) + ': ' + size + 'px');
+          if (size < 13) small.push((el.getAttribute('aria-label') ?? el.placeholder ?? el.name) + ': ' + size + 'px');
         }
         return small;
       })()`);
