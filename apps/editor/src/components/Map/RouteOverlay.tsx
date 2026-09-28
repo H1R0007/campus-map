@@ -3,6 +3,7 @@ import { CircleMarker, Polyline } from 'react-leaflet';
 import { isNodeInScope, scopeOfFloor } from '@campus-map/core';
 import { selectedRoute, useEditorStore } from '../../stores/editorStore';
 import { mapPalette } from '../../utils/themeColor';
+import { usePlanView } from './planView';
 
 /**
  * Линия маршрута и метка, идущая по нему.
@@ -19,8 +20,7 @@ export const RouteOverlay: React.FC = () => {
   // Метка идёт, только пока вкладка маршрута видна.
   const simulatorOpen = useEditorStore((s) => s.workspace === 'check' && s.checkTab === 'route' && !s.inspectorCollapsed);
 
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor, active } = usePlanView();
 
   // Часть маршрута, относящаяся к текущему срезу. Правило принадлежности
   // узла виду берётся из ядра: оно же используется слоями карты навигатора.
@@ -36,9 +36,9 @@ export const RouteOverlay: React.FC = () => {
     [simulatedRoutes, selectedPathIndex]
   );
 
-  // Шаг метки по маршруту.
+  // Шаг метки по маршруту — один на все окна: его ведёт активная карта.
   useEffect(() => {
-    if (!simulatorOpen || !route.active || !route.playing || path.length < 2) return;
+    if (!active || !simulatorOpen || !route.active || !route.playing || path.length < 2) return;
 
     const timer = window.setInterval(() => {
       const state = useEditorStore.getState();
@@ -51,11 +51,12 @@ export const RouteOverlay: React.FC = () => {
       });
 
       // План под меткой открывается, только если об этом попросили.
-      if (state.routeSimulation.follow && nodes[next]) state.navigateToNode(nodes[next]);
+      // Метка ведёт текущую вкладку, а не открывает по вкладке на каждый этаж.
+      if (state.routeSimulation.follow && nodes[next]) state.navigateToNode(nodes[next], 'here');
     }, route.animationSpeed);
 
     return () => window.clearInterval(timer);
-  }, [simulatorOpen, route.active, route.playing, route.animationSpeed, route.selectedPathIndex, path.length]);
+  }, [active, simulatorOpen, route.active, route.playing, route.animationSpeed, route.selectedPathIndex, path.length]);
 
   if (!route.active || path.length === 0) return null;
 

@@ -23,6 +23,8 @@ export interface LayoutPrefs {
   theme: ThemeChoice;
   /** Последний режим: редактор открывается там, где работали. */
   workspace: WorkspacePref;
+  /** Доля ширины левой карты, когда карты рядом (запись 66); `null` — поровну. */
+  splitRatio: number | null;
 }
 
 const KEY = 'campus-editor:layout';
@@ -34,6 +36,7 @@ const DEFAULTS: LayoutPrefs = {
   inspectorWidth: null,
   theme: 'system',
   workspace: 'markup',
+  splitRatio: null,
 };
 
 const widthOf = (value: unknown): number | null =>
@@ -51,6 +54,8 @@ export function readLayoutPrefs(): LayoutPrefs {
       inspectorWidth: widthOf(parsed.inspectorWidth),
       theme: parsed.theme === 'dark' || parsed.theme === 'light' ? parsed.theme : 'system',
       workspace: parsed.workspace === 'plans' || parsed.workspace === 'check' ? parsed.workspace : 'markup',
+      splitRatio:
+        typeof parsed.splitRatio === 'number' && parsed.splitRatio > 0 && parsed.splitRatio < 1 ? parsed.splitRatio : null,
     };
   } catch {
     return DEFAULTS;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { planScopeKey } from '../../utils/planFiles';
+import { usePlanView } from '../Map/planView';
 import { Icon } from './Icon';
 import { NewFloorDialog } from './AddDialogs';
 
@@ -15,8 +16,8 @@ import { NewFloorDialog } from './AddDialogs';
  *   пустое поле, на которое встают точки.
  */
 export const PlanStatus: React.FC = () => {
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  // План своей карты: у второй карты он свой (запись 66).
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const building = useEditorStore((s) => (currentBuilding === null ? undefined : s.buildingMetas.get(currentBuilding)));
   const openImport = useEditorStore((s) => s.openImport);
   const planBuilding = currentFloor === null ? null : currentBuilding;

@@ -134,12 +134,21 @@ function lowestZoom(map: L.Map, bounds: L.LatLngBounds, insets: MapInsets): numb
   return zoom === null ? null : Math.floor(zoom / ZOOM_SNAP) * ZOOM_SNAP - ZOOM_OUT_MARGIN;
 }
 
+/** Вид карты: точка плана в центре экрана и масштаб. */
+export interface MapView {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 export interface PlanViewportProps {
   bounds: L.LatLngBounds;
   fitKey: string;
   sizeKnown: boolean;
   insets: MapInsets;
   constrainToBounds: boolean;
+  /** Вид вместо подгонки при смене ключа — например, запомненный вкладкой. */
+  restoreView?: MapView | null;
 }
 
 /**
@@ -152,9 +161,12 @@ export interface PlanViewportProps {
  * экземпляр один, а границы меняются вызовами Leaflet. На этом же держится
  * холст кампуса (`WorldMap`): зум с территории в корпус без пересоздания.
  */
-export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBounds }: PlanViewportProps) {
+export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBounds, restoreView }: PlanViewportProps) {
   const map = useMap();
   const fittedKey = useRef<string | null>(null);
+  // Вид читается в момент подгонки: его смена сама по себе карту не двигает.
+  const restoreRef = useRef(restoreView);
+  restoreRef.current = restoreView;
 
   // Пределы прокрутки — план с запасом и ещё место под интерфейс поверх карты.
   // Раньше запас был только долей плана, и когда слева стоит панель на полэкрана
@@ -239,7 +251,9 @@ export function PlanViewport({ bounds, fitKey, sizeKnown, insets, constrainToBou
     if (!sizeKnown || fittedKey.current === fitKey) return;
 
     try {
-      map.fitBounds(bounds, { ...fitPaddingOf(insets), animate: false });
+      const view = restoreRef.current;
+      if (view) map.setView([view.y, view.x], view.zoom, { animate: false });
+      else map.fitBounds(bounds, { ...fitPaddingOf(insets), animate: false });
       fittedKey.current = fitKey;
     } catch {
       // fitBounds бросает исключение на карте с нулевым размером контейнера.

@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { ImageOverlay, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { DEFAULT_INSETS, FILL_PARENT, MapFrameContext, PlanMapContainer, PlanViewport } from './mapFrame.js';
-import type { MapFrame, MapInsets } from './mapFrame.js';
+import type { MapFrame, MapInsets, MapView } from './mapFrame.js';
 import { ensurePane } from './PlacedPlan.js';
 import { FALLBACK_IMAGE_SIZE, useImageSize } from './useImageSize.js';
 import type { ImageSize } from './useImageSize.js';
@@ -27,6 +27,12 @@ export interface PixelMapProps {
    * чтобы этажи одного здания листались на месте.
    */
   fitKey?: string;
+
+  /**
+   * Вид, который ставится при смене `fitKey` вместо плана целиком: так
+   * вкладка редактора открывается там, где её оставили.
+   */
+  restoreView?: MapView | null;
 
   /** Максимальный зум. Минимальный считается от размера плана и экрана. */
   maxZoom?: number;
@@ -81,6 +87,7 @@ export function PixelMap({
   url,
   fallbackSize,
   fitKey = url,
+  restoreView = null,
   maxZoom = 4,
   zoomControl = false,
   doubleClickZoom = true,
@@ -124,6 +131,7 @@ export function PixelMap({
           sizeKnown={sizeKnown}
           insets={fitInsets}
           constrainToBounds={constrainToBounds}
+          restoreView={restoreView}
         />
         {children}
       </MapFrameContext.Provider>

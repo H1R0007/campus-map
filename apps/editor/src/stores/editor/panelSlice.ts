@@ -17,7 +17,9 @@ export type ContextMenuTarget =
   | { kind: 'edge'; from: string; to: string }
   | { kind: 'transition'; from: string; to: string }
   /** Пустое место карты; `x`, `y` — точка плана под курсором. */
-  | { kind: 'map'; x: number; y: number };
+  | { kind: 'map'; x: number; y: number }
+  /** Вкладка карты (запись 66). */
+  | { kind: 'tab'; group: number; tabId: string };
 
 export interface ContextMenuState {
   open: boolean;

@@ -12,6 +12,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { usePlanUrl } from '../../hooks/usePlanUrl';
 import { mapPalette } from '../../utils/themeColor';
+import { usePlanView } from './planView';
 
 /**
  * Класс ставится при добавлении слоя, а не через `pathOptions`: react-leaflet
@@ -41,8 +42,7 @@ const ghostEdgeClass = { add: (e: L.LeafletEvent) => (e.target as L.Path).getEle
 export const NeighbourFloor: React.FC = () => {
   const show = useEditorStore((s) => s.displayFilters.showNeighbourFloor);
   const direction = useEditorStore((s) => s.displayFilters.neighbourFloorBelow);
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const allNodes = useEditorStore((s) => s.nodes);
   const palette = mapPalette();

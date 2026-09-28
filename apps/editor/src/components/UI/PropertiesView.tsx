@@ -528,9 +528,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const removeTransition = useEditorStore((s) => s.removeTransition);
   const edit = useCardEdit();
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
-  const setActiveTool = useEditorStore((s) => s.setActiveTool);
-  const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
-  const setTransitionType = useEditorStore((s) => s.setTransitionType);
+  const startTransitionFrom = useEditorStore((s) => s.startTransitionFrom);
   const [picking, setPicking] = useState(false);
 
   const transitions = useMemo(
@@ -538,10 +536,9 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
     [allTransitions, nodeId]
   );
 
+  // Второй конец выбирают на соседней карте: она открывается с подходящим планом (запись 66).
   const startTransition = (type: TransitionType) => {
-    setTransitionType(type);
-    setActiveTool('transition');
-    setTransitionStartNode(nodeId);
+    startTransitionFrom(nodeId, type);
     setPicking(false);
   };
 

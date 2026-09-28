@@ -5,6 +5,7 @@ import { mapPalette } from '../../utils/themeColor';
 import { edgeKey } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
+import { usePlanView } from './planView';
 
 /** Ребро открытого плана — пара узлов, которые знают друг о друге. */
 interface FloorEdge {
@@ -21,8 +22,7 @@ interface FloorEdge {
  */
 export const EditorEdges: React.FC = () => {
   const allNodes = useEditorStore((s) => s.nodes);
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const showEdges = useEditorStore((s) => s.displayFilters.showEdges);
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const hoveredEdge = useEditorStore((s) => s.hoveredEdge);

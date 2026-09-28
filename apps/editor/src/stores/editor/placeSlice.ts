@@ -5,6 +5,7 @@ import type { Point, Similarity } from '../../import/planGeometry';
 import { frameOf, initialFrame, placementOf, placementOfWorld, withScaleAndRotation, worldOf } from '../../import/placementMath';
 import { planMetersPerPixel } from '../../import/scale';
 import { openingFloorOf } from './viewSlice';
+import { showPlanIn } from './windowSlice';
 import type { EditorSlice } from './types';
 
 /**
@@ -146,8 +147,8 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     set((s) => {
       s.measuring = null;
       s.alignment = null;
-      s.currentBuilding = null;
-      s.currentFloor = null;
+      // Территория — во вкладке: план, с которого пришли, остаётся открытым (запись 66).
+      showPlanIn(s, { building: null, floor: null });
       s.selectedNodeIds = new Set();
       s.activeTool = 'select';
       s.placing = {
@@ -185,8 +186,7 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     set((s) => {
       s.measuring = null;
       s.alignment = null;
-      s.currentBuilding = building;
-      s.currentFloor = entrance;
+      showPlanIn(s, { building, floor: entrance });
       s.selectedNodeIds = new Set();
       s.activeTool = 'select';
       s.placing = {
@@ -272,8 +272,7 @@ export const createPlaceSlice: EditorSlice<PlaceSlice> = (set, get) => ({
     set((s) => {
       s.placing = null;
       s.alignment = null;
-      s.currentBuilding = null;
-      s.currentFloor = null;
+      showPlanIn(s, { building: null, floor: null });
       s.measuring = { points: [] };
     }),
 

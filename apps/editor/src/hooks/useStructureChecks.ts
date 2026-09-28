@@ -27,8 +27,7 @@ export function useStructureAction(): (action: StructureAction) => void {
         place(action.building);
         break;
       case 'open':
-        st.setCurrentBuilding(action.building);
-        if (action.floor !== null) st.setCurrentFloor(action.floor);
+        st.openPlan({ building: action.building, floor: action.floor });
         st.setWorkspace('plans');
         break;
       case 'plan':

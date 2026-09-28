@@ -1,18 +1,24 @@
 import React from 'react';
 import { floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import type { PlanRef } from '../../stores/editorStore';
+import { usePlanView } from '../Map/planView';
 
 /**
  * Строка пути над картой (запись 60): «Корпус А › Этаж 2», оба звена —
  * списки. Корпус и этаж меняются здесь же, не уходя к дереву, — как
- * «хлебные крошки» в VS Code.
+ * «хлебные крошки» в VS Code. Строка — у каждой карты своя и меняет план
+ * её текущей вкладки, как адрес в строке браузера (запись 66).
  */
 export const MapHeader: React.FC = () => {
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { group, active, building: currentBuilding, floor: currentFloor } = usePlanView();
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
-  const setCurrentBuilding = useEditorStore((s) => s.setCurrentBuilding);
-  const setCurrentFloor = useEditorStore((s) => s.setCurrentFloor);
+  const focusGroup = useEditorStore((s) => s.focusGroup);
+  const openPlan = useEditorStore((s) => s.openPlan);
+  const go = (plan: PlanRef) => {
+    if (!active) focusGroup(group);
+    openPlan(plan, 'here');
+  };
 
   const building = currentBuilding === null ? undefined : buildingMetas.get(currentBuilding);
   const floors = building ? [...building.floors].sort((a, b) => b.floor - a.floor) : [];
@@ -23,7 +29,7 @@ export const MapHeader: React.FC = () => {
         className="editor-crumb"
         aria-label="Корпус"
         value={currentBuilding ?? ''}
-        onChange={(event) => setCurrentBuilding(event.target.value === '' ? null : event.target.value)}
+        onChange={(event) => go({ building: event.target.value === '' ? null : event.target.value, floor: null })}
       >
         <option value="">Территория</option>
         {[...buildingMetas.values()].map((meta) => (
@@ -42,7 +48,7 @@ export const MapHeader: React.FC = () => {
               className="editor-crumb"
               aria-label="Этаж"
               value={currentFloor === null ? '' : String(currentFloor)}
-              onChange={(event) => setCurrentFloor(Number(event.target.value))}
+              onChange={(event) => go({ building: currentBuilding, floor: Number(event.target.value) })}
             >
               {floors.map((floor) => (
                 <option key={floor.floor} value={String(floor.floor)}>

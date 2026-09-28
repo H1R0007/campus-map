@@ -9,6 +9,7 @@ import type { NodePosition } from '../../stores/historyStore';
 import { suppressNextMapClick } from '../../utils/clickGuard';
 import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { mapPalette } from '../../utils/themeColor';
+import { usePlanView } from './planView';
 
 /** С какого сдвига курсора, в пикселях экрана, нажатие становится перетаскиванием. */
 const DRAG_THRESHOLD = 4;
@@ -50,8 +51,7 @@ export const EditorNodes: React.FC = () => {
   const palette = mapPalette();
 
   const allNodes = useEditorStore((s) => s.nodes);
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
   const hoveredNodeId = useEditorStore((s) => s.hoveredNodeId);
   const aliases = useEditorStore((s) => s.aliases);
@@ -213,10 +213,8 @@ export const EditorNodes: React.FC = () => {
         const startId = st.transitionStartNodeId;
 
         if (!startId) {
-          st.setTransitionStartNode(nodeId);
-          st.showNotice(
-            `${TRANSITION_LABELS[type]} от «${nodeTitle(nodeId, st.aliases)}». Выберите вторую точку — этаж или корпус можно переключить.`
-          );
+          // Второй конец обычно на другом плане: он открывается на соседней карте (запись 66).
+          st.startTransitionFrom(nodeId, type);
           return;
         }
         if (startId === nodeId) return;

@@ -30,7 +30,7 @@ export default {
           .map((el) => el.tagName + '.' + String(el.className).slice(0, 40));
         return covered;
       })()`);
-    const selectedTab = () => page.eval(`document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim() ?? ''`);
+    const selectedTab = () => page.eval(`document.querySelector('.editor-inspector [role="tab"][aria-selected="true"]')?.textContent.trim() ?? ''`);
 
     await step('карточка узла, проверка и маршрут не закрывают карту', async () => {
       await e.open();
@@ -67,7 +67,7 @@ export default {
     });
 
     await step('вкладки инспектора переключаются стрелками', async () => {
-      await page.eval(`document.querySelector('[role="tab"][aria-selected="true"]').focus()`);
+      await page.eval(`document.querySelector('.editor-inspector [role="tab"][aria-selected="true"]').focus()`);
       await e.key('ArrowRight');
       assert.equal(await selectedTab(), 'Маршрут');
       assert.equal(await page.eval(`document.activeElement?.getAttribute('role')`), 'tab', 'фокус ушёл с вкладок');

@@ -23,8 +23,7 @@ export const BuildGuide: React.FC = () => {
   const campusMpp = useEditorStore((s) => s.campusMeta?.metersPerPixel);
   const openImport = useEditorStore((s) => s.openImport);
   const startMeasuring = useEditorStore((s) => s.startMeasuring);
-  const setCurrentBuilding = useEditorStore((s) => s.setCurrentBuilding);
-  const setCurrentFloor = useEditorStore((s) => s.setCurrentFloor);
+  const openPlan = useEditorStore((s) => s.openPlan);
   const openCheck = useEditorStore((s) => s.openCheck);
   const requestSave = useEditorStore((s) => s.requestSave);
   const place = usePlaceBuilding();
@@ -89,10 +88,7 @@ export const BuildGuide: React.FC = () => {
       action: firstWithoutPoints
         ? {
             label: `Открыть: ${firstWithoutPoints.meta.name}, этаж ${floorLabel(firstWithoutPoints.meta, firstWithoutPoints.floor)}`,
-            run: () => {
-              setCurrentBuilding(firstWithoutPoints.meta.id);
-              setCurrentFloor(firstWithoutPoints.floor);
-            },
+            run: () => openPlan({ building: firstWithoutPoints.meta.id, floor: firstWithoutPoints.floor }),
           }
         : undefined,
     },

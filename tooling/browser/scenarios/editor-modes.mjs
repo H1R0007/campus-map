@@ -13,7 +13,7 @@ export default {
   app: 'editor',
   name: 'редактор: режимы работы',
 
-  async run({ page, base, step, shot }) {
+  async run({ page, base, step, shot, mode }) {
     await page.viewport(1600, 900, 1);
     const e = editorHelpers(page, base);
     const pressedMode = () => page.eval(`document.querySelector('.editor-modes__item[aria-pressed="true"]')?.textContent.trim() ?? ''`);
@@ -98,7 +98,7 @@ export default {
       await e.mode('Проверка');
       await e.open();
       assert.equal(await pressedMode(), 'Проверка', 'режим забыт после перезагрузки');
-      assert.ok(await has('[role="tab"][aria-selected="true"]'), 'в «Проверке» нет вкладок');
+      assert.ok(await has('.editor-inspector [role="tab"][aria-selected="true"]'), 'в «Проверке» нет вкладок');
       assert.match(await left(), /Подсветить на плане/);
       assert.doesNotMatch(await left(), /Точность/, '«Точность» видна в «Проверке»');
       await e.mode('Разметка');
@@ -127,7 +127,8 @@ export default {
     await step('архив — в меню «Сохранить»; Escape закрывает меню', async () => {
       await e.press('Ещё: архив');
       const items = await page.eval(`[...document.querySelectorAll('.editor-split .editor-menu__item')].map((b) => b.textContent.trim())`);
-      assert.deepEqual(items, ['Скачать архив', 'Открыть архив…']);
+      // Без записи на диск (прод-сборка) «Скачать архив» — сама главная кнопка, в меню его нет.
+      assert.deepEqual(items, mode === 'dev' ? ['Скачать архив', 'Открыть архив…'] : ['Открыть архив…']);
       await shot('editor-modes-save-menu');
       await e.key('Escape', { keyCode: 27 });
       assert.ok(!(await has('.editor-split .editor-menu__popover')), 'Escape не закрыл меню');

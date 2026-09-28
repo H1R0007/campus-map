@@ -12,6 +12,7 @@ import { planScopeKey } from '../../utils/planFiles';
 import { syncPortals } from './graphState';
 import { applyStructureSide, forgetPlace, snapshotPlace } from './historyApply';
 import { openingFloorOf } from './viewSlice';
+import { keepPreviousTabIn, renumberTabsIn } from './windowSlice';
 import type { EditorSlice, EditorStore } from './types';
 
 /**
@@ -300,7 +301,16 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
    * историю раньше, чем меняются данные, как у всех остальных правок: запись
    * «со стороны» закрывает открытую правку панели по данным «до».
    */
-  const commit = (description: string, nodeIds: readonly string[], mutate: (s: State) => void): void => {
+  /**
+   * Правка структуры с записью в историю. `windows` — что сделать со
+   * вкладками карт: они не часть данных, и в историю не попадают.
+   */
+  const commit = (
+    description: string,
+    nodeIds: readonly string[],
+    mutate: (s: State) => void,
+    windows?: (s: State) => void
+  ): void => {
     const current = get();
     const next = produce(current, (draft) => {
       mutate(draft);
@@ -312,8 +322,13 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
 
     useHistoryStore.getState().push({ type: 'STRUCTURE', description, undoData: before, redoData: after });
     set((s) => {
+      const previous = { building: s.currentBuilding, floor: s.currentFloor };
       applyStructureSide(s, after);
       syncPortals(s);
+      windows?.(s);
+      // Добавили этаж, загрузили планы — новое открывается своей вкладкой, а
+      // план, на котором работали, остаётся открытым (запись 66).
+      keepPreviousTabIn(s, previous);
     });
   };
 
@@ -441,6 +456,8 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
           if (planKey !== undefined) s.planFiles.set(planScopeKey(buildingId, nextFloor), planKey);
           if (s.currentBuilding === buildingId && s.currentFloor === floor) s.currentFloor = nextFloor;
         }
+      }, (s) => {
+        if (renumbered) renumberTabsIn(s, buildingId, floor, nextFloor);
       });
       return null;
     },

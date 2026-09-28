@@ -5,6 +5,7 @@ import { TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
 import type { ContextMenuTarget, EditorStore } from '../../stores/editorStore';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
+import { planOfTab, planTitle } from '../../stores/editor/windowSlice';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 
@@ -221,6 +222,50 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
           separator,
           { kind: 'action', label: 'Выделить все точки плана', shortcut: 'Ctrl+A', icon: 'select', run: () => st.selectAll() },
           { kind: 'action', label: 'Показать план целиком', icon: 'map', run: () => st.requestFitPlan() },
+        ],
+      };
+    }
+
+    case 'tab': {
+      const group = st.mapGroups[target.group];
+      const tab = group?.tabs.find((item) => item.id === target.tabId);
+      if (!group || !tab) return null;
+      const plan = planOfTab(st, target.group, tab);
+      const single = st.mapGroups.length === 1;
+      const lonely = single && group.tabs.length === 1;
+      const other = target.group === 0 ? 1 : 0;
+      return {
+        title: planTitle(st.buildingMetas, plan),
+        subtitle: single ? 'Вкладка карты' : `Вкладка карты ${target.group + 1}`,
+        entries: [
+          {
+            kind: 'action',
+            label: single ? 'Открыть рядом' : 'Перенести на соседнюю карту',
+            icon: 'split',
+            disabled: lonely,
+            run: () => st.moveTab(target.group, tab.id, other),
+          },
+          {
+            kind: 'action',
+            label: 'Открыть копию на соседней карте',
+            icon: 'duplicate',
+            run: () => st.openPlan(plan, 'side'),
+          },
+          separator,
+          {
+            kind: 'action',
+            label: 'Закрыть вкладку',
+            shortcut: 'Delete',
+            icon: 'close',
+            disabled: lonely,
+            run: () => st.closeTab(target.group, tab.id),
+          },
+          {
+            kind: 'action',
+            label: 'Закрыть другие вкладки',
+            disabled: group.tabs.length === 1,
+            run: () => st.closeOtherTabs(target.group, tab.id),
+          },
         ],
       };
     }

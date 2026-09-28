@@ -17,6 +17,7 @@ import type { LineArtKind } from '../../overlay/lineArt';
 import { applySimilarity, rotationOf, scaleOf } from '../../import/planGeometry';
 import type { Point, Similarity } from '../../import/planGeometry';
 import { farCorner, frameCenter, frameOf, moveFrame, rotateFrame, scaleFrame, turnAroundPin } from '../../import/placementMath';
+import { usePlanView } from './planView';
 
 /**
  * Корпуса на территории и их размещение (записи 50, 62, 63).
@@ -66,7 +67,7 @@ const BuildingPlan: React.FC<{
 
 /** Поставленные корпуса — на территории. */
 export const CampusBuildings: React.FC = () => {
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { floor: currentFloor } = usePlanView();
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const campusMpp = useEditorStore((s) => s.campusMeta?.metersPerPixel);
   const placingBuilding = useEditorStore((s) => s.placing?.building);

@@ -1,6 +1,7 @@
 import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
+import type { PlanRef } from '../../stores/editorStore';
 import { Icon } from '../UI/Icon';
 import { NewBuildingDialog, NewFloorDialog } from '../UI/AddDialogs';
 import { DisplayOptions } from './DisplayOptions';
@@ -87,8 +88,20 @@ const PlanTree: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
-  const setCurrentBuilding = useEditorStore((s) => s.setCurrentBuilding);
-  const setCurrentFloor = useEditorStore((s) => s.setCurrentFloor);
+  const openPlan = useEditorStore((s) => s.openPlan);
+  /**
+   * Щелчок открывает план во вкладке активной карты (или переключает на
+   * открытую), Ctrl+щелчок и средняя кнопка — на соседней карте (запись 66).
+   */
+  const planButton = (plan: PlanRef) => ({
+    onClick: (event: React.MouseEvent) => openPlan(plan, event.ctrlKey || event.metaKey ? 'side' : 'tab'),
+    onMouseDown: (event: React.MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    },
+    onAuxClick: (event: React.MouseEvent) => {
+      if (event.button === 1) openPlan(plan, 'side');
+    },
+  });
   // Счётчики догоняют перетаскивание, а не пересчитываются на каждом кадре.
   const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
 
@@ -112,7 +125,7 @@ const PlanTree: React.FC = () => {
           type="button"
           className="editor-tree__item"
           aria-current={currentBuilding === null ? 'true' : undefined}
-          onClick={() => setCurrentBuilding(null)}
+          {...planButton({ building: null, floor: null })}
         >
           <Icon name="map" />
           <span className="editor-tree__label">Территория</span>
@@ -131,7 +144,7 @@ const PlanTree: React.FC = () => {
               type="button"
               className="editor-tree__item"
               aria-expanded={open}
-              onClick={() => setCurrentBuilding(building.id)}
+              {...planButton({ building: building.id, floor: null })}
             >
               <Icon name={open ? 'chevronDown' : 'chevronRight'} />
               <span className="editor-tree__label">{building.name}</span>
@@ -146,7 +159,7 @@ const PlanTree: React.FC = () => {
                       type="button"
                       className="editor-tree__item"
                       aria-current={currentFloor === floor.floor ? 'true' : undefined}
-                      onClick={() => setCurrentFloor(floor.floor)}
+                      {...planButton({ building: building.id, floor: floor.floor })}
                     >
                       <span className="editor-tree__label">Этаж {floorLabel(building, floor.floor)}</span>
                       <NodeCount count={counts.get(planKey(building.id, floor.floor)) ?? 0} />
