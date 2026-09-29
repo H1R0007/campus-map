@@ -6,6 +6,7 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { useCursorStore } from '../../stores/cursorStore';
 import { nodesCount } from '../../utils/labels';
 import { useToolHint } from '../../hooks/useToolHint';
+import { useReadiness } from '../../hooks/useReadiness';
 
 /**
  * Строка состояния: где мы, что выбрано, что делает инструмент и его
@@ -24,6 +25,8 @@ export const StatusBar: React.FC = () => {
   const point = useCursorStore((s) => s.point);
   const zoom = useCursorStore((s) => s.zoom);
   const hint = useToolHint();
+  const ready = useReadiness();
+  const openCheck = useEditorStore((s) => s.openCheck);
 
   const planNodes = useMemo(
     () => floorNodesOf(nodes, currentBuilding, currentFloor, showPortals).length,
@@ -60,6 +63,14 @@ export const StatusBar: React.FC = () => {
           Масштаб {Math.round(2 ** zoom * 100)}%
         </span>
       )}
+      <button
+        type="button"
+        className="editor-statusbar__ready"
+        title="Готовность карты: сколько проверок выполнено. Открыть список"
+        onClick={() => openCheck('ready')}
+      >
+        Готовность {ready.done}/{ready.total}
+      </button>
       <span title="Сколько правок можно отменить">Правок: {editCount}</span>
       <span className={`editor-statusbar__state${unsaved ? ' editor-statusbar__state--unsaved' : ''}`}>
         <span className="editor-statusbar__dot" aria-hidden="true" />

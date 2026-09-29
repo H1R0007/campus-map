@@ -8,12 +8,12 @@ import { planStats } from '../../utils/planStats';
 import { plural } from '../../utils/labels';
 import { Icon } from './Icon';
 import { BuildingSection, CampusPlanSection, DangerZone, FloorSection } from './StructureCards';
-import { BuildGuide } from './BuildGuide';
 
 /**
  * Режим «Планы и корпуса» (запись 60): свойства того, что открыто в
- * структуре, — территории, корпуса или этажа (запись 47). На территории —
- * ещё и «Как собрать карту»; у корпуса без этажей — только корпус.
+ * структуре, — территории, корпуса или этажа (запись 47); у корпуса без
+ * этажей — только корпус. Что делать дальше, говорит «Готовность карты»
+ * внизу структуры (запись 67).
  */
 export const StructureView: React.FC = () => {
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
@@ -23,15 +23,12 @@ export const StructureView: React.FC = () => {
 
   if (!building) {
     return (
-      <>
-        <BuildGuide />
-        <section aria-label="Территория" className="editor-card">
-          <header className="editor-card__header">
-            <h2 className="editor-card__title">Территория</h2>
-          </header>
-          <CampusPlanSection />
-        </section>
-      </>
+      <section aria-label="Территория" className="editor-card">
+        <header className="editor-card__header">
+          <h2 className="editor-card__title">Территория</h2>
+        </header>
+        <CampusPlanSection />
+      </section>
     );
   }
 

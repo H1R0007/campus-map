@@ -33,6 +33,7 @@ import editorSandbox from './browser/scenarios/editor-sandbox.mjs';
 import editorModes from './browser/scenarios/editor-modes.mjs';
 import editorOverlay from './browser/scenarios/editor-overlay.mjs';
 import editorWindows from './browser/scenarios/editor-windows.mjs';
+import editorReadiness from './browser/scenarios/editor-readiness.mjs';
 import editorStructure from './browser/scenarios/editor-structure.mjs';
 import editorImport from './browser/scenarios/editor-import.mjs';
 import editorAlign from './browser/scenarios/editor-align.mjs';
@@ -74,6 +75,7 @@ const SCENARIOS = [
   editorModes,
   editorOverlay,
   editorWindows,
+  editorReadiness,
   editorStructure,
   editorImport,
   editorAlign,

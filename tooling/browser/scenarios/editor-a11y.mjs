@@ -104,7 +104,7 @@ export default {
 
     await step('вкладки «Проверка» и «Маршрут», инструмент «Переход»', async () => {
       await e.mode('Проверка');
-      for (const tab of ['Замечания', 'Маршрут']) {
+      for (const tab of ['Готовность', 'Замечания', 'Маршрут']) {
         await e.press(tab);
         await checkContrast(`вкладка «${tab}»`);
         await checkSizes(`вкладка «${tab}»`);
@@ -157,7 +157,7 @@ export default {
       await e.click(room.x, room.y);
       await checkContrast('светлая: карточка узла');
       await e.mode('Проверка');
-      for (const tab of ['Замечания', 'Маршрут']) {
+      for (const tab of ['Готовность', 'Замечания', 'Маршрут']) {
         await e.press(tab);
         await checkContrast(`светлая: вкладка «${tab}»`);
       }

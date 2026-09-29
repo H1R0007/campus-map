@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DEFAULT_STRENGTH, REFERENCE_TINT } from './lineArt';
 import type { LineArtKind, Tint } from './lineArt';
+import type { PlanSilhouette } from './silhouetteMatch';
 
 /**
  * Картинка линий плана (запись 62): план → холст → фоновый поток → PNG с
@@ -66,12 +67,13 @@ export function lineArtUrl(
   return result;
 }
 
-async function render(url: string, kind: LineArtKind, strength: number, fallback: { width: number; height: number } | undefined, tint: Tint): Promise<string> {
+/** План на холсте: наибольшая сторона — не больше `maxSide`, мелкий план — не меньше `minSide`. */
+async function planPixels(url: string, fallback: { width: number; height: number } | undefined, maxSide: number, minSide: number) {
   const img = await loadImage(url);
   const naturalWidth = img.naturalWidth || fallback?.width || 1000;
   const naturalHeight = img.naturalHeight || fallback?.height || 700;
   const longest = Math.max(naturalWidth, naturalHeight);
-  const scale = Math.min(MAX_SIDE / longest, Math.max(1, MIN_SIDE / longest));
+  const scale = Math.min(maxSide / longest, Math.max(1, minSide / longest));
   const width = Math.max(1, Math.round(naturalWidth * scale));
   const height = Math.max(1, Math.round(naturalHeight * scale));
 
@@ -81,20 +83,53 @@ async function render(url: string, kind: LineArtKind, strength: number, fallback
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Холст недоступен');
   ctx.drawImage(img, 0, 0, width, height);
-  const pixels = ctx.getImageData(0, 0, width, height);
+  return { canvas, ctx, width, height, naturalWidth, pixels: ctx.getImageData(0, 0, width, height) };
+}
 
+/** Отдаёт пиксели фоновому потоку и ждёт ответа. */
+function inWorker(message: Record<string, unknown>, source: ArrayBuffer): Promise<ArrayBuffer> {
   const id = nextId++;
-  const buffer = await new Promise<ArrayBuffer>((resolve) => {
+  return new Promise<ArrayBuffer>((resolve) => {
     waiting.set(id, resolve);
-    const source = pixels.data.buffer as ArrayBuffer;
-    lineWorker().postMessage({ id, kind, width, height, buffer: source, tint, strength }, [source]);
+    lineWorker().postMessage({ ...message, id, buffer: source }, [source]);
   });
+}
+
+async function render(url: string, kind: LineArtKind, strength: number, fallback: { width: number; height: number } | undefined, tint: Tint): Promise<string> {
+  const { canvas, ctx, width, height, pixels } = await planPixels(url, fallback, MAX_SIDE, MIN_SIDE);
+  const buffer = await inWorker({ op: 'art', kind, width, height, tint, strength }, pixels.data.buffer as ArrayBuffer);
 
   ctx.putImageData(new ImageData(new Uint8ClampedArray(buffer), width, height), 0, 0);
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((value) => (value ? resolve(value) : reject(new Error('Картинка линий не собралась'))), 'image/png')
   );
   return URL.createObjectURL(blob);
+}
+
+/** Силуэт считается по маленькой картинке: сравнить этажи хватает и её. */
+const SILHOUETTE_SIDE = 512;
+
+const silhouettes = new Map<string, Promise<PlanSilhouette>>();
+
+/**
+ * Силуэт здания на плане (запись 67) — для сравнения этажа с этажом входа;
+ * один план считается один раз.
+ *
+ * @param planSize размер плана в его пикселях (`mapSize`): в них точки и
+ *        привязка; у SVG размер картинки бывает другим
+ */
+export function planSilhouette(url: string, planSize?: { width: number; height: number }): Promise<PlanSilhouette> {
+  let result = silhouettes.get(url);
+  if (!result) {
+    result = (async () => {
+      const { width, height, naturalWidth, pixels } = await planPixels(url, planSize, SILHOUETTE_SIDE, 0);
+      const buffer = await inWorker({ op: 'silhouette', width, height }, pixels.data.buffer as ArrayBuffer);
+      return { width, height, mask: new Uint8Array(buffer), scale: (planSize?.width ?? naturalWidth) / width };
+    })();
+    silhouettes.set(url, result);
+    result.catch(() => silhouettes.delete(url));
+  }
+  return result;
 }
 
 /** Адрес картинки линий для плана или `null`, пока она считается (или плана нет). */

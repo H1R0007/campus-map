@@ -1251,6 +1251,260 @@ input[type='checkbox'] {
     color: var(--editor-warn);
 }
 
+/* «Готовность 11/15» — кнопка той же высоты, что строка, без рамки. */
+.editor-statusbar__ready {
+    min-height: 32px;
+    margin: -4px 0;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-statusbar__ready:hover,
+.editor-statusbar__ready:focus-visible {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+/* --- Готовность карты (запись 67) --- */
+
+.editor-ready {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.editor-ready__meter {
+    display: grid;
+    gap: 8px;
+}
+
+.editor-ready__count {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.editor-ready__count-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--editor-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-ready__count-label {
+    color: var(--editor-text-muted);
+    font-size: 13px;
+}
+
+.editor-ready__bar {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--editor-accent);
+    overflow: hidden;
+}
+
+.editor-ready__bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--editor-success);
+}
+
+.editor-ready__next {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.editor-ready__next-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__next-title {
+    font-size: 15px;
+    color: var(--editor-text);
+}
+
+.editor-ready__item {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 0;
+}
+
+/* Отметка: выполнено — зелёная галочка, не выполнено — кольцо цвета
+   предупреждения, ждёт другой строки — пунктирное кольцо, считается —
+   вращающееся. Спокойно: красным список не кричит. */
+.editor-ready__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    border-radius: 9999px;
+    color: var(--editor-success);
+}
+
+.editor-ready__item--todo .editor-ready__mark {
+    border: 2px solid var(--editor-warn);
+}
+
+.editor-ready__item--blocked .editor-ready__mark {
+    border: 2px dashed var(--editor-text-muted);
+}
+
+.editor-ready__item--pending .editor-ready__mark {
+    border: 2px solid var(--editor-border);
+    border-top-color: var(--editor-text-muted);
+    animation: editor-spin 1s linear infinite;
+}
+
+@keyframes editor-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .editor-ready__item--pending .editor-ready__mark {
+        animation: none;
+    }
+}
+
+.editor-ready__body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+/* Строкой текста, а не флексом: ⓘ встаёт за последним словом длинного названия. */
+.editor-ready__title-row {
+    display: block;
+}
+
+.editor-ready__title-row > * {
+    vertical-align: middle;
+}
+
+.editor-ready__title-row > .editor-info,
+.editor-ready__title-row > .editor-ready__optional {
+    margin-left: 6px;
+}
+
+.editor-ready__title {
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-ready__item--done .editor-ready__title {
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__optional {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__status {
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__action {
+    justify-self: start;
+    margin-top: 4px;
+}
+
+.editor-ready__problems {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__problems > li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0 8px;
+}
+
+.editor-ready__link {
+    min-height: 32px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--editor-focus);
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-ready__link:hover {
+    text-decoration: underline;
+}
+
+/* Полоса внизу структуры в «Планах и корпусах». */
+.editor-ready-strip {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 12px 0 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-ready-strip__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-ready-strip__head:hover,
+.editor-ready-strip__head:focus-visible {
+    background: var(--editor-hover);
+}
+
+.editor-ready-strip__title {
+    flex: 1;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready-strip__count {
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-ready-strip__next {
+    margin: 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
 /* --- Структура: территория, корпуса, этажи --- */
 
 .editor-tree {
@@ -2958,60 +3212,7 @@ input[type='checkbox'] {
     text-align: center;
 }
 
-/* «Как собрать карту» — шаги с состоянием и кнопкой (запись 52). */
-.editor-guide summary {
-    cursor: pointer;
-    list-style: none;
-    padding: 16px 16px 8px;
-}
 
-.editor-guide__steps {
-    list-style: none;
-    margin: 0;
-    padding: 0 12px 12px;
-}
-
-.editor-guide__step {
-    display: flex;
-    gap: 10px;
-    padding: 8px 4px;
-    border-top: 1px solid var(--editor-border);
-}
-
-.editor-guide__step--next {
-    background: var(--editor-hover);
-    border-radius: 10px;
-}
-
-.editor-guide__mark {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 9999px;
-    border: 1px solid var(--editor-border);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.editor-guide__mark--done {
-    border-color: transparent;
-    color: var(--editor-success);
-}
-
-.editor-guide__body {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-}
-
-.editor-guide__title {
-    font-weight: 600;
-}
 /* Стены соседнего этажа — линиями, почти без прозрачности: заливок у них нет (запись 65). */
 .editor-ghost-plan {
     opacity: 0.85;

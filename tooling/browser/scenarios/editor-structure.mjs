@@ -116,6 +116,7 @@ export default {
 
     await step('«Проверка» называет, чего не хватит навигатору, и ведёт к исправлению', async () => {
       await e.mode('Проверка');
+      await e.press('Замечания');
       const section = () => page.eval(`document.querySelector('[aria-label^="Корпуса, этажи и планы"]')?.textContent ?? ''`);
       assert.match(await section(), /Корпус «Корпус Г» не размещён на территории/);
       assert.match(await section(), /У этажа 1 корпуса «Корпус Г» нет плана/);

@@ -169,8 +169,11 @@ export function pageColor(src: Pixels): [number, number, number] {
   return [((best >> 10) & 31) * 8 + 4, ((best >> 5) & 31) * 8 + 4, (best & 31) * 8 + 4];
 }
 
+/** Ширина щели двери, которую закрывает силуэт, — от размера картинки. */
+const gapOf = (width: number, height: number) => Math.max(4, Math.round(Math.max(width, height) * 0.018));
+
 /**
- * Внешний контур здания.
+ * Силуэт здания: маска 0/1 размером с картинку, 1 — внутри внешнего контура.
  *
  * Всё, что отличается от цвета листа, — здание; щели дверей закрываются
  * расширением на `gap`; снаружи — то, до чего дотекает заливка от края
@@ -179,7 +182,7 @@ export function pageColor(src: Pixels): [number, number, number] {
  *
  * @param gap ширина щели, которую закрыть, пиксели; по умолчанию — от размера картинки
  */
-export function outerContour(src: Pixels, tint: Tint, gap = Math.max(4, Math.round(Math.max(src.width, src.height) * 0.018))): Pixels {
+export function silhouette(src: Pixels, gap = gapOf(src.width, src.height)): Uint8Array {
   const { width, height, data: d } = src;
   const size = width * height;
   const bg = pageColor(src);
@@ -255,14 +258,29 @@ export function outerContour(src: Pixels, tint: Tint, gap = Math.max(4, Math.rou
     }
   }
 
+  const mask = new Uint8Array(size);
+  if (best !== 0) for (let p = 0; p < size; p += 1) if (label[p] === best) mask[p] = 1;
+  return mask;
+}
+
+/**
+ * Внешний контур здания (запись 62) — граница силуэта (`silhouette`)
+ * толщиной в несколько пикселей.
+ *
+ * @param gap ширина щели, которую закрыть, пиксели; по умолчанию — от размера картинки
+ */
+export function outerContour(src: Pixels, tint: Tint, gap = gapOf(src.width, src.height)): Pixels {
+  const { width, height } = src;
+  const size = width * height;
+  const inside = silhouette(src, gap);
+
   // Граница куска, толщиной в несколько пикселей — видна при любом приближении.
   const edge = new Uint8Array(size);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const p = y * width + x;
-      if (label[p] !== best || best === 0) continue;
-      const border =
-        x === 0 || y === 0 || x === width - 1 || y === height - 1 || label[p - 1] !== best || label[p + 1] !== best || label[p - width] !== best || label[p + width] !== best;
+      if (!inside[p]) continue;
+      const border = x === 0 || y === 0 || x === width - 1 || y === height - 1 || !inside[p - 1] || !inside[p + 1] || !inside[p - width] || !inside[p + width];
       if (border) edge[p] = 1;
     }
   }

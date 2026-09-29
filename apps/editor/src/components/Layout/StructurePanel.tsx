@@ -4,6 +4,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import type { PlanRef } from '../../stores/editorStore';
 import { Icon } from '../UI/Icon';
 import { NewBuildingDialog, NewFloorDialog } from '../UI/AddDialogs';
+import { ReadinessStrip } from '../UI/ReadinessView';
 import { DisplayOptions } from './DisplayOptions';
 import { ColumnResizer } from './ColumnResizer';
 
@@ -60,6 +61,8 @@ export const StructurePanel: React.FC = () => {
         {workspace === 'plans' && <ImportButton />}
         <PlanTree />
         {workspace !== 'plans' && <DisplayOptions />}
+        {/* Внизу дерева — сколько сделано и что дальше (запись 67). */}
+        {workspace === 'plans' && <ReadinessStrip />}
       </div>
       <ColumnResizer column="structure" edge="right" label="Ширина структуры" columnRef={columnRef} />
     </nav>

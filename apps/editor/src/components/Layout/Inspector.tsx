@@ -7,12 +7,14 @@ import { Icon } from '../UI/Icon';
 import { PropertiesView } from '../UI/PropertiesView';
 import { StructureView } from '../UI/PlanOverview';
 import { ProblemsView } from '../UI/ProblemsView';
+import { ReadinessView } from '../UI/ReadinessView';
 import { RouteView } from '../UI/RouteView';
 import { ColumnResizer } from './ColumnResizer';
 import { OperationPanel } from '../UI/OperationPanel';
 import { useOperationTitle } from '../../hooks/useOperationTitle';
 
 const CHECK_TABS: { id: CheckTab; label: string }[] = [
+  { id: 'ready', label: 'Готовность' },
   { id: 'problems', label: 'Замечания' },
   { id: 'route', label: 'Маршрут' },
 ];
@@ -22,7 +24,8 @@ const CHECK_TABS: { id: CheckTab; label: string }[] = [
  *
  * - «Планы и корпуса» — свойства территории, корпуса, этажа;
  * - «Разметка» — свойства выбранной точки, без выбора — цифры плана;
- * - «Проверка» — замечания и проверка маршрута на двух вкладках.
+ * - «Проверка» — готовность карты (запись 67), замечания и проверка маршрута
+ *   на трёх вкладках.
  *
  * Пока идёт операция — размещение, совмещение, замер, — колонка отдана её
  * пошаговой панели (запись 64) и не сворачивается: в ней «Готово» и «Отмена».
@@ -40,7 +43,7 @@ export const Inspector: React.FC = () => {
   const columnRef = useRef<HTMLElement>(null);
   const report = useValidationReport();
   const structure = useStructureChecks();
-  const tabRefs = useRef<Record<CheckTab, HTMLButtonElement | null>>({ problems: null, route: null });
+  const tabRefs = useRef<Record<CheckTab, HTMLButtonElement | null>>({ ready: null, problems: null, route: null });
   const operation = useOperationTitle();
 
   if (collapsed && !operation) {
@@ -137,7 +140,9 @@ export const Inspector: React.FC = () => {
           <>
             {workspace === 'plans' && <StructureView />}
             {workspace === 'markup' && <PropertiesView />}
-            {workspace === 'check' && (checkTab === 'problems' ? <ProblemsView /> : <RouteView />)}
+            {workspace === 'check' && checkTab === 'ready' && <ReadinessView />}
+            {workspace === 'check' && checkTab === 'problems' && <ProblemsView />}
+            {workspace === 'check' && checkTab === 'route' && <RouteView />}
           </>
         )}
       </div>

@@ -45,6 +45,13 @@ export default {
       await shot('editor-route');
     });
 
+    await step('«Готовность карты» помнит проложенный маршрут (запись 67)', async () => {
+      await e.press('Готовность');
+      const status = await page.eval(`document.querySelector('[data-ready="routeChecked"] .editor-ready__status')?.textContent ?? ''`);
+      assert.equal(status, 'Проложено маршрутов: 1');
+      await e.press('Маршрут');
+    });
+
     await step('метка идёт по маршруту, пока открыта вкладка «Маршрут»', async () => {
       const first = await marker();
       assert.ok(first.at, 'метки маршрута нет');

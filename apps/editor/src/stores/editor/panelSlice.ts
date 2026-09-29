@@ -48,8 +48,11 @@ export interface EditorNotice {
  */
 export type Workspace = 'plans' | 'markup' | 'check';
 
-/** Вкладка режима «Проверка»: замечания или маршрут. Метка идёт по маршруту, только пока он открыт. */
-export type CheckTab = 'problems' | 'route';
+/**
+ * Вкладка режима «Проверка»: готовность карты (запись 67), замечания или
+ * маршрут. Метка идёт по маршруту, только пока он открыт.
+ */
+export type CheckTab = 'ready' | 'problems' | 'route';
 
 /**
  * Для чего открыто окно «Планы из файлов»: план этажа или территории, этажи
@@ -165,7 +168,7 @@ export interface PanelSlice {
 
 export const createPanelSlice: EditorSlice<PanelSlice> = (set, get) => ({
   workspace: readLayoutPrefs().workspace,
-  checkTab: 'problems',
+  checkTab: 'ready',
   structureCollapsed: readLayoutPrefs().structureCollapsed,
   inspectorCollapsed: readLayoutPrefs().inspectorCollapsed,
   structureWidth: readLayoutPrefs().structureWidth,

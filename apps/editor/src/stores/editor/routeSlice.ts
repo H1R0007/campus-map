@@ -1,6 +1,7 @@
 import { DEFAULT_PATHFINDING_OPTIONS, findAlternativePaths } from '@campus-map/core';
 import type { PathResult, PathfindingOptions } from '@campus-map/core';
 import { buildGraphFromState } from './graphState';
+import { readRouteChecks, rememberRouteCheck, routeKey } from '../../utils/routeChecks';
 import type { EditorSlice } from './types';
 
 export interface RouteSimulation {
@@ -60,6 +61,8 @@ export function initialRouteSimulation(): RouteSimulation {
  */
 export interface RouteSlice {
   routeSimulation: RouteSimulation;
+  /** Проложенные маршруты «откуда→куда» — для «Готовности карты» (запись 67). */
+  checkedRoutes: string[];
   routePickMode: boolean;
   routePickTarget: 'from' | 'to' | null;
 
@@ -78,6 +81,7 @@ export interface RouteSlice {
 
 export const createRouteSlice: EditorSlice<RouteSlice> = (set, get) => ({
   routeSimulation: initialRouteSimulation(),
+  checkedRoutes: readRouteChecks(),
   routePickMode: true,
   routePickTarget: 'from',
 
@@ -112,6 +116,8 @@ export const createRouteSlice: EditorSlice<RouteSlice> = (set, get) => ({
       s.routeSimulation.animationIndex = 0;
       s.routeSimulation.selectedPathIndex = 0;
       s.routeSimulation.active = routes.length > 0;
+      // Найденный маршрут — проверенный: человек видит его на карте и время в пути.
+      if (routes.length > 0) s.checkedRoutes = rememberRouteCheck(s.checkedRoutes, routeKey(fromId, toId));
     });
   },
 
