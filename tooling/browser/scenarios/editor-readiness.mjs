@@ -70,6 +70,11 @@ export default {
       assert.equal(await state('saved'), 'todo', 'несохранённая правка не видна');
       const problems = await page.eval(`document.querySelector('[data-ready="onePlanNetwork"]').textContent`);
       assert.match(problems, /Корпус А, этаж 1: 1 точка отдельно от остальных/);
+      // Прокрутка к строке двигает только список: ничего из него не торчит
+      // из-под прокрутки, и редактор целиком не сдвигается.
+      await page.eval(`document.querySelector('[data-ready="onePlanNetwork"]').scrollIntoView({ block: 'center' })`);
+      const shifted = await page.eval(`[document.documentElement, document.body, ...document.querySelectorAll('body > div, .editor-shell')].filter((el) => el.scrollTop !== 0).map((el) => el.tagName + '.' + el.className)`);
+      assert.deepEqual(shifted, [], 'прокрутка к строке сдвинула весь редактор');
       await shot('editor-readiness-broken');
 
       assert.equal(await e.selectedCount(), 0);
