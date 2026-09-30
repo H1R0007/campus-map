@@ -19,7 +19,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
@@ -43,6 +43,8 @@ import editorHelpSearch from './browser/scenarios/editor-help-search.mjs';
 import editorA11y from './browser/scenarios/editor-a11y.mjs';
 import editorKinds from './browser/scenarios/editor-kinds.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
+import editorWalkScratch from './browser/scenarios/editor-walk-scratch.mjs';
+import editorWalkFix from './browser/scenarios/editor-walk-fix.mjs';
 import viewerCanvas from './browser/scenarios/viewer-canvas.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
@@ -85,6 +87,9 @@ const SCENARIOS = [
   editorA11y,
   editorKinds,
   editorPanels,
+  // Разборы путей целиком (этап 5 фазы 12): длинные, поэтому последними.
+  editorWalkScratch,
+  editorWalkFix,
 ];
 
 /** Сколько ждать, пока браузер откроет порт отладки. */
@@ -199,18 +204,36 @@ async function launchBrowser(executable) {
 }
 
 /**
+ * Кампус «с нуля»: территория без плана, ни одного корпуса и точки. Каталог
+ * видов точек — тот же, что в `data/`: его заводят один раз на проект.
+ */
+function writeEmptyCampus(dataDir) {
+  const write = (relative, value) => {
+    mkdirSync(path.dirname(path.join(dataDir, relative)), { recursive: true });
+    writeFileSync(path.join(dataDir, relative), `${JSON.stringify(value, null, 2)}\n`);
+  };
+  write('campus/meta.json', { buildings: [] });
+  write('campus/graph.json', { nodes: [] });
+  write('transitions.json', { transitions: [] });
+  write('aliases.json', { aliases: [] });
+  cpSync(path.join(repoRoot, 'data', 'place-kinds.json'), path.join(dataDir, 'place-kinds.json'));
+}
+
+/**
  * Поднимает dev-сервер приложения на копии каталога данных.
  *
  * Копия нужна, чтобы проверка сохранения не переписывала канонический
  * `data/`: сценарий правит разметку и сохраняет её по-настоящему.
+ * `'empty'` — вместо копии кампус с нуля (`writeEmptyCampus`).
  */
-async function startIsolatedData(app) {
+async function startIsolatedData(app, kind) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'campus-map-data-'));
   const dataDir = path.join(root, 'data');
   const sourcesDir = path.join(root, 'data-sources');
   const uploadsDir = path.join(root, 'uploads');
   const sandboxDir = path.join(root, 'sandbox');
-  cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
+  if (kind === 'empty') writeEmptyCampus(dataDir);
+  else cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
 
   const server = await startVite({
     app,
@@ -324,7 +347,7 @@ async function main() {
 
         // Сценарий, который сохраняет данные, работает на копии `data/` и со
         // своим dev-сервером: запись в каталог данных есть только у него.
-        const isolated = scenario.isolatedData ? await startIsolatedData(appName) : null;
+        const isolated = scenario.isolatedData ? await startIsolatedData(appName, scenario.isolatedData) : null;
 
         const failure = await runScenario(scenario, {
           debugUrl: browser.debugUrl,

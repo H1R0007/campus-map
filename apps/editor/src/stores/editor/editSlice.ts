@@ -90,6 +90,16 @@ export interface EditSlice {
    *          ставится (вход, переход между корпусами — только вручную)
    */
   placeTransitionStack: (x: number, y: number, options?: { align?: boolean; linkToLast?: boolean }) => string | null;
+  /**
+   * Второй конец начатого вручную перехода — новой точкой на пустом месте
+   * открытого плана: у входа на пустой территории щёлкнуть больше не по чему.
+   * Точка связывается с ближайшей на своём плане; точка и переход — одна
+   * правка.
+   *
+   * @returns id новой точки; `'samePlan'` — план тот же, что у начала;
+   *          `null` — перехода не начато
+   */
+  placeTransitionEnd: (x: number, y: number, options?: { align?: boolean }) => string | 'samePlan' | null;
   setNodeAliases: (nodeId: string, names: string[]) => void;
   /** Вид места: туалет, еда, гардероб, выход — или ничего. */
   setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
@@ -234,6 +244,11 @@ interface PlacementSpec {
   linkFrom: string | null;
   /** Продолжать линию от новой точки. */
   chain: boolean;
+  /**
+   * Начало перехода, начатого вручную: новая точка — его второй конец, переход
+   * (`transition`) ставится той же правкой.
+   */
+  transitionFrom?: string;
 }
 
 type StoreSet = Parameters<EditorSlice<EditSlice>>[0];
@@ -313,11 +328,15 @@ function commitPlacement(set: StoreSet, get: StoreGet, spec: PlacementSpec): str
     links.map((link) => link.nearestId)
   );
 
-  // Переходы между соседними этажами стопки.
+  // Переходы между соседними этажами стопки — или от начала перехода, начатого
+  // вручную, к новой точке.
   const newTransitions: Transition[] = [];
   if (spec.transition !== null) {
     for (let i = 0; i + 1 < created.length; i += 1) {
       newTransitions.push({ fromNode: created[i].id, toNode: created[i + 1].id, type: spec.transition });
+    }
+    if (spec.transitionFrom !== undefined) {
+      newTransitions.push({ fromNode: spec.transitionFrom, toNode: primary.id, type: spec.transition });
     }
   }
 
@@ -339,6 +358,7 @@ function commitPlacement(set: StoreSet, get: StoreGet, spec: PlacementSpec): str
     s.selectedNodeIds = new Set([primary.id]);
     s.chainLastNodeId = spec.chain ? primary.id : null;
     s.lastPlacedNodeId = primary.id;
+    if (spec.transitionFrom !== undefined) s.transitionStartNodeId = null;
   });
 
   const after = get();
@@ -766,6 +786,30 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       connect: true,
       linkFrom: options.linkToLast ? st.lastPlacedNodeId : null,
       chain: false,
+    });
+  },
+
+  placeTransitionEnd: (x, y, options = {}) => {
+    const st = get();
+    const start = st.transitionStartNodeId === null ? undefined : st.nodes.get(st.transitionStartNodeId);
+    if (!start) return null;
+    const plan = openPlanOf(st);
+    if (start.building === plan.building && start.floor === plan.floor) return 'samePlan';
+
+    const type = st.transitionType;
+    return commitPlacement(set, get, {
+      idKind: { id: type, name: TRANSITION_LABELS[type] },
+      label: TRANSITION_LABELS[type],
+      point: placementPoint(st, x, y, options.align !== false),
+      floors: [plan.building === CAMPUS_BUILDING_ID ? null : plan.floor],
+      isPortal: true,
+      transition: type,
+      name: null,
+      category: null,
+      connect: true,
+      linkFrom: null,
+      chain: false,
+      transitionFrom: start.id,
     });
   },
 

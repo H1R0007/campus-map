@@ -1215,10 +1215,6 @@ input[type='checkbox'] {
     font-weight: 500;
 }
 
-.editor-statusbar__spacer {
-    flex: 1;
-}
-
 /* Подсказка инструмента: занимает свободное место и обрезается многоточием. */
 .editor-statusbar__hint {
     flex: 1;
@@ -2271,12 +2267,6 @@ input[type='checkbox'] {
     font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
-.editor-card__id {
-    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-    font-size: 13px;
-    overflow-wrap: anywhere;
-}
-
 .editor-list {
     list-style: none;
     margin: 0;
@@ -3023,45 +3013,6 @@ input[type='checkbox'] {
         border-right: 0;
         border-bottom: 1px solid var(--editor-border);
     }
-}
-
-/* --- Совмещение точек с новым планом (запись 49) --- */
-
-.editor-align-bar {
-    position: absolute;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 600;
-    width: min(640px, calc(100% - 24px));
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: var(--editor-panel);
-    border: 1px solid var(--editor-focus);
-    box-shadow: var(--editor-shadow);
-    color: var(--editor-text);
-}
-
-.editor-align-bar__title {
-    margin: 0 0 4px;
-    font-size: 15px;
-    font-weight: 600;
-}
-
-.editor-align-bar__text {
-    margin: 0 0 6px;
-    font-size: 13px;
-    color: var(--editor-text-muted);
-}
-
-.editor-align-bar__pairs {
-    margin: 0 0 6px;
-    padding-left: 20px;
-    font-size: 13px;
-}
-
-.editor-align-bar__pair--bad {
-    color: var(--editor-danger);
 }
 
 .editor-link-button {

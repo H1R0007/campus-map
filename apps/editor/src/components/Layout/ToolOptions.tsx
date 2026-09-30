@@ -151,7 +151,7 @@ const LineOptions: React.FC = () => {
   return (
     <>
       {lineTool.start && (
-        <div className="editor-toolbar__options" role="group" aria-label="Параметры линии">
+        <div className="editor-toolbar__options" role="group" aria-label="Параметры ряда точек">
           <label className="editor-check">
             <span className="editor-check__text">Точек</span>
             <input

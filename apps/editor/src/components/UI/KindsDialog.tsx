@@ -249,7 +249,7 @@ export const KindsDialog: React.FC = () => {
                     onClick={() => remove(kind)}
                     disabled={kinds.length === 1}
                     aria-label={`Удалить вид «${kind.name}»`}
-                    title={kinds.length === 1 ? 'Последний вид удалить нельзя: кистям нечего будет ставить' : undefined}
+                    title={kinds.length === 1 ? 'Последний вид удалить нельзя: инструменту «Точка» нечего будет ставить' : undefined}
                   >
                     <Icon name="close" />
                   </button>
@@ -337,7 +337,7 @@ function kindSummary(kind: PlaceKind): string {
   const naming = namingOf(kind);
   if (naming === 'kind') parts.push(`точка называется «${kind.namePattern}»`);
   if (naming === 'room') parts.push('номер помещения: «А-1…» и ваш номер');
-  if (kind.chain) parts.push('ведёт линию');
+  if (kind.chain) parts.push('ставит точки цепочкой');
   if (kind.connect) parts.push('цепляется к ближайшей точке');
   if (kind.place) parts.push(kind.quick ? 'место быстрого поиска, кнопка в навигаторе' : 'место быстрого поиска');
   return parts.length > 0 ? parts.join(' · ') : 'точка без названия';

@@ -164,7 +164,7 @@ const ImportWindow: React.FC = () => {
       const floors: ImportFloor[] = [];
       let campus: PlanInput | undefined;
       for (const [index, piece] of toAdd.entries()) {
-        setBusy(`Готовлю план ${index + 1} из ${toAdd.length}…`);
+        setBusy(`Подготовка плана ${index + 1} из ${toAdd.length}…`);
         const sheet = sheets.find((item) => item.id === piece.sheetId)!;
         const made = await makePlan(sheet, { rotation: piece.rotation, crop: piece.crop, scaleRatio: Number(piece.scaleText) || undefined });
         const plan: PlanInput = { key: made.key, format: made.format, mapSize: made.mapSize, source: made.source };
@@ -282,7 +282,7 @@ const ImportWindow: React.FC = () => {
                     );
                   })}
                 </ul>
-                {reading && <p className="editor-section__hint" role="status">Читаю «{reading}»…</p>}
+                {reading && <p className="editor-section__hint" role="status">Чтение «{reading}»…</p>}
                 {problems.map((problem) => (
                   <p key={problem.name} className="editor-section__hint editor-section__hint--problem">
                     «{problem.name}»: {problem.problem}
@@ -331,7 +331,7 @@ const ImportWindow: React.FC = () => {
                     }
                   />
                 ) : (
-                  <p className="editor-section__hint">{reading ? 'Читаю файлы…' : 'Выберите лист слева.'}</p>
+                  <p className="editor-section__hint">{reading ? 'Чтение файлов…' : 'Выберите лист слева.'}</p>
                 )}
               </div>
             </div>
@@ -386,16 +386,22 @@ const PieceEditor: React.FC<{
   onRemove?: () => void;
 }> = ({ piece, sheet, pieces, check, onChange, onTouchCrop, onSplit, onRemove }) => {
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
-  const [preview, setPreview] = useState<{ rotation: number; url: string } | null>(null);
+  const [preview, setPreview] = useState<{ rotation: number; url: string | null; failure?: string } | null>(null);
   const [trimming, setTrimming] = useState(false);
   const rotated = rotatedPage(sheet.size, piece.rotation).size;
 
   useEffect(() => {
     let cancelled = false;
     const scale = PREVIEW_SIDE / Math.max(rotated.width, rotated.height);
-    void sheet.render(piece.rotation, null, scale).then((canvas) => {
-      if (!cancelled) setPreview({ rotation: piece.rotation, url: canvas.toDataURL('image/png') });
-    });
+    // Лист не нарисовался — окно говорит об этом, а не показывает «рисуется» вечно.
+    void sheet.render(piece.rotation, null, scale).then(
+      (canvas) => {
+        if (!cancelled) setPreview({ rotation: piece.rotation, url: canvas.toDataURL('image/png') });
+      },
+      (cause: unknown) => {
+        if (!cancelled) setPreview({ rotation: piece.rotation, url: null, failure: cause instanceof Error ? cause.message : String(cause) });
+      }
+    );
     return () => {
       cancelled = true;
     };
@@ -575,6 +581,7 @@ const PieceEditor: React.FC<{
 
       <CropEditor
         imageUrl={preview?.rotation === piece.rotation ? preview.url : null}
+        failure={preview?.rotation === piece.rotation ? (preview.failure ?? null) : null}
         pageSize={rotated}
         crop={piece.crop}
         onChange={(crop) => {
@@ -584,9 +591,9 @@ const PieceEditor: React.FC<{
       />
       <p className="editor-section__hint">
         {piece.trimmed ? 'Поля обрезаны сами — поправьте рамку, если план задело. ' : ''}
-        Получится: {result.format.toUpperCase()}, {result.size.width} × {result.size.height} точек
+        Получится: {result.format.toUpperCase()}, {result.size.width} × {result.size.height} пикс.
         {result.asIs ? ' — файл как есть' : ''}
-        {metersPerUnit ? `, 1 точка = ${String(Math.round((metersPerUnit / result.scale) * 10000) / 10000).replace('.', ',')} м` : ''}.
+        {metersPerUnit ? `, 1 пикс. = ${String(Math.round((metersPerUnit / result.scale) * 10000) / 10000).replace('.', ',')} м` : ''}.
       </p>
       {sheet.unitMeters !== undefined && (
         sheet.realScale ? (

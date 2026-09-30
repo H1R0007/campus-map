@@ -48,7 +48,7 @@ export function useToolHint(): string | null {
         : 'Щёлкните первую точку, затем вторую — между ними появится связь';
     case 'transition':
       if (transitionStart) {
-        return `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(transitionStart.id, aliases)}» (${nodePlaceLabel(transitionStart, buildingMetas)}): щёлкните вторую точку на соседней карте или откройте другой план · Esc — отмена`;
+        return `${TRANSITION_LABELS[transitionType]} от «${nodeTitle(transitionStart.id, aliases)}» (${nodePlaceLabel(transitionStart, buildingMetas)}): щёлкните вторую точку на другом плане или пустое место там — встанет новая · Esc — отмена`;
       }
       return STACK_TRANSITIONS.includes(transitionType)
         ? 'Щелчок по пустому месту — на всех этажах корпуса · по точке — вручную: точка, другой план, вторая точка'

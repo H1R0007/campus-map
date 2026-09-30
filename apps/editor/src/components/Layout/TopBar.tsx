@@ -341,7 +341,7 @@ const ReportList: React.FC<{ kind: 'error' | 'warn'; title: string; items: strin
       style={{ color: kind === 'error' ? 'var(--editor-danger)' : 'var(--editor-warn)' }}
     >
       <Icon name={kind === 'error' ? 'errorCircle' : 'warning'} />
-      {title} ({items.length})
+      {title} · {items.length}
     </div>
     <ul className="mt-1 text-sm space-y-1 max-h-32 overflow-y-auto" style={{ color: 'var(--editor-text-muted)' }}>
       {items.slice(0, 10).map((item, i) => (

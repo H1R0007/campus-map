@@ -336,7 +336,7 @@ export function editorHelpers(page, base) {
     /** Текст строки состояния. */
     status: () => page.eval(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent ?? ''`),
 
-    /** Открытый план словами: «Корпус А / Этаж 2» или «Кампус». */
+    /** Открытый план словами: «Корпус А, этаж 2» или «Территория». */
     place: () => page.eval(`document.querySelector('[data-status-place]')?.textContent ?? ''`),
 
     /** Сколько узлов выбрано — по строке состояния. */

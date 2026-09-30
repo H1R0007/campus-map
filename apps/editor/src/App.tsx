@@ -18,7 +18,8 @@ import { SandboxBanner } from './components/UI/Sandbox';
 import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
 import { SPACE } from './config/space';
-import { fetchSandboxState, resetSandbox } from './utils/diskStore';
+import { fetchDiskManifest, fetchSandboxState, resetSandbox } from './utils/diskStore';
+import { loadedPlanFiles, planFilesByHash } from './utils/planFiles';
 import { isLeavingOnPurpose } from './utils/leavePage';
 import { watchSystemTheme } from './utils/theme';
 
@@ -125,15 +126,20 @@ const App: React.FC = () => {
         // на ошибках и глушил их пустыми `catch {}`: отсутствующий этаж или
         // битый JSON проходили незамеченными, а `building` и `floor` узлам
         // приходилось проставлять вручную, хотя загрузчик берёт их из пути.
-        const { dataset, warnings } = await loadDataset(
-          createHttpDatasetSource({ baseUrl: DATA_BASE_URL })
-        );
+        //
+        // Манифест каталога данных — вместе с данными: по нему видно, каких
+        // планов на диске нет. Без него карта сначала запрашивала план по
+        // пути из формата и получала 404 — у пустой территории каждый раз.
+        const [{ dataset, warnings }, manifest] = await Promise.all([
+          loadDataset(createHttpDatasetSource({ baseUrl: DATA_BASE_URL })),
+          fetchDiskManifest(),
+        ]);
 
         if (cancelled) return;
-        loadData(dataset, warnings);
-        // Манифест каталога данных и черновик — после загрузки: черновик
-        // предлагается поверх уже открытых данных.
-        await initStorage();
+        const planFiles = loadedPlanFiles(dataset.campusMeta, dataset.buildingMetas);
+        loadData(dataset, warnings, manifest ? { planFiles: planFilesByHash(planFiles, manifest.files) } : {});
+        // Черновик — после загрузки: он предлагается поверх уже открытых данных.
+        await initStorage(manifest);
       } catch (cause) {
         console.error('Ошибка загрузки датасета:', cause);
         if (!cancelled) {

@@ -303,6 +303,9 @@ export const CampusPlanSection: React.FC = () => {
         </div>
       </Section>
       <Section title="Корпуса" label="Территория: корпуса">
+        {buildingMetas.size === 0 && (
+          <p className="editor-section__hint">Корпусов пока нет: «+ Корпус» в дереве или «Загрузить планы…» — корпус появится по листу.</p>
+        )}
         <ul className="editor-list" aria-label="Корпуса">
           {[...buildingMetas.values()].map((meta) => {
             const placed = meta.placement?.originMeters !== undefined;
@@ -378,8 +381,11 @@ const RedoPlanButton: React.FC<{ building: string | null; floor: number | null; 
 };
 
 /**
- * Размещение этажа: этажи одного корпуса бывают начерчены в разном масштабе
- * или с разными полями, а лестницы должны стоять друг над другом (запись 53).
+ * Совмещение этажа с этажом входа: этажи одного корпуса бывают начерчены в
+ * разном масштабе или с разными полями, а лестницы должны стоять друг над
+ * другом (запись 53). «Размещение» по словарю — только корпус на территории:
+ * в карточке этажа рядом стоит и секция корпуса, два одинаковых заголовка
+ * путали.
  */
 const FloorPlacementSection: React.FC<{ building: BuildingMeta; floor: FloorMeta }> = ({ building, floor }) => {
   const startPlacingFloor = useEditorStore((s) => s.startPlacingFloor);
@@ -389,8 +395,8 @@ const FloorPlacementSection: React.FC<{ building: BuildingMeta; floor: FloorMeta
   if (entrance === null || floor.floor === entrance || building.placement?.originMeters === undefined) return null;
   return (
     <Section
-      title="Размещение"
-      label="Этаж: размещение"
+      title="Совмещение"
+      label="Этаж: совмещение с этажом входа"
       info="Если план этажа начерчен в другом масштабе или со смещением, лестницы соседних этажей разъедутся. Совместите этаж с этажом входа."
     >
       <dl className="editor-facts">
@@ -506,7 +512,7 @@ export const DeleteDialog: React.FC<{ open: boolean; onClose: () => void; buildi
     if (whole) deleteBuilding(building.id);
     else deleteFloor(building.id, floor);
     onClose();
-    showNotice(`Удалён ${what}. Передумали — Ctrl+Z вернёт всё`);
+    showNotice(`Удалён ${what}. Ctrl+Z вернёт всё`);
   };
 
   return (
@@ -559,7 +565,7 @@ export const DeleteDialog: React.FC<{ open: boolean; onClose: () => void; buildi
           </ul>
         </>
       )}
-      <p className="editor-section__hint">Передумаете — Ctrl+Z вернёт всё, пока редактор открыт, даже после сохранения.</p>
+      <p className="editor-section__hint">Ctrl+Z вернёт всё, пока редактор открыт, даже после сохранения.</p>
       {whole && impact.nodes > 0 && (
         <label className="editor-check">
           <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} />

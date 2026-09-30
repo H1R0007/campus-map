@@ -16,7 +16,7 @@ export default {
   async run({ page, base, step, shot }) {
     await page.viewport(1600, 900, 1);
     const e = editorHelpers(page, base);
-    const floorOf = async () => (await e.place()).match(/Этаж (-?\d+)/)?.[1] ?? null;
+    const floorOf = async () => (await e.place()).match(/этаж (-?\d+)/)?.[1] ?? null;
 
     /** Где сейчас метка, идущая по маршруту, и есть ли линия маршрута. */
     const marker = () =>
@@ -103,7 +103,7 @@ export default {
 
     await step('«вести карту за меткой» включается явно и снимается переключением плана', async () => {
       await e.toggleFilter('Вести карту за меткой');
-      await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('Этаж 2')`, 8000);
+      await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('этаж 2')`, 8000);
 
       await e.key('PageDown');
       assert.equal(await floorOf(), '1');

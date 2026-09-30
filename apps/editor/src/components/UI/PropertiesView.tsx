@@ -186,7 +186,6 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
   );
 };
 
-/** Названия узла: первое — главное, остальные — как ещё ищут это место. */
 /**
  * Вид места: туалет, еда, гардероб, выход.
  *
@@ -241,6 +240,7 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
   );
 };
 
+/** Названия узла: первое — главное, остальные — как ещё ищут это место. */
 const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId, aliases }) => {
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
   const nameEditNodeId = useEditorStore((s) => s.nameEditNodeId);
@@ -314,7 +314,7 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
     <section className="editor-card__section" aria-labelledby="card-names">
       <div className="editor-card__heading-row">
         <h3 id="card-names" className="editor-card__heading">
-          Названия ({aliases.length})
+          Названия · {aliases.length}
         </h3>
         <InfoTip about="Названия">
           Первое название — главное: его видно на карте и в поиске. Остальные — другие слова, по которым ищут это место.
@@ -434,7 +434,7 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   return (
     <section className="editor-card__section" aria-labelledby="card-links">
       <h3 id="card-links" className="editor-card__heading">
-        Связи ({node.neighbors.length})
+        Связи · {node.neighbors.length}
       </h3>
       {node.neighbors.length === 0 && (
         <p className="editor-section__hint">Точка ни с чем не связана: маршрут к ней не построится.</p>
@@ -471,7 +471,9 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
           onClick={() => setShowNearest(!showNearest)}
         >
           <Icon name="zap" />
-          Соединить с ближайшим
+          {/* Кнопка открывает список, а соединяет выбор в нём: название так и
+              говорит — «Соединить с ближайшим» обещало связь одним нажатием. */}
+          Выбрать из ближайших…
         </button>
         <button
           type="button"
@@ -545,7 +547,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   return (
     <section className="editor-card__section" aria-labelledby="card-transitions">
       <h3 id="card-transitions" className="editor-card__heading">
-        Переходы ({transitions.length})
+        Переходы · {transitions.length}
       </h3>
       <ul className="editor-list">
         {transitions.map((t) => {

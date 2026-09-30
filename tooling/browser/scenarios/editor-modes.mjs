@@ -118,7 +118,7 @@ export default {
       assert.match(await e.place(), /Корпус Б/);
       assert.ok(await pick('Этаж', '2'), 'нет списка этажей');
       await page.sleep(500);
-      assert.match(await e.place(), /Корпус Б \/ Этаж 2/);
+      assert.match(await e.place(), /Корпус Б, этаж 2/);
       assert.ok(await pick('Корпус', ''), 'нет территории в списке');
       await page.sleep(500);
       assert.match(await e.place(), /Территория/);

@@ -26,11 +26,13 @@ const HANDLES: { handle: Exclude<Handle, 'move'>; label: string }[] = [
 
 export const CropEditor: React.FC<{
   imageUrl: string | null;
+  /** Почему лист не нарисовался; `null` — ещё рисуется или уже нарисован. */
+  failure?: string | null;
   /** Размер повёрнутого листа в его единицах. */
   pageSize: MapSize;
   crop: Box | null;
   onChange: (crop: Box) => void;
-}> = ({ imageUrl, pageSize, crop, onChange }) => {
+}> = ({ imageUrl, failure = null, pageSize, crop, onChange }) => {
   const frameRef = useRef<HTMLDivElement>(null);
   const [frameWidth, setFrameWidth] = useState(0);
   const drag = useRef<{ handle: Handle; x: number; y: number; start: Box } | null>(null);
@@ -80,7 +82,15 @@ export const CropEditor: React.FC<{
       onPointerUp={end}
       onPointerCancel={end}
     >
-      {imageUrl ? <img className="editor-crop__image" src={imageUrl} alt="" draggable={false} /> : <div className="editor-crop__loading">Рисую лист…</div>}
+      {imageUrl ? (
+        <img className="editor-crop__image" src={imageUrl} alt="" draggable={false} />
+      ) : failure ? (
+        <div className="editor-crop__loading" role="alert">
+          Лист не нарисовался: {failure}
+        </div>
+      ) : (
+        <div className="editor-crop__loading">Лист рисуется…</div>
+      )}
       {scale > 0 && (
         <div
           className="editor-crop__box"

@@ -39,7 +39,7 @@ export default {
       assert.deepEqual(groups, ['Каркас', 'Разметка', 'Переходы', 'Итог']);
       const [done, total] = (await meter()).split(' из ').map(Number);
       assert.equal(total, 15);
-      assert.equal(await statusCount(), `Готовность ${done}/15`);
+      assert.equal(await statusCount(), `Готовность ${done} из 15`);
       assert.equal(
         await page.eval(`document.querySelectorAll('[data-ready] .editor-info').length`),
         15,
@@ -81,7 +81,7 @@ export default {
       assert.ok(await rowButton('onePlanNetwork', 'Показать'), 'нет кнопки «Показать»');
       await page.sleep(400);
       assert.equal(await e.selectedCount(), 1, '«Показать» не выбрал точку');
-      assert.match(await e.place(), /Корпус А \/ Этаж 1/);
+      assert.match(await e.place(), /Корпус А, этаж 1/);
     });
 
     await step('отмена возвращает строку, «Сохранить» из строки — правок нет', async () => {

@@ -1,15 +1,15 @@
-import { floorLabel } from '@campus-map/core';
 import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useCursorStore } from '../../stores/cursorStore';
-import { nodesCount } from '../../utils/labels';
+import { nodePlaceLabel, nodesCount } from '../../utils/labels';
 import { useToolHint } from '../../hooks/useToolHint';
 import { useReadiness } from '../../hooks/useReadiness';
 
 /**
- * Строка состояния: где мы, что выбрано, что делает инструмент и его
+ * Строка состояния: какой план открыт (теми же словами, что в свойствах и на
+ * отметках карты: «Корпус А, этаж 1»), что выбрано, что делает инструмент и его
  * клавиши, где курсор и сохранено ли (запись 60). Над картой — только
  * инструмент и его параметры.
  */
@@ -38,8 +38,8 @@ export const StatusBar: React.FC = () => {
     currentBuilding === null
       ? 'Территория'
       : currentFloor === null
-        ? `${buildingName} / этажей нет`
-        : `${buildingName} / Этаж ${floorLabel(buildingMetas.get(currentBuilding), currentFloor)}`;
+        ? `${buildingName}, этажей нет`
+        : nodePlaceLabel({ building: currentBuilding, floor: currentFloor }, buildingMetas);
   // У корпуса без этажей плана нет — и считать на нём нечего.
   const noPlan = currentBuilding !== null && currentFloor === null;
 
@@ -55,11 +55,11 @@ export const StatusBar: React.FC = () => {
         {hint}
       </span>
 
-      <span className="editor-statusbar__coords" title="Точка плана под курсором, пиксели плана">
+      <span className="editor-statusbar__coords" title="Место под курсором, пиксели плана">
         {point ? `x ${point.x} · y ${point.y}` : 'курсор вне карты'}
       </span>
       {zoom !== null && (
-        <span title="Масштаб: сколько точек экрана приходится на пиксель плана">
+        <span title="Масштаб: сколько пикселей экрана приходится на пиксель плана">
           Масштаб {Math.round(2 ** zoom * 100)}%
         </span>
       )}
@@ -69,7 +69,7 @@ export const StatusBar: React.FC = () => {
         title="Готовность карты: сколько проверок выполнено. Открыть список"
         onClick={() => openCheck('ready')}
       >
-        Готовность {ready.done}/{ready.total}
+        Готовность {ready.done} из {ready.total}
       </button>
       <span title="Сколько правок можно отменить">Правок: {editCount}</span>
       <span className={`editor-statusbar__state${unsaved ? ' editor-statusbar__state--unsaved' : ''}`}>

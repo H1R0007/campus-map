@@ -284,9 +284,9 @@ export const RouteView: React.FC = () => {
                 </>
               )}
             </dl>
-            {/* Длина и время — главная проверка привязки планов к метрике. */}
+            {/* Длина и время — главная проверка размещения корпусов и масштаба. */}
             {(!currentRoute || currentRoute.distanceMeters === null || currentRoute.durationSeconds === null) && (
-              <p className="editor-section__hint">Длины и времени нет: планы не привязаны к метрике кампуса.</p>
+              <p className="editor-section__hint">Длины и времени нет: не заданы масштаб территории, размещение корпусов или высоты этажей — см. «Готовность».</p>
             )}
             {pathInfo?.multiLevel && (
               <div className="editor-callout">

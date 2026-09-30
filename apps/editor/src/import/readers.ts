@@ -205,11 +205,18 @@ function textClues(items: readonly { text: string; size: number }[]): Clue[] {
 
 // ---------- PDF ----------
 
-type PdfModule = typeof import('pdfjs-dist');
+/**
+ * Сборка pdf.js «legacy», а не основная: основная рассчитана только на самые
+ * свежие браузеры и зовёт `Map.prototype.getOrInsertComputed` — в Chrome
+ * прошлого года его нет, и листы PDF не рисовались (ни миниатюры, ни план), хотя
+ * текст с них читался. В «legacy» эти вызовы закрыты заплатками — и в странице,
+ * и в фоновом потоке.
+ */
+type PdfModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 let pdfModule: Promise<PdfModule> | null = null;
 
 function loadPdf(): Promise<PdfModule> {
-  pdfModule ??= Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]).then(
+  pdfModule ??= Promise.all([import('pdfjs-dist/legacy/build/pdf.mjs'), import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')]).then(
     ([pdfjs, worker]) => {
       pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
       return pdfjs;

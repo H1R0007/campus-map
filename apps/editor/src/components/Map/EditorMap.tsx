@@ -9,7 +9,7 @@ import { planScopeKey } from '../../utils/planFiles';
 import { recalledView, registerMap, rememberView } from '../../utils/mapWindows';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { visibleKinds } from '../../utils/placeKinds';
-import { TRANSITION_LABELS } from '../../utils/labels';
+import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -378,15 +378,33 @@ const MapEventHandler: React.FC = () => {
       }
 
       if (st.activeTool === 'transition') {
+        // Начатый вручную переход: пустое место другого плана — его второй
+        // конец новой точкой. Вход ставят и на пустую территорию, где
+        // щёлкнуть больше не по чему.
+        if (st.transitionStartNodeId !== null) {
+          const start = st.transitionStartNodeId;
+          const placed = st.placeTransitionEnd(x, y, { align: !dom.altKey });
+          if (placed === 'samePlan') {
+            st.showNotice('Второй конец перехода — на другом плане: щёлкните его на соседней карте или откройте другой план.', 'warn');
+          } else if (placed !== null) {
+            st.showNotice(`${TRANSITION_LABELS[st.transitionType]}: «${nodeTitle(start, st.aliases)}» — новая точка`);
+          }
+          return;
+        }
         // Щелчок по пустому месту: лестница или лифт сразу на всех этажах
-        // корпуса, связанные переходами. Начатый вручную переход щелчок по
-        // пустому месту не трогает: он ждёт вторую точку.
-        if (st.transitionStartNodeId !== null) return;
+        // корпуса, связанные переходами.
         const placed = st.placeTransitionStack(x, y, { align: !dom.altKey, linkToLast: dom.shiftKey });
         if (placed === null) {
           st.showNotice(
             `${TRANSITION_LABELS[st.transitionType]} ставится вручную: щёлкните точку на одном плане, затем точку на другом.`
           );
+        } else {
+          // Один щелчок поставил точки на всех этажах — это видно словами, а
+          // не только на открытом плане.
+          const floors = st.currentBuilding === null ? 0 : (st.buildingMetas.get(st.currentBuilding)?.floors.length ?? 0);
+          if (floors > 1) {
+            st.showNotice(`${TRANSITION_LABELS[st.transitionType]}: точки на ${floors} этажах, связаны переходами. Ctrl+Z уберёт все разом`);
+          }
         }
         return;
       }

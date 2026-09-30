@@ -164,7 +164,7 @@ export default {
       assert.equal(await edits(), editsBefore + 1, 'один щелчок — одна правка в истории');
       assert.equal(await e.propertiesNodeId(), added[0], 'поставленная точка не выбрана');
       assert.match(await e.panelSection('Названия'), /Туалет/, 'вид не дал названия');
-      assert.match(await e.panelSection('Связи'), /Связи \(1\)/, 'точка не прицепилась к ближайшей');
+      assert.match(await e.panelSection('Связи'), /Связи · 1/, 'точка не прицепилась к ближайшей');
       assert.equal(
         await page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim()`),
         'Туалет',
@@ -212,7 +212,7 @@ export default {
 
       // Карточка второй двери: нетронутое начало «А-1» названием не стало.
       assert.equal(await e.propertiesNodeId(), added[1]);
-      assert.match(await e.panelSection('Названия'), /Названия \(0\)/, 'нетронутое «А-1» стало названием');
+      assert.match(await e.panelSection('Названия'), /Названия · 0/, 'нетронутое «А-1» стало названием');
 
       // Первая дверь получила набранный номер: поиск его находит.
       await e.key('f', { modifiers: MOD.ctrl });
@@ -252,7 +252,7 @@ export default {
       );
 
       await e.key('PageUp');
-      assert.match(await e.place(), /Этаж 2/);
+      assert.match(await e.place(), /этаж 2/);
       const newUpstairs = (await e.nodeIds()).filter((id) => !upstairsBefore.includes(id));
       assert.equal(newUpstairs.length, 1, 'на втором этаже лестницы нет');
       await shot('editor-kinds-stack');

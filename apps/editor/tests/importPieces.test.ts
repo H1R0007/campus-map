@@ -10,6 +10,8 @@ import { composeSvgPlan, dxfToSvg, svgPageSize } from '../src/import/vector';
 import { previewPlan } from '../src/import/output';
 import { PDF_POINT_METERS, drawingScaleFrom, dxfUnitMeters, planMetersPerPixel, tiffPixelMeters } from '../src/import/scale';
 import type { DxfEntity } from '../src/import/vector';
+import { resolveBuilding } from '../src/import/importModel';
+import type { BuildingMeta } from '@campus-map/core';
 
 /**
  * Разбор присланных планов (запись 48): догадка по тексту листа и имени
@@ -91,6 +93,66 @@ describe('догадка по имени файла', () => {
     const guess = guessPlace([file('korpus-A-etazh-1.pdf'), title('Корпус Б. План 2-го этажа')]);
     expect(guess.building?.letter).toBe('Б');
     expect(guess.floor?.floor).toBe(2);
+  });
+});
+
+describe('технические планы: корпус — адресом со строением, экспликация вместе с планами', () => {
+  // Так называют файлы поэтажных планов с экспликацией: адрес, номер
+  // строения, «экспликация+поэтажка». Адреса здесь выдуманные.
+  it.each([
+    ['Садовая_5,_стр_1_экспликация_и_поэтажные_планы.pdf', 'Садовая 5, стр. 1'],
+    ['Садовая 5 стр 3 поэтажка+экспл.pdf', 'Садовая 5, стр. 3'],
+    ['Лесной_Вал_3_стр_1_Экспликация+поэтажка.pdf', 'Лесной Вал 3, стр. 1'],
+    ['экспликация+поэтажка_Садовая_4_стр_2.pdf', 'Садовая 4, стр. 2'],
+    ['экспликация+поэтажка 6 стр 2.pdf', 'д. 6, стр. 2'],
+    ['Садовая 5, строение 7.pdf', 'Садовая 5, стр. 7'],
+  ])('«%s» → корпус «%s», листы не пропускаются', (name, building) => {
+    const guess = guessPlace([file(name)]);
+    expect(guess.building?.name).toBe(building);
+    expect(guess.kind).toBe('floor');
+    // Номер дома после «поэтажка» — не этаж.
+    expect(guess.floor).toBeNull();
+  });
+
+  it('экспликацию внутри такого файла узнают по заголовку листа', () => {
+    const guess = guessPlace([file('Садовая 5 стр 3 поэтажка+экспл.pdf'), title('Экспликация помещений')]);
+    expect(guess.kind).toBe('skip');
+  });
+
+  it('этаж — по заголовку листа, корпус — по адресу в имени файла', () => {
+    const guess = guessPlace([file('Садовая 5 стр 3 поэтажка+экспл.pdf'), title('План 2 этажа')]);
+    expect(guess).toMatchObject({ kind: 'floor', building: { name: 'Садовая 5, стр. 3' }, floor: { floor: 2 } });
+  });
+
+  it('файл только экспликации по-прежнему пропускается', () => {
+    expect(guessPlace([file('экспликация.pdf')]).kind).toBe('skip');
+    expect(guessPlace([file('экспликация 2 этажа.pdf')]).kind).toBe('skip');
+  });
+
+  it('«стр. 2 из 5» в тексте листа — страница, не строение', () => {
+    expect(guessPlace([{ text: 'стр. 2 из 5', origin: 'text' }]).building).toBeNull();
+    expect(guessPlace([title('Лист, стр. 2')]).building).toBeNull();
+  });
+
+  it('«поэтажный план» — не этаж, а «план 3-го этажа» рядом — этаж', () => {
+    expect(guessPlace([title('Поэтажный план 1')]).floor).toBeNull();
+    expect(guessPlace([title('Поэтажный план. План 3-го этажа')]).floor?.floor).toBe(3);
+  });
+});
+
+describe('корпус из адреса — существующий, если название совпадает', () => {
+  const metas = new Map<string, BuildingMeta>([
+    ['building_sad5', { id: 'building_sad5', name: 'Садовая 5, строение 3', floors: [] }],
+    ['building_a', { id: 'building_a', name: 'Корпус А', floors: [] }],
+  ]);
+  const address = (name: string) => ({ letter: '', name, from: file(name) });
+
+  it('совпадение без точек, запятых и «строение/стр»', () => {
+    expect(resolveBuilding(address('Садовая 5, стр. 3'), metas)).toEqual({ id: 'building_sad5' });
+  });
+
+  it('нет такого — новый корпус с этим названием', () => {
+    expect(resolveBuilding(address('Садовая 5, стр. 4'), metas)).toEqual({ newName: 'Садовая 5, стр. 4' });
   });
 });
 

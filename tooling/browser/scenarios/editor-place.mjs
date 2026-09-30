@@ -74,7 +74,7 @@ export default {
       await e.key('Escape');
       await e.press('Совместить с этажом входа…');
       assert.match(await barText('Совмещение этажей'), /Корпус А: этаж 2 поверх этажа входа 1/);
-      assert.match(await e.place(), /Корпус А \/ Этаж 1/);
+      assert.match(await e.place(), /Корпус А, этаж 1/);
 
       const handle = await e.rect('.editor-place-handle--move');
       const from = { x: handle.left + handle.width / 2, y: handle.top + handle.height / 2 };

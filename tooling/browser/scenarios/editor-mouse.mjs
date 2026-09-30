@@ -176,7 +176,7 @@ export default {
     await step('щелчок по отметке перехода ведёт к другому концу', async () => {
       const row = await e.transitionRowPoint('a1_stairs|a2_stairs');
       await e.click(row.x, row.y);
-      await page.waitFor(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent.includes('Этаж 2')`);
+      await page.waitFor(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent.includes('этаж 2')`);
       await page.sleep(400);
       assert.equal(await e.propertiesNodeId(), 'a2_stairs');
       assert.ok((await e.nodeIds()).includes('a2_stairs'));

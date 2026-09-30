@@ -185,7 +185,13 @@ export function buildingLetter(name: string): string | null {
  */
 export function buildingIdFor(name: string, taken: (id: string) => boolean): string {
   const letter = buildingLetter(name);
-  const slug = transliterate(letter ?? name)
+  // Корпус с адресом («Садовая 5, стр. 3») — коротко: начало улицы, дом,
+  // строение (`sad5s3`). Код входит в id каждой точки корпуса.
+  const address = /^(.*?)(\d+[а-яa-z]?)\s*,?\s*(?:стр\.?|строение)\s*(\d+[а-яa-z]?)$/i.exec(name.trim());
+  const short = address
+    ? `${transliterate(address[1]).replace(/[^a-z]/g, '').slice(0, 3)}${transliterate(address[2])}s${transliterate(address[3])}`
+    : null;
+  const slug = transliterate(short ?? letter ?? name)
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
   const base = `building_${slug || 'new'}`;

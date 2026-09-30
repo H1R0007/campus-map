@@ -101,16 +101,16 @@ export default {
     });
 
     await step('PageUp и PageDown листают этажи корпуса', async () => {
-      assert.match(await e.status(), /Этаж 1/);
+      assert.match(await e.status(), /этаж 1/);
       await e.key('PageUp');
-      assert.match(await e.status(), /Этаж 2/);
+      assert.match(await e.status(), /этаж 2/);
       await e.key('PageUp');
-      assert.match(await e.status(), /Этаж 3/);
+      assert.match(await e.status(), /этаж 3/);
       await e.key('PageUp');
-      assert.match(await e.status(), /Этаж 3/, 'выше верхнего этажа листать некуда');
+      assert.match(await e.status(), /этаж 3/, 'выше верхнего этажа листать некуда');
       await e.key('PageDown');
       await e.key('PageDown');
-      assert.match(await e.status(), /Этаж 1/);
+      assert.match(await e.status(), /этаж 1/);
     });
   },
 };

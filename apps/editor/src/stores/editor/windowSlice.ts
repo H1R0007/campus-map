@@ -495,8 +495,8 @@ export const createWindowSlice: EditorSlice<WindowSlice> = (set, get) => {
       const start = `${TRANSITION_LABELS[kind]} от «${nodeTitle(nodeId, now.aliases)}».`;
       now.showNotice(
         side
-          ? `${start} Щёлкните вторую точку на соседней карте — там «${side}».`
-          : `${start} Выберите вторую точку — этаж или корпус можно переключить.`
+          ? `${start} Щёлкните вторую точку на соседней карте — там «${side}», или пустое место: там встанет новая.`
+          : `${start} Выберите вторую точку или пустое место на другом плане — этаж или корпус можно переключить.`
       );
     },
 

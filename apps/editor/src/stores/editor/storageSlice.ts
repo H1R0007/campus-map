@@ -4,7 +4,7 @@ import { SPACE, spaceHref } from '../../config/space';
 import { clearDraft, readDraft, writeDraft } from '../../utils/draftStorage';
 import type { EditorDraft } from '../../utils/draftStorage';
 import { fetchDiskManifest, fetchSandboxState, resetSandbox, saveFilesToDisk, uploadToDisk } from '../../utils/diskStore';
-import type { FileHashes, SandboxState, SaveOutcome } from '../../utils/diskStore';
+import type { DiskManifest, FileHashes, SandboxState, SaveOutcome } from '../../utils/diskStore';
 import { leavePage, reloadPage } from '../../utils/leavePage';
 import { heldFiles, holdFile, planFilesByHash, restoreHeldFiles } from '../../utils/planFiles';
 import { isPlanFile, planSave } from '../../utils/saveFiles';
@@ -55,8 +55,11 @@ export interface StorageSlice {
   /** Найденный при запуске черновик, пока человек не решил, что с ним делать. */
   draftFound: EditorDraft | null;
 
-  /** Читает манифест каталога данных и черновик; включает автозапись черновика. */
-  initStorage: () => Promise<void>;
+  /**
+   * Читает манифест каталога данных (или берёт уже прочитанный) и черновик;
+   * включает автозапись черновика.
+   */
+  initStorage: (manifest?: DiskManifest | null) => Promise<void>;
 
   /** Пишет правки в каталог данных. */
   saveToDisk: () => Promise<void>;
@@ -100,8 +103,8 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
       s.saveRequest += 1;
     }),
 
-  initStorage: async () => {
-    const manifest = await fetchDiskManifest();
+  initStorage: async (prefetched) => {
+    const manifest = prefetched === undefined ? await fetchDiskManifest() : prefetched;
     if (manifest) {
       set((s) => {
         s.diskSaveAvailable = true;
