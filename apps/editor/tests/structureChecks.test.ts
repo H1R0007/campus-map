@@ -33,7 +33,7 @@ describe('проверка структуры', () => {
       { kind: 'place', building: 'building_g' },
       { kind: 'plan', building: 'building_g', floor: 1 },
     ]);
-    expect(issues[0].text).toMatch(/не показывает время в пути во всём кампусе/);
+    expect(issues[0].text).toMatch(/не показывает время в пути на всей карте/);
     expect(issues.every((issue) => issue.navigator)).toBe(true);
   });
 
@@ -50,7 +50,7 @@ describe('проверка структуры', () => {
     store().setPlan('building_a', 2, { key: 'sha1:' + '5'.repeat(40), format: 'png', mapSize: { width: 100, height: 50 } });
     expect(checks()).toEqual([
       {
-        text: 'На этаже 2 корпуса «Корпус А» 3 точки за краем плана — похоже, план заменили, а точки не совместили',
+        text: 'Корпус А, этаж 2: 3 точки за краем плана — похоже, план заменили, а точки не совместили',
         action: { kind: 'align', building: 'building_a', floor: 2 },
         actionLabel: 'Совместить…',
         navigator: false,

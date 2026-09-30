@@ -4,6 +4,7 @@ import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import type { PlanRef } from '../../stores/editorStore';
 import { Icon } from '../UI/Icon';
+import { buildingRef } from '../../utils/labels';
 import { NewBuildingDialog, NewFloorDialog } from '../UI/AddDialogs';
 import { ReadinessStrip } from '../UI/ReadinessView';
 import { DisplayOptions } from './DisplayOptions';
@@ -181,7 +182,7 @@ const PlanTree: React.FC = () => {
                     type="button"
                     className="editor-tree__item editor-tree__item--add"
                     onClick={() => setAddingFloor(building.id)}
-                    title={`Новый этаж корпуса «${building.name}»`}
+                    title={`Новый этаж: ${buildingRef(building)}`}
                   >
                     <Icon name="plus" />
                     <span className="editor-tree__label">Этаж</span>

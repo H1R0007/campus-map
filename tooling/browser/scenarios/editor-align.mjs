@@ -145,7 +145,7 @@ export default {
       );
 
       await e.key('z', { modifiers: MOD.ctrl });
-      assert.match(await e.notice(), /Отменено: Точки этажа 2 корпуса «Корпус Б» совмещены с планом/);
+      assert.match(await e.notice(), /Отменено: Точки совмещены с планом: Корпус Б, этаж 2/);
       assert.deepEqual(await nodeXY(before.first), before.hall);
       await e.key('y', { modifiers: MOD.ctrl });
     });

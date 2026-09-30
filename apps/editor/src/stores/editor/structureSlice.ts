@@ -7,7 +7,7 @@ import type { StructureSide } from '../historyStore';
 import { applySimilarity, composeSimilarity, invertSimilarity, planChange } from '../../import/planGeometry';
 import { placementOfWorld, rescalePlacement, worldOf } from '../../import/placementMath';
 import type { Similarity } from '../../import/planGeometry';
-import { plural } from '../../utils/labels';
+import { buildingRef, floorRef, plural } from '../../utils/labels';
 import { planScopeKey } from '../../utils/planFiles';
 import { syncPortals } from './graphState';
 import { applyStructureSide, forgetPlace, snapshotPlace } from './historyApply';
@@ -221,7 +221,7 @@ export function buildingNameProblem(name: string, metas: ReadonlyMap<string, Bui
   if (trimmed.length === 0) return 'Название корпуса не может быть пустым';
   for (const meta of metas.values()) {
     if (meta.id !== selfId && meta.name.trim().toLowerCase() === trimmed.toLowerCase()) {
-      return `Корпус «${meta.name}» уже есть`;
+      return `${buildingRef(meta)} уже есть`;
     }
   }
   return null;
@@ -346,7 +346,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       const meta = newBuildingMeta(trimmed, (candidate) => st.buildingMetas.has(candidate));
       const id = meta.id;
 
-      commit(`Добавлен корпус «${trimmed}»`, [], (s) => {
+      commit(`Добавлен «${trimmed}»`, [], (s) => {
         s.buildingMetas.set(id, meta);
         s.currentBuilding = id;
         s.currentFloor = null;
@@ -367,7 +367,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
         return 'Этаж входа — один из этажей корпуса';
       }
 
-      commit(`Изменён корпус «${patch.name?.trim() ?? meta.name}»`, [], (s) => {
+      commit(`Изменён «${patch.name?.trim() ?? meta.name}»`, [], (s) => {
         const target = s.buildingMetas.get(id)!;
         if (patch.name !== undefined) target.name = patch.name.trim();
         if (patch.nameEn !== undefined) {
@@ -389,7 +389,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       if (!meta) return;
       const removed = new Set(nodesOf(st.nodes, id));
 
-      commit(`Удалён корпус «${meta.name}»`, touchedByRemoval(st.nodes, removed), (s) => {
+      commit(`Удалён ${buildingRef(meta)}`, touchedByRemoval(st.nodes, removed), (s) => {
         removeNodes(s, removed);
         s.buildingMetas.delete(id);
         for (const floor of meta.floors) s.planFiles.delete(planScopeKey(id, floor.floor));
@@ -408,7 +408,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       if (problem) return problem;
 
       const label = input.label?.trim();
-      commit(`Добавлен этаж ${label || input.floor} в корпус «${meta.name}»`, [], (s) => {
+      commit(`Добавлен этаж: ${meta.name}, этаж ${label || input.floor}`, [], (s) => {
         const target = s.buildingMetas.get(buildingId)!;
         target.floors.push({
           floor: input.floor,
@@ -437,7 +437,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       const renumbered = nextFloor !== floor;
       const moved = renumbered ? nodesOf(st.nodes, buildingId, floor) : [];
 
-      commit(`Изменён этаж ${floorLabel(meta, floor)} корпуса «${meta.name}»`, moved, (s) => {
+      commit(`Изменён этаж: ${floorRef(meta, floor)}`, moved, (s) => {
         const target = s.buildingMetas.get(buildingId)!;
         const item = target.floors.find((entry) => entry.floor === floor)!;
         if (patch.label !== undefined) {
@@ -472,7 +472,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       if (!meta?.floors.some((item) => item.floor === floor)) return;
       const removed = new Set(nodesOf(st.nodes, buildingId, floor));
 
-      commit(`Удалён этаж ${floorLabel(meta, floor)} корпуса «${meta.name}»`, touchedByRemoval(st.nodes, removed), (s) => {
+      commit(`Удалён этаж: ${floorRef(meta, floor)}`, touchedByRemoval(st.nodes, removed), (s) => {
         removeNodes(s, removed);
         const target = s.buildingMetas.get(buildingId)!;
         target.floors = target.floors.filter((item) => item.floor !== floor);
@@ -495,7 +495,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
           : nodesOf(st.nodes, buildingId, floor ?? undefined)
         : [];
 
-      const where = buildingId === null ? 'территории' : `этажа ${floorLabel(building, floor ?? 0)} корпуса «${building!.name}»`;
+      const where = buildingId === null ? 'территории' : `этажа: ${floorRef(building, floor ?? 0)}`;
       commit(`Новый план ${where}`, moved, (s) => {
         const target =
           buildingId === null ? s.campusMeta : s.buildingMetas.get(buildingId)!.floors.find((item) => item.floor === floor)!;
@@ -622,7 +622,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       // и масштаб, что у корпуса.
       const before = completePlacement(meta.placement);
       const shift = before ? composeSimilarity(worldOf(placement), invertSimilarity(worldOf(before))) : null;
-      commit(`Корпус «${meta.name}» ${placed ? 'перемещён на территории' : 'размещён на территории'}`, [], (s) => {
+      commit(`${buildingRef(meta)} ${placed ? 'перемещён на территории' : 'размещён на территории'}`, [], (s) => {
         if (campusScale !== undefined && s.campusMeta) s.campusMeta.metersPerPixel = Math.round(campusScale * 1e7) / 1e7;
         const target = s.buildingMetas.get(id)!;
         if (shift && before) {
@@ -648,7 +648,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       if (!meta?.floors.some((item) => item.floor === floor)) return;
       const label = floorLabel(meta, floor);
       commit(
-        placement ? `Этаж ${label} корпуса «${meta.name}» совмещён с этажом входа` : `Этаж ${label} корпуса «${meta.name}» — как корпус`,
+        placement ? `${meta.name}, этаж ${label} совмещён с этажом входа` : `${meta.name}, этаж ${label} — как корпус`,
         [],
         (s) => {
           const item = s.buildingMetas.get(building)!.floors.find((entry) => entry.floor === floor)!;

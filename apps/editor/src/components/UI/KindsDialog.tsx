@@ -336,7 +336,7 @@ function kindSummary(kind: PlaceKind): string {
   const parts: string[] = [];
   const naming = namingOf(kind);
   if (naming === 'kind') parts.push(`точка называется «${kind.namePattern}»`);
-  if (naming === 'room') parts.push('номер помещения: «А-1…» и ваш номер');
+  if (naming === 'room') parts.push('номер помещения: «А-1…» и набранный номер');
   if (kind.chain) parts.push('ставит точки цепочкой');
   if (kind.connect) parts.push('цепляется к ближайшей точке');
   if (kind.place) parts.push(kind.quick ? 'место быстрого поиска, кнопка в навигаторе' : 'место быстрого поиска');

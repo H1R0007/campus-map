@@ -61,7 +61,7 @@ describe('пары точек', () => {
     expect(position('a1_hall')).toEqual({ x: 230, y: 250 });
     expect(position('a2_corridor')).toEqual({ x: 200, y: 120 });
     expect(useHistoryStore.getState().entries).toHaveLength(1);
-    expect(useHistoryStore.getState().entries[0].description).toBe('Точки этажа 1 корпуса «Корпус А» совмещены с планом');
+    expect(useHistoryStore.getState().entries[0].description).toBe('Точки совмещены с планом: Корпус А, этаж 1');
     // Следующий план из очереди открыт.
     expect(store().alignment?.plan).toEqual({ building: 'building_a', floor: 2 });
     expect(store().currentFloor).toBe(2);

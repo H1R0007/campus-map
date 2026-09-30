@@ -38,7 +38,7 @@ export default {
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 10_000);
       return e.notice();
     };
-    const unplacedG = /Корпус «Корпус Г» не размещён на территории.*У этажа 1 корпуса «Корпус Г» нет плана/;
+    const unplacedG = /«Корпус Г» не размещён на территории.*Корпус Г, этаж 1: нет плана/;
     const tree = () => page.eval(`[...document.querySelectorAll('nav[aria-label="Структура кампуса"] .editor-tree__label')].map((l) => l.textContent.trim())`);
     const fillAndEnter = async (label, value) => {
       const ok = await page.eval(`(() => {
@@ -89,7 +89,7 @@ export default {
       assert.match(await e.place(), /Корпус Г/);
       // Посередине карты — куда бросить файл плана; карта под ней закрыта.
       const card = () => page.eval(`document.querySelector('[aria-label="План не добавлен"]')?.textContent ?? ''`);
-      assert.match(await card(), /У этажа 1 корпуса «Корпус Г» пока нет плана/);
+      assert.match(await card(), /Корпус Г, этаж 1: плана пока нет/);
       assert.match(await card(), /Перетащите файл плана прямо сюда/);
       await shot('editor-structure-no-plan');
 
@@ -118,8 +118,8 @@ export default {
       await e.mode('Проверка');
       await e.press('Замечания');
       const section = () => page.eval(`document.querySelector('[aria-label^="Корпуса, этажи и планы"]')?.textContent ?? ''`);
-      assert.match(await section(), /Корпус «Корпус Г» не размещён на территории/);
-      assert.match(await section(), /У этажа 1 корпуса «Корпус Г» нет плана/);
+      assert.match(await section(), /«Корпус Г» не размещён на территории/);
+      assert.match(await section(), /Корпус Г, этаж 1: нет плана/);
       await page.eval(`[...document.querySelectorAll('[aria-label^="Корпуса, этажи и планы"] li')].find((li) => li.textContent.includes('нет плана')).querySelector('button').click()`);
       await page.waitFor(`!!document.querySelector('.editor-dialog--import')`, 10_000);
       await e.key('Escape');
@@ -132,7 +132,9 @@ export default {
       await e.key('Escape');
       await e.press('Удалить этаж…');
       const text = await page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`);
-      assert.match(text, /Удалить этаж 2 корпуса «Корпус А»\?/);
+      assert.match(text, /Удалить этаж 2 \(Корпус А\)\?/);
+      // Enter сразу после открытия не удаляет: фокус на безопасной кнопке.
+      assert.equal(await page.eval(`document.activeElement?.textContent.trim()`), 'Оставить', 'фокус не на «Оставить»');
       assert.match(text, /\d+ точ(ка|ки|ек), из них \d+ с названиями/);
       assert.match(text, /переход/);
       assert.match(text, /план — файлы удалятся из данных при сохранении/);
