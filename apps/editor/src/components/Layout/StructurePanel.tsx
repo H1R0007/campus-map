@@ -1,4 +1,5 @@
-import React, { useDeferredValue, useMemo, useRef, useState } from 'react';
+import { QUIET_COUNTS_MS, useQuiet } from '../../hooks/useQuiet';
+import React, { useMemo, useRef, useState } from 'react';
 import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import type { PlanRef } from '../../stores/editorStore';
@@ -112,7 +113,7 @@ const PlanTree: React.FC = () => {
     },
   });
   // Счётчики догоняют перетаскивание, а не пересчитываются на каждом кадре.
-  const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
+  const nodes = useQuiet(useEditorStore((s) => s.nodes), QUIET_COUNTS_MS);
 
   const counts = useMemo(() => {
     const result = new Map<string, number>();

@@ -8,6 +8,8 @@ import { clueSource } from './guess';
 import type { PlaceGuess } from './guess';
 import { rotatedPage } from './planGeometry';
 import type { Box } from './trim';
+import { rotateOutline } from './outline';
+import type { OutlinePoint } from './outline';
 
 /**
  * Что человек решил про каждый лист в окне «Планы из файлов» (запись 48).
@@ -28,8 +30,10 @@ export interface Piece {
   sheetId: string;
   /** Поворот листа по часовой: 0, 90, 180, 270. */
   rotation: number;
-  /** Область повёрнутого листа; `null` — весь лист. */
+  /** Область повёрнутого листа; `null` — весь лист. С контуром — его описанный прямоугольник. */
   crop: Box | null;
+  /** Контур здания внутри области (запись 73); `null` — вся область. */
+  outline?: OutlinePoint[] | null;
   /** Поля обрезаны сами — человеку видно, что это сделал редактор. */
   trimmed: boolean;
   target: PieceTarget;
@@ -130,12 +134,13 @@ export function rotatePiece(piece: Piece, sheetSize: MapSize, direction: 1 | -1)
   const rotation = (piece.rotation + direction * 90 + 360) % 360;
   if (!piece.crop) return { ...piece, rotation };
   const { width, height } = rotatedPage(sheetSize, piece.rotation).size;
+  const outline = piece.outline ? rotateOutline(piece.outline, { width, height }, direction) : piece.outline;
   const { x, y, width: w, height: h } = piece.crop;
   const crop =
     direction === 1
       ? { x: height - (y + h), y: x, width: h, height: w }
       : { x: y, y: width - (x + w), width: h, height: w };
-  return { ...piece, rotation, crop };
+  return { ...piece, rotation, crop, ...(outline !== undefined ? { outline } : {}) };
 }
 
 /** Что с куском не так (нельзя добавить) и что стоит знать (добавить можно). */

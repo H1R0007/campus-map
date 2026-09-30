@@ -11,6 +11,7 @@ import { ConfirmDialog } from '../UI/ConfirmDialog';
 import { Icon } from '../UI/Icon';
 import { SandboxButton } from '../UI/Sandbox';
 import { SettingsMenu } from '../UI/SettingsMenu';
+import { SearchPanel } from '../UI/SearchPanel';
 import { SPACE } from '../../config/space';
 
 const WORKSPACES: { id: Workspace; label: string; title: string }[] = [
@@ -20,7 +21,8 @@ const WORKSPACES: { id: Workspace; label: string; title: string }[] = [
 ];
 
 /**
- * Шапка редактора: отмена, режимы работы, поиск и сохранение (запись 60).
+ * Шапка редактора: отмена, режимы работы, строка поиска, сохранение, а у
+ * правого края — справка и настройки (записи 60, 74).
  *
  * Режимы — как рабочие пространства профессиональных редакторов: у каждого
  * занятия свои панели. Сохранение — одна кнопка, архив — в её меню: в шапке
@@ -37,7 +39,6 @@ export const TopBar: React.FC = () => {
   const saveRequest = useEditorStore((s) => s.saveRequest);
   const unsaved = useUnsavedChanges();
   const loadData = useEditorStore((s) => s.loadData);
-  const setSearchOpen = useEditorStore((s) => s.setSearchOpen);
   const setHelpOpen = useEditorStore((s) => s.setHelpOpen);
 
   const undo = useEditorStore((s) => s.undo);
@@ -140,26 +141,11 @@ export const TopBar: React.FC = () => {
 
         <WorkspaceSwitch />
 
+        <SearchPanel />
+
         <div className="editor-topbar__spacer" />
 
-        <button type="button" onClick={() => setSearchOpen(true)} className="editor-button editor-button--ghost" title="Найти точку (Ctrl+F)">
-          <Icon name="search" />
-          Поиск
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setHelpOpen(true)}
-          className="editor-icon-button"
-          aria-label="Справка: мышь и клавиши"
-          title="Справка: мышь и клавиши (F1)"
-        >
-          <Icon name="help" size={18} />
-        </button>
-
-        <SettingsMenu />
         <SandboxButton />
-
         <input
           ref={fileRef}
           type="file"
@@ -180,6 +166,21 @@ export const TopBar: React.FC = () => {
           onArchive={() => void handleSave('archive')}
           onOpenArchive={() => fileRef.current?.click()}
         />
+
+        {/* Справка и настройки — у правого края, как принято: это не работа
+            с картой, а сам редактор (запись 74). */}
+        <div className="editor-topbar__group editor-topbar__end" role="group" aria-label="Справка и настройки">
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="editor-icon-button"
+            aria-label="Справка: мышь и клавиши"
+            title="Справка: мышь и клавиши (F1)"
+          >
+            <Icon name="help" size={18} />
+          </button>
+          <SettingsMenu />
+        </div>
       </header>
 
       <ConfirmDialog

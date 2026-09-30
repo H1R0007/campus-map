@@ -360,7 +360,7 @@ const RedoPlanButton: React.FC<{ building: string | null; floor: number | null; 
       }
       openImport([new File([blob], name)], {
         ...(building === null ? { campus: true } : { building, floor: floor ?? undefined }),
-        redo: { file: source.file, page: source.page ?? 1, rotation: source.rotation ?? 0, crop: source.crop ?? null },
+        redo: { file: source.file, page: source.page ?? 1, rotation: source.rotation ?? 0, crop: source.crop ?? null, outline: source.outline ?? null },
       });
     } finally {
       setLoading(false);

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useMessages } from '../../i18n';
 import { Icon } from './Icon';
@@ -31,7 +31,16 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
   const messages = useMessages();
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  const linkRef = useRef<HTMLInputElement>(null);
+
   useDialogFocus(dialogRef, manualLink !== null, onCloseManual);
+
+  // Ссылка выделена сразу при открытии, после того как фокус пришёл в поле:
+  // событие focus браузер не присылает, пока у окна нет фокуса системы, и
+  // выделение из `onFocus` одно не надёжно.
+  useEffect(() => {
+    if (manualLink !== null) linkRef.current?.select();
+  }, [manualLink]);
 
   return (
     <>
@@ -68,6 +77,7 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
             </p>
 
             <input
+              ref={linkRef}
               readOnly
               value={manualLink}
               aria-label={messages.route.linkLabel}

@@ -127,25 +127,6 @@ export type BatchRedoPayload =
       lastPlacedAfter: string;
     };
 
-/** Тип действия, по которому ветвится применение отмены и повтора. */
-export type ActionType =
-  | 'ADD_NODE'
-  | 'REMOVE_NODE'
-  | 'MOVE_NODE'
-  | 'UPDATE_NODE'
-  | 'ADD_EDGE'
-  | 'REMOVE_EDGE'
-  | 'ADD_TRANSITION'
-  | 'REMOVE_TRANSITION'
-  | 'UPDATE_TRANSITION'
-  | 'SET_ALIASES'
-  | 'SET_CATEGORY'
-  | 'SET_PLACE_KINDS'
-  | 'RENAME_NODE'
-  | 'STRUCTURE'
-  | 'GROUP'
-  | 'BATCH';
-
 /**
  * Запись истории.
  *

@@ -1,3 +1,4 @@
+import type { PlanOutlinePoint } from '@campus-map/core';
 import { readLayoutPrefs, updateLayoutPrefs } from '../../utils/layoutPrefs';
 import type { ThemeChoice } from '../../utils/layoutPrefs';
 import { applyTheme, resolveTheme } from '../../utils/theme';
@@ -69,7 +70,14 @@ export interface ImportPreset {
    * «Переделать план»: тот же лист того же файла с прежними поворотом и
    * обрезкой. Остальные листы файла пропускаются.
    */
-  redo?: { file: string; page: number; rotation: number; crop: { x: number; y: number; width: number; height: number } | null };
+  redo?: {
+    file: string;
+    page: number;
+    rotation: number;
+    crop: { x: number; y: number; width: number; height: number } | null;
+    /** Контур здания, с которым план сделан (запись 73). */
+    outline?: PlanOutlinePoint[] | null;
+  };
 }
 
 /** Открытое окно «Планы из файлов» (запись 48). */

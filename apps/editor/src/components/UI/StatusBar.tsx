@@ -1,4 +1,5 @@
-import React, { useDeferredValue, useMemo } from 'react';
+import { QUIET_COUNTS_MS, useQuiet } from '../../hooks/useQuiet';
+import React, { useMemo } from 'react';
 import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useHistoryStore } from '../../stores/historyStore';
@@ -18,7 +19,7 @@ export const StatusBar: React.FC = () => {
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
-  const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
+  const nodes = useQuiet(useEditorStore((s) => s.nodes), QUIET_COUNTS_MS);
   const selectedCount = useEditorStore((s) => s.selectedNodeIds.size);
   const unsaved = useUnsavedChanges();
   const editCount = useHistoryStore((s) => s.currentIndex + 1);

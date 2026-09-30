@@ -62,3 +62,56 @@ jobs:
           pnpm --filter @campus-map/viewer build
           node tooling/verify-dist-data.mjs --app viewer
           node tooling/smoke-test.mjs --app viewer --mode prod --base /campus/
+
+  # Сценарии в браузере (запись 18) — отдельной задачей: прогон идёт минуты
+  # и не должен задерживать быструю проверку выше. Два браузера: свежий и
+  # закреплённый Chrome 130 (осень 2024). Ошибка с PDF (запись 69) проявлялась
+  # только в браузере постарше, а у владельца Chrome свежий, поэтому вручную
+  # её никто не видел.
+  browser:
+    name: Сценарии в браузере (${{ matrix.chrome }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        chrome: [stable, '130']
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      - name: Сборка
+        run: pnpm build
+
+      - name: Браузер
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: ${{ matrix.chrome }}
+
+      # Ubuntu 24.04 запрещает непривилегированные пространства имён, без
+      # которых не запускается песочница Chrome.
+      - name: Песочница Chrome
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Сценарии
+        env:
+          CAMPUS_BROWSER: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tooling/browser-check.mjs --shots .local/shots
+
+      # Снимки экрана — чтобы провал можно было увидеть, не повторяя прогон.
+      - name: Снимки экрана
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shots-chrome-${{ matrix.chrome }}
+          path: .local/shots
+          retention-days: 7

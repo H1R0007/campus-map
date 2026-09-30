@@ -1,4 +1,5 @@
-import React, { useDeferredValue, useMemo } from 'react';
+import { QUIET_COUNTS_MS, useQuiet } from '../../hooks/useQuiet';
+import React, { useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { FieldLabel, InfoTip } from '../UI/Field';
@@ -19,8 +20,8 @@ export const DisplayOptions: React.FC = () => {
 
   // Счётчики считаются от самих данных и догоняют перетаскивание: через
   // стор это были три обхода плана на каждое движение мыши.
-  const allNodes = useDeferredValue(useEditorStore((s) => s.nodes));
-  const aliases = useDeferredValue(useEditorStore((s) => s.aliases));
+  const allNodes = useQuiet(useEditorStore((s) => s.nodes), QUIET_COUNTS_MS);
+  const aliases = useEditorStore((s) => s.aliases);
   const currentBuilding = useEditorStore((s) => s.currentBuilding);
   const currentFloor = useEditorStore((s) => s.currentFloor);
 

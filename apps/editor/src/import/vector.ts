@@ -1,6 +1,8 @@
 import type { MapSize } from '@campus-map/core';
 import { rotatedPage } from './planGeometry';
 import type { Box } from './trim';
+import { outlinePath } from './outline';
+import type { OutlinePoint } from './outline';
 
 /**
  * Векторный план — SVG и чертёж DXF — остаётся вектором (запись 48): поворот
@@ -40,7 +42,8 @@ export function composeSvgPlan(
   pageSize: MapSize,
   rotation: number,
   crop: Box | null,
-  scale: number
+  scale: number,
+  outline: readonly OutlinePoint[] | null = null
 ): { svg: string; size: MapSize } {
   const { size: rotated, turn } = rotatedPage(pageSize, rotation);
   const area = crop ?? { x: 0, y: 0, ...rotated };
@@ -52,7 +55,9 @@ export function composeSvgPlan(
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
     `width="${size.width}" height="${size.height}" viewBox="${round(area.x)} ${round(area.y)} ${round(area.width)} ${round(area.height)}">` +
-    `<g transform="matrix(${matrix})">${nestable(text, pageSize)}</g></svg>`;
+    // Контур здания (запись 73) — обрезкой по пути в координатах повёрнутого листа.
+    (outline ? `<defs><clipPath id="campus-plan-outline"><path d="${outlinePath(outline)}"/></clipPath></defs><g clip-path="url(#campus-plan-outline)">` : '') +
+    `<g transform="matrix(${matrix})">${nestable(text, pageSize)}</g>${outline ? '</g>' : ''}</svg>`;
   return { svg, size };
 }
 

@@ -1,5 +1,5 @@
 import type { BuildingMeta, CampusMeta, Graph, PlanFormat } from '@campus-map/core';
-import { campusMapUrl, floorMapUrl, planFormatOf, resolvePlanPlacement } from '@campus-map/core';
+import { campusMapUrl, distance, floorMapUrl, planFormatOf, resolvePlanPlacement } from '@campus-map/core';
 // Геометрия — из отдельной точки входа mapkit: без Leaflet, которому нужен браузер.
 import { extentOf, planCorners, unionExtent } from '@campus-map/mapkit/placement';
 import type { MeterExtent, MeterPoint, PlanPlacement } from '@campus-map/mapkit/placement';
@@ -38,8 +38,6 @@ export interface CanvasLayout {
   /** Территория с корпусами — по ней вид подгоняется целиком. */
   extent: MeterExtent;
 }
-
-const distance = (a: MeterPoint, b: MeterPoint) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /**
  * Контур этажа: углы плана, если размер плана известен, иначе прямоугольник

@@ -1,5 +1,6 @@
+import { QUIET_COUNTS_MS, useQuiet } from '../../hooks/useQuiet';
 import { floorLabel } from '@campus-map/core';
-import React, { useDeferredValue, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useValidationReport } from '../../hooks/useValidationReport';
@@ -56,7 +57,7 @@ export const PlanStatsCard: React.FC = () => {
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const setDisplayFilters = useEditorStore((s) => s.setDisplayFilters);
   const openCheck = useEditorStore((s) => s.openCheck);
-  const nodes = useDeferredValue(useEditorStore((s) => s.nodes));
+  const nodes = useQuiet(useEditorStore((s) => s.nodes), QUIET_COUNTS_MS);
   const aliases = useEditorStore((s) => s.aliases);
   const transitions = useEditorStore((s) => s.transitions);
   const report = useValidationReport();

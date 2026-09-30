@@ -7,7 +7,6 @@ import { ToolOptions } from './components/Layout/ToolOptions';
 import { MapWindows } from './components/Layout/MapWindows';
 import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
-import { SearchPanel } from './components/UI/SearchPanel';
 import { ImportDialog } from './components/UI/ImportDialog';
 import { ImportDropZone } from './components/UI/ImportDropZone';
 import { ContextMenu } from './components/UI/ContextMenu';
@@ -215,7 +214,6 @@ const App: React.FC = () => {
         </div>
         <StatusBar />
 
-        <SearchPanel />
         <ContextMenu />
         <HelpDialog />
         <KindsDialog />

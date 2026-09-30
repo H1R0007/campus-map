@@ -59,6 +59,24 @@ describe('исходник плана в загрузчике', () => {
     expect(warnings).toEqual([]);
   });
 
+  it('контур с дугами читается, нулевой изгиб не хранится', async () => {
+    const outline = [
+      { x: 10, y: 20 },
+      { x: 400, y: 20, bulge: 0.5 },
+      { x: 400, y: 300, bulge: 0 },
+      { x: 10, y: 300 },
+    ];
+    const { floor, warnings } = await load(undefined, { file: PDF, pageSize: { width: 842, height: 595 }, outline });
+    expect(floor?.outline).toEqual([{ x: 10, y: 20 }, { x: 400, y: 20, bulge: 0.5 }, { x: 400, y: 300 }, { x: 10, y: 300 }]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('круг — две вершины и две полуокружности', async () => {
+    const outline = [{ x: 0, y: 50, bulge: 1 }, { x: 100, y: 50, bulge: 1 }];
+    const { floor } = await load(undefined, { file: PDF, pageSize: { width: 842, height: 595 }, outline });
+    expect(floor?.outline).toEqual(outline);
+  });
+
   it('нулевой поворот не хранится', async () => {
     const { floor } = await load(undefined, { file: PDF, pageSize: { width: 842, height: 595 }, rotation: 0 });
     expect(floor).toEqual({ file: PDF, pageSize: { width: 842, height: 595 } });
@@ -76,6 +94,11 @@ describe('исходник плана в загрузчике', () => {
     ['обрезка нулевой ширины', { file: PDF, pageSize: { width: 1, height: 1 }, crop: { x: 0, y: 0, width: 0, height: 5 } }],
     ['обрезка без поля', { file: PDF, pageSize: { width: 1, height: 1 }, crop: { x: 0, y: 0, width: 5 } }],
     ['масштаб листа нулевой', { file: PDF, pageSize: { width: 1, height: 1 }, metersPerUnit: 0 }],
+    ['контур не список', { file: PDF, pageSize: { width: 1, height: 1 }, outline: { x: 0, y: 0 } }],
+    ['контур из одной вершины', { file: PDF, pageSize: { width: 1, height: 1 }, outline: [{ x: 0, y: 0 }] }],
+    ['контур-отрезок', { file: PDF, pageSize: { width: 1, height: 1 }, outline: [{ x: 0, y: 0 }, { x: 5, y: 5 }] }],
+    ['вершина без координаты', { file: PDF, pageSize: { width: 1, height: 1 }, outline: [{ x: 0 }, { x: 5, y: 5 }, { x: 1, y: 9 }] }],
+    ['изгиб строкой', { file: PDF, pageSize: { width: 1, height: 1 }, outline: [{ x: 0, y: 0, bulge: '1' }, { x: 5, y: 5 }, { x: 1, y: 9 }] }],
   ])('битая запись (%s) отбрасывается целиком с предупреждением', async (_why, source) => {
     const { floor, warnings } = await load(undefined, source);
     expect(floor).toBeUndefined();

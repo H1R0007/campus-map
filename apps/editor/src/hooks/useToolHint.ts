@@ -1,5 +1,5 @@
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../utils/labels';
-import { STACK_TRANSITIONS } from '../stores/editor/editSlice';
+import { STACK_TRANSITIONS } from '../stores/editor/placement';
 import { visibleKinds } from '../utils/placeKinds';
 import { useEditorStore } from '../stores/editorStore';
 

@@ -77,15 +77,16 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
         <IconButton icon="close" label={messages.place.close} onClick={() => selectNode(null)} className="-mt-1 -mr-2" />
       </div>
 
+      {/* В узкой колонке (текст 200 % на телефоне) подписи кнопок переносятся, а не обрезаются. */}
       {name !== null && (
         <div className="mt-4 flex gap-2 compact:flex-col">
           <button
             type="button"
             onClick={() => choose('to')}
-            className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
+            className="flex-1 compact:flex-none min-w-0 h-12 compact:h-auto compact:min-h-12 compact:py-2 px-4 compact:px-3 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
           >
             <Icon name="route" className="flex-shrink-0 compact:hidden" />
-            <span className="truncate">{messages.place.route}</span>
+            <span className="truncate compact:whitespace-normal compact:text-center">{messages.place.route}</span>
           </button>
           <button
             type="button"

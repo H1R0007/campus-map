@@ -199,11 +199,38 @@ const TransitionLine = React.memo(function TransitionLine({
 });
 
 /**
+ * Цели отметки сравниваются по содержимому: список собирается заново при
+ * каждой правке данных, в том числе на каждом кадре перетаскивания любой
+ * точки, а та же самая отметка перерисовываться не должна.
+ */
+function sameMarker(
+  a: { nodeId: string; x: number; y: number; targets: TransitionTarget[] },
+  b: { nodeId: string; x: number; y: number; targets: TransitionTarget[] }
+): boolean {
+  return (
+    a.nodeId === b.nodeId &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.targets.length === b.targets.length &&
+    a.targets.every((target, i) => {
+      const other = b.targets[i];
+      return (
+        target.label === other.label &&
+        target.transition.fromNode === other.transition.fromNode &&
+        target.transition.toNode === other.transition.toNode &&
+        target.transition.type === other.transition.type
+      );
+    })
+  );
+}
+
+/**
  * Отметки переходов под узлом.
  *
- * Запоминается: подсказка Leaflet пересчитывает своё положение при каждом
- * обновлении слоя, и на большом этаже перетаскивание одного узла двигало
- * подсказки всех переходов плана.
+ * Запоминается: подсказка Leaflet пересчитывает своё положение (с замером
+ * страницы) при каждом обновлении слоя, и на кампусе в 13 000 точек
+ * перетаскивание одной точки двигало подсказки всех переходов плана —
+ * десятая часть кадра на медленном ноутбуке.
  */
 const TransitionMarker = React.memo(function TransitionMarker({
   nodeId,
@@ -234,4 +261,4 @@ const TransitionMarker = React.memo(function TransitionMarker({
       </Tooltip>
     </CircleMarker>
   );
-});
+}, sameMarker);

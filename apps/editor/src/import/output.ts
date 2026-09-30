@@ -5,6 +5,8 @@ import { MAX_CANVAS_SIDE } from './readers';
 import type { ImportSheet } from './readers';
 import type { Box } from './trim';
 import { composeSvgPlan } from './vector';
+import { outlinePath, transformOutline } from './outline';
+import type { OutlinePoint } from './outline';
 
 /**
  * Готовый план из листа (запись 48): формат, размер и запись об исходнике.
@@ -30,6 +32,8 @@ export interface PlanRecipe {
   crop: Box | null;
   /** Знаменатель масштаба чертежа: 200 для «1:200». */
   scaleRatio?: number;
+  /** Контур здания в области (запись 73): всё за ним — прозрачно. */
+  outline?: OutlinePoint[] | null;
 }
 
 /** Метров местности в единице листа — по масштабу чертежа; `undefined` — неизвестно. */
@@ -73,8 +77,9 @@ export function previewPlan(sheet: Pick<ImportSheet, 'kind' | 'size' | 'ext' | '
     case 'tiff': {
       const scale = Math.min(1, MAX_CANVAS_SIDE / long);
       const exact = EXACT_FORMATS[sheet.ext];
-      const asIs = exact !== undefined && recipe.rotation === 0 && recipe.crop === null && scale === 1;
-      const format: PlanFormat = asIs ? exact : sheet.ext === 'png' || sheet.bilevel ? 'png' : 'jpg';
+      const asIs = exact !== undefined && recipe.rotation === 0 && recipe.crop === null && !recipe.outline && scale === 1;
+      // За контуром — прозрачность, а в JPG её нет.
+      const format: PlanFormat = asIs ? exact : sheet.ext === 'png' || sheet.bilevel || recipe.outline ? 'png' : 'jpg';
       return { format, size: sizeAt(scale), scale, asIs };
     }
   }
@@ -105,10 +110,12 @@ export async function makePlan(sheet: ImportSheet, recipe: PlanRecipe): Promise<
   if (preview.asIs) {
     blob = sheet.blob;
   } else if (sheet.svg !== undefined) {
-    const { svg } = composeSvgPlan(sheet.svg, sheet.size, recipe.rotation, recipe.crop, preview.scale);
+    const { svg } = composeSvgPlan(sheet.svg, sheet.size, recipe.rotation, recipe.crop, preview.scale, recipe.outline ?? null);
     blob = new Blob([svg], { type: 'image/svg+xml' });
   } else {
-    blob = await canvasBlob(await sheet.render(recipe.rotation, recipe.crop, preview.scale), preview.format);
+    const canvas = await sheet.render(recipe.rotation, recipe.crop, preview.scale);
+    if (recipe.outline) clipToOutline(canvas, recipe.outline, recipe.crop, preview.scale);
+    blob = await canvasBlob(canvas, preview.format);
   }
 
   const key = await holdFile(blob);
@@ -121,9 +128,20 @@ export async function makePlan(sheet: ImportSheet, recipe: PlanRecipe): Promise<
     pageSize: { width: round(sheet.size.width), height: round(sheet.size.height) },
     ...(recipe.rotation !== 0 ? { rotation: recipe.rotation } : {}),
     ...(recipe.crop ? { crop: { x: round(recipe.crop.x), y: round(recipe.crop.y), width: round(recipe.crop.width), height: round(recipe.crop.height) } } : {}),
+    ...(recipe.outline ? { outline: recipe.outline.map((p) => (p.bulge ? { x: round(p.x), y: round(p.y), bulge: Math.round(p.bulge * 1e4) / 1e4 } : { x: round(p.x), y: round(p.y) })) } : {}),
     ...(metersPerUnitOf(sheet, recipe.scaleRatio) !== undefined ? { metersPerUnit: metersPerUnitOf(sheet, recipe.scaleRatio) } : {}),
   };
   return { key, format: preview.format, mapSize: preview.size, source };
 }
 
 const round = (value: number) => Math.round(value * 100) / 100;
+
+/** Всё за контуром — прозрачно: план на территории ложится силуэтом здания. */
+function clipToOutline(canvas: HTMLCanvasElement, outline: readonly OutlinePoint[], crop: Box | null, scale: number): void {
+  const context = canvas.getContext('2d')!;
+  const points = transformOutline(outline, -(crop?.x ?? 0), -(crop?.y ?? 0), scale);
+  context.save();
+  context.globalCompositeOperation = 'destination-in';
+  context.fill(new Path2D(outlinePath(points)));
+  context.restore();
+}

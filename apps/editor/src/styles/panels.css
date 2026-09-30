@@ -1,0 +1,898 @@
+/* Стили редактора: структура, общие элементы колонок, настройки, виды точек, свойства, поля. Порядок подключения — в main.tsx. */
+
+/* --- Структура: территория, корпуса, этажи --- */
+
+.editor-tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.editor-tree__floors {
+    list-style: none;
+    margin: 0 0 4px;
+    padding: 0 0 0 20px;
+}
+
+.editor-tree__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.editor-tree__item:hover {
+    background: var(--editor-hover);
+}
+
+.editor-tree__item[aria-current='true'] {
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.editor-tree__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-tree__count {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-tree__item[aria-current='true'] .editor-tree__count {
+    color: inherit;
+}
+
+/* «+ Этаж», «+ Корпус»: тише пунктов структуры, чтобы не спорить с ними. */
+.editor-tree__item--add {
+    color: var(--editor-text-muted);
+}
+
+.editor-tree__form {
+    padding: 4px 10px 8px;
+}
+
+/* --- Общие элементы колонок --- */
+
+.editor-section {
+    padding: 8px 8px 12px;
+}
+
+.editor-section + .editor-section {
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-section__title {
+    margin: 4px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.editor-section__hint {
+    margin: 0 0 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--editor-text-muted);
+}
+
+.editor-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.editor-check:hover {
+    background: var(--editor-hover);
+}
+
+/* Только сам флажок или переключатель: поле числа в строке — своей ширины. */
+.editor-check input[type='checkbox'],
+.editor-check input[type='radio'] {
+    width: 18px;
+    height: 18px;
+    flex: none;
+}
+
+.editor-check__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-check__hint {
+    display: block;
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+/* Короткий пример у варианта выбора: «Как у вида · «Медпункт»». */
+.editor-check__example {
+    color: var(--editor-text-muted);
+}
+
+.editor-check__count {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-input {
+    width: 100%;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--editor-border);
+    background: var(--editor-bg);
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-input:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: 1px;
+}
+
+.editor-input--narrow {
+    width: 88px;
+}
+
+.editor-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    cursor: pointer;
+}
+
+.editor-icon-button:hover:not(:disabled) {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-icon-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.editor-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.editor-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.editor-button--accent {
+    background: var(--editor-accent);
+    border-color: var(--editor-border);
+    color: var(--editor-text);
+}
+
+.editor-button--accent:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+.editor-button--danger {
+    background: transparent;
+    border-color: var(--editor-border);
+    color: var(--editor-danger);
+}
+
+.editor-button--danger:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+/*
+ * Счётчик рядом с подписью: число спокойным цветом и точка состояния перед
+ * ним. Яркая плашка тянула взгляд сильнее, чем стоит замечание (запись 56).
+ */
+.editor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-badge::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    background: var(--editor-text-muted);
+}
+
+.editor-badge--error::before {
+    background: var(--editor-error);
+}
+
+.editor-badge--warn::before {
+    background: var(--editor-warn);
+}
+
+/* --- Меню настроек в шапке --- */
+
+.editor-menu {
+    position: relative;
+}
+
+.editor-menu__popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 2500;
+    min-width: 200px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+}
+
+.editor-menu__title {
+    margin: 0 4px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-menu__options {
+    display: grid;
+    gap: 2px;
+}
+
+.editor-menu__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-menu__option:hover {
+    background: var(--editor-hover);
+}
+
+.editor-menu__option input {
+    accent-color: var(--editor-highlight);
+}
+
+/* Значок вида из данных: картинка — маска, цвет — цвет текста вокруг. */
+.editor-kind-icon {
+    display: inline-block;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
+/* Окно видов: выбор значка открывается поверх него. */
+.editor-dialog--kinds {
+    position: relative;
+}
+
+/* Окошко выбора значка — поверх окна видов, в его границах. */
+.editor-icon-picker {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px;
+    border-radius: 16px;
+    background: var(--editor-panel);
+}
+
+.editor-icon-picker__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.editor-icon-picker__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.editor-icon-picker__title {
+    margin: 12px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.editor-icon-picker__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid var(--editor-border);
+    padding-top: 8px;
+}
+
+.editor-icon-picker__footer .editor-section__hint {
+    flex: 1 1 240px;
+    margin: 0;
+}
+
+/* Кнопка «Выбрать значок…» с самим значком. */
+.editor-icon-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Подтверждение удаления вида — строкой под ним, во всю ширину. */
+.editor-dialog--kinds .editor-list__row {
+    flex-wrap: wrap;
+}
+
+.editor-list__confirm {
+    flex-basis: 100%;
+    padding: 8px 4px 4px;
+}
+
+/* Выбор значка вида: сетка кнопок 44×44, выбранная — цветом акцента. */
+.editor-icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.editor-icon-choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    background: transparent;
+    color: var(--editor-text);
+    cursor: pointer;
+}
+
+.editor-icon-choice:hover {
+    background: var(--editor-hover);
+}
+
+.editor-icon-choice[aria-pressed='true'] {
+    background: var(--editor-highlight);
+    border-color: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+/* Группа выборов без рамки: подпись — обычная подсказка раздела. */
+.editor-fieldset {
+    min-width: 0;
+    margin: 0 0 8px;
+    padding: 0;
+    border: 0;
+}
+
+/* Кнопка-переключатель типа перехода: цвет типа задаётся переменной --chip. */
+.editor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--chip, var(--editor-border));
+    background: transparent;
+    color: var(--editor-text);
+    cursor: pointer;
+}
+
+.editor-chip[aria-pressed='true'],
+.editor-chip[aria-checked='true'] {
+    background: var(--chip, var(--editor-highlight));
+    color: var(--editor-on-accent);
+}
+
+/* --- Вкладки инспектора --- */
+
+.editor-tabs {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--editor-border);
+}
+
+/* Заголовок правой колонки вне «Проверки»: там одна вкладка — «Свойства». */
+.editor-tabs__title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 16px;
+}
+
+.editor-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 6px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-tab:hover {
+    color: var(--editor-text);
+    background: var(--editor-hover);
+}
+
+.editor-tab[aria-selected='true'] {
+    color: var(--editor-text);
+    font-weight: 600;
+    border-bottom-color: var(--editor-focus);
+}
+
+.editor-tabpanel {
+    /* Граница для абсолютных элементов внутри (подписи для диктора): иначе
+       они держались бы за колонку, торчали из-под прокрутки вниз, и прокрутка
+       к строке сдвигала весь редактор. */
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.editor-empty {
+    padding: 12px 4px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--editor-text-muted);
+}
+
+/* --- Карточка узла и обзор плана во вкладке «Свойства» --- */
+
+.editor-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-card__header {
+    padding: 4px 4px 8px;
+}
+
+.editor-card__title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.editor-card__title--empty {
+    color: var(--editor-text-muted);
+    font-style: italic;
+}
+
+.editor-card__place {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-card__section {
+    padding: 10px 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+/* Заголовок секции карточки: мелко, заглавными, как в инспекторах редакторов (запись 61). */
+.editor-card__heading {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+/* Опасная зона внизу карточки: удаление — отдельно от остальных действий. */
+.editor-card__danger {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--editor-border);
+}
+
+/* Состояние строкой: «размещён», «не задан». */
+.editor-state--ok {
+    color: var(--editor-success);
+}
+
+.editor-state--warn {
+    color: var(--editor-warn);
+}
+
+/* Заголовок раздела карточки с пояснением ⓘ. */
+.editor-card__heading-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+
+.editor-card__heading-row > .editor-card__heading {
+    margin: 0;
+}
+
+.editor-card__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.editor-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.editor-card__footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px 4px 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-card__details {
+    padding: 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+/* У заголовка с display: flex браузер не рисует треугольник раскрытия:
+   без своей стрелки блок выглядит простой надписью, и что он раскрывается,
+   не догадаться. */
+.editor-card__details > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 4px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.editor-card__details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.editor-card__details > summary:hover {
+    background: var(--editor-hover);
+}
+
+.editor-card__chevron {
+    flex: none;
+    transition: transform 0.15s ease;
+}
+
+.editor-card__details[open] > summary .editor-card__chevron {
+    transform: rotate(90deg);
+}
+
+/* Полоса «изменения точки»: прилипает к низу колонки, пока правки не применены. */
+.editor-card__session {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding: 8px;
+    border-top: 1px solid var(--editor-highlight);
+    background: var(--editor-panel);
+}
+
+.editor-card__field {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.editor-card__field > .editor-section__hint {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.editor-section__hint--problem {
+    color: var(--editor-danger);
+}
+
+/* --- Поле и пояснение ⓘ (запись 58) --- */
+
+.editor-field {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.editor-field__label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+/* Поле в строку: подпись слева, список справа — в колонке «Показывать». */
+.editor-field--inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px;
+}
+
+.editor-field--inline .editor-field__label {
+    margin: 0;
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-field__problem {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--editor-danger);
+}
+
+/*
+ * Значок ⓘ: цель нажатия 24×24 — наименьшая по WCAG 2.2 (2.5.8); он стоит
+ * рядом с подписью, а не вместо кнопки действия.
+ */
+.editor-info {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    cursor: help;
+}
+
+.editor-info span {
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid currentColor;
+    border-radius: 9999px;
+    font: 600 10px/1 Georgia, serif;
+    font-style: italic;
+}
+
+.editor-info:hover,
+.editor-info[aria-expanded="true"] {
+    color: var(--editor-text);
+}
+
+.editor-info__tip {
+    position: fixed;
+    z-index: 4000;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+    color: var(--editor-text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+/* Выбор из вариантов в окне: «с планом или без». */
+.editor-choice {
+    margin: 8px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+/* Флажок с пояснением: ⓘ рядом со строкой флажка, не внутри неё. */
+.editor-check-row {
+    display: flex;
+    align-items: center;
+}
+
+.editor-check-row > .editor-check {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-check-row > .editor-info {
+    margin-right: 4px;
+}
+
+.editor-input--id {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.editor-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.editor-list__row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 10px;
+}
+
+.editor-list__row:hover {
+    background: var(--editor-hover);
+}
+
+.editor-list__main {
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.editor-list__text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-list__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-list__sub {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-list__glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    color: var(--editor-on-accent);
+}
+
+.editor-list__remove {
+    color: var(--editor-danger);
+}
+
+.editor-textarea {
+    width: 100%;
+    min-height: 88px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    background: var(--editor-bg);
+    color: var(--editor-text);
+    font-size: 14px;
+    resize: vertical;
+}
+
+.editor-textarea:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: 1px;
+}
+
+/* Сводка плана: подпись и число в строку. */
+.editor-facts {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.editor-facts dt {
+    color: var(--editor-text-muted);
+}
+
+.editor-facts dd {
+    margin: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.editor-callout {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--editor-border);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.editor-callout--warn {
+    border-color: var(--editor-warn);
+}
+
+.editor-callout--ok {
+    border-color: var(--editor-success);
+}
+
+/* Кнопка во всю ширину колонки с текстом в несколько строк. */
+.editor-button--block {
+    width: 100%;
+    padding: 8px 14px;
+    justify-content: flex-start;
+    white-space: normal;
+    text-align: left;
+}
