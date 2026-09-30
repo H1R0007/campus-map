@@ -3,14 +3,14 @@ import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import { useRouteSteps } from '../../hooks/useStepNavigation';
 import { floorsOfBuilding, useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
-import { formatFloor, messagesFor, useLanguage } from '../../i18n';
+import { floorText, messagesFor, useLanguage } from '../../i18n';
 import type { Messages } from '../../i18n';
 import { routeFloorScheme } from '../../utils/floorScheme';
 import type { FloorLink, FloorRole } from '../../utils/floorScheme';
 
 /** Подпись кнопки этажа для экранного диктора: роль в маршруте и текущий шаг. */
-function floorLabel(messages: Messages, floor: number, role: FloorRole | null, currentStep: boolean): string {
-  const label = messages.map.floor(formatFloor(floor));
+function floorLabel(messages: Messages, text: string, role: FloorRole | null, currentStep: boolean): string {
+  const label = messages.map.floor(text);
   const withRole =
     role === 'start'
       ? messages.map.floorRouteStart(label)
@@ -112,12 +112,12 @@ export const FloorSelector: React.FC = () => {
             type="button"
             onClick={() => setActiveFloor(activeFloor.buildingId, floor)}
             aria-current={isActive ? 'true' : undefined}
-            aria-label={floorLabel(messages, floor, role, isStepFloor)}
+            aria-label={floorLabel(messages, floorText(buildingMetas, activeFloor.buildingId, floor), role, isStepFloor)}
             className={`relative w-11 h-11 flex-shrink-0 flex items-center justify-center text-sm font-semibold transition-colors ${
               isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {formatFloor(floor)}
+            {floorText(buildingMetas, activeFloor.buildingId, floor)}
             {linkUp && <span aria-hidden="true" className={`absolute left-[7px] top-0 h-1/2 w-[3px] ${track}`} />}
             {linkDown && <span aria-hidden="true" className={`absolute left-[7px] top-1/2 h-1/2 w-[3px] ${track}`} />}
             {role !== null && <RouteDot role={role} active={isActive} />}

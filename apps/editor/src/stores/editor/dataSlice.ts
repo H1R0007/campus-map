@@ -14,6 +14,7 @@ import { useHistoryStore } from '../historyStore';
 import { buildGraphFromState, syncPortals } from './graphState';
 import { initialRouteSimulation } from './routeSlice';
 import { searchNodeHits } from '../../utils/nodeSearch';
+import { loadedPlanFiles } from '../../utils/planFiles';
 import { nodesCount } from '../../utils/labels';
 import type { EditorSlice } from './types';
 
@@ -61,6 +62,13 @@ export interface DataSlice {
   campusMeta: CampusMeta | null;
 
   /**
+   * Планы: территория (`campus`) или этаж (`<корпус>/<этаж>`) → ключ
+   * содержимого (`utils/planFiles.ts`, запись 47). Нет записи — у плана нет
+   * файла.
+   */
+  planFiles: Map<string, string>;
+
+  /**
    * Предупреждения загрузчика ядра о проблемах в исходных файлах.
    *
    * Показываются в панели диагностики: редактор должен уметь открыть даже
@@ -75,8 +83,13 @@ export interface DataSlice {
    *
    * `unsaved` ставится при восстановлении черновика: данные в редакторе
    * отличаются от лежащих на диске, и строка состояния обязана это показать.
+   * `planFiles` приходит из черновика; без него планы — те, что лежат в данных.
    */
-  loadData: (dataset: Dataset, warnings?: string[], options?: { unsaved?: boolean }) => void;
+  loadData: (
+    dataset: Dataset,
+    warnings?: string[],
+    options?: { unsaved?: boolean; planFiles?: ReadonlyMap<string, string> }
+  ) => void;
 
   getNode: (nodeId: string) => MapNode | undefined;
   getNodeAliases: (nodeId: string) => string[];
@@ -126,6 +139,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
   aliasCategories: new Map(),
   placeKinds: [],
   campusMeta: null,
+  planFiles: new Map(),
   loadWarnings: [],
   isLoading: true,
 
@@ -159,6 +173,7 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
         dataset.aliases.flatMap((alias) => (alias.category ? [[alias.id, alias.category] as const] : []))
       );
       state.campusMeta = dataset.campusMeta;
+      state.planFiles = new Map(options.planFiles ?? loadedPlanFiles(dataset.campusMeta, dataset.buildingMetas));
       state.loadWarnings = [...warnings];
       const fixedPortals = syncPortals(state);
       if (fixedPortals > 0) {
@@ -174,6 +189,9 @@ export const createDataSlice: EditorSlice<DataSlice> = (set, get) => ({
       state.lineTool.end = null;
       state.selectionBox = null;
       state.routeSimulation = initialRouteSimulation();
+      state.alignment = null;
+      state.placing = null;
+      state.measuring = null;
 
       useHistoryStore.getState().clear();
       // −1 не совпадает ни с одним состоянием истории: восстановленный

@@ -1,4 +1,4 @@
-import { CAMPUS_BUILDING_ID } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
 import type { BuildingMeta, MapNode, TransitionType } from '@campus-map/core';
 
 /**
@@ -19,8 +19,8 @@ export const TRANSITION_LABELS: Record<TransitionType, string> = {
 /** Где лежит узел, словами: «Корпус А, этаж 2» или «Территория». */
 export function nodePlaceLabel(node: Pick<MapNode, 'building' | 'floor'>, buildingMetas: ReadonlyMap<string, BuildingMeta>): string {
   if (node.building === CAMPUS_BUILDING_ID) return 'Территория';
-  const name = buildingMetas.get(node.building)?.name ?? node.building;
-  return `${name}, этаж ${node.floor}`;
+  const meta = buildingMetas.get(node.building);
+  return `${meta?.name ?? node.building}, этаж ${floorLabel(meta, node.floor)}`;
 }
 
 /** Имя узла для людей: первое название, а без него — id. */

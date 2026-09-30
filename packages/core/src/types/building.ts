@@ -68,7 +68,7 @@ export interface BuildingPlacement extends PlanPlacement {
  * `map.<формат>`. Произвольное имя файла в данных уже было источником
  * молчаливых 404 (история `mapPath`), поэтому выбирается только формат.
  */
-export const PLAN_FORMATS = ['png', 'svg'] as const;
+export const PLAN_FORMATS = ['png', 'svg', 'jpg', 'webp'] as const;
 
 export type PlanFormat = (typeof PLAN_FORMATS)[number];
 
@@ -86,6 +86,45 @@ export function planFormatOf(meta: { planFormat?: PlanFormat } | undefined): Pla
 }
 
 /**
+ * Откуда взят план и как он из исходника получен (запись 46).
+ *
+ * Исходник — файл, как его прислали (PDF, скан, чертёж), лежит в
+ * `data-sources/` и в навигатор не попадает. План в данных — результат:
+ * страница исходника, повёрнутая и обрезанная, в размере `mapSize`. Запись
+ * позволяет переделать план — другая страница, обрезка, поворот, размер — и
+ * пересчитать точки разметки ровно вместе с ним, ничего не сдвинув.
+ */
+export interface PlanSource {
+  /** Файл в `data-sources/`: отпечаток содержимого и расширение, `3f2a9c1b04de7a1c.pdf`. */
+  file: string;
+
+  /** Имя файла, как его прислали: «Корпус А.pdf». Только для людей. */
+  name?: string;
+
+  /** Страница многостраничного файла (PDF, TIFF), с 1. */
+  page?: number;
+
+  /** Размер страницы исходника в его единицах: пункты PDF, пиксели картинки, единицы чертежа. */
+  pageSize: MapSize;
+
+  /** Поворот страницы по часовой стрелке, градусы: 90, 180, 270 или малый угол для перекоса скана. */
+  rotation?: number;
+
+  /**
+   * Вырезанная область повёрнутой страницы в её единицах, от левого верхнего
+   * угла описанного вокруг неё прямоугольника. Без поля — вся страница.
+   */
+  crop?: { x: number; y: number; width: number; height: number };
+
+  /**
+   * Сколько метров на местности в одной единице листа (запись 54): по
+   * надписи «Масштаб 1:200» на PDF-листе — пункт бумаги × 200; у чертежа DXF —
+   * единица чертежа (миллиметр, метр). Без поля масштаб чертежа неизвестен.
+   */
+  metersPerUnit?: number;
+}
+
+/**
  * Метаданные этажа.
  *
  * Путей к файлам здесь нет намеренно: раскладка этажа фиксирована
@@ -96,8 +135,19 @@ export function planFormatOf(meta: { planFormat?: PlanFormat } | undefined): Pla
  * молчаливый 404. Та же история, что с удалённым `BuildingMeta.bounds`.
  */
 export interface FloorMeta {
-  /** Номер этажа */
+  /**
+   * Номер этажа — порядок этажей и высота (`elevationMeters` по формуле
+   * корпуса). Подвал — `-1`, цоколь — `0`, антресоль между первым и
+   * вторым — `1.5`.
+   */
   floor: number;
+
+  /**
+   * Подпись этажа, как на табличках: «1А», «Ц», «−1». Без неё этаж
+   * называется номером. Нужна там, где номер ничего не говорит человеку:
+   * антресоль «1.5» в корпусе называют «1А».
+   */
+  label?: string;
 
   /**
    * Размер плана этажа в пикселях.
@@ -121,6 +171,9 @@ export interface FloorMeta {
 
   /** Отметка пола этажа над уровнем территории, метры. Важнее формулы корпуса. */
   elevationMeters?: number;
+
+  /** Откуда взят план этажа и как обработан — чтобы его можно было переделать. */
+  source?: PlanSource;
 
   /** Формат файла плана этажа; без поля — PNG. */
   planFormat?: PlanFormat;
@@ -199,6 +252,9 @@ export interface CampusMeta {
 
   /** Формат файла плана территории; без поля — PNG. */
   planFormat?: PlanFormat;
+
+  /** Откуда взят план территории и как обработан — чтобы его можно было переделать. */
+  source?: PlanSource;
 }
 
 /**
@@ -209,4 +265,17 @@ export interface CampusMeta {
  */
 export function buildingName(meta: BuildingMeta, language: string): string {
   return meta.translations?.[language]?.name ?? meta.name;
+}
+
+/** Самая длинная подпись этажа: она стоит на кнопке этажа шириной в палец. */
+export const MAX_FLOOR_LABEL_LENGTH = 12;
+
+/**
+ * Как назвать этаж человеку: подпись из данных, а без неё — номер. Подвал —
+ * с настоящим минусом, а не дефисом: «−1».
+ */
+export function floorLabel(meta: Pick<BuildingMeta, 'floors'> | undefined, floor: number): string {
+  const label = meta?.floors.find((item) => item.floor === floor)?.label;
+  if (label) return label;
+  return floor < 0 ? `−${-floor}` : String(floor);
 }

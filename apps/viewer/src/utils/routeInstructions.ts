@@ -9,7 +9,7 @@ import type {
   ViewScope,
 } from '@campus-map/core';
 import { CAMPUS_BUILDING_ID, scopeOfNode } from '@campus-map/core';
-import { formatFloor, messagesFor } from '../i18n';
+import { floorText, messagesFor } from '../i18n';
 import type { Messages } from '../i18n';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
@@ -206,7 +206,7 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
       place = placeOf(to);
     } else if (from.floor !== to.floor) {
       title = messages.instructions.move[type][to.floor > from.floor ? 'up' : 'down'];
-      place = messages.map.floor(formatFloor(to.floor));
+      place = messages.map.floor(floorText(buildingMetas, to.building, to.floor));
     } else {
       title = messages.instructions.move[type].same;
       place = placeOf(to);

@@ -7,12 +7,13 @@ import type {
   CampusMeta,
   FloorMeta,
   MapSize,
+  PlanSource,
 } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
 import type { MapNode, MapNodeData } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
-import { isPlanFormat } from '../types/building.js';
+import { MAX_FLOOR_LABEL_LENGTH, isPlanFormat } from '../types/building.js';
 import type { PlanFormat } from '../types/building.js';
 import { createCampusProjection } from '../projection.js';
 import {
@@ -144,6 +145,65 @@ function readField<T>(
 /** Формат плана из данных; неизвестный — `undefined`, и `readField` предупредит. */
 function asPlanFormat(value: unknown): PlanFormat | undefined {
   return typeof value === 'string' && isPlanFormat(value) ? value : undefined;
+}
+
+/** Имя файла исходника: отпечаток и расширение — без путей и чужих знаков. */
+const SOURCE_FILE = /^[0-9a-f]{8,64}\.[a-z0-9]{1,8}$/;
+
+/**
+ * Запись об исходнике плана. Битая запись называется и отбрасывается целиком:
+ * пересчитать точки по половине записи нельзя, а план в данных от этого не
+ * портится — просто переделать его из исходника не выйдет.
+ */
+function readPlanSource(value: unknown, where: string, warnings: string[]): PlanSource | undefined {
+  if (value === undefined || value === null) return undefined;
+  const fail = (why: string) => {
+    warnings.push(`${where}: исходник плана пропущен — ${why}`);
+    return undefined;
+  };
+
+  if (!isRecord(value)) return fail('запись — не объект');
+  const raw = value;
+
+  const file = asOptionalString(raw.file);
+  if (!file || !SOURCE_FILE.test(file)) return fail(`имя файла «${String(raw.file)}» не из data-sources`);
+
+  // Своё предупреждение о размере не нужно: запись и так пропускается целиком.
+  const pageSize = readMapSize(raw.pageSize, where, []);
+  if (!pageSize) return fail('нет размера страницы');
+
+  const source: PlanSource = { file, pageSize };
+  const name = asOptionalString(raw.name);
+  if (name) source.name = name;
+
+  if (raw.page !== undefined) {
+    const page = asStrictNumber(raw.page);
+    if (page === undefined || !Number.isInteger(page) || page < 1) return fail(`страница «${String(raw.page)}» — не номер`);
+    source.page = page;
+  }
+
+  if (raw.rotation !== undefined) {
+    const rotation = asStrictNumber(raw.rotation);
+    if (rotation === undefined) return fail('поворот — не число');
+    if (rotation !== 0) source.rotation = rotation;
+  }
+
+  if (raw.crop !== undefined) {
+    const crop = isRecord(raw.crop) ? raw.crop : {};
+    const [x, y, width, height] = [crop.x, crop.y, crop.width, crop.height].map(asStrictNumber);
+    if (x === undefined || y === undefined || width === undefined || height === undefined || width <= 0 || height <= 0) {
+      return fail('обрезка — не прямоугольник');
+    }
+    source.crop = { x, y, width, height };
+  }
+
+  if (raw.metersPerUnit !== undefined) {
+    const metersPerUnit = asStrictNumber(raw.metersPerUnit);
+    if (metersPerUnit === undefined || metersPerUnit <= 0) return fail('масштаб листа — не положительное число');
+    source.metersPerUnit = metersPerUnit;
+  }
+
+  return source;
 }
 
 /**
@@ -480,6 +540,12 @@ function normalizeFloors(
     const meta: FloorMeta = { floor };
     const where = `${path}: этаж ${floor}`;
 
+    const label = asOptionalString(item.label)?.trim();
+    if (label) {
+      if (label.length <= MAX_FLOOR_LABEL_LENGTH) meta.label = label;
+      else warnings.push(`${where}: подпись «${label}» длиннее ${MAX_FLOOR_LABEL_LENGTH} знаков — на кнопке этажа не поместится, пропущена`);
+    }
+
     const mapSize = readMapSize(item.mapSize, where, warnings);
     if (mapSize !== undefined) meta.mapSize = mapSize;
 
@@ -491,6 +557,9 @@ function normalizeFloors(
 
     const planFormat = readField(item, 'planFormat', asPlanFormat, where, warnings);
     if (planFormat !== undefined) meta.planFormat = planFormat;
+
+    const source = readPlanSource(item.source, where, warnings);
+    if (source !== undefined) meta.source = source;
 
     floors.push(meta);
   }
@@ -591,6 +660,9 @@ export async function loadDataset(source: DatasetSource): Promise<DatasetLoadRes
 
   const campusPlanFormat = readField(rawCampusMeta, 'planFormat', asPlanFormat, CAMPUS_META_PATH, warnings);
   if (campusPlanFormat !== undefined) campusMeta.planFormat = campusPlanFormat;
+
+  const campusSource = readPlanSource((rawCampusMeta as Raw | null)?.source, CAMPUS_META_PATH, warnings);
+  if (campusSource !== undefined) campusMeta.source = campusSource;
 
   // Все остальные чтения зависят только от списка корпусов, но не от
   // содержимого друг друга. Раньше они шли цепочкой `await` во вложенных

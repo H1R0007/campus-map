@@ -1,7 +1,8 @@
 import type { Draft } from 'immer';
 import type { PlaceCategory, Transition } from '@campus-map/core';
-import type { AliasSnapshot, HistoryEntry } from '../historyStore';
+import type { AliasSnapshot, HistoryEntry, StructureSide } from '../historyStore';
 import { applyNeighborsSnapshot, syncPortals } from './graphState';
+import { openingFloorOf } from './viewSlice';
 import type { EditorStore } from './types';
 
 /** Ключ перехода со всеми полями: по нему видно, что именно изменилось. */
@@ -40,6 +41,9 @@ export function entryNodes(entry: HistoryEntry): string[] {
       return [entry.redoData.fromId, entry.redoData.toId];
     case 'SET_PLACE_KINDS':
       // Каталог видов не привязан к узлам: показывать нечего.
+      return [];
+    case 'STRUCTURE':
+      // План, который показать, запись структуры знает сама (`view`).
       return [];
     case 'RENAME_NODE':
       return [entry.redoData.to];
@@ -111,7 +115,7 @@ export function forgetPlace(s: State, id: string): void {
 }
 
 /** Возвращает то, что снял `snapshotPlace`. */
-function restorePlace(s: State, place: AliasSnapshot | null): void {
+export function restorePlace(s: State, place: AliasSnapshot | null): void {
   if (place === null) return;
   if (place.names.length > 0) s.aliases.set(place.id, [...place.names]);
   if (place.category !== undefined) s.aliasCategories.set(place.id, place.category);
@@ -166,6 +170,44 @@ export function renameNodeEverywhere(s: State, from: string, to: string): void {
   if (s.chainLastNodeId === from) s.chainLastNodeId = to;
   if (s.lastPlacedNodeId === from) s.lastPlacedNodeId = to;
   s.lastRename = { from, to };
+}
+
+/**
+ * Приводит структуру к одной стороне правки корпуса или этажа.
+ *
+ * Открытый план — тот, что был открыт на этой стороне правки; если его уже
+ * нет (отменено добавление этажа, на котором стоял человек), — ближайший
+ * существующий: этаж входа корпуса или территория.
+ */
+export function applyStructureSide(s: State, side: StructureSide): void {
+  s.buildingMetas = new Map(side.buildingMetas.map((meta) => [meta.id, structuredClone(meta)]));
+  s.campusMeta = side.campusMeta === null ? null : structuredClone(side.campusMeta);
+  s.planFiles = new Map(side.planFiles);
+  s.transitions = side.transitions.map((transition) => ({ ...transition }));
+
+  for (const [id, node] of side.nodes) {
+    if (node === null) s.nodes.delete(id);
+    else s.nodes.set(id, { ...node, neighbors: [...node.neighbors] });
+  }
+  for (const [id, place] of side.places) {
+    forgetPlace(s, id);
+    restorePlace(s, place);
+  }
+
+  for (const id of [...s.selectedNodeIds]) if (!s.nodes.has(id)) s.selectedNodeIds.delete(id);
+  showExistingPlan(s, side.view.building, side.view.floor);
+}
+
+/** Открывает план, если он есть; иначе — этаж входа корпуса или территорию. */
+export function showExistingPlan(s: State, building: string | null, floor: number | null): void {
+  const meta = building === null ? undefined : s.buildingMetas.get(building);
+  if (building === null || meta === undefined) {
+    s.currentBuilding = null;
+    s.currentFloor = null;
+    return;
+  }
+  s.currentBuilding = building;
+  s.currentFloor = floor !== null && meta.floors.some((item) => item.floor === floor) ? floor : openingFloorOf(meta);
 }
 
 /** Ставит или снимает вид места; пустой вид — отсутствие записи. */
@@ -248,6 +290,10 @@ function applyUndoEntry(s: State, entry: HistoryEntry): void {
     }
     case 'RENAME_NODE': {
       renameNodeEverywhere(s, entry.undoData.to, entry.undoData.from);
+      break;
+    }
+    case 'STRUCTURE': {
+      applyStructureSide(s, entry.undoData);
       break;
     }
     case 'GROUP': {
@@ -398,6 +444,10 @@ function applyRedoEntry(s: State, entry: HistoryEntry): void {
     }
     case 'RENAME_NODE': {
       renameNodeEverywhere(s, entry.redoData.from, entry.redoData.to);
+      break;
+    }
+    case 'STRUCTURE': {
+      applyStructureSide(s, entry.redoData);
       break;
     }
     case 'GROUP': {

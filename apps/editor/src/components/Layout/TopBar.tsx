@@ -3,7 +3,9 @@ import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { importDatasetFromZip } from '../../utils/importZip';
 import { validateDataset } from '../../utils/validateData';
+import { structureChecks } from '../../utils/structureChecks';
 import { useValidationReport } from '../../hooks/useValidationReport';
+import { useStructureChecks } from '../../hooks/useStructureChecks';
 import { ConfirmDialog } from '../UI/ConfirmDialog';
 import { Icon } from '../UI/Icon';
 
@@ -36,14 +38,18 @@ export const TopBar: React.FC = () => {
   const redoDescription = useHistoryStore((s) => s.getRedoDescription());
 
   const report = useValidationReport();
+  const structure = useStructureChecks();
   const errorCount = report.errors.length;
-  const warningCount = report.warnings.length;
+  // Находки о корпусах и планах — среди предупреждений: они не ломают данные,
+  // но их заметит навигатор.
+  const warningCount = report.warnings.length + structure.length;
 
   const [isImporting, setIsImporting] = useState(false);
   const [pendingSave, setPendingSave] = useState<'disk' | 'archive' | null>(null);
-  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
+  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[]; navigator: string[] }>({
     errors: [],
     warnings: [],
+    navigator: [],
   });
 
   /**
@@ -61,9 +67,13 @@ export const TopBar: React.FC = () => {
       transitions: st.transitions,
       buildingMetas: st.buildingMetas,
     });
-    setValidation(result);
+    // Что после сохранения увидят люди в навигаторе (запись 51).
+    const navigator = structureChecks(st)
+      .filter((issue) => issue.navigator)
+      .map((issue) => issue.text);
+    setValidation({ ...result, navigator });
 
-    if (!force && (result.errors.length > 0 || result.warnings.length > 0)) {
+    if (!force && (result.errors.length > 0 || result.warnings.length > 0 || navigator.length > 0)) {
       setPendingSave(target);
       return;
     }
@@ -243,6 +253,9 @@ export const TopBar: React.FC = () => {
           {validation.errors.length > 0 && <ReportList kind="error" title="Ошибки" items={validation.errors} />}
           {validation.warnings.length > 0 && (
             <ReportList kind="warn" title="Предупреждения" items={validation.warnings} />
+          )}
+          {validation.navigator.length > 0 && (
+            <ReportList kind="warn" title="Что заметят в навигаторе" items={validation.navigator} />
           )}
         </div>
       </ConfirmDialog>

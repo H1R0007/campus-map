@@ -7,6 +7,7 @@ import type { Dataset, DatasetSource } from '@campus-map/core';
 import { datasetFiles } from '../src/utils/datasetFiles';
 import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
 import { datasetFromState } from '../src/stores/editor/graphState';
+import { useEditorStore } from '../src/stores/editorStore';
 import { fixtureDataset, loadFixture, openFloor, store } from './helpers/fixture';
 
 /**
@@ -63,6 +64,42 @@ describe('круг «сохранить → открыть»', () => {
     expect(saved?.neighbors).toEqual(['a1_hall']);
     expect(saved?.comment).toBe('дверь закрыта после 18:00');
     expect(dataset.aliases.find((alias) => alias.id === id)?.names).toEqual(['Кладовая']);
+  });
+
+  it('подпись этажа сохраняется и читается обратно', async () => {
+    useEditorStore.setState((s) => {
+      s.buildingMetas.get('building_a')!.floors[1].label = '2А';
+    });
+
+    const { dataset } = await loadDataset(sourceOf(datasetFiles(datasetFromState(store()))));
+    expect(dataset.buildingMetas[0].floors.map((floor) => floor.label)).toEqual([undefined, '2А']);
+  });
+
+  it('запись об исходнике плана сохраняется и читается обратно — у этажа и территории', async () => {
+    const floorSource = {
+      file: '3f2a9c1b04de7a1c.pdf',
+      name: 'Корпус А.pdf',
+      page: 2,
+      pageSize: { width: 842, height: 595 },
+      rotation: 90,
+      crop: { x: 10, y: 20, width: 500, height: 400 },
+      metersPerUnit: 0.0705556,
+    };
+    const campusSource = { file: 'a1b2c3d4e5f60718.jpg', pageSize: { width: 4000, height: 3000 } };
+    useEditorStore.setState((s) => {
+      s.buildingMetas.get('building_a')!.floors[0].source = floorSource;
+      s.campusMeta!.source = campusSource;
+    });
+
+    const files = datasetFiles(datasetFromState(store()));
+    const { dataset, warnings } = await loadDataset(sourceOf(files));
+
+    expect(warnings).toEqual([]);
+    expect(dataset.buildingMetas[0].floors[0].source).toEqual(floorSource);
+    expect(dataset.campusMeta.source).toEqual(campusSource);
+    // Поля — в порядке формата, чтобы правка давала понятную разницу в git.
+    const meta = JSON.parse(files.get('buildings/building_a/meta.json')!);
+    expect(Object.keys(meta.floors[0].source)).toEqual(['file', 'name', 'page', 'pageSize', 'rotation', 'crop', 'metersPerUnit']);
   });
 
   it('переводы и категории, которые редактор не правит, не теряются', async () => {

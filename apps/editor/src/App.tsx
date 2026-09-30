@@ -9,6 +9,11 @@ import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
 import { SearchPanel } from './components/UI/SearchPanel';
 import { Notice } from './components/UI/Notice';
+import { PlanStatus } from './components/UI/PlanStatus';
+import { AlignmentBar } from './components/UI/AlignmentBar';
+import { MeasureBar, PlacementBar } from './components/UI/PlacementBar';
+import { ImportDialog } from './components/UI/ImportDialog';
+import { ImportDropZone } from './components/UI/ImportDropZone';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
 import { HelpDialog } from './components/UI/HelpDialog';
@@ -180,6 +185,10 @@ const App: React.FC = () => {
             <ToolOptions />
             <div className="editor-map-area">
               <EditorMap />
+              <PlanStatus />
+              <AlignmentBar />
+              <PlacementBar />
+              <MeasureBar />
               <Notice />
             </div>
           </main>
@@ -191,6 +200,8 @@ const App: React.FC = () => {
         <ContextMenu />
         <HelpDialog />
         <KindsDialog />
+        <ImportDialog />
+        <ImportDropZone />
         <DraftPrompt />
       </div>
     </ErrorBoundary>

@@ -16,6 +16,7 @@ import type {
   FloorMeta,
   MapNode,
   PlaceKind,
+  PlanSource,
 } from '@campus-map/core';
 
 /**
@@ -109,11 +110,26 @@ function toJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+/** Запись об исходнике плана — в порядке полей формата. */
+function sourceForFile(source: PlanSource | undefined): PlanSource | undefined {
+  if (!source) return undefined;
+  return {
+    file: source.file,
+    name: source.name,
+    page: source.page,
+    pageSize: source.pageSize,
+    rotation: source.rotation,
+    crop: source.crop,
+    metersPerUnit: source.metersPerUnit,
+  } satisfies EveryField<PlanSource>;
+}
+
 /**
  * Собирает файлы датасета: путь внутри `data/` → содержимое.
  *
- * Планы (`map.png`, `map.svg`) сюда не попадают: редактор их пока не меняет,
- * и переписывать их своим содержимым было бы потерей.
+ * Планы (`map.png`, `map.svg` …) сюда не попадают: это не текст, и их байты
+ * лежат не в данных стора, а на диске или в памяти редактора. Что с ними
+ * делать при сохранении, решает `planSave` (`utils/saveFiles.ts`).
  */
 export function datasetFiles(dataset: Dataset): Map<string, string> {
   const { nodes: allNodes, transitions, buildingMetas, aliases, campusMeta } = dataset;
@@ -128,6 +144,7 @@ export function datasetFiles(dataset: Dataset): Map<string, string> {
       mapSize: resolveCampusMapSize(campusNodes, campusMeta),
       metersPerPixel: campusMeta?.metersPerPixel,
       planFormat: campusMeta?.planFormat,
+      source: sourceForFile(campusMeta?.source),
     } satisfies EveryField<CampusMeta>)
   );
 
@@ -148,10 +165,12 @@ export function datasetFiles(dataset: Dataset): Map<string, string> {
           (floor) =>
             ({
               floor: floor.floor,
+              label: floor.label,
               mapSize: floor.mapSize,
               placement: floor.placement,
               elevationMeters: floor.elevationMeters,
               planFormat: floor.planFormat,
+              source: sourceForFile(floor.source),
             }) satisfies EveryField<FloorMeta>
         ),
       } satisfies EveryField<BuildingMeta>)

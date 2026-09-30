@@ -1,5 +1,5 @@
 import type { BuildingMeta, MapNode, Transition, ViewScope } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, isNodeInScope } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, isNodeInScope, floorLabel } from '@campus-map/core';
 
 /** Переход с узла текущего плана на другой план и подпись назначения. */
 export interface TransitionTarget {
@@ -78,7 +78,9 @@ function targetLabel(here: MapNode, there: MapNode, buildingMetas: ReadonlyMap<s
   if (there.building === CAMPUS_BUILDING_ID) return 'Кампус';
 
   // Тот же корпус и тот же этаж попали бы в линии: здесь этажи разные.
-  if (there.building === here.building) return `${there.floor > here.floor ? '↑' : '↓'} этаж ${there.floor}`;
+  if (there.building === here.building) {
+    return `${there.floor > here.floor ? '↑' : '↓'} этаж ${floorLabel(buildingMetas.get(there.building), there.floor)}`;
+  }
 
-  return `${buildingMetas.get(there.building)?.name ?? there.building}, этаж ${there.floor}`;
+  return `${buildingMetas.get(there.building)?.name ?? there.building}, этаж ${floorLabel(buildingMetas.get(there.building), there.floor)}`;
 }

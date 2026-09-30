@@ -5,7 +5,7 @@ import { PHONE_HEADER_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { useScrollEdges } from '../../hooks/useScrollEdges';
 import { shownFloorOf, useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
-import { formatFloor, messagesFor, useLanguage } from '../../i18n';
+import { floorText, messagesFor, useLanguage } from '../../i18n';
 import { buildingLabel } from '../../utils/placeLabels';
 import { BuildingMenu } from './BuildingMenu';
 import { Icon } from './Icon';
@@ -118,7 +118,7 @@ export const MapHeader: React.FC = () => {
           <BuildingMenu
             current={{
               title: buildingLabel(buildingMetas, activeFloor.buildingId, language),
-              subtitle: messages.map.floor(formatFloor(activeFloor.floor)),
+              subtitle: messages.map.floor(floorText(buildingMetas, activeFloor.buildingId, activeFloor.floor)),
             }}
           />
         </>

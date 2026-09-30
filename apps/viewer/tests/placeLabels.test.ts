@@ -14,7 +14,7 @@ const BUILDINGS = new Map<string, BuildingMeta>([
       id: 'building_a',
       name: 'Корпус А',
       translations: { en: { name: 'Building A' } },
-      floors: [{ floor: -1 }, { floor: 1 }, { floor: 2 }],
+      floors: [{ floor: -1 }, { floor: 1 }, { floor: 1.5, label: '1А' }, { floor: 2 }],
     },
   ],
 ]);
@@ -36,6 +36,11 @@ describe('scopeLabel', () => {
     expect(scopeLabel({ mode: 'floor', buildingId: 'building_a', floor: -1 }, BUILDINGS, 'ru')).toBe(
       'Корпус А, этаж −1'
     );
+  });
+
+  it('антресоль — подписью с таблички, а не номером', () => {
+    expect(scopeLabel({ mode: 'floor', buildingId: 'building_a', floor: 1.5 }, BUILDINGS, 'ru')).toBe('Корпус А, этаж 1А');
+    expect(scopeLabel({ mode: 'floor', buildingId: 'building_a', floor: 1.5 }, BUILDINGS, 'en')).toBe('Building A, floor 1А');
   });
 
   it('неизвестный корпус показывается своим id — ошибку данных видно', () => {

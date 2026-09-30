@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { ImageOverlay } from 'react-leaflet';
+import { ImageOverlay, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { DEFAULT_INSETS, FILL_PARENT, MapFrameContext, PlanMapContainer, PlanViewport } from './mapFrame.js';
 import type { MapFrame, MapInsets } from './mapFrame.js';
+import { ensurePane } from './PlacedPlan.js';
 import { FALLBACK_IMAGE_SIZE, useImageSize } from './useImageSize.js';
 import type { ImageSize } from './useImageSize.js';
 
@@ -49,6 +50,14 @@ export interface PixelMapProps {
   /** Сколько места по краям занимает интерфейс поверх карты — план вписывается внутрь. */
   fitInsets?: MapInsets;
 
+  /**
+   * Pane подложки и его z-index. По умолчанию подложка — в `overlayPane`,
+   * вместе с векторными слоями. Своя pane ниже нужна, когда между подложкой и
+   * отметками должны лечь другие планы: редактор ставит так корпуса на
+   * территорию (запись 50).
+   */
+  imagePane?: { name: string; zIndex: number };
+
   className?: string;
 
   /** Встроенный стиль контейнера; по умолчанию карта заполняет родителя. */
@@ -78,6 +87,7 @@ export function PixelMap({
   overlayOpacity = 1,
   constrainToBounds = false,
   fitInsets = DEFAULT_INSETS,
+  imagePane,
   className,
   style = FILL_PARENT,
   children,
@@ -107,7 +117,7 @@ export function PixelMap({
       <MapFrameContext.Provider value={frame}>
         {/* Пока план грузится, подложка скрыта: иначе прежняя картинка
             растянулась бы на границы нового плана под его узлами. */}
-        <ImageOverlay url={url} bounds={bounds} opacity={status === 'ready' ? overlayOpacity : 0} />
+        <Underlay url={url} bounds={bounds} opacity={status === 'ready' ? overlayOpacity : 0} pane={imagePane} />
         <PlanViewport
           bounds={bounds}
           fitKey={fitKey}
@@ -119,4 +129,11 @@ export function PixelMap({
       </MapFrameContext.Provider>
     </PlanMapContainer>
   );
+}
+
+/** Подложка — в своей pane, если её попросили: pane создаётся до слоя. */
+function Underlay({ url, bounds, opacity, pane }: { url: string; bounds: L.LatLngBounds; opacity: number; pane?: { name: string; zIndex: number } }) {
+  const map = useMap();
+  if (pane) ensurePane(map, pane.name, pane.zIndex);
+  return <ImageOverlay url={url} bounds={bounds} opacity={opacity} pane={pane?.name ?? 'overlayPane'} />;
 }

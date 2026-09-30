@@ -1,3 +1,4 @@
+import { floorLabel } from '@campus-map/core';
 import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore, useUnsavedChanges } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
@@ -28,16 +29,22 @@ export const StatusBar: React.FC = () => {
     [nodes, currentBuilding, currentFloor, showPortals]
   );
 
-  const place = currentBuilding
-    ? `${buildingMetas.get(currentBuilding)?.name ?? currentBuilding} / Этаж ${currentFloor}`
-    : 'Территория кампуса';
+  const buildingName = currentBuilding === null ? '' : (buildingMetas.get(currentBuilding)?.name ?? currentBuilding);
+  const place =
+    currentBuilding === null
+      ? 'Территория кампуса'
+      : currentFloor === null
+        ? `${buildingName} / этажей нет`
+        : `${buildingName} / Этаж ${floorLabel(buildingMetas.get(currentBuilding), currentFloor)}`;
+  // У корпуса без этажей плана нет — и считать на нём нечего.
+  const noPlan = currentBuilding !== null && currentFloor === null;
 
   return (
     <footer aria-label="Строка состояния" className="editor-statusbar">
       <span className="editor-statusbar__place" data-status-place>
         {place}
       </span>
-      <span>На плане: {nodesCount(planNodes)}</span>
+      {!noPlan && <span>На плане: {nodesCount(planNodes)}</span>}
       {selectedCount > 0 && <span>Выбрано: {selectedCount}</span>}
 
       <span className="editor-statusbar__spacer" />

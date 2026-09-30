@@ -240,6 +240,16 @@ type StoreSet = Parameters<EditorSlice<EditSlice>>[0];
 type StoreGet = Parameters<EditorSlice<EditSlice>>[1];
 
 /**
+ * План, на который встают новые точки. Корпус без этажей плана не открывает —
+ * на карте тогда территория, и точка встаёт на неё, а не в корпус без этажа.
+ */
+function openPlanOf(st: Pick<EditorStore, 'currentBuilding' | 'currentFloor'>): { building: string; floor: number } {
+  return st.currentBuilding === null || st.currentFloor === null
+    ? { building: CAMPUS_BUILDING_ID, floor: CAMPUS_FLOOR }
+    : { building: st.currentBuilding, floor: st.currentFloor };
+}
+
+/**
  * Ставит точки по описанию щелчка — одной записью отмены: после Ctrl+Z на
  * плане не остаётся половины работы (точки без связи или названия без точки).
  *
@@ -385,8 +395,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     }
 
     const id = st.generateNodeId();
-    const building = st.currentBuilding ?? CAMPUS_BUILDING_ID;
-    const floor = st.currentFloor ?? CAMPUS_FLOOR;
+    const { building, floor } = openPlanOf(st);
 
     const node: MapNode = {
       id,
@@ -1156,11 +1165,11 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
    * этаже оригинала: на кампусе вставленного было не найти.
    */
   paste: (offsetX, offsetY) => {
-    const { clipboard, currentBuilding, currentFloor } = get();
+    const st = get();
+    const { clipboard } = st;
     if (!clipboard || clipboard.nodes.length === 0) return;
 
-    const building = currentBuilding ?? CAMPUS_BUILDING_ID;
-    const floor = currentFloor ?? CAMPUS_FLOOR;
+    const { building, floor } = openPlanOf(st);
     const samePlan = clipboard.nodes.every((n) => n.building === building && n.floor === floor);
     const shiftX = offsetX ?? (samePlan ? PASTE_OFFSET : 0);
     const shiftY = offsetY ?? (samePlan ? PASTE_OFFSET : 0);
@@ -1219,8 +1228,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     const dx = (lt.end.x - lt.start.x) / (count - 1);
     const dy = (lt.end.y - lt.start.y) / (count - 1);
 
-    const building = st.currentBuilding ?? CAMPUS_BUILDING_ID;
-    const floor = st.currentFloor ?? CAMPUS_FLOOR;
+    const { building, floor } = openPlanOf(st);
     const mint = idMinter(st.nodes);
 
     const created: MapNode[] = [];

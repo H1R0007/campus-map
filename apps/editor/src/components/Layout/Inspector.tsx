@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import type { InspectorTab } from '../../stores/editor/panelSlice';
 import { useValidationReport } from '../../hooks/useValidationReport';
+import { useStructureChecks } from '../../hooks/useStructureChecks';
 import { Icon } from '../UI/Icon';
 import { PropertiesView } from '../UI/PropertiesView';
 import { ProblemsView } from '../UI/ProblemsView';
@@ -27,6 +28,7 @@ export const Inspector: React.FC = () => {
   const collapsed = useEditorStore((s) => s.inspectorCollapsed);
   const setCollapsed = useEditorStore((s) => s.setInspectorCollapsed);
   const report = useValidationReport();
+  const structure = useStructureChecks();
   const tabRefs = useRef<Record<InspectorTab, HTMLButtonElement | null>>({ properties: null, problems: null, route: null });
 
   if (collapsed) {
@@ -59,7 +61,7 @@ export const Inspector: React.FC = () => {
     tabRefs.current[next]?.focus();
   };
 
-  const problems = report.errors.length + report.warnings.length;
+  const problems = report.errors.length + report.warnings.length + structure.length;
 
   return (
     <aside aria-label="Инспектор" className="editor-inspector">
@@ -83,7 +85,7 @@ export const Inspector: React.FC = () => {
               {t.label}
               {t.id === 'problems' && problems > 0 && (
                 <span className={`editor-badge ${report.errors.length > 0 ? 'editor-badge--error' : 'editor-badge--warn'}`}>
-                  {report.errors.length > 0 ? report.errors.length : report.warnings.length}
+                  {report.errors.length > 0 ? report.errors.length : report.warnings.length + structure.length}
                 </span>
               )}
             </button>

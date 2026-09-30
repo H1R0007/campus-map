@@ -28,9 +28,10 @@ const ZIP_README = `# Данные карты кампуса
 раздаёт один и тот же каталог и в режиме разработки, и в прод-сборке.
 Копировать данные внутрь \`apps/viewer\` или \`apps/editor\` не нужно.
 
-Планы этажей (\`map.png\`, \`map.svg\`) в архив не попадают: редактор их не
-меняет, и в каталоге данных они остаются прежними.
-
+В архиве только изменённые планы этажей и территории (\`map.png\`, \`map.svg\`,
+\`map.jpg\`, \`map.webp\`): новые, заменённые и переехавшие на другой номер
+этажа. Остальные планы в каталоге данных остаются прежними.
+{sources}{deleted}
 ## Что внутри
 
 \`\`\`
@@ -47,10 +48,22 @@ data/
 Поле \`comment\` — рабочая заметка разметчика, студентам она не показывается.
 `;
 
+/** Что, кроме файлов JSON, уходит в архив (запись 47). */
+export interface ArchiveExtras {
+  /** Изменённые планы: путь внутри `data/` → содержимое. */
+  plans: { path: string; blob: Blob }[];
+  /** Новые исходники планов для `data-sources/`. */
+  sources: { name: string; blob: Blob }[];
+  /** Файлы данных, которые больше не нужны. */
+  deleted: string[];
+}
+
+const NO_EXTRAS: ArchiveExtras = { plans: [], sources: [], deleted: [] };
+
 /**
  * Собирает датасет в ZIP-архив и отдаёт его на скачивание.
  */
-export async function exportToZip(dataset: Dataset): Promise<void> {
+export async function exportToZip(dataset: Dataset, extras: ArchiveExtras = NO_EXTRAS): Promise<void> {
   const zip = new JSZip();
   const dataFolder = zip.folder(DATA_ROOT);
   if (!dataFolder) {
@@ -60,8 +73,22 @@ export async function exportToZip(dataset: Dataset): Promise<void> {
   for (const [relativePath, content] of datasetFiles(dataset)) {
     dataFolder.file(relativePath, content);
   }
+  for (const plan of extras.plans) dataFolder.file(plan.path, plan.blob);
+  for (const source of extras.sources) zip.file(`data-sources/${source.name}`, source.blob);
 
-  zip.file('README.md', ZIP_README.replace('{timestamp}', new Date().toISOString()));
+  const sourcesNote =
+    extras.sources.length === 0
+      ? ''
+      : '\nПрисланные оригиналы планов лежат в `data-sources/` — рядом с `data/`. В git они\nне попадают (запись 46): это нужно редактору, чтобы переделать план.\n';
+  const deletedNote =
+    extras.deleted.length === 0
+      ? ''
+      : `\n**Удалите из \`data/\`** — этих этажей, корпусов или форматов плана больше нет:\n\n${extras.deleted.map((path) => `- \`${path}\``).join('\n')}\n`;
+
+  zip.file(
+    'README.md',
+    ZIP_README.replace('{timestamp}', new Date().toISOString()).replace('{sources}', sourcesNote).replace('{deleted}', deletedNote)
+  );
 
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, `campus-map-data-${new Date().toISOString().slice(0, 10)}.zip`);

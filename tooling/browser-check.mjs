@@ -29,6 +29,10 @@ import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorProperties from './browser/scenarios/editor-properties.mjs';
 import editorRoute from './browser/scenarios/editor-route.mjs';
 import editorSave from './browser/scenarios/editor-save.mjs';
+import editorStructure from './browser/scenarios/editor-structure.mjs';
+import editorImport from './browser/scenarios/editor-import.mjs';
+import editorAlign from './browser/scenarios/editor-align.mjs';
+import editorPlace from './browser/scenarios/editor-place.mjs';
 import editorLayout from './browser/scenarios/editor-layout.mjs';
 import editorHelpSearch from './browser/scenarios/editor-help-search.mjs';
 import editorA11y from './browser/scenarios/editor-a11y.mjs';
@@ -62,6 +66,10 @@ const SCENARIOS = [
   editorProperties,
   editorRoute,
   editorSave,
+  editorStructure,
+  editorImport,
+  editorAlign,
+  editorPlace,
   editorLayout,
   editorHelpSearch,
   editorA11y,
@@ -187,20 +195,28 @@ async function launchBrowser(executable) {
  * `data/`: сценарий правит разметку и сохраняет её по-настоящему.
  */
 async function startIsolatedData(app) {
-  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'campus-map-data-'));
+  const root = mkdtempSync(path.join(os.tmpdir(), 'campus-map-data-'));
+  const dataDir = path.join(root, 'data');
+  const sourcesDir = path.join(root, 'data-sources');
+  const uploadsDir = path.join(root, 'uploads');
   cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
 
-  const server = await startVite({ app, mode: 'dev', env: { CAMPUS_DATA_DIR: dataDir } });
+  const server = await startVite({
+    app,
+    mode: 'dev',
+    env: { CAMPUS_DATA_DIR: dataDir, CAMPUS_SOURCES_DIR: sourcesDir, CAMPUS_UPLOADS_DIR: uploadsDir },
+  });
 
   return {
     port: server.port,
     dataDir,
+    sourcesDir,
     stop() {
       server.stop();
       try {
-        rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+        rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
       } catch (cause) {
-        console.warn(`Не удалось удалить копию данных ${dataDir}: ${cause.message}`);
+        console.warn(`Не удалось удалить копию данных ${root}: ${cause.message}`);
       }
     },
   };
@@ -215,11 +231,12 @@ async function startIsolatedData(app) {
  *
  * Сценарию с `isolatedData` достаётся свой сервер на копии `data/` и путь к
  * ней (`dataDir`): он проверяет сохранение, читая файлы с диска, и не трогает
- * канонический датасет.
+ * канонический датасет. Исходники планов у такого сервера тоже свои
+ * (`sourcesDir`).
  *
  * @returns {Promise<string | null>} текст провала или `null`
  */
-async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir }) {
+async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
 
@@ -241,7 +258,7 @@ async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, 
   };
 
   try {
-    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir });
+    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir });
     return null;
   } catch (error) {
     return error.stack ?? String(error);
@@ -300,6 +317,7 @@ async function main() {
           mode: isolated ? 'dev' : mode,
           stopServer: server.stop,
           dataDir: isolated?.dataDir,
+          sourcesDir: isolated?.sourcesDir,
         });
 
         isolated?.stop();

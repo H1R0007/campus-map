@@ -1,11 +1,15 @@
 import React, { useMemo } from 'react';
-import { CircleMarker, ImageOverlay, Polyline } from 'react-leaflet';
+import { CircleMarker, ImageOverlay, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { edgeKey, floorMapUrl, planFormatOf } from '@campus-map/core';
+import { edgeKey, planFormatOf, resolvePlanPlacement } from '@campus-map/core';
+import { PlacedPlan, ensurePane } from '@campus-map/mapkit';
+import { applySimilarity, composeSimilarity, invertSimilarity, rotationOf, scaleOf } from '../../import/planGeometry';
+import { worldOf } from '../../import/placementMath';
+import { BUILDINGS_PANE } from './panes';
 import type { MapNode } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
-import { DATA_BASE_URL } from '../../config/dataBase';
+import { usePlanUrl } from '../../hooks/usePlanUrl';
 import { mapPalette } from '../../utils/themeColor';
 
 /**
@@ -39,6 +43,7 @@ export const NeighbourFloor: React.FC = () => {
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const allNodes = useEditorStore((s) => s.nodes);
   const palette = mapPalette();
+  const map = useMap();
 
   const meta = currentBuilding === null ? undefined : buildingMetas.get(currentBuilding);
 
@@ -52,10 +57,39 @@ export const NeighbourFloor: React.FC = () => {
     return chosen === undefined ? null : chosen;
   }, [show, meta, currentFloor, direction]);
 
-  const nodes = useMemo(
-    () => (neighbour === null ? [] : floorNodesOf(allNodes, currentBuilding, neighbour, true)),
-    [allNodes, currentBuilding, neighbour]
-  );
+  /**
+   * Пиксель соседнего этажа → пиксель открытого (запись 53). Этажи со своей
+   * привязкой начерчены в разном масштабе: калька ставится по привязкам,
+   * чтобы лестницы совпали. Без привязок — один и тот же пиксель.
+   */
+  const relative = useMemo(() => {
+    if (!meta || neighbour === null || currentFloor === null) return null;
+    const own = meta.floors.find((item) => item.floor === currentFloor);
+    const other = meta.floors.find((item) => item.floor === neighbour);
+    const here = own ? resolvePlanPlacement(meta, own) : null;
+    const there = other ? resolvePlanPlacement(meta, other) : null;
+    if (!here || !there) return null;
+    const rel = composeSimilarity(invertSimilarity(worldOf(here)), worldOf(there));
+    const identity = Math.abs(rel.a - 1) < 1e-9 && Math.abs(rel.b) < 1e-9 && Math.abs(rel.tx) < 1e-6 && Math.abs(rel.ty) < 1e-6;
+    return identity ? null : rel;
+  }, [meta, neighbour, currentFloor]);
+
+  // Точки кальки — в пикселях открытого этажа. Один и тот же объект точки
+  // даёт один и тот же пересчёт: иначе перетаскивание на открытом этаже
+  // перерисовывало бы всю кальку.
+  const moved = useMemo(() => ({ relative, cache: new WeakMap<MapNode, MapNode>() }), [relative]);
+  const nodes = useMemo(() => {
+    const list = neighbour === null ? [] : floorNodesOf(allNodes, currentBuilding, neighbour, true);
+    if (!relative) return list;
+    return list.map((node) => {
+      let copy = moved.cache.get(node);
+      if (!copy) {
+        copy = { ...node, ...applySimilarity(relative, node) };
+        moved.cache.set(node, copy);
+      }
+      return copy;
+    });
+  }, [allNodes, currentBuilding, neighbour, relative, moved]);
 
   const edges = useMemo(() => {
     const seen = new Set<string>();
@@ -75,6 +109,7 @@ export const NeighbourFloor: React.FC = () => {
   }, [nodes]);
 
   const floorMeta = neighbour === null ? undefined : meta?.floors.find((item) => item.floor === neighbour);
+  const plan = usePlanUrl(currentBuilding, neighbour);
   const width = floorMeta?.mapSize?.width;
   const height = floorMeta?.mapSize?.height;
   const bounds = useMemo(
@@ -86,9 +121,20 @@ export const NeighbourFloor: React.FC = () => {
 
   return (
     <>
-      {bounds && (
+      {relative && plan.url !== null && (
+        <PlacedPlan
+          url={plan.url}
+          format={planFormatOf(floorMeta)}
+          placement={{ metersPerPixel: scaleOf(relative), originMeters: { x: relative.tx, y: relative.ty }, rotationDeg: rotationOf(relative) }}
+          fallbackSize={floorMeta?.mapSize}
+          pane={ghostPane(map)}
+          className="editor-ghost-plan"
+          reportStatus={false}
+        />
+      )}
+      {!relative && bounds && plan.url !== null && (
         <ImageOverlay
-          url={floorMapUrl(currentBuilding, neighbour, DATA_BASE_URL, planFormatOf(floorMeta))}
+          url={plan.url}
           bounds={bounds}
           opacity={0.18}
           interactive={false}
@@ -131,3 +177,9 @@ const GhostNode = React.memo(function GhostNode({ node, color }: { node: MapNode
 
   return <CircleMarker center={center} radius={5} interactive={false} eventHandlers={ghostNodeClass} pathOptions={pathOptions} />;
 });
+
+/** Pane кальки: над подложкой, под точками открытого этажа. */
+function ghostPane(map: L.Map): string {
+  ensurePane(map, BUILDINGS_PANE.name, BUILDINGS_PANE.zIndex);
+  return BUILDINGS_PANE.name;
+}

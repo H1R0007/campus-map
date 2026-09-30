@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import { DEFAULT_INSETS, PixelMap, fitPaddingOf, flyToBounds, useMapFrame } from '@campus-map/mapkit';
-import { campusMapUrl, floorMapUrl, planFormatOf } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { useCursorStore } from '../../stores/cursorStore';
 import type { EditorStore, EditorTool } from '../../stores/editorStore';
-import { DATA_BASE_URL } from '../../config/dataBase';
+import { blankPlanUrl, usePlanUrl } from '../../hooks/usePlanUrl';
+import { planScopeKey } from '../../utils/planFiles';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { visibleKinds } from '../../utils/placeKinds';
 import { TRANSITION_LABELS } from '../../utils/labels';
@@ -20,6 +20,9 @@ import { GridOverlay } from './GridOverlay';
 import { NeighbourFloor } from './NeighbourFloor';
 import { RouteOverlay } from './RouteOverlay';
 import { AliasLabels } from './AliasLabels';
+import { AlignmentLayer } from './AlignmentLayer';
+import { CampusBuildings, MeasureLayer, PlacementLayer } from './PlacementLayers';
+import { EDITOR_UNDERLAY } from './panes';
 
 const CameraController: React.FC = () => {
   const map = useMap();
@@ -338,6 +341,21 @@ const MapEventHandler: React.FC = () => {
       const st = useEditorStore.getState();
       const { lng: x, lat: y } = e.latlng;
 
+      if (st.measuring) {
+        st.measureClick(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        return;
+      }
+      if (st.placing) {
+        if (st.placing.pairMode) st.placingClick(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        return;
+      }
+
+      if (st.alignment) {
+        if (st.alignment.pending) st.alignPlace(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        else st.showNotice('Сначала щёлкните точку, которую переносите, затем место на плане, где она должна стоять');
+        return;
+      }
+
       if (st.activeTool === 'node') {
         // Щелчок ставит точку выбранного вида: вид сам даёт название, цепляет
         // к ближайшей точке и, если нужно, повторяет себя на всех этажах.
@@ -392,6 +410,12 @@ const MapEventHandler: React.FC = () => {
     mouseout: () => useCursorStore.getState().setPoint(null),
 
     zoomend: () => useCursorStore.getState().setZoom(map.getZoom()),
+
+    moveend: () => {
+      const bounds = map.getBounds();
+      const center = map.getCenter();
+      useCursorStore.getState().setView({ center: { x: center.lng, y: center.lat }, width: bounds.getEast() - bounds.getWest() });
+    },
 
     contextmenu: (e) => {
       const dom = e.originalEvent;
@@ -448,28 +472,35 @@ export const EditorMap: React.FC = () => {
   const campusMeta = useEditorStore((s) => s.campusMeta);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
 
-  // Формат плана — из метаданных: PNG или SVG (запись 29).
-  const mapUrl = useMemo(() => {
-    if (currentBuilding === null || currentFloor === null) {
-      return campusMapUrl(DATA_BASE_URL, planFormatOf(campusMeta ?? undefined));
-    }
-    const floorMeta = buildingMetas.get(currentBuilding)?.floors.find((meta) => meta.floor === currentFloor);
-    return floorMapUrl(currentBuilding, currentFloor, DATA_BASE_URL, planFormatOf(floorMeta));
-  }, [currentBuilding, currentFloor, campusMeta, buildingMetas]);
+  // Корпус без этажей показывает территорию: разметки на нём нет, а поверх
+  // карты — предложение добавить этажи (`PlanStatus`).
+  const building = currentFloor === null ? null : currentBuilding;
+  const plan = usePlanUrl(building, currentFloor);
+  const mapSize =
+    building === null
+      ? campusMeta?.mapSize
+      : buildingMetas.get(building)?.floors.find((meta) => meta.floor === currentFloor)?.mapSize;
+  // У плана без файла — прозрачная подложка его размера: точки ставятся как обычно.
+  const mapUrl = plan.url ?? blankPlanUrl(mapSize);
 
   return (
     <PixelMap
       url={mapUrl}
+      // Вид подгоняется под план, когда открыли другой план или сменили его
+      // содержимое, — но не когда сохранение перенесло тот же файл.
+      fitKey={`${planScopeKey(building, currentFloor)}|${plan.key ?? 'blank'}`}
       maxZoom={6}
       zoomControl
       doubleClickZoom={false}
       overlayOpacity={0.6}
+      imagePane={EDITOR_UNDERLAY}
     >
       <CameraController />
       <MapResizeWatcher />
       <KeyboardHandler />
 
       {/* overlays order */}
+      <CampusBuildings />
       <NeighbourFloor />
       <GridOverlay />
       <EditorEdges />
@@ -481,6 +512,9 @@ export const EditorMap: React.FC = () => {
       <SelectionBox />
       <EditorNodes />
       <AliasLabels />
+      <AlignmentLayer />
+      <PlacementLayer />
+      <MeasureLayer />
 
       <MapEventHandler />
     </PixelMap>

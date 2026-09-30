@@ -1,6 +1,6 @@
 import type { AliasManager, BuildingMeta, Graph, ViewScope } from '@campus-map/core';
 import { buildingName, scopeOfNode } from '@campus-map/core';
-import { formatFloor, messagesFor } from '../i18n';
+import { floorText, messagesFor } from '../i18n';
 import type { Language } from '../i18n/languages';
 
 /**
@@ -33,7 +33,7 @@ export function scopeLabel(
 
   return messages.map.place(
     buildingLabel(buildingMetas, scope.buildingId, language),
-    formatFloor(scope.floor)
+    floorText(buildingMetas, scope.buildingId, scope.floor)
   );
 }
 
