@@ -66,19 +66,19 @@ export const ArrivalCard: React.FC = () => {
         <button
           type="button"
           onClick={swapPoints}
-          className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
+          className="flex-1 compact:flex-none min-w-0 h-12 compact:h-auto compact:min-h-12 compact:py-2 px-4 compact:px-3 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors"
         >
           <Icon name="swap" className="flex-shrink-0 compact:hidden" />
-          <span className="truncate">{messages.arrival.back}</span>
+          <span className="truncate compact:whitespace-normal compact:text-center">{messages.arrival.back}</span>
         </button>
         {exitReachable && (
           <button
             type="button"
             onClick={() => continueToNearest(EXIT_TARGET)}
-            className="flex-1 compact:flex-none min-w-0 h-12 px-4 rounded-xl bg-gray-100 text-gray-800 font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+            className="flex-1 compact:flex-none min-w-0 h-12 compact:h-auto compact:min-h-12 compact:py-2 px-4 compact:px-3 rounded-xl bg-gray-100 text-gray-800 font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
           >
             <Icon name="exit" className="flex-shrink-0 compact:hidden" />
-            <span className="truncate">{messages.arrival.toExit}</span>
+            <span className="truncate compact:whitespace-normal compact:text-center">{messages.arrival.toExit}</span>
           </button>
         )}
       </div>
