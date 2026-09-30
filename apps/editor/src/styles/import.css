@@ -267,3 +267,71 @@
     border: 0;
     font-weight: 700;
 }
+
+/* --- Контур здания на листе (запись 73) --- */
+
+.editor-import__shape {
+    align-items: center;
+}
+
+.editor-outline {
+    position: absolute;
+    inset: 0;
+}
+
+.editor-outline__svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* За контуром — затемнено: в план не попадёт. */
+.editor-outline__shade {
+    fill: rgba(15, 17, 21, 0.55);
+}
+
+.editor-outline__line {
+    fill: none;
+    stroke: var(--editor-focus);
+    stroke-width: 2;
+}
+
+.editor-outline__corner,
+.editor-outline__edge {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+    padding: 0;
+    border: 2px solid #ffffff;
+    background: var(--editor-focus);
+    cursor: grab;
+    touch-action: none;
+}
+
+.editor-outline__corner {
+    border-radius: 4px;
+}
+
+/* Середина ребра — круглая и меньше: тянут — дуга, двойной щелчок — угол. */
+.editor-outline__edge {
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    background: var(--editor-panel);
+    border-color: var(--editor-focus);
+}
+
+.editor-outline__edge--arc {
+    background: var(--editor-focus);
+    border-color: #ffffff;
+}
+
+.editor-outline__corner:focus-visible,
+.editor-outline__edge:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+}

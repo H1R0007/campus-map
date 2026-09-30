@@ -2,6 +2,8 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
 import type { MapSize } from '@campus-map/core';
 import { dragBox } from '../../import/trim';
 import type { Box, CropHandle } from '../../import/trim';
+import type { OutlinePoint } from '../../import/outline';
+import { OutlineEditor } from './OutlineEditor';
 
 /**
  * Лист с областью, которая станет планом (запись 48).
@@ -32,7 +34,10 @@ export const CropEditor: React.FC<{
   pageSize: MapSize;
   crop: Box | null;
   onChange: (crop: Box) => void;
-}> = ({ imageUrl, failure = null, pageSize, crop, onChange }) => {
+  /** Контур здания (запись 73): с ним вместо рамки — углы и дуги. */
+  outline?: OutlinePoint[] | null;
+  onOutlineChange?: (outline: OutlinePoint[]) => void;
+}> = ({ imageUrl, failure = null, pageSize, crop, onChange, outline = null, onOutlineChange }) => {
   const frameRef = useRef<HTMLDivElement>(null);
   const [frameWidth, setFrameWidth] = useState(0);
   const drag = useRef<{ handle: Handle; x: number; y: number; start: Box } | null>(null);
@@ -91,7 +96,10 @@ export const CropEditor: React.FC<{
       ) : (
         <div className="editor-crop__loading">Лист рисуется…</div>
       )}
-      {scale > 0 && (
+      {scale > 0 && outline && onOutlineChange && (
+        <OutlineEditor outline={outline} pageSize={pageSize} scale={scale} onChange={onOutlineChange} />
+      )}
+      {scale > 0 && !outline && (
         <div
           className="editor-crop__box"
           style={{ left: box.x * scale, top: box.y * scale, width: box.width * scale, height: box.height * scale }}

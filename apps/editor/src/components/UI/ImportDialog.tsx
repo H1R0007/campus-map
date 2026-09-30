@@ -6,6 +6,8 @@ import type { ImportFloor } from '../../stores/editor/structureSlice';
 import type { PlanInput } from '../../stores/editor/structureSlice';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { guessPlace } from '../../import/guess';
+import { outlineBox, outlineOfBox, traceBuildingOutline } from '../../import/outline';
+import type { OutlinePoint } from '../../import/outline';
 import { checkPieces, floorFromText, importSummary, initialPiece, pieceId, rotatePiece } from '../../import/importModel';
 import type { BuildingChoice, Piece, PieceTarget } from '../../import/importModel';
 import { makePlan, metersPerUnitOf, previewPlan } from '../../import/output';
@@ -94,6 +96,7 @@ const ImportWindow: React.FC = () => {
             sheetId: sheet.id,
             rotation: redo.rotation,
             crop: redo.crop,
+            outline: redo.outline ?? null,
             trimmed: false,
             target,
             notes: ['Тот же лист, что у плана сейчас: поправьте рамку или поворот'],
@@ -166,7 +169,7 @@ const ImportWindow: React.FC = () => {
       for (const [index, piece] of toAdd.entries()) {
         setBusy(`Подготовка плана ${index + 1} из ${toAdd.length}…`);
         const sheet = sheets.find((item) => item.id === piece.sheetId)!;
-        const made = await makePlan(sheet, { rotation: piece.rotation, crop: piece.crop, scaleRatio: Number(piece.scaleText) || undefined });
+        const made = await makePlan(sheet, { rotation: piece.rotation, crop: piece.crop, outline: piece.outline ?? null, scaleRatio: Number(piece.scaleText) || undefined });
         const plan: PlanInput = { key: made.key, format: made.format, mapSize: made.mapSize, source: made.source };
         const target = piece.target;
         if (target.kind === 'campus') campus = plan;
@@ -431,13 +434,39 @@ const PieceEditor: React.FC<{
       const canvas = await sheet.render(piece.rotation, null, scale);
       const box = contentBox(canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
       onTouchCrop();
-      onChange((current) => ({ ...current, crop: box ? clampBox(scaleBox(box, 1 / scale), rotated) : null, trimmed: box !== null }));
+      onChange((current) => ({ ...current, crop: box ? clampBox(scaleBox(box, 1 / scale), rotated) : null, outline: null, trimmed: box !== null }));
     } finally {
       setTrimming(false);
     }
   };
 
-  const result = previewPlan(sheet, { rotation: piece.rotation, crop: piece.crop });
+  // Контур здания (запись 73): обрезка — его описанный прямоугольник.
+  const setOutline = (outline: OutlinePoint[] | null) => {
+    onTouchCrop();
+    onChange((current) => ({ ...current, outline, crop: outline ? clampBox(outlineBox(outline), rotated) : current.crop, trimmed: false }));
+  };
+  const [tracing, setTracing] = useState<string | null>(null);
+  const traceOutline = async () => {
+    setTracing('Поиск контура…');
+    try {
+      // Ищется внутри нынешней рамки: поля и соседние чертежи листа не мешают.
+      const area = piece.crop ?? { x: 0, y: 0, ...rotated };
+      const scale = PREVIEW_SIDE / Math.max(area.width, area.height);
+      const canvas = await sheet.render(piece.rotation, area, scale);
+      const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+      const found = traceBuildingOutline({ width: canvas.width, height: canvas.height, data: pixels.data });
+      if (!found) {
+        setTracing('Контур не нашёлся: обведите углы вручную');
+        return;
+      }
+      setOutline(found.map((point) => ({ x: area.x + point.x / scale, y: area.y + point.y / scale })));
+      setTracing(null);
+    } catch (cause) {
+      setTracing(`Контур не нашёлся: ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+  };
+
+  const result = previewPlan(sheet, { rotation: piece.rotation, crop: piece.crop, outline: piece.outline ?? null });
   const metersPerUnit = metersPerUnitOf(sheet, Number(piece.scaleText) || undefined);
 
   return (
@@ -562,7 +591,7 @@ const PieceEditor: React.FC<{
           className="editor-button editor-button--ghost"
           onClick={() => {
             onTouchCrop();
-            onChange((current) => ({ ...current, crop: null, trimmed: false }));
+            onChange((current) => ({ ...current, crop: null, outline: null, trimmed: false }));
           }}
         >
           Весь лист
@@ -579,7 +608,32 @@ const PieceEditor: React.FC<{
         )}
       </div>
 
+      <div className="editor-card__actions editor-import__shape" role="group" aria-label="Форма области">
+        <span className="editor-section__hint">Форма:</span>
+        <div className="editor-segmented" role="radiogroup" aria-label="Форма области">
+          <button type="button" role="radio" aria-checked={!piece.outline} className="editor-segmented__item" onClick={() => setOutline(null)}>
+            Прямоугольник
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={Boolean(piece.outline)}
+            className="editor-segmented__item"
+            onClick={() => !piece.outline && setOutline(outlineOfBox(piece.crop ?? { x: 0, y: 0, ...rotated }))}
+          >
+            Контур
+          </button>
+        </div>
+        <button type="button" className="editor-button editor-button--ghost" onClick={() => void traceOutline()} disabled={tracing === 'Поиск контура…'}>
+          <Icon name="building" />
+          Найти контур здания
+        </button>
+        {tracing && <span className="editor-section__hint" role="status">{tracing}</span>}
+      </div>
+
       <CropEditor
+        outline={piece.outline ?? null}
+        onOutlineChange={setOutline}
         imageUrl={preview?.rotation === piece.rotation ? preview.url : null}
         failure={preview?.rotation === piece.rotation ? (preview.failure ?? null) : null}
         pageSize={rotated}
@@ -591,6 +645,7 @@ const PieceEditor: React.FC<{
       />
       <p className="editor-section__hint">
         {piece.trimmed ? 'Поля обрезаны сами — поправьте рамку, если план задело. ' : ''}
+        {piece.outline ? 'За контуром план прозрачный — на территории ляжет силуэтом здания. ' : ''}
         Получится: {result.format.toUpperCase()}, {result.size.width} × {result.size.height} пикс.
         {result.asIs ? ' — файл как есть' : ''}
         {metersPerUnit ? `, 1 пикс. = ${String(Math.round((metersPerUnit / result.scale) * 10000) / 10000).replace('.', ',')} м` : ''}.

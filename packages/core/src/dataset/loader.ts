@@ -7,6 +7,7 @@ import type {
   CampusMeta,
   FloorMeta,
   MapSize,
+  PlanOutlinePoint,
   PlanSource,
 } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
@@ -195,6 +196,26 @@ function readPlanSource(value: unknown, where: string, warnings: string[]): Plan
       return fail('обрезка — не прямоугольник');
     }
     source.crop = { x, y, width, height };
+  }
+
+  if (raw.outline !== undefined) {
+    // Контур из двух вершин — круг или «линза» из двух дуг; меньше — не контур.
+    if (!Array.isArray(raw.outline) || raw.outline.length < 2) return fail('контур — не список вершин');
+    const outline: PlanOutlinePoint[] = [];
+    for (const item of raw.outline) {
+      const point = isRecord(item) ? item : {};
+      const [x, y] = [asStrictNumber(point.x), asStrictNumber(point.y)];
+      if (x === undefined || y === undefined) return fail('вершина контура — не точка');
+      if (point.bulge === undefined || point.bulge === 0) {
+        outline.push({ x, y });
+        continue;
+      }
+      const bulge = asStrictNumber(point.bulge);
+      if (bulge === undefined) return fail('изгиб ребра контура — не число');
+      outline.push({ x, y, bulge });
+    }
+    if (outline.length === 2 && outline.every((point) => !point.bulge)) return fail('контур из двух вершин без дуг — отрезок');
+    source.outline = outline;
   }
 
   if (raw.metersPerUnit !== undefined) {
