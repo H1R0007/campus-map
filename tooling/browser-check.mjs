@@ -166,6 +166,10 @@ async function launchBrowser(executable) {
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-extensions',
+    // Язык браузера — русский, как у сценариев: у раннера GitHub он английский,
+    // и навигатор (язык по navigator.languages) открывался бы по-английски.
+    '--lang=ru-RU',
+    '--accept-lang=ru-RU,ru',
   ];
   // Под root (контейнер CI) песочница Chrome не запускается.
   if (process.platform === 'linux' && process.getuid?.() === 0) args.push('--no-sandbox');
