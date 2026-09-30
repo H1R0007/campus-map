@@ -3,6 +3,8 @@ import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
 import { createDataSlice } from './editor/dataSlice';
 import { createEditSlice } from './editor/editSlice';
+import { createKindSlice } from './editor/kindSlice';
+import { createClipboardSlice } from './editor/clipboardSlice';
 import { createHistorySlice } from './editor/historySlice';
 import { createPanelSlice } from './editor/panelSlice';
 import { createRouteSlice } from './editor/routeSlice';
@@ -32,6 +34,8 @@ export const useEditorStore = create<EditorStore>()(
     ...createSelectionSlice(...a),
     ...createToolSlice(...a),
     ...createEditSlice(...a),
+    ...createKindSlice(...a),
+    ...createClipboardSlice(...a),
     ...createHistorySlice(...a),
     ...createPanelSlice(...a),
     ...createRouteSlice(...a),

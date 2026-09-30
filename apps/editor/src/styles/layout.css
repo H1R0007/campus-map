@@ -1,0 +1,717 @@
+/* Стили редактора: раскладка колонок, шапка, строка пути, окна карт, строка состояния. Порядок подключения — в main.tsx. */
+
+/* --- Раскладка: колонки по бокам карты вместо панелей поверх неё --- */
+
+.editor-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--editor-bg);
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 6px 12px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-topbar__title {
+    margin-right: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.editor-topbar__group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.editor-topbar__spacer {
+    flex: 1;
+}
+
+/*
+ * Режимы работы (запись 60): «Планы и корпуса», «Разметка», «Проверка».
+ * Выбранный — приподнятой плашкой с полосой акцента снизу, как вкладки.
+ */
+.editor-modes {
+    display: flex;
+    gap: 2px;
+    margin-left: 12px;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--editor-bg);
+}
+
+.editor-modes__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-modes__item:hover {
+    color: var(--editor-text);
+    background: var(--editor-hover);
+}
+
+.editor-modes__item[aria-pressed='true'] {
+    color: var(--editor-text);
+    background: var(--editor-accent);
+    box-shadow: inset 0 -2px 0 var(--editor-focus);
+}
+
+/* «Сохранить» и стрелка меню — одна кнопка из двух частей. */
+.editor-split {
+    display: flex;
+}
+
+.editor-split > .editor-split__main {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.editor-split > .editor-split__toggle {
+    min-width: 32px;
+    padding: 0 8px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.editor-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.editor-menu__item:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+.editor-menu__item:disabled {
+    color: var(--editor-text-muted);
+    cursor: default;
+}
+
+.editor-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.editor-sidebar,
+.editor-inspector {
+    position: relative;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--editor-panel);
+}
+
+/*
+ * Край колонки, который тянут мышью (запись 57): полоска у самой границы,
+ * под курсором и при перетаскивании — линия акцента.
+ */
+.editor-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 5;
+    width: 6px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.editor-resizer--right {
+    right: 0;
+}
+
+.editor-resizer--left {
+    left: 0;
+}
+
+.editor-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: transparent;
+    transition: background-color 120ms;
+}
+
+.editor-resizer--right::after {
+    right: 0;
+}
+
+.editor-resizer--left::after {
+    left: 0;
+}
+
+.editor-resizer:hover::after,
+.editor-resizer:active::after,
+.editor-resizer:focus-visible::after {
+    background: var(--editor-focus);
+}
+
+.editor-resizer:focus-visible {
+    outline: none;
+}
+
+.editor-sidebar {
+    width: 248px;
+    border-right: 1px solid var(--editor-border);
+}
+
+.editor-inspector {
+    width: 360px;
+    border-left: 1px solid var(--editor-border);
+}
+
+/* На экране ноутбука колонки уже: карте нужно хотя бы две трети ширины. */
+@media (max-width: 1440px) {
+    .editor-sidebar {
+        width: 216px;
+    }
+
+    .editor-inspector {
+        width: 320px;
+    }
+}
+
+/* Свёрнутая колонка — полоска с одной кнопкой «развернуть». */
+.editor-sidebar--collapsed,
+.editor-inspector--collapsed {
+    width: 52px;
+    align-items: center;
+    padding-top: 4px;
+}
+
+.editor-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 44px;
+    padding: 4px 4px 4px 16px;
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-column-header__title {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.editor-column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.editor-rail {
+    flex: none;
+    width: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 6px;
+    overflow-y: auto;
+    background: var(--editor-panel);
+    border-right: 1px solid var(--editor-border);
+}
+
+.editor-rail__tool {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    min-height: 52px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 12px;
+    line-height: 1.1;
+    cursor: pointer;
+}
+
+.editor-rail__tool:hover {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-rail__tool[aria-pressed='true'] {
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.editor-workspace {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/*
+ * Строка над картой: что делает инструмент и его параметры.
+ *
+ * Высота постоянная и строка не переносится: иначе выбор узла, добавляющий
+ * кнопки действий, сдвигал бы карту вниз, и следующий щелчок попадал бы не
+ * туда. Не хватает места — подсказка обрезается, у кнопок остаются значки.
+ */
+.editor-toolbar {
+    container-type: inline-size;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 44px;
+    padding: 0 12px;
+    background: var(--editor-accent);
+    border-bottom: 1px solid var(--editor-border);
+    overflow: hidden;
+}
+
+.editor-toolbar__tool {
+    flex: none;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.editor-toolbar__hint {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--editor-text-muted);
+}
+
+.editor-toolbar__options {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: 6px;
+}
+
+@container (max-width: 860px) {
+    .editor-toolbar__label {
+        display: none;
+    }
+}
+
+.editor-map-area {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/*
+ * «Планы и корпуса»: точки, связи и переходы видны, но бледные и не ловят
+ * щелчки — здесь правят планы, а не разметку (запись 60).
+ */
+.editor-map-area--quiet .leaflet-pane > svg path.leaflet-interactive {
+    pointer-events: none;
+}
+
+.editor-map-area--quiet .leaflet-overlay-pane path[data-node-id],
+.editor-map-area--quiet .leaflet-overlay-pane path[data-edge] {
+    opacity: 0.4;
+}
+
+/* Строка пути над картой: «Корпус А › Этаж 2». */
+.editor-mapbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 0 8px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-crumb {
+    min-height: 32px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-crumb:hover,
+.editor-crumb:focus-visible {
+    background: var(--editor-hover);
+    border-color: var(--editor-border);
+}
+
+.editor-crumb option {
+    background: var(--editor-panel);
+    color: var(--editor-text);
+}
+
+.editor-mapbar__sep,
+.editor-mapbar__empty {
+    color: var(--editor-text-muted);
+    font-size: 14px;
+}
+
+/* --- Окна карт (запись 66): вкладки, две карты рядом, свёрнутая полоска --- */
+.editor-mapwindows {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.editor-mapgroup {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    /* Слои Leaflet со своими z-index остаются внутри карты: пунктир между
+       картами и зоны переноса вкладки лежат поверх обеих. */
+    isolation: isolate;
+}
+
+.editor-mapwindows--split > .editor-mapgroup:first-child {
+    flex: 0 0 calc(var(--editor-split) - 3px);
+}
+
+.editor-splitter {
+    position: relative;
+    flex: none;
+    width: 6px;
+    background: var(--editor-border);
+    cursor: col-resize;
+    touch-action: none;
+    transition: background-color 120ms;
+}
+
+.editor-splitter:hover,
+.editor-splitter:active,
+.editor-splitter:focus-visible {
+    background: var(--editor-focus);
+    outline: none;
+}
+
+.editor-maptabs {
+    display: flex;
+    align-items: stretch;
+    min-height: 40px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-maptabs__list {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.editor-maptab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: none;
+    max-width: 240px;
+    border-right: 1px solid var(--editor-border);
+    color: var(--editor-text-muted);
+}
+
+.editor-maptab:hover {
+    background: var(--editor-hover);
+}
+
+.editor-maptab--selected,
+.editor-maptab--selected:hover {
+    background: var(--editor-accent);
+    color: var(--editor-text);
+}
+
+/* Полоса под открытой вкладкой: синяя — у активной карты, серая — у соседней. */
+.editor-maptab--selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--editor-text-muted);
+}
+
+.editor-mapgroup--active .editor-maptab--selected::after {
+    background: var(--editor-focus);
+}
+
+.editor-maptab--dragged {
+    opacity: 0.5;
+}
+
+.editor-maptab--drop-before::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--editor-focus);
+}
+
+.editor-maptab__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 6px 0 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.editor-maptab__label:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: -2px;
+}
+
+.editor-maptab__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-maptab__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    margin-right: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.editor-maptab:hover .editor-maptab__close,
+.editor-maptab--selected .editor-maptab__close,
+.editor-maptab__close:focus-visible {
+    opacity: 1;
+}
+
+.editor-maptab__close:hover {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-maptabs__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    padding: 0 6px;
+}
+
+.editor-button--compact {
+    min-height: 32px;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.editor-maptabs__actions .editor-button--ghost {
+    border-color: transparent;
+    color: var(--editor-text-muted);
+}
+
+.editor-maptabs__actions .editor-button--ghost:hover {
+    color: var(--editor-text);
+}
+
+/* Свёрнутая вторая карта: полоска у правого края с названием плана. */
+.editor-mapstrip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    width: 40px;
+    min-height: 0;
+    padding: 10px 0;
+    border: 0;
+    border-left: 1px solid var(--editor-border);
+    background: var(--editor-panel);
+    color: var(--editor-text-muted);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.editor-mapstrip:hover,
+.editor-mapstrip:focus-visible {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-mapstrip__label {
+    min-height: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    writing-mode: vertical-rl;
+}
+
+/* Куда отпустить вкладку: правая половина — «Открыть рядом», другая карта — «Перенести». */
+.editor-dropzone {
+    position: absolute;
+    inset: 8px;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--editor-focus);
+    border-radius: 12px;
+    background: var(--editor-panel);
+    color: var(--editor-text);
+    font-size: 15px;
+}
+
+.editor-dropzone--side {
+    left: 50%;
+    top: 88px;
+}
+
+.editor-dropzone--over {
+    border-style: solid;
+    background: var(--editor-accent);
+}
+
+.editor-dropzone__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.editor-crosslink {
+    position: absolute;
+    inset: 0;
+    z-index: 950;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.editor-statusbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    min-height: 32px;
+    padding: 4px 12px;
+    background: var(--editor-panel);
+    border-top: 1px solid var(--editor-border);
+    color: var(--editor-text-muted);
+    font-size: 13px;
+    user-select: none;
+}
+
+.editor-statusbar__place {
+    color: var(--editor-text);
+    font-weight: 500;
+}
+
+/* Подсказка инструмента: занимает свободное место и обрезается многоточием. */
+.editor-statusbar__hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--editor-text-muted);
+}
+
+.editor-statusbar__coords {
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-statusbar__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--editor-success);
+}
+
+.editor-statusbar__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
+.editor-statusbar__state--unsaved {
+    color: var(--editor-warn);
+}
+
+/* «Готовность 11/15» — кнопка той же высоты, что строка, без рамки. */
+.editor-statusbar__ready {
+    min-height: 32px;
+    margin: -4px 0;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-statusbar__ready:hover,
+.editor-statusbar__ready:focus-visible {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}

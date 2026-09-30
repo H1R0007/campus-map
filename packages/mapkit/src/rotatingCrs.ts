@@ -64,11 +64,6 @@ function projectionOf(map: L.Map): RotatingProjection | null {
   return projection && typeof projection.bearing === 'number' ? (projection as RotatingProjection) : null;
 }
 
-/** Можно ли карту поворачивать. */
-export function isRotatable(map: L.Map): boolean {
-  return projectionOf(map) !== null;
-}
-
 /** Угол карты, градусы по часовой; у карты без поворота — 0. */
 export function bearingOf(map: L.Map): number {
   return projectionOf(map)?.bearing ?? 0;

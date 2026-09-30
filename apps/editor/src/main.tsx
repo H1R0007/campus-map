@@ -5,7 +5,18 @@ import App from './App';
 import { SPACE } from './config/space';
 import { readLayoutPrefs } from './utils/layoutPrefs';
 import { applyTheme, resolveTheme } from './utils/theme';
+// Стили — по областям экрана; порядок — порядок каскада, прежде это был один
+// файл на 3300 строк.
 import './index.css';
+import './styles/map.css';
+import './styles/dialogs.css';
+import './styles/layout.css';
+import './styles/readiness.css';
+import './styles/panels.css';
+import './styles/search.css';
+import './styles/check.css';
+import './styles/import.css';
+import './styles/placement.css';
 
 /**
  * Точка входа редактора.

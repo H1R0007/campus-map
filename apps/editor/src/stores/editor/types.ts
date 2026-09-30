@@ -1,6 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { DataSlice } from './dataSlice';
 import type { EditSlice } from './editSlice';
+import type { KindSlice } from './kindSlice';
+import type { ClipboardSlice } from './clipboardSlice';
 import type { HistorySlice } from './historySlice';
 import type { PanelSlice } from './panelSlice';
 import type { RouteSlice } from './routeSlice';
@@ -27,6 +29,8 @@ export type EditorStore = DataSlice &
   SelectionSlice &
   ToolSlice &
   EditSlice &
+  KindSlice &
+  ClipboardSlice &
   HistorySlice &
   PanelSlice &
   RouteSlice &

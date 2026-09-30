@@ -1,0 +1,106 @@
+/* Стили редактора: Leaflet: кнопки масштаба, подписи и отметки на карте. Порядок подключения — в main.tsx. */
+
+/* --- Leaflet --- */
+
+.leaflet-container {
+    background: var(--editor-map-bg) !important;
+    font-family: inherit;
+}
+
+/* Кнопки масштаба Leaflet: свои 30×30 малы для пальца и неточной мыши. */
+.leaflet-control-zoom a {
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 20px !important;
+    background: var(--editor-panel) !important;
+    color: var(--editor-text) !important;
+    border: 1px solid var(--editor-border) !important;
+}
+
+.leaflet-control-attribution {
+    display: none !important;
+}
+
+/*
+ * Подписи поверх узлов.
+ *
+ * У Leaflet `.leaflet-tooltip` свои фон, рамка и стрелка, поэтому значения
+ * переопределяются с `!important`.
+ */
+.alias-label-tooltip,
+.transition-target-tooltip,
+.node-hover-tooltip {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+.alias-label-tooltip::before,
+.transition-target-tooltip::before,
+.node-hover-tooltip::before {
+    display: none !important;
+}
+
+/* Подпись узла под курсором: название и id. */
+.node-hover-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--editor-label-bg);
+    color: var(--editor-label-text);
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.node-hover-label__name {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.node-hover-label__id {
+    font-size: 11px;
+    color: var(--editor-label-muted);
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+/* Отметки переходов на другой план: щелчок ведёт к другому концу. */
+.transition-targets {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.transition-target {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px 1px 2px;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--editor-label-bg);
+    color: var(--editor-label-text);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.transition-target:hover {
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.transition-target__glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    color: var(--editor-on-accent);
+}

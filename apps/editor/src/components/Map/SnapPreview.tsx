@@ -1,7 +1,7 @@
 import React from 'react';
 import { CircleMarker, Polyline } from 'react-leaflet';
 import { useEditorStore } from '../../stores/editorStore';
-import { STACK_TRANSITIONS, placementPoint } from '../../stores/editor/editSlice';
+import { STACK_TRANSITIONS, placementPoint } from '../../stores/editor/placement';
 import { useCursorStore } from '../../stores/cursorStore';
 import { mapPalette } from '../../utils/themeColor';
 

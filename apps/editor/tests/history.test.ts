@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useEditorStore } from '../src/stores/editorStore';
 import { useHistoryStore } from '../src/stores/historyStore';
-import { placementPoint } from '../src/stores/editor/editSlice';
+import { placementPoint } from '../src/stores/editor/placement';
 import { datasetFromState } from '../src/stores/editor/graphState';
 import { datasetFiles } from '../src/utils/datasetFiles';
 import { BUILT_IN_PLACE_KINDS } from '../src/utils/placeKinds';
