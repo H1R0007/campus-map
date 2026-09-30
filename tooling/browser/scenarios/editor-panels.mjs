@@ -50,7 +50,9 @@ export default {
       const pictographs = await page.eval(`[...new Set(document.body.innerText.match(/\\p{Extended_Pictographic}/gu) ?? [])]`);
       assert.deepEqual(pictographs, [], `эмодзи на экране: ${pictographs.join(' ')}`);
 
-      await click('Поиск');
+      // Строка поиска в шапке: щелчок ставит курсор и открывает недавние запросы.
+      await page.eval(`document.querySelector('input[role="combobox"][aria-keyshortcuts="Control+F"]').focus()`);
+      await page.sleep(300);
       const inSearch = await page.eval(`[...new Set(document.body.innerText.match(/\\p{Extended_Pictographic}/gu) ?? [])]`);
       assert.deepEqual(inSearch, [], `эмодзи в поиске: ${inSearch.join(' ')}`);
     });

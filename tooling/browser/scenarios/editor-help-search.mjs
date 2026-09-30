@@ -58,23 +58,54 @@ export default {
       );
     });
 
+    /** Строка поиска в шапке: где курсор и открыт ли список. */
+    const finder = () =>
+      page.eval(`(() => {
+        const input = document.querySelector('[role="search"] input[role="combobox"]');
+        return input ? { focused: document.activeElement === input, value: input.value, expanded: input.getAttribute('aria-expanded') === 'true' } : null;
+      })()`);
+
     /** Открывает поиск, набирает запрос и возвращает подписи найденного. */
     const search = async (query) => {
       await e.key('f', { modifiers: MOD.ctrl });
-      const d = await dialog();
-      assert.equal(d?.label, 'Поиск точки');
-      assert.ok(d.focusInside, 'фокус не в поле поиска');
+      assert.equal(await dialog(), null, 'поиск открылся окном, а не в строке шапки');
+      assert.ok((await finder())?.focused, 'Ctrl+F не поставил курсор в строку поиска');
       await e.type(query);
       await page.sleep(200);
       return page.eval(`[...document.querySelectorAll('[role="option"]')].map((o) => o.textContent.trim())`);
     };
+
+    await step('в шапке — строка поиска с подсказкой Ctrl+F, справка и настройки у правого края', async () => {
+      const header = await page.eval(`(() => {
+        const bar = document.querySelector('.editor-topbar').getBoundingClientRect();
+        const field = document.querySelector('[role="search"] .editor-find__field');
+        const right = (selector) => document.querySelector(selector).getBoundingClientRect().right;
+        const save = document.querySelector('.editor-topbar .editor-split');
+        return {
+          field: !!field && !field.closest('button'),
+          hint: field?.querySelector('kbd')?.textContent.trim(),
+          hintLeft: field ? field.querySelector('kbd').getBoundingClientRect().left < field.querySelector('input').getBoundingClientRect().left : false,
+          help: right('button[aria-label="Справка: мышь и клавиши"]'),
+          settings: right('button[aria-label="Настройки"]'),
+          save: save.getBoundingClientRect().right,
+          edge: bar.right,
+        };
+      })()`);
+      assert.ok(header.field, 'поиск в шапке — не поле');
+      assert.equal(header.hint, 'Ctrl+F');
+      assert.ok(header.hintLeft, 'подсказка Ctrl+F не слева');
+      assert.ok(header.help > header.save && header.settings > header.help, `справка и настройки не правее «Сохранить»: ${JSON.stringify(header)}`);
+      assert.ok(header.edge - header.settings < 24, `настройки не у правого края: ${JSON.stringify(header)}`);
+      await shot('editor-header');
+    });
 
     await step('поиск прощает опечатку, латиницу и другую раскладку', async () => {
       for (const query of ['Аудитори 101', 'a-101', 'f-101']) {
         const options = await search(query);
         assert.match(options[0] ?? '', /^А-101/, `«${query}»: первым найдено ${JSON.stringify(options.slice(0, 3))}`);
         await e.key('Escape', { keyCode: 27 });
-        assert.equal(await dialog(), null);
+        const after = await finder();
+        assert.ok(!after.focused && after.value === '' && !after.expanded, `Esc не закрыл поиск: ${JSON.stringify(after)}`);
       }
     });
 
@@ -87,7 +118,8 @@ export default {
       await e.key('Enter', { keyCode: 13 });
       await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('Корпус А')`);
       assert.equal(await e.propertiesNodeId(), 'a1_room102', 'найденный узел не выбран');
-      assert.equal(await dialog(), null, 'поиск не закрылся');
+      const after = await finder();
+      assert.ok(!after.focused && !after.expanded, `поиск не закрылся: ${JSON.stringify(after)}`);
     });
   },
 };
