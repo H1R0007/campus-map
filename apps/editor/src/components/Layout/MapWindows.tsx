@@ -97,7 +97,10 @@ const MapGroupView: React.FC<{ group: number }> = ({ group }) => {
       data-map-group={group}
       // Нажатие на неактивную карту делает её активной до того, как нажатие
       // увидят слои: щелчок инструмента попадает уже в её план.
-      onPointerDownCapture={() => {
+      onPointerDownCapture={(event) => {
+        // Окно, открытое отсюда, лежит в слое окон, но его нажатия всплывают
+        // сюда по дереву React: они карту не переключают.
+        if (!event.currentTarget.contains(event.target as Node)) return;
         if (!active) focusGroup(group);
       }}
     >
@@ -110,6 +113,7 @@ const MapGroupView: React.FC<{ group: number }> = ({ group }) => {
           // Delete и буквы инструментов — этой карте. Нажатие на точку фокус
           // само не переносит: оно отменено, чтобы не мешать перетаскиванию.
           onPointerDownCapture={(event) => {
+            if (!event.currentTarget.contains(event.target as Node)) return;
             const container = event.currentTarget.querySelector<HTMLElement>('.leaflet-container');
             if (container && !container.contains(document.activeElement)) container.focus({ preventScroll: true });
           }}

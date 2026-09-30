@@ -17,6 +17,7 @@ import { plural } from '../../utils/labels';
 import { digestOf } from '../../utils/planFiles';
 import { CropEditor } from './CropEditor';
 import { Icon } from './Icon';
+import { DialogLayer } from './DialogLayer';
 
 /**
  * Окно «Планы из файлов» (запись 48).
@@ -197,168 +198,170 @@ const ImportWindow: React.FC = () => {
   const empty = sheets.length === 0 && !reading;
 
   return (
-    <div className="editor-dialog-backdrop" onClick={close}>
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="import-title"
-        className="editor-dialog editor-dialog--import"
-        onClick={(e) => e.stopPropagation()}
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('Files')) e.preventDefault();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          addFiles(e.dataTransfer.files);
-        }}
-      >
-        <div className="editor-help__head">
-          <h2 id="import-title" className="editor-dialog__title">
-            Загрузка планов
-          </h2>
-          <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть окно планов">
-            <Icon name="close" />
-          </button>
-        </div>
-
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          accept={IMPORT_ACCEPT}
-          className="sr-only"
-          data-import-files
-          tabIndex={-1}
-          onChange={(e) => {
-            addFiles(e.target.files);
-            e.target.value = '';
+    <DialogLayer>
+      <div className="editor-dialog-backdrop" onClick={close}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-title"
+          className="editor-dialog editor-dialog--import"
+          onClick={(e) => e.stopPropagation()}
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes('Files')) e.preventDefault();
           }}
-        />
-
-        {empty ? (
-          <div className="editor-import__empty">
-            <Icon name="upload" size={32} />
-            <p>Перетащите сюда планы: PDF, сканы и картинки, чертежи DXF, архивы ZIP — сколько угодно разом.</p>
-            <p className="editor-section__hint">
-              Корпус и этаж редактор угадает по тексту на листе и имени файла и покажет, откуда догадка. Лишние поля
-              листа обрежутся сами.
-            </p>
-            <button type="button" className="editor-button editor-button--primary" onClick={() => fileRef.current?.click()}>
-              <Icon name="upload" />
-              Выбрать файлы
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            addFiles(e.dataTransfer.files);
+          }}
+        >
+          <div className="editor-help__head">
+            <h2 id="import-title" className="editor-dialog__title">
+              Загрузка планов
+            </h2>
+            <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть окно планов">
+              <Icon name="close" />
             </button>
           </div>
-        ) : (
-          <div className="editor-import">
-            <div className="editor-import__list">
-              <ul aria-label="Листы">
-                {pieces.map((piece) => {
-                  const sheet = sheets.find((item) => item.id === piece.sheetId)!;
-                  const check = checks.get(piece.id);
-                  return (
-                    <li key={piece.id}>
-                      <button
-                        type="button"
-                        className="editor-import__item"
-                        aria-current={piece.id === selectedId ? 'true' : undefined}
-                        onClick={() => setSelectedId(piece.id)}
-                      >
-                        <span className="editor-import__thumb">
-                          {thumbs.get(sheet.id) && (
-                            <img src={thumbs.get(sheet.id)} alt="" style={{ transform: `rotate(${piece.rotation}deg)` }} />
-                          )}
-                        </span>
-                        <span className="editor-import__caption">
-                          <span className="editor-import__name">{displayName(sheet)}</span>
-                          <span className="editor-import__target">{targetText(piece.target, buildingMetas)}</span>
-                          {check?.problem && <span className="editor-import__target editor-import__target--problem">{check.problem}</span>}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {reading && <p className="editor-section__hint" role="status">Читаю «{reading}»…</p>}
-              {problems.map((problem) => (
-                <p key={problem.name} className="editor-section__hint editor-section__hint--problem">
-                  «{problem.name}»: {problem.problem}
-                </p>
-              ))}
-              <button type="button" className="editor-button editor-button--ghost editor-button--block" onClick={() => fileRef.current?.click()}>
-                <Icon name="plus" />
-                Ещё файлы…
+
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept={IMPORT_ACCEPT}
+            className="sr-only"
+            data-import-files
+            tabIndex={-1}
+            onChange={(e) => {
+              addFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+
+          {empty ? (
+            <div className="editor-import__empty">
+              <Icon name="upload" size={32} />
+              <p>Перетащите сюда планы: PDF, сканы и картинки, чертежи DXF, архивы ZIP — сколько угодно разом.</p>
+              <p className="editor-section__hint">
+                Корпус и этаж редактор угадает по тексту на листе и имени файла и покажет, откуда догадка. Лишние поля
+                листа обрежутся сами.
+              </p>
+              <button type="button" className="editor-button editor-button--primary" onClick={() => fileRef.current?.click()}>
+                <Icon name="upload" />
+                Выбрать файлы
               </button>
             </div>
+          ) : (
+            <div className="editor-import">
+              <div className="editor-import__list">
+                <ul aria-label="Листы">
+                  {pieces.map((piece) => {
+                    const sheet = sheets.find((item) => item.id === piece.sheetId)!;
+                    const check = checks.get(piece.id);
+                    return (
+                      <li key={piece.id}>
+                        <button
+                          type="button"
+                          className="editor-import__item"
+                          aria-current={piece.id === selectedId ? 'true' : undefined}
+                          onClick={() => setSelectedId(piece.id)}
+                        >
+                          <span className="editor-import__thumb">
+                            {thumbs.get(sheet.id) && (
+                              <img src={thumbs.get(sheet.id)} alt="" style={{ transform: `rotate(${piece.rotation}deg)` }} />
+                            )}
+                          </span>
+                          <span className="editor-import__caption">
+                            <span className="editor-import__name">{displayName(sheet)}</span>
+                            <span className="editor-import__target">{targetText(piece.target, buildingMetas)}</span>
+                            {check?.problem && <span className="editor-import__target editor-import__target--problem">{check.problem}</span>}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {reading && <p className="editor-section__hint" role="status">Читаю «{reading}»…</p>}
+                {problems.map((problem) => (
+                  <p key={problem.name} className="editor-section__hint editor-section__hint--problem">
+                    «{problem.name}»: {problem.problem}
+                  </p>
+                ))}
+                <button type="button" className="editor-button editor-button--ghost editor-button--block" onClick={() => fileRef.current?.click()}>
+                  <Icon name="plus" />
+                  Ещё файлы…
+                </button>
+              </div>
 
-            <div className="editor-import__detail">
-              {selected && selectedSheet ? (
-                <PieceEditor
-                  key={selected.id}
-                  piece={selected}
-                  sheet={selectedSheet}
-                  pieces={pieces}
-                  check={checks.get(selected.id) ?? { problem: null, note: null }}
-                  onChange={(change) => {
-                    update(selected.id, change);
-                  }}
-                  onTouchCrop={() => touched.current.add(selected.id)}
-                  onSplit={() => {
-                    const copy: Piece = {
-                      ...selected,
-                      id: pieceId(),
-                      target: selected.target.kind === 'floor' ? { ...selected.target, floorText: '' } : selected.target,
-                      notes: ['Ещё одна область того же листа — выберите её и укажите этаж'],
-                      redo: false,
-                    };
-                    touched.current.add(copy.id);
-                    setPieces((previous) => {
-                      const index = previous.findIndex((piece) => piece.id === selected.id);
-                      return [...previous.slice(0, index + 1), copy, ...previous.slice(index + 1)];
-                    });
-                    setSelectedId(copy.id);
-                  }}
-                  onRemove={
-                    pieces.filter((piece) => piece.sheetId === selected.sheetId).length > 1
-                      ? () => {
-                          setPieces((previous) => previous.filter((piece) => piece.id !== selected.id));
-                          setSelectedId(pieces.find((piece) => piece.sheetId === selected.sheetId && piece.id !== selected.id)?.id ?? null);
-                        }
-                      : undefined
-                  }
-                />
-              ) : (
-                <p className="editor-section__hint">{reading ? 'Читаю файлы…' : 'Выберите лист слева.'}</p>
-              )}
+              <div className="editor-import__detail">
+                {selected && selectedSheet ? (
+                  <PieceEditor
+                    key={selected.id}
+                    piece={selected}
+                    sheet={selectedSheet}
+                    pieces={pieces}
+                    check={checks.get(selected.id) ?? { problem: null, note: null }}
+                    onChange={(change) => {
+                      update(selected.id, change);
+                    }}
+                    onTouchCrop={() => touched.current.add(selected.id)}
+                    onSplit={() => {
+                      const copy: Piece = {
+                        ...selected,
+                        id: pieceId(),
+                        target: selected.target.kind === 'floor' ? { ...selected.target, floorText: '' } : selected.target,
+                        notes: ['Ещё одна область того же листа — выберите её и укажите этаж'],
+                        redo: false,
+                      };
+                      touched.current.add(copy.id);
+                      setPieces((previous) => {
+                        const index = previous.findIndex((piece) => piece.id === selected.id);
+                        return [...previous.slice(0, index + 1), copy, ...previous.slice(index + 1)];
+                      });
+                      setSelectedId(copy.id);
+                    }}
+                    onRemove={
+                      pieces.filter((piece) => piece.sheetId === selected.sheetId).length > 1
+                        ? () => {
+                            setPieces((previous) => previous.filter((piece) => piece.id !== selected.id));
+                            setSelectedId(pieces.find((piece) => piece.sheetId === selected.sheetId && piece.id !== selected.id)?.id ?? null);
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <p className="editor-section__hint">{reading ? 'Читаю файлы…' : 'Выберите лист слева.'}</p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="editor-dialog__actions editor-import__actions">
-          <p className="editor-import__status" role="status">
-            {busy ??
-              error ??
-              (unresolved > 0
-                ? `Осталось решить: ${unresolved} ${plural(unresolved, ['лист', 'листа', 'листов'])}`
-                : pieces.length > toAdd.length
-                  ? `Пропущено: ${pieces.length - toAdd.length} ${plural(pieces.length - toAdd.length, ['лист', 'листа', 'листов'])}`
-                  : '')}
-          </p>
-          <button type="button" className="editor-button editor-button--ghost" onClick={close} disabled={busy !== null}>
-            Отмена
-          </button>
-          <button
-            type="button"
-            className="editor-button editor-button--primary"
-            onClick={() => void run()}
-            disabled={busy !== null || reading !== null || toAdd.length === 0 || unresolved > 0}
-          >
-            {toAdd.length === 0 ? 'Добавить' : `Добавить: ${importSummary(toAdd)}`}
-          </button>
+          <div className="editor-dialog__actions editor-import__actions">
+            <p className="editor-import__status" role="status">
+              {busy ??
+                error ??
+                (unresolved > 0
+                  ? `Осталось решить: ${unresolved} ${plural(unresolved, ['лист', 'листа', 'листов'])}`
+                  : pieces.length > toAdd.length
+                    ? `Пропущено: ${pieces.length - toAdd.length} ${plural(pieces.length - toAdd.length, ['лист', 'листа', 'листов'])}`
+                    : '')}
+            </p>
+            <button type="button" className="editor-button editor-button--ghost" onClick={close} disabled={busy !== null}>
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="editor-button editor-button--primary"
+              onClick={() => void run()}
+              disabled={busy !== null || reading !== null || toAdd.length === 0 || unresolved > 0}
+            >
+              {toAdd.length === 0 ? 'Добавить' : `Добавить: ${importSummary(toAdd)}`}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </DialogLayer>
   );
 };
 

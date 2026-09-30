@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { Icon } from './Icon';
+import { DialogLayer } from './DialogLayer';
 
 const MOUSE: [string, string][] = [
   ['Щелчок по карте инструментом «Точка»', 'поставить точку выбранного вида: название, связь и переходы сразу'],
@@ -16,7 +17,7 @@ const MOUSE: [string, string][] = [
   ['Правая кнопка', 'меню точки, связи, перехода или пустого места'],
   ['Щелчок по отметке «↑ этаж 2»', 'перейти к другому концу перехода'],
   ['Край колонки', 'потянуть — шире или уже; двойной щелчок — как было'],
-  ['Ctrl + щелчок или средняя кнопка по плану в дереве', 'открыть план на соседней карте'],
+  ['Ctrl + щелчок или средняя кнопка по плану в дереве', 'открыть план в новой вкладке; правая кнопка — ещё и «Открыть рядом»'],
   ['Средняя кнопка по вкладке', 'закрыть вкладку; перетащить вкладку — переставить или перенести на другую карту'],
 ];
 
@@ -48,7 +49,7 @@ const RECIPES: [string, string][] = [
   ],
   [
     'Несколько планов сразу',
-    'Каждый открытый план — вкладка над картой, как в браузере: вернулись на вкладку — план на том же месте, выбор тот же. «Открыть рядом» — вторая карта справа со своими вкладками; щелчок по карте делает её рабочей. Её можно свернуть в полоску справа, не закрывая.',
+    'Щелчок в дереве открывает план в той же вкладке. Ctrl+щелчок или средняя кнопка — в новой, как в браузере: вернулись на вкладку — план на том же месте, выбор тот же. «Открыть рядом» — вторая карта справа со своими вкладками; щелчок по карте делает её рабочей. Её можно свернуть в полоску справа, не закрывая. Переход между этажами сам открывает второй этаж рядом.',
   ],
   [
     'Лестница или лифт между этажами',
@@ -105,41 +106,43 @@ export const HelpDialog: React.FC = () => {
   if (!open) return null;
 
   return (
-    <div className="editor-dialog-backdrop" onClick={close}>
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="help-title"
-        className="editor-dialog editor-help"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="editor-help__head">
-          <h2 id="help-title" className="editor-dialog__title">
-            Как работать в редакторе
-          </h2>
-          <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть справку">
-            <Icon name="close" />
-          </button>
-        </div>
+    <DialogLayer>
+      <div className="editor-dialog-backdrop" onClick={close}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="help-title"
+          className="editor-dialog editor-help"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="editor-help__head">
+            <h2 id="help-title" className="editor-dialog__title">
+              Как работать в редакторе
+            </h2>
+            <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть справку">
+              <Icon name="close" />
+            </button>
+          </div>
 
-        <div className="editor-help__body">
-          <HelpTable title="Мышь" rows={MOUSE} />
-          <HelpTable title="Клавиши — в любой раскладке" rows={KEYS} />
-          <section>
-            <h3 className="editor-card__heading">Как сделать</h3>
-            <dl className="editor-help__recipes">
-              {RECIPES.map(([what, how]) => (
-                <React.Fragment key={what}>
-                  <dt>{what}</dt>
-                  <dd>{how}</dd>
-                </React.Fragment>
-              ))}
-            </dl>
-          </section>
+          <div className="editor-help__body">
+            <HelpTable title="Мышь" rows={MOUSE} />
+            <HelpTable title="Клавиши — в любой раскладке" rows={KEYS} />
+            <section>
+              <h3 className="editor-card__heading">Как сделать</h3>
+              <dl className="editor-help__recipes">
+                {RECIPES.map(([what, how]) => (
+                  <React.Fragment key={what}>
+                    <dt>{what}</dt>
+                    <dd>{how}</dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+            </section>
+          </div>
         </div>
       </div>
-    </div>
+    </DialogLayer>
   );
 };
 

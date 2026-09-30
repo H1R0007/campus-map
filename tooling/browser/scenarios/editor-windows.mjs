@@ -1,10 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { editorHelpers } from '../editor.mjs';
+import { MOD, editorHelpers } from '../editor.mjs';
 
 /**
  * Редактор: окна карт (запись 66).
  *
- * Открытые планы — вкладками над картой, как в браузере: переключение
+ * Открытые планы — вкладками над картой, как в браузере: щелчок в дереве
+ * открывает план в той же вкладке, Ctrl+щелчок — в новой; переключение
  * возвращает место, масштаб и выбор. «Открыть рядом» — вторая карта со своими
  * вкладками; щелчок делает карту активной, переход строится с двух карт, между
  * концами — пунктир. Вторую карту сворачивают в полоску, не закрывая.
@@ -53,13 +54,25 @@ export default {
       assert.ok(point.top, `узел ${id} на карте ${group + 1} закрыт`);
       return point;
     };
+    /** Ctrl+щелчок по плану в дереве — новая вкладка. */
+    const treeInNewTab = async (label) => {
+      const point = await page.eval(`(() => {
+        const item = [...document.querySelectorAll('.editor-tree__item')].find((b) => b.querySelector('.editor-tree__label')?.textContent.trim() === ${JSON.stringify(label)});
+        if (!item) return null;
+        const r = item.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      })()`);
+      assert.ok(point, `в дереве нет «${label}»`);
+      await e.click(point.x, point.y, { modifiers: MOD.ctrl });
+      await page.sleep(300);
+    };
     const links = () => page.eval(`Number(document.querySelector('svg.editor-crosslink')?.dataset.links ?? 0)`);
 
-    await step('план из дерева открывается вкладкой; вернулись — место и выбор те же', async () => {
+    await step('план из дерева — в той же вкладке, Ctrl+щелчок — в новой; вернулись — место и выбор те же', async () => {
       await e.open();
       assert.deepEqual(await tabs(), ['Территория*']);
       await e.openFloor('Корпус А', 1);
-      assert.deepEqual(await tabs(), ['Территория', 'Корпус А · 1*']);
+      assert.deepEqual(await tabs(), ['Корпус А · 1*'], 'дерево открыло новую вкладку без просьбы');
 
       const room = await e.nodePoint('a1_room101');
       await e.click(room.x, room.y);
@@ -68,8 +81,8 @@ export default {
       await e.drag(free.x, free.y, free.x - 140, free.y - 60);
       const before = await e.nodePoint('a1_hall');
 
-      await e.press('Этаж 2');
-      assert.deepEqual(await tabs(), ['Территория', 'Корпус А · 1', 'Корпус А · 2*']);
+      await treeInNewTab('Этаж 2');
+      assert.deepEqual(await tabs(), ['Корпус А · 1', 'Корпус А · 2*']);
       assert.equal(await e.selectedCount(), 0, 'выбор перешёл на другой этаж');
 
       await clickTab(0, 'Корпус А · 1');
@@ -86,17 +99,28 @@ export default {
         select.dispatchEvent(new Event('change', { bubbles: true }));
       })()`);
       await page.sleep(400);
-      assert.deepEqual(await tabs(), ['Территория', 'Корпус А · 1', 'Корпус А · 2*'], 'появилась вторая вкладка того же этажа');
+      assert.deepEqual(await tabs(), ['Корпус А · 1', 'Корпус А · 2*'], 'появилась вторая вкладка того же этажа');
     });
 
     await step('вкладки: стрелки переключают, крестик и средняя кнопка закрывают', async () => {
       await page.eval(`document.querySelector('.editor-mapgroup [role="tab"][aria-selected="true"]').focus()`);
       await e.key('ArrowLeft');
-      assert.deepEqual(await tabs(), ['Территория', 'Корпус А · 1*', 'Корпус А · 2']);
+      assert.deepEqual(await tabs(), ['Корпус А · 1*', 'Корпус А · 2']);
       assert.equal(await page.eval(`document.activeElement?.getAttribute('role')`), 'tab', 'фокус ушёл с вкладок');
 
+      // Меню правой кнопки в дереве — тот же выбор словами.
+      const territory = await page.eval(`(() => {
+        const item = [...document.querySelectorAll('.editor-tree__item')].find((b) => b.querySelector('.editor-tree__label')?.textContent.trim() === 'Территория');
+        const r = item.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      })()`);
+      await e.click(territory.x, territory.y, { button: 'right' });
+      assert.deepEqual((await e.menus())[0]?.items, ['Открыть', 'Открыть в новой вкладкеCtrl+щелчок', 'Открыть рядом']);
+      await e.menuPick('Открыть в новой вкладке');
+      assert.deepEqual(await tabs(), ['Корпус А · 1', 'Территория*', 'Корпус А · 2']);
       await e.press('Закрыть вкладку «Территория»');
-      assert.deepEqual(await tabs(), ['Корпус А · 1*', 'Корпус А · 2']);
+      assert.deepEqual(await tabs(), ['Корпус А · 1', 'Корпус А · 2*']);
+      await clickTab(0, 'Корпус А · 1');
 
       const middle = await page.eval(`(() => {
         const tab = [...document.querySelectorAll('.editor-mapgroup [role="tab"]')].find((t) => t.textContent.trim() === 'Корпус А · 2');
@@ -190,8 +214,8 @@ export default {
     });
 
     await step('вкладку переносят на другую карту перетаскиванием', async () => {
-      await e.press('Этаж 1');
-      // Карта 2 активна: «Этаж 1» открылся вкладкой у неё.
+      await treeInNewTab('Этаж 1');
+      // Карта 2 активна: «Этаж 1» открылся новой вкладкой у неё.
       assert.deepEqual(await tabs(1), ['Корпус А · 2', 'Корпус А · 1*']);
       await page.eval(`(() => {
         const data = new DataTransfer();
@@ -236,6 +260,54 @@ export default {
       await e.click(target.x, target.y);
       assert.match(await e.notice(), /Лестница: «А-102» — «/, 'переход не создан');
       await shot('editor-windows-from-card');
+    });
+
+    /** Окно лежит поверх всего: в его углах и в середине — оно само, а не карта рядом. */
+    const dialogOnTop = () =>
+      page.eval(`(() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        if (!dialog) return 'окна нет';
+        const r = dialog.getBoundingClientRect();
+        const points = [[r.left + 10, r.top + 10], [r.right - 10, r.top + 10], [r.left + 10, r.bottom - 10], [r.right - 10, r.bottom - 10], [(r.left + r.right) / 2, (r.top + r.bottom) / 2]];
+        const covered = points.filter(([x, y]) => !dialog.contains(document.elementFromPoint(x, y)));
+        return covered.length === 0 ? 'поверх' : 'закрыто в ' + covered.length + ' точках';
+      })()`);
+
+    await step('окна поверх обеих карт: новый корпус, этаж вручную, справка (запись 68)', async () => {
+      assert.equal(await groups(), 2);
+      // Работаем на левой карте: окно из неё раньше пряталось под правую.
+      await clickTab(0, 'Корпус А · 1');
+      await e.press('Новый корпус');
+      assert.equal(await dialogOnTop(), 'поверх', 'окно «Новый корпус» закрыто картой');
+      await e.press('Создать');
+      await page.waitFor(`!document.querySelector('[role="dialog"]')`);
+      const opened = `${(await tabs(0)).join()} | ${(await tabs(1)).join()} | активна ${await activeGroup()}`;
+      assert.match(opened, /^[^|]*Корпус Г\*/, `новый корпус открылся не в текущей вкладке: ${opened}`);
+
+      // У корпуса без этажей кнопка — внутри карты; окно — всё равно поверх обеих карт.
+      await e.press('Добавить этаж вручную…');
+      assert.equal(await dialogOnTop(), 'поверх', 'окно «Новый этаж» закрыто второй картой');
+      await shot('editor-windows-dialog');
+
+      // Щелчок по тексту окна не уводит клавиатуру на карту: иначе Delete
+      // удалил бы точку за открытым окном.
+      const title = await e.rect('[role="dialog"] .editor-dialog__title');
+      await e.click(title.left + 20, title.top + title.height / 2);
+      assert.equal(await page.eval(`!!document.activeElement?.closest('.leaflet-container')`), false, 'щелчок в окне отдал клавиатуру карте');
+
+      // Поле окна принимает ввод.
+      const field = await e.rect('input[aria-label="Подпись этажа"]');
+      await e.click(field.left + field.width / 2, field.top + field.height / 2);
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Подпись этажа', 'щелчок в окне отдал клавиатуру карте');
+      await e.type('Ц');
+      await e.toggleFilter('Без плана — добавить позже');
+      await e.press('Создать');
+      await page.waitFor(`!document.querySelector('[role="dialog"]')`);
+      assert.match((await tabs(0)).join(), /Корпус Г · Ц\*/, 'этаж не создан');
+
+      await e.key('F1', { keyCode: 112 });
+      assert.equal(await dialogOnTop(), 'поверх', 'справка закрыта картой');
+      await e.key('Escape', { keyCode: 27 });
     });
   },
 };

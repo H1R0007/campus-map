@@ -19,7 +19,9 @@ export type ContextMenuTarget =
   /** Пустое место карты; `x`, `y` — точка плана под курсором. */
   | { kind: 'map'; x: number; y: number }
   /** Вкладка карты (запись 66). */
-  | { kind: 'tab'; group: number; tabId: string };
+  | { kind: 'tab'; group: number; tabId: string }
+  /** План в дереве структуры: открыть в новой вкладке или рядом. */
+  | { kind: 'plan'; building: string | null; floor: number | null };
 
 export interface ContextMenuState {
   open: boolean;

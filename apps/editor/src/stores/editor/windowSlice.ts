@@ -1,6 +1,6 @@
 import type { Draft } from 'immer';
-import { floorLabel } from '@campus-map/core';
-import type { BuildingMeta, TransitionType } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
+import type { BuildingMeta, MapNode, TransitionType } from '@campus-map/core';
 import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { suggestTransitionPlan } from './transitionPlan';
 import { readLayoutPrefs, updateLayoutPrefs } from '../../utils/layoutPrefs';
@@ -29,9 +29,12 @@ export interface MapGroup {
 
 /**
  * Как открыть план:
- * - `tab` — во вкладке: уже открытая становится текущей, иначе открывается новая;
- * - `here` — на месте текущей вкладки, как адрес в строке браузера;
- * - `side` — на соседней карте.
+ * - `here` — на месте текущей вкладки, как адрес в строке браузера; так
+ *   открывают план дерево, строка пути и «Показать». Уже открытый в другой
+ *   вкладке план не дублируется — открывается та вкладка;
+ * - `tab` — новой вкладкой, только когда человек просит сам: Ctrl+щелчок,
+ *   средняя кнопка, «Открыть в новой вкладке»;
+ * - `side` — на соседней карте: «Открыть рядом» и переход с двух карт.
  */
 export type OpenHow = 'tab' | 'here' | 'side';
 
@@ -85,6 +88,10 @@ const nextId = (prefix: string): string => `${prefix}${++lastId}`;
 const newTab = (plan: PlanRef): MapTab => ({ id: nextId('tab'), building: plan.building, floor: plan.floor, selection: [] });
 
 export const samePlan = (a: PlanRef, b: PlanRef): boolean => a.building === b.building && a.floor === b.floor;
+
+/** План, на котором стоит точка. */
+export const planOfNode = (node: MapNode): PlanRef =>
+  node.building === CAMPUS_BUILDING_ID ? { building: null, floor: null } : { building: node.building, floor: node.floor };
 
 export function activeTabOf(group: MapGroup): MapTab {
   return group.tabs.find((tab) => tab.id === group.activeTab) ?? group.tabs[0];
@@ -150,7 +157,7 @@ export function suggestSidePlan(st: WindowsView, from: PlanRef): PlanRef {
 
 // ---------------------------------------------------------------------------
 // Действия над черновиком. Экспортируются для других срезов: постановка
-// корпуса открывает территорию во вкладке тем же путём, что и дерево.
+// корпуса открывает территорию тем же путём, что и дерево.
 // ---------------------------------------------------------------------------
 
 /** Сбрасывает начатое в пределах плана: связь, цепочку, линию, рамку. */
@@ -229,7 +236,7 @@ function tabWithPlan(s: State, group: number, plan: PlanRef): string {
   return tab.id;
 }
 
-export function openPlanIn(s: State, requested: PlanRef, how: OpenHow = 'tab', focus = true): void {
+export function openPlanIn(s: State, requested: PlanRef, how: OpenHow = 'here', focus = true): void {
   const plan = existingPlan(s.buildingMetas, requested);
 
   if (how === 'side') {
@@ -270,7 +277,7 @@ export function openPlanIn(s: State, requested: PlanRef, how: OpenHow = 'tab', f
  * как просили (`how`). «Показать точку» не открывает второй экземпляр плана,
  * который и так на виду.
  */
-export function showPlanIn(s: State, requested: PlanRef, how: OpenHow = 'tab'): void {
+export function showPlanIn(s: State, requested: PlanRef, how: OpenHow = 'here'): void {
   const plan = existingPlan(s.buildingMetas, requested);
   if (samePlan(plan, { building: s.currentBuilding, floor: s.currentFloor })) return;
   const other = s.activeGroup === 0 ? 1 : 0;
@@ -370,10 +377,17 @@ export function moveTabIn(s: State, from: number, tabId: string, to: number, bef
  */
 export function syncWindowsIn(s: State): void {
   const shown = activeTabOf(s.mapGroups[s.activeGroup]);
-  if (!samePlan(shown, { building: s.currentBuilding, floor: s.currentFloor })) {
+  const current: PlanRef = { building: s.currentBuilding, floor: s.currentFloor };
+  if (!samePlan(shown, current)) {
     shown.building = s.currentBuilding;
     shown.floor = s.currentFloor;
     shown.selection = [];
+    // Выбор живёт в пределах плана: точки прежнего плана справа не остаются.
+    const kept = [...s.selectedNodeIds].filter((id) => {
+      const node = s.nodes.get(id);
+      return node !== undefined && samePlan(planOfNode(node), current);
+    });
+    if (kept.length !== s.selectedNodeIds.size) s.selectedNodeIds = new Set(kept);
   }
 
   s.mapGroups.forEach((group, index) => {
@@ -410,27 +424,6 @@ export function windowsOutOfSync(st: EditorStore): boolean {
   });
 }
 
-/**
- * Правка открыла другой план на месте текущего (добавили этаж, загрузили
- * планы): прежний план остаётся своей вкладкой, новый открывается рядом.
- */
-export function keepPreviousTabIn(s: State, previous: PlanRef): void {
-  const now: PlanRef = { building: s.currentBuilding, floor: s.currentFloor };
-  if (samePlan(now, previous) || !samePlan(existingPlan(s.buildingMetas, previous), previous)) return;
-  const group = s.mapGroups[s.activeGroup];
-  const shown = activeTabOf(group);
-  if (!samePlan(shown, previous)) return;
-  shown.selection = [];
-  const open = group.tabs.find((tab) => tab.id !== shown.id && samePlan(tab, now));
-  if (open) {
-    group.activeTab = open.id;
-    return;
-  }
-  const tab = newTab(now);
-  group.tabs.splice(group.tabs.indexOf(shown) + 1, 0, tab);
-  group.activeTab = tab.id;
-}
-
 /** Номер этажа сменили — вкладки этого этажа идут за ним. */
 export function renumberTabsIn(s: State, building: string, floor: number, nextFloor: number): void {
   for (const group of s.mapGroups) {
@@ -449,7 +442,7 @@ export const createWindowSlice: EditorSlice<WindowSlice> = (set, get) => {
     sideCollapsed: false,
     splitRatio: clampRatio(readLayoutPrefs().splitRatio ?? SPLIT_LIMITS.initial),
 
-    openPlan: (plan, how = 'tab', options) => set((s) => openPlanIn(s, plan, how, options?.focus ?? true)),
+    openPlan: (plan, how = 'here', options) => set((s) => openPlanIn(s, plan, how, options?.focus ?? true)),
     activateTab: (group, tabId) => set((s) => activateTabIn(s, group, tabId)),
     closeTab: (group, tabId) => set((s) => closeTabIn(s, group, tabId)),
     closeOtherTabs: (group, tabId) =>

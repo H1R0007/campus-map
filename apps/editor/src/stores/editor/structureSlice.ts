@@ -12,7 +12,7 @@ import { planScopeKey } from '../../utils/planFiles';
 import { syncPortals } from './graphState';
 import { applyStructureSide, forgetPlace, snapshotPlace } from './historyApply';
 import { openingFloorOf } from './viewSlice';
-import { keepPreviousTabIn, renumberTabsIn } from './windowSlice';
+import { renumberTabsIn } from './windowSlice';
 import type { EditorSlice, EditorStore } from './types';
 
 /**
@@ -321,14 +321,12 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
     const after = sideOf(next, ids);
 
     useHistoryStore.getState().push({ type: 'STRUCTURE', description, undoData: before, redoData: after });
+    // Добавили этаж, загрузили планы — новое открывается в текущей вкладке,
+    // как любой план из дерева (запись 66).
     set((s) => {
-      const previous = { building: s.currentBuilding, floor: s.currentFloor };
       applyStructureSide(s, after);
       syncPortals(s);
       windows?.(s);
-      // Добавили этаж, загрузили планы — новое открывается своей вкладкой, а
-      // план, на котором работали, остаётся открытым (запись 66).
-      keepPreviousTabIn(s, previous);
     });
   };
 

@@ -72,8 +72,8 @@ export interface ViewSlice {
   /** Открывает план узла, ставит его в центр и выделяет. */
   centerOnNode: (nodeId: string, keepZoom?: boolean) => void;
   /**
-   * Открывает план узла, не трогая камеру и выделение: во вкладке — своей или
-   * новой, а если план на виду на соседней карте — там (запись 66).
+   * Открывает план узла, не трогая камеру и выделение: в текущей вкладке, а
+   * если план на виду на соседней карте — там (запись 66).
    */
   navigateToNode: (nodeId: string, how?: OpenHow) => void;
   setDisplayFilters: (filters: Partial<DisplayFilters>) => void;
@@ -179,7 +179,7 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
     }, 100);
   },
 
-  navigateToNode: (nodeId, how = 'tab') => {
+  navigateToNode: (nodeId, how = 'here') => {
     const node = get().nodes.get(nodeId);
     if (!node) return;
 

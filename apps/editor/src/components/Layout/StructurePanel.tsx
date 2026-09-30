@@ -92,17 +92,23 @@ const PlanTree: React.FC = () => {
   const currentFloor = useEditorStore((s) => s.currentFloor);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const openPlan = useEditorStore((s) => s.openPlan);
+  const openContextMenu = useEditorStore((s) => s.openContextMenu);
   /**
-   * Щелчок открывает план во вкладке активной карты (или переключает на
-   * открытую), Ctrl+щелчок и средняя кнопка — на соседней карте (запись 66).
+   * Щелчок открывает план в текущей вкладке, как ссылка в браузере; новая
+   * вкладка — только по просьбе: Ctrl+щелчок, средняя кнопка или меню правой
+   * кнопки, где есть и «Открыть рядом» (запись 66).
    */
   const planButton = (plan: PlanRef) => ({
-    onClick: (event: React.MouseEvent) => openPlan(plan, event.ctrlKey || event.metaKey ? 'side' : 'tab'),
+    onClick: (event: React.MouseEvent) => openPlan(plan, event.ctrlKey || event.metaKey ? 'tab' : 'here'),
     onMouseDown: (event: React.MouseEvent) => {
       if (event.button === 1) event.preventDefault();
     },
     onAuxClick: (event: React.MouseEvent) => {
-      if (event.button === 1) openPlan(plan, 'side');
+      if (event.button === 1) openPlan(plan, 'tab');
+    },
+    onContextMenu: (event: React.MouseEvent) => {
+      event.preventDefault();
+      openContextMenu(event.clientX, event.clientY, { kind: 'plan', building: plan.building, floor: plan.floor });
     },
   });
   // Счётчики догоняют перетаскивание, а не пересчитываются на каждом кадре.

@@ -9,6 +9,7 @@ import { KindGlyph } from '../Layout/KindPalette';
 import { Icon } from './Icon';
 import { IconPicker } from './IconPicker';
 import { CheckRow, FieldLabel } from './Field';
+import { DialogLayer } from './DialogLayer';
 
 /** Как называть поставленные точки — три понятных выбора вместо шаблона со скобками. */
 type Naming = 'kind' | 'room' | 'none';
@@ -161,170 +162,172 @@ export const KindsDialog: React.FC = () => {
   };
 
   return (
-    <div className="editor-dialog-backdrop" onClick={close}>
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="kinds-title"
-        className="editor-dialog editor-dialog--wide editor-dialog--kinds"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {pickerOpen && draft && (
-          <IconPicker
-            current={draft}
-            onPick={(choice) => {
-              setDraft({ ...draft, ...choice });
-              setPickerOpen(false);
-              iconButtonRef.current?.focus();
-            }}
-            onClose={() => {
-              setPickerOpen(false);
-              iconButtonRef.current?.focus();
-            }}
-          />
-        )}
-        <div className="editor-help__head">
-          <h2 id="kinds-title" className="editor-dialog__title">
-            Виды точек
-          </h2>
-          <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть виды точек">
-            <Icon name="close" />
-          </button>
-        </div>
-
-        <div className="editor-dialog__body">
-          <p className="editor-section__hint">
-            Вид — заготовка: щелчок по карте ставит точку и сразу делает то, что здесь написано. Виды хранятся
-            вместе с разметкой, поэтому одинаковы у всей команды.
-          </p>
-
-          <ul className="editor-list" aria-label="Виды точек">
-            {kinds.map((kind, index) => (
-              <li key={kind.id} className="editor-list__row">
-                <span className="editor-list__main">
-                  <KindGlyph kind={kind} size={18} />
-                  <span className="editor-list__text">
-                    <span className="editor-list__name">{kind.name}</span>
-                    <span className="editor-list__sub">{kindSummary(kind)}</span>
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="editor-icon-button"
-                  onClick={() => move(kind, -1)}
-                  disabled={index === 0}
-                  aria-label={`Поднять вид «${kind.name}»`}
-                  title="Выше: первые восемь видов видны в строке над картой"
-                >
-                  <Icon name="chevronUp" />
-                </button>
-                <button
-                  type="button"
-                  className="editor-icon-button"
-                  onClick={() => move(kind, 1)}
-                  disabled={index === kinds.length - 1}
-                  aria-label={`Опустить вид «${kind.name}»`}
-                >
-                  <Icon name="chevronDown" />
-                </button>
-                <button
-                  type="button"
-                  className="editor-icon-button"
-                  onClick={() => {
-                    setDraft({ ...kind });
-                    setEditingId(kind.id);
-                    setNaming(namingOf(kind));
-                    setTermsText((kind.searchTerms ?? []).join(', '));
-                  }}
-                  aria-label={`Изменить вид «${kind.name}»`}
-                >
-                  <Icon name="edit" />
-                </button>
-                <button
-                  type="button"
-                  className="editor-icon-button editor-list__remove"
-                  onClick={() => remove(kind)}
-                  disabled={kinds.length === 1}
-                  aria-label={`Удалить вид «${kind.name}»`}
-                  title={kinds.length === 1 ? 'Последний вид удалить нельзя: кистям нечего будет ставить' : undefined}
-                >
-                  <Icon name="close" />
-                </button>
-                {confirmDelete === kind.id && (
-                  <div className="editor-list__confirm" role="alert">
-                    <p className="editor-section__hint editor-section__hint--problem">
-                      У {placesOf(kind).length} {plural(placesOf(kind).length, ['точки', 'точек', 'точек'])} вид «{kind.name}» — после
-                      удаления они останутся без вида места, и навигатор перестанет находить их быстрой кнопкой.
-                    </p>
-                    <div className="editor-card__actions">
-                      <button type="button" className="editor-button editor-button--danger" onClick={() => remove(kind)}>
-                        Удалить вид
-                      </button>
-                      <button type="button" className="editor-button editor-button--ghost" onClick={() => setConfirmDelete(null)}>
-                        Не удалять
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          {pending && (
-            <div className="editor-card__session" role="group" aria-label="Изменения видов">
-              <p className="editor-section__hint">Всё, что сделано в этом окне, — одна правка: отмена вернёт её разом.</p>
-              <div className="editor-card__actions">
-                <button type="button" className="editor-button editor-button--primary" onClick={close}>
-                  <Icon name="checkCircle" />
-                  Готово
-                </button>
-                <button
-                  type="button"
-                  className="editor-button editor-button--ghost"
-                  onClick={() => useEditorStore.getState().revertSession()}
-                >
-                  Отменить изменения
-                </button>
-              </div>
-            </div>
-          )}
-
-          {draft === null ? (
-            <button
-              type="button"
-              className="editor-button editor-button--primary mt-2"
-              onClick={() => {
-                setDraft(emptyKind());
-                setEditingId(null);
-                setNaming('kind');
-                setTermsText('');
+    <DialogLayer>
+      <div className="editor-dialog-backdrop" onClick={close}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kinds-title"
+          className="editor-dialog editor-dialog--wide editor-dialog--kinds"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {pickerOpen && draft && (
+            <IconPicker
+              current={draft}
+              onPick={(choice) => {
+                setDraft({ ...draft, ...choice });
+                setPickerOpen(false);
+                iconButtonRef.current?.focus();
               }}
-            >
-              <Icon name="plus" />
-              Создать вид
-            </button>
-          ) : (
-            <KindForm
-              draft={draft}
-              naming={naming}
-              termsText={termsText}
-              editing={editingId !== null}
-              iconButtonRef={iconButtonRef}
-              onChange={setDraft}
-              onNaming={setNaming}
-              onTerms={setTermsText}
-              onPickIcon={() => setPickerOpen(true)}
-              onCancel={() => {
-                setDraft(null);
-                setEditingId(null);
+              onClose={() => {
+                setPickerOpen(false);
+                iconButtonRef.current?.focus();
               }}
-              onSave={save}
             />
           )}
+          <div className="editor-help__head">
+            <h2 id="kinds-title" className="editor-dialog__title">
+              Виды точек
+            </h2>
+            <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть виды точек">
+              <Icon name="close" />
+            </button>
+          </div>
+
+          <div className="editor-dialog__body">
+            <p className="editor-section__hint">
+              Вид — заготовка: щелчок по карте ставит точку и сразу делает то, что здесь написано. Виды хранятся
+              вместе с разметкой, поэтому одинаковы у всей команды.
+            </p>
+
+            <ul className="editor-list" aria-label="Виды точек">
+              {kinds.map((kind, index) => (
+                <li key={kind.id} className="editor-list__row">
+                  <span className="editor-list__main">
+                    <KindGlyph kind={kind} size={18} />
+                    <span className="editor-list__text">
+                      <span className="editor-list__name">{kind.name}</span>
+                      <span className="editor-list__sub">{kindSummary(kind)}</span>
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="editor-icon-button"
+                    onClick={() => move(kind, -1)}
+                    disabled={index === 0}
+                    aria-label={`Поднять вид «${kind.name}»`}
+                    title="Выше: первые восемь видов видны в строке над картой"
+                  >
+                    <Icon name="chevronUp" />
+                  </button>
+                  <button
+                    type="button"
+                    className="editor-icon-button"
+                    onClick={() => move(kind, 1)}
+                    disabled={index === kinds.length - 1}
+                    aria-label={`Опустить вид «${kind.name}»`}
+                  >
+                    <Icon name="chevronDown" />
+                  </button>
+                  <button
+                    type="button"
+                    className="editor-icon-button"
+                    onClick={() => {
+                      setDraft({ ...kind });
+                      setEditingId(kind.id);
+                      setNaming(namingOf(kind));
+                      setTermsText((kind.searchTerms ?? []).join(', '));
+                    }}
+                    aria-label={`Изменить вид «${kind.name}»`}
+                  >
+                    <Icon name="edit" />
+                  </button>
+                  <button
+                    type="button"
+                    className="editor-icon-button editor-list__remove"
+                    onClick={() => remove(kind)}
+                    disabled={kinds.length === 1}
+                    aria-label={`Удалить вид «${kind.name}»`}
+                    title={kinds.length === 1 ? 'Последний вид удалить нельзя: кистям нечего будет ставить' : undefined}
+                  >
+                    <Icon name="close" />
+                  </button>
+                  {confirmDelete === kind.id && (
+                    <div className="editor-list__confirm" role="alert">
+                      <p className="editor-section__hint editor-section__hint--problem">
+                        У {placesOf(kind).length} {plural(placesOf(kind).length, ['точки', 'точек', 'точек'])} вид «{kind.name}» — после
+                        удаления они останутся без вида места, и навигатор перестанет находить их быстрой кнопкой.
+                      </p>
+                      <div className="editor-card__actions">
+                        <button type="button" className="editor-button editor-button--danger" onClick={() => remove(kind)}>
+                          Удалить вид
+                        </button>
+                        <button type="button" className="editor-button editor-button--ghost" onClick={() => setConfirmDelete(null)}>
+                          Не удалять
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            {pending && (
+              <div className="editor-card__session" role="group" aria-label="Изменения видов">
+                <p className="editor-section__hint">Всё, что сделано в этом окне, — одна правка: отмена вернёт её разом.</p>
+                <div className="editor-card__actions">
+                  <button type="button" className="editor-button editor-button--primary" onClick={close}>
+                    <Icon name="checkCircle" />
+                    Готово
+                  </button>
+                  <button
+                    type="button"
+                    className="editor-button editor-button--ghost"
+                    onClick={() => useEditorStore.getState().revertSession()}
+                  >
+                    Отменить изменения
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {draft === null ? (
+              <button
+                type="button"
+                className="editor-button editor-button--primary mt-2"
+                onClick={() => {
+                  setDraft(emptyKind());
+                  setEditingId(null);
+                  setNaming('kind');
+                  setTermsText('');
+                }}
+              >
+                <Icon name="plus" />
+                Создать вид
+              </button>
+            ) : (
+              <KindForm
+                draft={draft}
+                naming={naming}
+                termsText={termsText}
+                editing={editingId !== null}
+                iconButtonRef={iconButtonRef}
+                onChange={setDraft}
+                onNaming={setNaming}
+                onTerms={setTermsText}
+                onPickIcon={() => setPickerOpen(true)}
+                onCancel={() => {
+                  setDraft(null);
+                  setEditingId(null);
+                }}
+                onSave={save}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </DialogLayer>
   );
 };
 

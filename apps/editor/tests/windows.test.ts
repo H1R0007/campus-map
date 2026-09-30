@@ -28,10 +28,21 @@ function tabs(group = 0): string[] {
 const open = () => ({ building: store().currentBuilding, floor: store().currentFloor });
 const selection = () => [...store().selectedNodeIds].sort();
 
+/** Новая вкладка — по просьбе человека: Ctrl+щелчок, средняя кнопка, меню. */
+const newTab = (plan: PlanRef) => store().openPlan(plan, 'tab');
+
 describe('вкладки', () => {
-  it('план из дерева открывается новой вкладкой, открытый — переключением на него', () => {
+  it('план из дерева открывается в текущей вкладке, новых вкладок сам не плодит', () => {
     store().openPlan(A(1));
     store().openPlan(A(2));
+    expect(tabs()).toEqual(['Корпус А · 2*']);
+    store().openPlan(TERRITORY);
+    expect(tabs()).toEqual(['Территория*']);
+  });
+
+  it('новая вкладка — по просьбе; уже открытый план — переключением на его вкладку', () => {
+    newTab(A(1));
+    newTab(A(2));
     expect(tabs()).toEqual(['Территория', 'Корпус А · 1', 'Корпус А · 2*']);
 
     store().openPlan(A(1));
@@ -40,37 +51,37 @@ describe('вкладки', () => {
   });
 
   it('новая вкладка встаёт справа от текущей', () => {
-    store().openPlan(A(2));
-    store().openPlan(TERRITORY);
-    store().openPlan(A(1));
+    newTab(A(2));
+    newTab(TERRITORY);
+    newTab(A(1));
     expect(tabs()).toEqual(['Территория', 'Корпус А · 1*', 'Корпус А · 2']);
   });
 
   it('у каждой вкладки свой выбор', () => {
-    store().openPlan(A(1));
+    newTab(A(1));
     store().selectSingleNode('a1_hall');
-    store().openPlan(A(2));
+    newTab(A(2));
     expect(selection()).toEqual([]);
     store().selectSingleNode('a2_corridor');
 
     const first = store().mapGroups[0].tabs[1];
     store().activateTab(0, first.id);
     expect(selection()).toEqual(['a1_hall']);
-    store().openPlan(A(2));
+    newTab(A(2));
     expect(selection()).toEqual(['a2_corridor']);
   });
 
   it('удалённая точка из запомненного выбора не возвращается', () => {
-    store().openPlan(A(1));
+    newTab(A(1));
     store().selectSingleNode('a1_room101');
-    store().openPlan(A(2));
+    newTab(A(2));
     store().removeNode('a1_room101');
-    store().openPlan(A(1));
+    newTab(A(1));
     expect(selection()).toEqual([]);
   });
 
   it('строка пути меняет план текущей вкладки, а открытый в другой вкладке — открывает её', () => {
-    store().openPlan(A(1));
+    newTab(A(1));
     store().openPlan(A(2), 'here');
     expect(tabs()).toEqual(['Территория', 'Корпус А · 2*']);
 
@@ -78,15 +89,23 @@ describe('вкладки', () => {
     expect(tabs()).toEqual(['Территория*', 'Корпус А · 2']);
   });
 
-  it('прежние действия — «перейти на этаж» — меняют план текущей вкладки', () => {
+  it('новый корпус открывается в текущей вкладке, выбор прежнего плана снимается', () => {
     store().openPlan(A(1));
+    store().selectSingleNode('a1_hall');
+    store().addBuilding('Корпус Г');
+    expect(tabs()).toEqual(['Корпус Г*']);
+    expect(selection()).toEqual([]);
+  });
+
+  it('прежние действия — «перейти на этаж» — меняют план текущей вкладки', () => {
+    newTab(A(1));
     store().setCurrentFloor(2);
     expect(tabs()).toEqual(['Территория', 'Корпус А · 2*']);
   });
 
   it('закрыли показанную вкладку — открывается соседняя справа, у крайней — слева', () => {
-    store().openPlan(A(1));
-    store().openPlan(A(2));
+    newTab(A(1));
+    newTab(A(2));
     const [territory, first] = store().mapGroups[0].tabs;
     store().activateTab(0, first.id);
     store().closeTab(0, first.id);
@@ -104,16 +123,16 @@ describe('вкладки', () => {
   });
 
   it('закрыть другие вкладки', () => {
-    store().openPlan(A(1));
-    store().openPlan(A(2));
+    newTab(A(1));
+    newTab(A(2));
     const first = store().mapGroups[0].tabs[1];
     store().closeOtherTabs(0, first.id);
     expect(tabs()).toEqual(['Корпус А · 1*']);
   });
 
   it('вкладки переставляются перетаскиванием', () => {
-    store().openPlan(A(1));
-    store().openPlan(A(2));
+    newTab(A(1));
+    newTab(A(2));
     const [territory, , second] = store().mapGroups[0].tabs;
     store().moveTab(0, second.id, 0, territory.id);
     expect(tabs()).toEqual(['Корпус А · 2*', 'Территория', 'Корпус А · 1']);
@@ -121,15 +140,15 @@ describe('вкладки', () => {
     expect(tabs()).toEqual(['Территория', 'Корпус А · 1', 'Корпус А · 2*']);
   });
 
-  it('новый этаж открывается своей вкладкой, а план, на котором работали, остаётся', () => {
+  it('новый этаж открывается в текущей вкладке, как любой план из дерева', () => {
     store().openPlan(A(1));
     store().addFloor('building_a', { floor: 3 });
-    expect(tabs()).toEqual(['Территория', 'Корпус А · 1', 'Корпус А · 3*']);
+    expect(tabs()).toEqual(['Корпус А · 3*']);
   });
 
   it('вкладка удалённого этажа переходит на этаж входа, одинаковые вкладки сливаются', () => {
-    store().openPlan(A(1));
-    store().openPlan(A(2));
+    newTab(A(1));
+    newTab(A(2));
     store().openPlan(TERRITORY);
     store().deleteFloor('building_a', 2);
     expect(tabs()).toEqual(['Территория*', 'Корпус А · 1']);
@@ -140,26 +159,26 @@ describe('вкладки', () => {
   });
 
   it('сменили номер этажа — вкладка идёт за ним', () => {
-    store().openPlan(A(2));
+    newTab(A(2));
     store().openPlan(TERRITORY);
     store().updateFloor('building_a', 2, { floor: 5 });
     expect(tabs()).toEqual(['Территория*', 'Корпус А · 5']);
   });
 
   it('удалили корпус — его вкладки уходят на территорию и сливаются с ней', () => {
-    store().openPlan(A(1));
-    store().openPlan(A(2));
+    newTab(A(1));
+    newTab(A(2));
     store().deleteBuilding('building_a');
     expect(tabs()).toEqual(['Территория*']);
   });
 
-  it('постановка корпуса открывает территорию вкладкой; вернулись к этажу — постановка закончилась', () => {
-    store().openPlan(A(1));
+  it('постановка корпуса открывает территорию; вернулись к этажу — постановка закончилась', () => {
+    newTab(A(1));
     expect(store().startPlacing('building_a', { center: { x: 400, y: 300 }, width: 800 })).toBeNull();
     expect(tabs()).toEqual(['Территория*', 'Корпус А · 1']);
     expect(store().placing).not.toBeNull();
 
-    store().openPlan(A(1));
+    newTab(A(1));
     expect(store().placing).toBeNull();
   });
 });
@@ -205,7 +224,7 @@ describe('две карты рядом', () => {
     store().focusGroup(0);
     store().navigateToNode('a2_room201');
     expect(store().activeGroup).toBe(1);
-    expect(tabs(0)).toEqual(['Территория', 'Корпус А · 1*']);
+    expect(tabs(0)).toEqual(['Корпус А · 1*']);
   });
 
   it('свернуть вторую карту — работа на первой; развернуть — на второй', () => {
@@ -242,8 +261,8 @@ describe('две карты рядом', () => {
   });
 
   it('вкладку переносят на вторую карту и обратно', () => {
-    store().openPlan(A(1));
-    store().openPlan(A(2));
+    newTab(A(1));
+    newTab(A(2));
     const second = store().mapGroups[0].tabs[2];
     store().moveTab(0, second.id, 1);
     expect(tabs(0)).toEqual(['Территория', 'Корпус А · 1*']);

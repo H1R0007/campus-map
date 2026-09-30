@@ -5,7 +5,7 @@ import { TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
 import type { ContextMenuTarget, EditorStore } from '../../stores/editorStore';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
-import { planOfTab, planTitle } from '../../stores/editor/windowSlice';
+import { existingPlan, planOfTab, planTitle } from '../../stores/editor/windowSlice';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 
@@ -222,6 +222,19 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
           separator,
           { kind: 'action', label: 'Выделить все точки плана', shortcut: 'Ctrl+A', icon: 'select', run: () => st.selectAll() },
           { kind: 'action', label: 'Показать план целиком', icon: 'map', run: () => st.requestFitPlan() },
+        ],
+      };
+    }
+
+    case 'plan': {
+      const plan = { building: target.building, floor: target.floor };
+      return {
+        title: planTitle(st.buildingMetas, existingPlan(st.buildingMetas, plan)),
+        subtitle: 'План',
+        entries: [
+          { kind: 'action', label: 'Открыть', icon: 'map', run: () => st.openPlan(plan) },
+          { kind: 'action', label: 'Открыть в новой вкладке', shortcut: 'Ctrl+щелчок', icon: 'plus', run: () => st.openPlan(plan, 'tab') },
+          { kind: 'action', label: 'Открыть рядом', icon: 'split', run: () => st.openPlan(plan, 'side') },
         ],
       };
     }
