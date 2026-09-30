@@ -5,6 +5,7 @@ import { TransitionGlyph } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
 import type { ContextMenuTarget, EditorStore } from '../../stores/editorStore';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle } from '../../utils/labels';
+import { existingPlan, planOfTab, planTitle } from '../../stores/editor/windowSlice';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
 
@@ -53,7 +54,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         entries: [
           {
             kind: 'action',
-            label: 'Соединить связью с другим узлом',
+            label: 'Соединить связью с другой точкой',
             icon: 'link',
             run: () => {
               st.setActiveTool('edge');
@@ -95,7 +96,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
             },
           },
           separator,
-          { kind: 'action', label: 'Удалить узел', shortcut: 'Delete', icon: 'trash', danger: true, run: () => st.removeNode(id) },
+          { kind: 'action', label: 'Удалить точку', shortcut: 'Delete', icon: 'trash', danger: true, run: () => st.removeNode(id) },
         ],
       };
     }
@@ -104,7 +105,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
       const count = target.nodeIds.filter((id) => st.nodes.has(id)).length;
       if (count === 0) return null;
       return {
-        title: `Выбрано узлов: ${count}`,
+        title: `Выбрано точек: ${count}`,
         entries: [
           { kind: 'action', label: 'Соединить цепочкой', icon: 'link', run: () => st.connectSelectedChain() },
           separator,
@@ -113,7 +114,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
           separator,
           {
             kind: 'action',
-            label: `Удалить узлы: ${count}`,
+            label: `Удалить точки: ${count}`,
             shortcut: 'Delete',
             icon: 'trash',
             danger: true,
@@ -130,7 +131,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         title: 'Связь',
         subtitle: `${nodeTitle(from, st.aliases)} — ${nodeTitle(to, st.aliases)}`,
         entries: [
-          { kind: 'action', label: 'Вставить узел посередине', icon: 'plus', run: () => st.splitEdge(from, to) },
+          { kind: 'action', label: 'Вставить точку посередине', icon: 'plus', run: () => st.splitEdge(from, to) },
           {
             kind: 'action',
             label: 'Выделить оба конца',
@@ -201,7 +202,7 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
         title: 'Карта',
         subtitle: `Точка плана ${x}, ${y}`,
         entries: [
-          { kind: 'action', label: 'Поставить узел здесь', icon: 'plus', run: () => st.addNode(x, y) },
+          { kind: 'action', label: 'Поставить точку здесь', icon: 'plus', run: () => st.addNode(x, y) },
           {
             kind: 'action',
             label: 'Вставить скопированное сюда',
@@ -219,8 +220,65 @@ function contentOf(target: ContextMenuTarget, st: EditorStore): MenuContent | nu
             },
           },
           separator,
-          { kind: 'action', label: 'Выделить все узлы плана', shortcut: 'Ctrl+A', icon: 'select', run: () => st.selectAll() },
+          { kind: 'action', label: 'Выделить все точки плана', shortcut: 'Ctrl+A', icon: 'select', run: () => st.selectAll() },
           { kind: 'action', label: 'Показать план целиком', icon: 'map', run: () => st.requestFitPlan() },
+        ],
+      };
+    }
+
+    case 'plan': {
+      const plan = { building: target.building, floor: target.floor };
+      return {
+        title: planTitle(st.buildingMetas, existingPlan(st.buildingMetas, plan)),
+        subtitle: 'План',
+        entries: [
+          { kind: 'action', label: 'Открыть', icon: 'map', run: () => st.openPlan(plan) },
+          { kind: 'action', label: 'Открыть в новой вкладке', shortcut: 'Ctrl+щелчок', icon: 'plus', run: () => st.openPlan(plan, 'tab') },
+          { kind: 'action', label: 'Открыть рядом', icon: 'split', run: () => st.openPlan(plan, 'side') },
+        ],
+      };
+    }
+
+    case 'tab': {
+      const group = st.mapGroups[target.group];
+      const tab = group?.tabs.find((item) => item.id === target.tabId);
+      if (!group || !tab) return null;
+      const plan = planOfTab(st, target.group, tab);
+      const single = st.mapGroups.length === 1;
+      const lonely = single && group.tabs.length === 1;
+      const other = target.group === 0 ? 1 : 0;
+      return {
+        title: planTitle(st.buildingMetas, plan),
+        subtitle: single ? 'Вкладка карты' : `Вкладка карты ${target.group + 1}`,
+        entries: [
+          {
+            kind: 'action',
+            label: single ? 'Открыть рядом' : 'Перенести на соседнюю карту',
+            icon: 'split',
+            disabled: lonely,
+            run: () => st.moveTab(target.group, tab.id, other),
+          },
+          {
+            kind: 'action',
+            label: 'Открыть копию на соседней карте',
+            icon: 'duplicate',
+            run: () => st.openPlan(plan, 'side'),
+          },
+          separator,
+          {
+            kind: 'action',
+            label: 'Закрыть вкладку',
+            shortcut: 'Delete',
+            icon: 'close',
+            disabled: lonely,
+            run: () => st.closeTab(target.group, tab.id),
+          },
+          {
+            kind: 'action',
+            label: 'Закрыть другие вкладки',
+            disabled: group.tabs.length === 1,
+            run: () => st.closeOtherTabs(target.group, tab.id),
+          },
         ],
       };
     }

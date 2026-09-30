@@ -1,6 +1,7 @@
 import React, { useDeferredValue, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
+import { FieldLabel, InfoTip } from '../UI/Field';
 
 /**
  * Что показывать на карте: подписи, точки переходов, связи, подсветка
@@ -14,6 +15,7 @@ export const DisplayOptions: React.FC = () => {
   const setDisplayFilters = useEditorStore((s) => s.setDisplayFilters);
   const gridSettings = useEditorStore((s) => s.gridSettings);
   const setGridSettings = useEditorStore((s) => s.setGridSettings);
+  const workspace = useEditorStore((s) => s.workspace);
 
   // Счётчики считаются от самих данных и догоняют перетаскивание: через
   // стор это были три обхода плана на каждое движение мыши.
@@ -38,44 +40,46 @@ export const DisplayOptions: React.FC = () => {
           Показывать на карте
         </h2>
         <Check
-          label="Названия узлов"
-          hint="видны, когда план приближен"
+          label="Названия точек"
+          info="Подписи видны, когда план приближен настолько, что они не слипаются."
           checked={displayFilters.showAliasLabels}
           onChange={(v) => setDisplayFilters({ showAliasLabels: v })}
         />
         <Check
           label="Точки переходов"
-          hint="лестницы, лифты, входы"
+          info="Лестницы, лифты и входы на этом плане."
           checked={displayFilters.showPortals}
           onChange={(v) => setDisplayFilters({ showPortals: v })}
         />
         <Check label="Связи" checked={displayFilters.showEdges} onChange={(v) => setDisplayFilters({ showEdges: v })} />
         <Check
           label="Переходы"
-          hint="между этажами и корпусами"
+          info="Отметки переходов на другие этажи и корпуса."
           checked={displayFilters.showTransitions}
           onChange={(v) => setDisplayFilters({ showTransitions: v })}
         />
-        <Check
-          label="Соседний этаж бледно"
-          hint="чтобы лестницы и туалеты вставали друг над другом"
-          checked={displayFilters.showNeighbourFloor}
-          onChange={(v) => setDisplayFilters({ showNeighbourFloor: v })}
-        />
-        {displayFilters.showNeighbourFloor && (
-          <label className="editor-check">
-            <span className="editor-check__text">Какой этаж показывать</span>
-            <select
-              value={displayFilters.neighbourFloorBelow ? 'below' : 'above'}
-              onChange={(e) => setDisplayFilters({ neighbourFloorBelow: e.target.value === 'below' })}
-              aria-label="Какой этаж показывать бледно"
-              className="editor-input editor-input--narrow"
-            >
-              <option value="below">ниже</option>
-              <option value="above">выше</option>
-            </select>
-          </label>
-        )}
+        <div className="editor-field editor-field--inline">
+          <FieldLabel
+            label="Сравнить с этажом"
+            htmlFor="compare-floor"
+            info="Стены соседнего этажа — красным поверх открытого, его точки — бледно: видно, стоят ли лестницы и туалеты друг над другом."
+          />
+          <select
+            id="compare-floor"
+            value={!displayFilters.showNeighbourFloor ? 'none' : displayFilters.neighbourFloorBelow ? 'below' : 'above'}
+            onChange={(e) =>
+              setDisplayFilters(
+                e.target.value === 'none' ? { showNeighbourFloor: false } : { showNeighbourFloor: true, neighbourFloorBelow: e.target.value === 'below' }
+              )
+            }
+            aria-label="Сравнить с этажом"
+            className="editor-input editor-input--narrow"
+          >
+            <option value="none">нет</option>
+            <option value="below">ниже</option>
+            <option value="above">выше</option>
+          </select>
+        </div>
       </section>
 
       <section className="editor-section" aria-labelledby="highlight-title">
@@ -102,13 +106,14 @@ export const DisplayOptions: React.FC = () => {
         />
       </section>
 
+      {workspace === 'markup' && (
       <section className="editor-section" aria-labelledby="grid-title">
         <h2 id="grid-title" className="editor-section__title">
           Точность
         </h2>
         <Check
           label="Выравнивать по соседним точкам"
-          hint="новая точка встаёт в один ряд с соседней; Alt при щелчке — без выравнивания"
+          info="Новая точка встаёт в один ряд с соседней. Alt при щелчке — без выравнивания."
           checked={gridSettings.alignToNeighbours}
           onChange={(v) => setGridSettings({ alignToNeighbours: v })}
         />
@@ -117,7 +122,7 @@ export const DisplayOptions: React.FC = () => {
           <>
             <Check label="Показывать сетку" checked={gridSettings.visible} onChange={(v) => setGridSettings({ visible: v })} />
             <Check
-              label="Притягивать узлы к сетке"
+              label="Притягивать точки к сетке"
               checked={gridSettings.snap}
               onChange={(v) => setGridSettings({ snap: v })}
             />
@@ -139,23 +144,31 @@ export const DisplayOptions: React.FC = () => {
           </>
         )}
       </section>
+      )}
     </>
   );
 };
 
+/** Флажок; пояснение — за ⓘ рядом, а не строкой под подписью (запись 58). */
 const Check: React.FC<{
   label: string;
-  hint?: string;
+  info?: string;
   count?: number;
   checked: boolean;
   onChange: (value: boolean) => void;
-}> = ({ label, hint, count, checked, onChange }) => (
-  <label className="editor-check">
-    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    <span className="editor-check__text">
-      {label}
-      {hint && <span className="editor-check__hint">{hint}</span>}
-    </span>
-    {count !== undefined && <span className="editor-check__count">{count}</span>}
-  </label>
-);
+}> = ({ label, info, count, checked, onChange }) => {
+  const box = (
+    <label className="editor-check">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="editor-check__text">{label}</span>
+      {count !== undefined && <span className="editor-check__count">{count}</span>}
+    </label>
+  );
+  if (!info) return box;
+  return (
+    <div className="editor-check-row">
+      {box}
+      <InfoTip about={label}>{info}</InfoTip>
+    </div>
+  );
+};

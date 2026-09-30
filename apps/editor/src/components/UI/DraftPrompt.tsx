@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { Icon } from './Icon';
+import { DialogLayer } from './DialogLayer';
 
 /** Когда черновик записан, словами: «сегодня в 14:32», «17 сентября в 9:05». */
 function savedAtLabel(savedAt: number): string {
@@ -43,31 +44,33 @@ export const DraftPrompt: React.FC = () => {
   const diskChanged = Object.entries(draft.base).some(([path, hash]) => diskHashes[path] !== hash);
 
   return (
-    <div className="editor-dialog-backdrop">
-      <div ref={dialogRef} className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-prompt-title">
-        <h2 className="editor-dialog__title" id="draft-prompt-title">
-          <Icon name="note" size={18} className="inline-block mr-2 align-middle" />
-          Осталась несохранённая работа
-        </h2>
-        <p className="editor-dialog__text">
-          Редактор записал её в браузере {savedAtLabel(draft.savedAt)}: узлов {draft.dataset.nodes.length},
-          переходов {draft.dataset.transitions.length}. Восстановить и продолжить?
-        </p>
-        {diskChanged && (
-          <p className="editor-dialog__text editor-dialog__text--warn">
-            Внимание: файлы данных на диске изменились после того, как черновик был записан. Восстановленная
-            работа не будет знать об этих правках.
+    <DialogLayer>
+      <div className="editor-dialog-backdrop">
+        <div ref={dialogRef} className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-prompt-title">
+          <h2 className="editor-dialog__title" id="draft-prompt-title">
+            <Icon name="note" size={18} className="inline-block mr-2 align-middle" />
+            Осталась несохранённая работа
+          </h2>
+          <p className="editor-dialog__text">
+            Редактор записал её в браузере {savedAtLabel(draft.savedAt)}: точек {draft.dataset.nodes.length},
+            переходов {draft.dataset.transitions.length}. Восстановить и продолжить?
           </p>
-        )}
-        <div className="editor-dialog__actions">
-          <button type="button" className="editor-button editor-button--ghost" onClick={dismissDraft}>
-            Отбросить
-          </button>
-          <button ref={restoreRef} type="button" className="editor-button editor-button--primary" onClick={restoreDraft}>
-            Восстановить
-          </button>
+          {diskChanged && (
+            <p className="editor-dialog__text editor-dialog__text--warn">
+              Внимание: файлы данных на диске изменились после того, как черновик был записан. Восстановленная
+              работа не будет знать об этих правках.
+            </p>
+          )}
+          <div className="editor-dialog__actions">
+            <button type="button" className="editor-button editor-button--ghost" onClick={dismissDraft}>
+              Отбросить
+            </button>
+            <button ref={restoreRef} type="button" className="editor-button editor-button--primary" onClick={restoreDraft}>
+              Восстановить
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </DialogLayer>
   );
 };

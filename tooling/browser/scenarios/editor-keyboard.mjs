@@ -28,7 +28,7 @@ export default {
       const before = (await e.nodeIds()).length;
 
       await ru('т', 'KeyN');
-      assert.equal(await e.tool(), 'Узел', 'клавиша инструмента не сработала в русской раскладке');
+      assert.equal(await e.tool(), 'Точка', 'клавиша инструмента не сработала в русской раскладке');
 
       const empty = await e.emptyMapPoint();
       await e.click(empty.x, empty.y);
@@ -101,16 +101,16 @@ export default {
     });
 
     await step('PageUp и PageDown листают этажи корпуса', async () => {
-      assert.match(await e.status(), /Этаж 1/);
+      assert.match(await e.status(), /этаж 1/);
       await e.key('PageUp');
-      assert.match(await e.status(), /Этаж 2/);
+      assert.match(await e.status(), /этаж 2/);
       await e.key('PageUp');
-      assert.match(await e.status(), /Этаж 3/);
+      assert.match(await e.status(), /этаж 3/);
       await e.key('PageUp');
-      assert.match(await e.status(), /Этаж 3/, 'выше верхнего этажа листать некуда');
+      assert.match(await e.status(), /этаж 3/, 'выше верхнего этажа листать некуда');
       await e.key('PageDown');
       await e.key('PageDown');
-      assert.match(await e.status(), /Этаж 1/);
+      assert.match(await e.status(), /этаж 1/);
     });
   },
 };

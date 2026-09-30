@@ -116,14 +116,17 @@ export default {
     });
 
     await step('окно открывается пустым и принимает файлы', async () => {
-      await e.press('Планы из файлов…');
+      await e.mode('Планы и корпуса');
+      await e.press('Загрузить планы…');
       assert.match(await page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`), /Перетащите сюда планы/);
 
       const { root } = await page.send('DOM.getDocument', { depth: 1 });
       const { nodeId } = await page.send('DOM.querySelector', { nodeId: root.nodeId, selector: 'input[data-import-files]' });
       await page.send('DOM.setFileInputFiles', { nodeId, files });
-      await page.waitFor(`document.querySelectorAll('.editor-import__item').length >= 11 && !document.querySelector('[role="dialog"] [role="status"]')?.textContent.startsWith('Читаю')`, 30_000);
+      await page.waitFor(`document.querySelectorAll('.editor-import__item').length >= 11 && !document.querySelector('[role="dialog"] [role="status"]')?.textContent.startsWith('Чтение')`, 30_000);
       // Миниатюры и поля — вслед за списком.
+      // У каждого листа — миниатюра. Листы PDF не рисовались в браузерах, где
+      // нет новейших функций языка, которые зовёт основная сборка pdf.js.
       await page.waitFor(`[...document.querySelectorAll('.editor-import__thumb')].every((t) => t.querySelector('img'))`, 30_000);
     });
 
@@ -157,7 +160,7 @@ export default {
       // Масштаб — по надписи в штампе листа.
       assert.equal(await page.eval(`document.querySelector('[aria-label="Масштаб чертежа"]')?.value`), '200');
       assert.match(text, /По надписи на листе «Масштаб 1:200»/);
-      assert.match(text, /1 точка = 0,0\d+ м/);
+      assert.match(text, /1 пикс\. = 0,0\d+ м/);
       const crop = (await page.eval(`document.querySelector('.editor-crop__box').dataset.crop`)).split(',').map(Number);
       // Лист A4 альбомный — 842 × 595 пунктов; обрезанное меньше.
       assert.ok(crop[2] < 842 && crop[3] < 595 && crop[2] > 400, `обрезка ${crop}`);
@@ -194,7 +197,7 @@ export default {
       await pressInDialog('Добавить: 7 планов этажей и план территории');
       await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 30_000);
       assert.match(await e.notice(), /Добавлено: 7 планов этажей и план территории\. Сохраните/);
-      assert.match(await e.place(), /Корпус А \/ Этаж 1/);
+      assert.match(await e.place(), /Корпус А, этаж 1/);
       // Подвал встал в дерево корпуса.
       assert.ok(
         await page.eval(`[...document.querySelectorAll('.editor-tree__label')].some((l) => l.textContent.trim() === 'Этаж −1')`),
@@ -242,7 +245,7 @@ export default {
         !(await page.eval(`[...document.querySelectorAll('.editor-tree__label')].some((l) => l.textContent.trim() === 'Этаж −1')`)),
         'подвал остался после отмены'
       );
-      assert.match(await e.notice(), /Отменено: Планы из файлов/);
+      assert.match(await e.notice(), /Отменено: Загружены планы/);
     });
   },
 };

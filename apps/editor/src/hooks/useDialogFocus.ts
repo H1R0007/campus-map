@@ -12,6 +12,7 @@ const FOCUSABLE =
  * окно, на карту под затемнением, и терял, где находится.
  *
  * @param initial элемент, который получает фокус первым; по умолчанию —
+ *   помеченный `data-autofocus` (поле, с которого начинают ввод), иначе
  *   первый доступный в окне
  */
 export function useDialogFocus(
@@ -30,7 +31,12 @@ export function useDialogFocus(
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const root = container.current;
-    (initial?.current ?? root?.querySelector<HTMLElement>(FOCUSABLE) ?? root)?.focus();
+    (
+      initial?.current ??
+      root?.querySelector<HTMLElement>('[data-autofocus]') ??
+      root?.querySelector<HTMLElement>(FOCUSABLE) ??
+      root
+    )?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {

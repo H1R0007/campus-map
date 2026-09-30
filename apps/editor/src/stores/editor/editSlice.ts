@@ -90,6 +90,16 @@ export interface EditSlice {
    *          ставится (вход, переход между корпусами — только вручную)
    */
   placeTransitionStack: (x: number, y: number, options?: { align?: boolean; linkToLast?: boolean }) => string | null;
+  /**
+   * Второй конец начатого вручную перехода — новой точкой на пустом месте
+   * открытого плана: у входа на пустой территории щёлкнуть больше не по чему.
+   * Точка связывается с ближайшей на своём плане; точка и переход — одна
+   * правка.
+   *
+   * @returns id новой точки; `'samePlan'` — план тот же, что у начала;
+   *          `null` — перехода не начато
+   */
+  placeTransitionEnd: (x: number, y: number, options?: { align?: boolean }) => string | 'samePlan' | null;
   setNodeAliases: (nodeId: string, names: string[]) => void;
   /** Вид места: туалет, еда, гардероб, выход — или ничего. */
   setNodeCategory: (nodeId: string, category: PlaceCategory | null) => void;
@@ -234,6 +244,11 @@ interface PlacementSpec {
   linkFrom: string | null;
   /** Продолжать линию от новой точки. */
   chain: boolean;
+  /**
+   * Начало перехода, начатого вручную: новая точка — его второй конец, переход
+   * (`transition`) ставится той же правкой.
+   */
+  transitionFrom?: string;
 }
 
 type StoreSet = Parameters<EditorSlice<EditSlice>>[0];
@@ -313,11 +328,15 @@ function commitPlacement(set: StoreSet, get: StoreGet, spec: PlacementSpec): str
     links.map((link) => link.nearestId)
   );
 
-  // Переходы между соседними этажами стопки.
+  // Переходы между соседними этажами стопки — или от начала перехода, начатого
+  // вручную, к новой точке.
   const newTransitions: Transition[] = [];
   if (spec.transition !== null) {
     for (let i = 0; i + 1 < created.length; i += 1) {
       newTransitions.push({ fromNode: created[i].id, toNode: created[i + 1].id, type: spec.transition });
+    }
+    if (spec.transitionFrom !== undefined) {
+      newTransitions.push({ fromNode: spec.transitionFrom, toNode: primary.id, type: spec.transition });
     }
   }
 
@@ -339,6 +358,7 @@ function commitPlacement(set: StoreSet, get: StoreGet, spec: PlacementSpec): str
     s.selectedNodeIds = new Set([primary.id]);
     s.chainLastNodeId = spec.chain ? primary.id : null;
     s.lastPlacedNodeId = primary.id;
+    if (spec.transitionFrom !== undefined) s.transitionStartNodeId = null;
   });
 
   const after = get();
@@ -409,7 +429,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'ADD_NODE',
-      description: 'Добавлен узел',
+      description: 'Добавлена точка',
       undoData: { nodeId: id },
       redoData: { node },
     });
@@ -443,7 +463,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'REMOVE_NODE',
-      description: 'Удалён узел',
+      description: 'Удалена точка',
       undoData: {
         node: nodeSnapshot,
         neighborsBefore,
@@ -489,7 +509,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'MOVE_NODE',
-      description: 'Перемещение узла',
+      description: 'Перемещение точки',
       undoData: { nodeId, x: fromX, y: fromY },
       redoData: { nodeId, x: toX, y: toY },
     });
@@ -514,7 +534,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     if (after.length === 1) {
       history.push({
         type: 'MOVE_NODE',
-        description: 'Перемещение узла',
+        description: 'Перемещение точки',
         undoData: { ...before[0] },
         redoData: { ...after[0] },
       });
@@ -542,7 +562,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'UPDATE_NODE',
-      description: 'Изменение узла',
+      description: 'Изменение точки',
       undoData: { nodeId, updates: prev },
       redoData: { nodeId, updates },
     });
@@ -769,6 +789,30 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
     });
   },
 
+  placeTransitionEnd: (x, y, options = {}) => {
+    const st = get();
+    const start = st.transitionStartNodeId === null ? undefined : st.nodes.get(st.transitionStartNodeId);
+    if (!start) return null;
+    const plan = openPlanOf(st);
+    if (start.building === plan.building && start.floor === plan.floor) return 'samePlan';
+
+    const type = st.transitionType;
+    return commitPlacement(set, get, {
+      idKind: { id: type, name: TRANSITION_LABELS[type] },
+      label: TRANSITION_LABELS[type],
+      point: placementPoint(st, x, y, options.align !== false),
+      floors: [plan.building === CAMPUS_BUILDING_ID ? null : plan.floor],
+      isPortal: true,
+      transition: type,
+      name: null,
+      category: null,
+      connect: true,
+      linkFrom: null,
+      chain: false,
+      transitionFrom: start.id,
+    });
+  },
+
   setNodeAliases: (nodeId, names) => {
     const prev = get().aliases.get(nodeId) ?? [];
     const next = names.map((x) => x.trim()).filter((x) => x.length > 0);
@@ -912,7 +956,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: 'Узел вставлен в связь',
+      description: 'Точка вставлена в связь',
       undoData: {
         kind: 'splitEdge',
         newNodeId: newId,
@@ -1261,7 +1305,7 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
 
     useHistoryStore.getState().push({
       type: 'BATCH',
-      description: `Линия: ${nodesCount(created.length)}`,
+      description: `Ряд точек: ${nodesCount(created.length)}`,
       undoData: { kind: 'line', nodeIds: created.map((n) => n.id) },
       redoData: { kind: 'line', nodes: created },
     });

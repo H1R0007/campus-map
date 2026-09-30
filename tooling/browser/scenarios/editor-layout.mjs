@@ -30,7 +30,7 @@ export default {
           .map((el) => el.tagName + '.' + String(el.className).slice(0, 40));
         return covered;
       })()`);
-    const selectedTab = () => page.eval(`document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim() ?? ''`);
+    const selectedTab = () => page.eval(`document.querySelector('.editor-inspector [role="tab"][aria-selected="true"]')?.textContent.trim() ?? ''`);
 
     await step('карточка узла, проверка и маршрут не закрывают карту', async () => {
       await e.open();
@@ -41,34 +41,41 @@ export default {
       assert.deepEqual(await mapUncovered(), [], 'карточка узла лежит поверх карты');
       await shot('editor-layout');
 
-      for (const tab of ['Проверка', 'Маршрут']) {
+      await e.mode('Проверка');
+      for (const tab of ['Замечания', 'Маршрут']) {
         await e.press(tab);
         assert.equal(await selectedTab(), tab);
         assert.deepEqual(await mapUncovered(), [], `вкладка «${tab}» лежит поверх карты`);
       }
+      await e.mode('Разметка');
 
       await e.press('Переход (T)');
       assert.deepEqual(await mapUncovered(), [], 'параметры инструмента лежат поверх карты');
       await e.press('Выбор (V)');
     });
 
-    await step('щелчок по узлу показывает его карточку, даже если открыта проверка', async () => {
-      await e.press('Проверка');
+    await step('в «Проверке» точка выбирается щелчком, её свойства — в «Разметке» (запись 60)', async () => {
+      await e.mode('Проверка');
+      await e.press('Замечания');
       const room = await e.nodePoint('a1_room102');
       await e.click(room.x, room.y);
-      assert.equal(await selectedTab(), 'Свойства', 'инспектор остался на проверке');
-      assert.equal(await e.propertiesNodeId(), 'a1_room102');
+      assert.equal(await selectedTab(), 'Замечания', 'щелчок по точке увёл из «Проверки»');
+      assert.equal(await e.selectedCount(), 1, 'точка не выбрана');
+      await e.mode('Разметка');
+      assert.equal(await e.propertiesNodeId(), 'a1_room102', 'в «Разметке» нет свойств выбранной точки');
+      await e.mode('Проверка');
     });
 
     await step('вкладки инспектора переключаются стрелками', async () => {
-      await page.eval(`document.querySelector('[role="tab"][aria-selected="true"]').focus()`);
+      await page.eval(`document.querySelector('.editor-inspector [role="tab"][aria-selected="true"]').focus()`);
       await e.key('ArrowRight');
-      assert.equal(await selectedTab(), 'Проверка');
+      assert.equal(await selectedTab(), 'Маршрут');
       assert.equal(await page.eval(`document.activeElement?.getAttribute('role')`), 'tab', 'фокус ушёл с вкладок');
       await e.key('ArrowLeft');
-      assert.equal(await selectedTab(), 'Свойства');
+      assert.equal(await selectedTab(), 'Замечания');
       // Узел А-102 выбран, но стрелки ушли вкладкам, а не ему.
       assert.match(await e.status(), /Правок: 0/, 'стрелки во вкладках сдвинули выбранный узел');
+      await e.mode('Разметка');
     });
 
     await step('экран ноутбука: карта не прыгает при выборе узла и смене инструмента', async () => {
@@ -114,7 +121,7 @@ export default {
         await page.sleep(800);
       };
 
-      await e.toggleFilter('Названия узлов');
+      await e.toggleFilter('Названия точек');
       assert.ok((await labels()) > 0, 'подписи не появились на открытом плане');
 
       // Дальше «плана целиком» карта не отдаляется, поэтому окно поуже: так
@@ -134,7 +141,7 @@ export default {
         back.push(await labels());
       }
       assert.ok((await labels()) > 0, `подписи не вернулись при приближении: ${JSON.stringify({ counts, back })}`);
-      await e.toggleFilter('Названия узлов');
+      await e.toggleFilter('Названия точек');
       await page.viewport(1600, 900, 1);
       await page.sleep(400);
     });
@@ -165,7 +172,59 @@ export default {
       assert.ok(await e.rect('button[aria-label="Развернуть структуру"]'), 'структура развернулась после перезагрузки');
       await e.press('Развернуть структуру');
       await e.press('Развернуть инспектор');
-      assert.ok(await e.rect('[role="tablist"]'), 'инспектор не развернулся');
+      assert.ok(await e.rect('aside[aria-label="Инспектор"] .editor-tabs'), 'инспектор не развернулся');
+    });
+
+    await step('край колонки тянут мышью; ширина помнится, двойной щелчок возвращает как было (запись 57)', async () => {
+      const sidebar = () => e.rect('nav[aria-label="Структура кампуса"]');
+      const inspector = () => e.rect('aside[aria-label="Инспектор"]');
+      const map = () => e.rect('.leaflet-container');
+      const edge = (label) => e.rect(`[role="separator"][aria-label="${label}"]`);
+
+      const before = { sidebar: (await sidebar()).width, inspector: (await inspector()).width, map: (await map()).width };
+      const left = await edge('Ширина структуры');
+      await e.drag(left.left + left.width / 2, left.top + 300, left.left + left.width / 2 + 120, left.top + 300);
+      const right = await edge('Ширина инспектора');
+      await e.drag(right.left + right.width / 2, right.top + 300, right.left + right.width / 2 - 100, right.top + 300);
+
+      const wide = { sidebar: (await sidebar()).width, inspector: (await inspector()).width, map: (await map()).width };
+      assert.ok(Math.abs(wide.sidebar - (before.sidebar + 120)) <= 2, `структура не стала шире на 120: ${before.sidebar} → ${wide.sidebar}`);
+      assert.ok(Math.abs(wide.inspector - (before.inspector + 100)) <= 2, `инспектор не стал шире на 100: ${before.inspector} → ${wide.inspector}`);
+      assert.ok(wide.map < before.map - 200, `карта не уступила место: ${before.map} → ${wide.map}`);
+      await shot('editor-layout-resized');
+
+      // Уже самой узкой не бывает: край держит предел.
+      const narrow = await edge('Ширина структуры');
+      await e.drag(narrow.left + 3, narrow.top + 300, narrow.left - 600, narrow.top + 300);
+      assert.equal(Math.round((await sidebar()).width), 200, 'структура ужалась ниже предела');
+
+      await e.open();
+      assert.equal(Math.round((await sidebar()).width), 200, 'ширина структуры забыта после перезагрузки');
+      assert.ok(Math.abs((await inspector()).width - wide.inspector) <= 2, 'ширина инспектора забыта после перезагрузки');
+
+      // Стрелки на крае — тот же шаг с клавиатуры.
+      await page.eval(`document.querySelector('[role="separator"][aria-label="Ширина структуры"]').focus()`);
+      await e.key('ArrowRight');
+      await e.key('ArrowRight');
+      assert.equal(Math.round((await sidebar()).width), 232, 'стрелки не меняют ширину');
+
+      const reset = async (label) => {
+        const box = await edge(label);
+        await e.dblclick(box.left + box.width / 2, box.top + 300);
+      };
+      await reset('Ширина структуры');
+      await reset('Ширина инспектора');
+      assert.equal(Math.round((await sidebar()).width), Math.round(before.sidebar), 'двойной щелчок не вернул ширину структуры');
+      assert.equal(Math.round((await inspector()).width), Math.round(before.inspector), 'двойной щелчок не вернул ширину инспектора');
+    });
+
+    await step('Ctrl+B прячет и возвращает левую колонку', async () => {
+      const empty = await e.emptyMapPoint();
+      await e.click(empty.x, empty.y);
+      await e.key('b', { modifiers: MOD.ctrl });
+      assert.ok(await e.rect('button[aria-label="Развернуть структуру"]'), 'Ctrl+B не спрятал структуру');
+      await e.key('b', { modifiers: MOD.ctrl });
+      assert.ok(await e.rect('[role="separator"][aria-label="Ширина структуры"]'), 'Ctrl+B не вернул структуру');
     });
   },
 };

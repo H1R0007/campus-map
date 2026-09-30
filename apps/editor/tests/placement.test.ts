@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createCampusProjection } from '@campus-map/core';
 import { applySimilarity } from '../src/import/planGeometry';
-import { frameOf } from '../src/import/placementMath';
+import { farCorner, frameOf, moveFrame, turnAroundPin } from '../src/import/placementMath';
+import { placingAllowsScale } from '../src/stores/editor/placeSlice';
 import { useHistoryStore } from '../src/stores/historyStore';
 import { fixtureDataset, loadFixture, store } from './helpers/fixture';
 
@@ -43,22 +44,44 @@ describe('постановка', () => {
     expect(store().startPlacing('building_g', VIEW)).toMatch(/нет этажей/);
   });
 
-  it('пары: место на плане корпуса, затем на территории; две пары ставят корпус', () => {
+  it('булавка (запись 63): угол приколот, дальний угол ведут к месту — план доворачивается вокруг булавки', () => {
     store().startPlacing('building_a', VIEW);
-    store().setPairMode(true);
-    const frame = store().placing!.frame;
-    // Места на плане корпуса — там, где они видны сейчас; на территории — со сдвигом.
-    const a = applySimilarity(frame, { x: 0, y: 0 });
-    const b = applySimilarity(frame, { x: 400, y: 200 });
-    store().placingClick(a.x, a.y);
-    store().placingClick(a.x + 10, a.y + 5);
-    store().placingClick(b.x, b.y);
-    store().placingClick(b.x + 10, b.y + 5);
+    const { frame, planSize } = store().placing!;
+    const pin = applySimilarity(frame, { x: 0, y: 0 });
+    store().setPlacingPin(pin);
+    expect(store().placing!.pin!.plan.x).toBeCloseTo(0, 6);
+    expect(store().placing!.pin!.plan.y).toBeCloseTo(0, 6);
+
+    const far = farCorner(frame, planSize, pin);
+    expect(far).toEqual(applySimilarity(frame, { x: planSize.width, y: planSize.height }));
+    const target = { x: far.x + 20, y: far.y - 30 };
+    store().setPlacingFrame(turnAroundPin({ frame, at: far }, pin, target, placingAllowsScale(store().placing!)));
 
     const moved = store().placing!.frame;
-    const corner = applySimilarity(moved, { x: 0, y: 0 });
-    expect(corner.x).toBeCloseTo(a.x + 10, 6);
-    expect(corner.y).toBeCloseTo(a.y + 5, 6);
+    const pinned = applySimilarity(moved, { x: 0, y: 0 });
+    const reached = applySimilarity(moved, { x: planSize.width, y: planSize.height });
+    expect(pinned.x).toBeCloseTo(pin.x, 6);
+    expect(pinned.y).toBeCloseTo(pin.y, 6);
+    expect(reached.x).toBeCloseTo(target.x, 6);
+    expect(reached.y).toBeCloseTo(target.y, 6);
+    // Доворот вокруг булавки её не снимает.
+    expect(store().placing!.pin).not.toBeNull();
+  });
+
+  it('сдвиг плана снимает булавку; известный масштаб — только поворот, без растяжения', () => {
+    store().startPlacing('building_a', VIEW);
+    const { frame, planSize } = store().placing!;
+    const pin = applySimilarity(frame, { x: 0, y: 0 });
+    store().setPlacingPin(pin);
+    store().setPlacingFrame(moveFrame(frame, 10, 0));
+    expect(store().placing!.pin).toBeNull();
+
+    const far = farCorner(frame, planSize, pin);
+    const turned = turnAroundPin({ frame, at: far }, pin, { x: far.x + 40, y: far.y + 90 }, false);
+    const reached = applySimilarity(turned, { x: planSize.width, y: planSize.height });
+    expect(Math.hypot(reached.x - pin.x, reached.y - pin.y)).toBeCloseTo(Math.hypot(far.x - pin.x, far.y - pin.y), 6);
+    expect(placingAllowsScale({ planMpp: 0.05, baseMpp: 0.5 })).toBe(false);
+    expect(placingAllowsScale({ planMpp: null, baseMpp: 0.5 })).toBe(true);
   });
 
   it('«Применить» — одна правка, точки корпуса встают на территории туда, где их видно', () => {
@@ -69,7 +92,7 @@ describe('постановка', () => {
 
     expect(store().placing).toBeNull();
     expect(useHistoryStore.getState().entries).toHaveLength(1);
-    expect(useHistoryStore.getState().entries[0].description).toBe('Корпус «Корпус А» передвинут на территорию');
+    expect(useHistoryStore.getState().entries[0].description).toBe('Корпус «Корпус А» перемещён на территории');
     const { campusMeta, buildingMetas } = store();
     const projection = createCampusProjection(campusMeta!, buildingMetas.values());
     const world = projection.toWorld({ building: 'building_a', floor: 1, x: 100, y: 120 })!;

@@ -92,8 +92,8 @@ export default {
       assert.match(await e.notice(), /Лестница от «А-104»/, 'редактор не сказал, что делать дальше');
 
       await e.press('Этаж 2');
-      assert.match(await e.status(), /Этаж 2/);
-      assert.match(await e.toolbar(), /А-104/, 'после смены этажа начатый переход не потерялся');
+      assert.match(await e.status(), /этаж 2/);
+      assert.match(await e.status(), /А-104/, 'после смены этажа начатый переход не потерялся');
 
       const finish = await e.nodePoint('a2_room204');
       await e.click(finish.x, finish.y);

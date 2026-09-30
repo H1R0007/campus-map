@@ -19,7 +19,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openPage } from './browser/cdp.mjs';
@@ -29,6 +29,11 @@ import editorPanels from './browser/scenarios/editor-panels.mjs';
 import editorProperties from './browser/scenarios/editor-properties.mjs';
 import editorRoute from './browser/scenarios/editor-route.mjs';
 import editorSave from './browser/scenarios/editor-save.mjs';
+import editorSandbox from './browser/scenarios/editor-sandbox.mjs';
+import editorModes from './browser/scenarios/editor-modes.mjs';
+import editorOverlay from './browser/scenarios/editor-overlay.mjs';
+import editorWindows from './browser/scenarios/editor-windows.mjs';
+import editorReadiness from './browser/scenarios/editor-readiness.mjs';
 import editorStructure from './browser/scenarios/editor-structure.mjs';
 import editorImport from './browser/scenarios/editor-import.mjs';
 import editorAlign from './browser/scenarios/editor-align.mjs';
@@ -38,6 +43,8 @@ import editorHelpSearch from './browser/scenarios/editor-help-search.mjs';
 import editorA11y from './browser/scenarios/editor-a11y.mjs';
 import editorKinds from './browser/scenarios/editor-kinds.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
+import editorWalkScratch from './browser/scenarios/editor-walk-scratch.mjs';
+import editorWalkFix from './browser/scenarios/editor-walk-fix.mjs';
 import viewerCanvas from './browser/scenarios/viewer-canvas.mjs';
 import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
@@ -66,6 +73,11 @@ const SCENARIOS = [
   editorProperties,
   editorRoute,
   editorSave,
+  editorSandbox,
+  editorModes,
+  editorOverlay,
+  editorWindows,
+  editorReadiness,
   editorStructure,
   editorImport,
   editorAlign,
@@ -75,6 +87,9 @@ const SCENARIOS = [
   editorA11y,
   editorKinds,
   editorPanels,
+  // Разборы путей целиком (этап 5 фазы 12): длинные, поэтому последними.
+  editorWalkScratch,
+  editorWalkFix,
 ];
 
 /** Сколько ждать, пока браузер откроет порт отладки. */
@@ -189,28 +204,48 @@ async function launchBrowser(executable) {
 }
 
 /**
+ * Кампус «с нуля»: территория без плана, ни одного корпуса и точки. Каталог
+ * видов точек — тот же, что в `data/`: его заводят один раз на проект.
+ */
+function writeEmptyCampus(dataDir) {
+  const write = (relative, value) => {
+    mkdirSync(path.dirname(path.join(dataDir, relative)), { recursive: true });
+    writeFileSync(path.join(dataDir, relative), `${JSON.stringify(value, null, 2)}\n`);
+  };
+  write('campus/meta.json', { buildings: [] });
+  write('campus/graph.json', { nodes: [] });
+  write('transitions.json', { transitions: [] });
+  write('aliases.json', { aliases: [] });
+  cpSync(path.join(repoRoot, 'data', 'place-kinds.json'), path.join(dataDir, 'place-kinds.json'));
+}
+
+/**
  * Поднимает dev-сервер приложения на копии каталога данных.
  *
  * Копия нужна, чтобы проверка сохранения не переписывала канонический
  * `data/`: сценарий правит разметку и сохраняет её по-настоящему.
+ * `'empty'` — вместо копии кампус с нуля (`writeEmptyCampus`).
  */
-async function startIsolatedData(app) {
+async function startIsolatedData(app, kind) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'campus-map-data-'));
   const dataDir = path.join(root, 'data');
   const sourcesDir = path.join(root, 'data-sources');
   const uploadsDir = path.join(root, 'uploads');
-  cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
+  const sandboxDir = path.join(root, 'sandbox');
+  if (kind === 'empty') writeEmptyCampus(dataDir);
+  else cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
 
   const server = await startVite({
     app,
     mode: 'dev',
-    env: { CAMPUS_DATA_DIR: dataDir, CAMPUS_SOURCES_DIR: sourcesDir, CAMPUS_UPLOADS_DIR: uploadsDir },
+    env: { CAMPUS_DATA_DIR: dataDir, CAMPUS_SOURCES_DIR: sourcesDir, CAMPUS_UPLOADS_DIR: uploadsDir, CAMPUS_SANDBOX_DIR: sandboxDir },
   });
 
   return {
     port: server.port,
     dataDir,
     sourcesDir,
+    sandboxDir,
     stop() {
       server.stop();
       try {
@@ -231,14 +266,18 @@ async function startIsolatedData(app) {
  *
  * Сценарию с `isolatedData` достаётся свой сервер на копии `data/` и путь к
  * ней (`dataDir`): он проверяет сохранение, читая файлы с диска, и не трогает
- * канонический датасет. Исходники планов у такого сервера тоже свои
- * (`sourcesDir`).
+ * канонический датасет. Исходники планов и учебная копия у такого сервера
+ * тоже свои (`sourcesDir`, `sandboxDir`).
  *
  * @returns {Promise<string | null>} текст провала или `null`
  */
-async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir }) {
+async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir, sandboxDir }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
+  // Настройки браузера (режим, тема, ширина колонок) и черновик несохранённой
+  // работы у каждого сценария свои: иначе сценарий зависел бы от того, что
+  // оставил предыдущий, — например, открывался бы окном «Осталась несохранённая работа».
+  await page.send('Storage.clearDataForOrigin', { origin: new URL(base).origin, storageTypes: 'local_storage,indexeddb' });
 
   const step = async (name, action) => {
     process.stdout.write(`    · ${name}\n`);
@@ -258,7 +297,7 @@ async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, 
   };
 
   try {
-    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir });
+    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir, sandboxDir });
     return null;
   } catch (error) {
     return error.stack ?? String(error);
@@ -308,7 +347,7 @@ async function main() {
 
         // Сценарий, который сохраняет данные, работает на копии `data/` и со
         // своим dev-сервером: запись в каталог данных есть только у него.
-        const isolated = scenario.isolatedData ? await startIsolatedData(appName) : null;
+        const isolated = scenario.isolatedData ? await startIsolatedData(appName, scenario.isolatedData) : null;
 
         const failure = await runScenario(scenario, {
           debugUrl: browser.debugUrl,
@@ -318,6 +357,7 @@ async function main() {
           stopServer: server.stop,
           dataDir: isolated?.dataDir,
           sourcesDir: isolated?.sourcesDir,
+          sandboxDir: isolated?.sandboxDir,
         });
 
         isolated?.stop();

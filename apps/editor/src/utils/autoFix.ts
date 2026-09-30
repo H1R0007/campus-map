@@ -63,15 +63,15 @@ const DEFAULT_OPTIONS: Required<AutoFixOptions> = {
  */
 export function autoFixSummary(report: AutoFixReport): AutoFixLine[] {
   const lines: [string, number][] = [
-    ['Убрано ссылок на несуществующие узлы', report.removedMissingNeighbors],
-    ['Убрано ссылок узла на самого себя', report.removedSelfReferences],
+    ['Убрано ссылок на несуществующие точки', report.removedMissingNeighbors],
+    ['Убрано ссылок точки на саму себя', report.removedSelfReferences],
     ['Убрано повторов в связях', report.removedDuplicateNeighbors],
     ['Достроено обратных связей', report.addedSymmetricEdges],
-    ['Убрано переходов к несуществующим узлам', report.removedInvalidTransitions],
-    ['Убрано переходов узла в самого себя', report.removedSelfTransitions],
+    ['Убрано переходов к несуществующим точкам', report.removedInvalidTransitions],
+    ['Убрано переходов точки в саму себя', report.removedSelfTransitions],
     ['Убрано повторных переходов', report.removedDuplicateTransitions],
     ['Исправлено координат', report.fixedNodeCoordinates],
-    ['Удалено узлов без связей', report.removedOrphanNodes],
+    ['Удалено точек без связей', report.removedOrphanNodes],
   ];
 
   return lines.filter(([, count]) => count > 0).map(([text, count]) => ({ text, count }));

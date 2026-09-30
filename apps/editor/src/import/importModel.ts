@@ -44,14 +44,25 @@ export interface Piece {
 let nextPiece = 1;
 export const pieceId = () => `piece-${nextPiece++}`;
 
+/** Название корпуса для сравнения: без регистра, точек, запятых и пробелов; «строение» — «стр». */
+function comparableName(name: string): string {
+  return name.toLowerCase().replace(/ё/g, 'е').replace(/строение/g, 'стр').replace(/[\s.,]+/g, '');
+}
+
 /**
  * Корпус по букве из догадки: сначала по имени («Корпус В»), затем по коду в
  * данных (`building_c` — буква имени файла латиницей). Нет такого — новый.
+ * Корпус, названный адресом («Садовая 5, стр. 2»), ищется по названию.
  */
 export function resolveBuilding(
   guess: NonNullable<PlaceGuess['building']>,
   metas: ReadonlyMap<string, BuildingMeta>
 ): BuildingChoice {
+  if (guess.name) {
+    const wanted = comparableName(guess.name);
+    for (const meta of metas.values()) if (comparableName(meta.name) === wanted) return { id: meta.id };
+    return { newName: guess.name };
+  }
   for (const meta of metas.values()) {
     if (buildingLetter(meta.name)?.toUpperCase() === guess.letter) return { id: meta.id };
   }
@@ -101,7 +112,9 @@ export function initialPiece(
       floorText: floor === undefined ? '' : String(floor),
       label: guess.floor?.label ?? '',
     };
-    if (guess.building) notes.push(`Корпус ${guess.building.letter} — ${clueSource(guess.building.from)}`);
+    if (guess.building) {
+      notes.push(`${guess.building.name ?? `Корпус ${guess.building.letter}`} — ${clueSource(guess.building.from)}`);
+    }
     if (guess.floor) notes.push(`Этаж ${guess.floor.label ?? guess.floor.floor} — ${clueSource(guess.floor.from)}`);
     if (!guess.building && !guess.floor && preset.building === undefined) notes.push('Корпус и этаж по файлу не угадать — укажите');
   }

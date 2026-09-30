@@ -25,7 +25,7 @@ export default {
     const planA3 = readFileSync(file('buildings/building_a/floors/3/map.svg'));
 
     /**
-     * Ctrl+S. Пока новый корпус не поставлен на территорию и без плана,
+     * Ctrl+S. Пока новый корпус не размещён на территории и без плана,
      * сохранение сначала говорит, что заметят в навигаторе (запись 51).
      */
     const save = async ({ navigator = null } = {}) => {
@@ -38,7 +38,7 @@ export default {
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 10_000);
       return e.notice();
     };
-    const unplacedG = /Корпус «Корпус Г» не поставлен на территорию.*У этажа 1 корпуса «Корпус Г» нет плана/;
+    const unplacedG = /Корпус «Корпус Г» не размещён на территории.*У этажа 1 корпуса «Корпус Г» нет плана/;
     const tree = () => page.eval(`[...document.querySelectorAll('nav[aria-label="Структура кампуса"] .editor-tree__label')].map((l) => l.textContent.trim())`);
     const fillAndEnter = async (label, value) => {
       const ok = await page.eval(`(() => {
@@ -53,12 +53,16 @@ export default {
       await e.key('Enter', { text: '\r' });
     };
 
-    await step('новый корпус: следующая буква, пустой, карта предлагает добавить этаж', async () => {
+    await step('новый корпус — окном: следующая буква, пустой, карта предлагает добавить этаж', async () => {
       await e.open();
-      await e.press('Корпус');
-      const suggested = await page.eval(`document.querySelector('input[aria-label="Название нового корпуса"]')?.value`);
+      await e.press('Новый корпус');
+      const dialog = await page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`);
+      assert.match(dialog, /Новый корпус/, 'окно «Новый корпус» не открылось');
+      const suggested = await page.eval(`document.querySelector('[role="dialog"] input[aria-label="Название корпуса"]')?.value`);
       assert.equal(suggested, 'Корпус Г', 'не подсказана следующая буква');
-      await e.press('Добавить');
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Название корпуса', 'фокус не в поле названия');
+      await shot('editor-structure-new-building-dialog');
+      await e.press('Создать');
 
       assert.ok((await tree()).includes('Корпус Г'), 'корпуса нет в структуре');
       const region = await page.eval(`document.querySelector('[aria-label="Корпус без этажей"]')?.textContent ?? ''`);
@@ -72,8 +76,16 @@ export default {
       await shot('editor-structure-new-building');
     });
 
-    await step('первый этаж открывается сразу; без плана — предложение файла, по желанию — пустое поле', async () => {
-      await e.press('Добавить');
+    await step('первый этаж — окном «Новый этаж»; без плана — предложение файла, по желанию — пустое поле', async () => {
+      await e.press('Добавить этаж вручную…');
+      const dialog = () => page.eval(`document.querySelector('[role="dialog"]')?.textContent ?? ''`);
+      assert.match(await dialog(), /Новый этаж · Корпус Г/);
+      assert.equal(await page.eval(`document.querySelector('[role="dialog"] input[aria-label="Номер этажа"]')?.value`), '1');
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Номер этажа', 'фокус не в поле номера');
+      await shot('editor-structure-new-floor-dialog');
+      await page.eval(`[...document.querySelectorAll('[role="dialog"] label')].find((l) => l.textContent.includes('Без плана')).querySelector('input').click()`);
+      await e.press('Создать');
+      assert.equal(await dialog(), '', 'окно не закрылось');
       assert.match(await e.place(), /Корпус Г/);
       // Посередине карты — куда бросить файл плана; карта под ней закрыта.
       const card = () => page.eval(`document.querySelector('[aria-label="План не добавлен"]')?.textContent ?? ''`);
@@ -103,18 +115,19 @@ export default {
     });
 
     await step('«Проверка» называет, чего не хватит навигатору, и ведёт к исправлению', async () => {
-      await e.press('Проверка');
+      await e.mode('Проверка');
+      await e.press('Замечания');
       const section = () => page.eval(`document.querySelector('[aria-label^="Корпуса, этажи и планы"]')?.textContent ?? ''`);
-      assert.match(await section(), /Корпус «Корпус Г» не поставлен на территорию/);
+      assert.match(await section(), /Корпус «Корпус Г» не размещён на территории/);
       assert.match(await section(), /У этажа 1 корпуса «Корпус Г» нет плана/);
       await page.eval(`[...document.querySelectorAll('[aria-label^="Корпуса, этажи и планы"] li')].find((li) => li.textContent.includes('нет плана')).querySelector('button').click()`);
       await page.waitFor(`!!document.querySelector('.editor-dialog--import')`, 10_000);
       await e.key('Escape');
       await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 10_000);
-      await e.press('Свойства');
     });
 
     await step('удаление этажа перечисляет, что уйдёт', async () => {
+      await e.mode('Планы и корпуса');
       await e.openFloor('Корпус А', 2);
       await e.key('Escape');
       await e.press('Удалить этаж…');

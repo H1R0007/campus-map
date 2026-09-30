@@ -41,5 +41,5 @@ export function plural(count: number, [one, few, many]: readonly [string, string
 
 /** «1 узел», «3 узла», «12 узлов» — для подписей действий и счётчиков. */
 export function nodesCount(count: number): string {
-  return `${count} ${plural(count, ['узел', 'узла', 'узлов'])}`;
+  return `${count} ${plural(count, ['точка', 'точки', 'точек'])}`;
 }

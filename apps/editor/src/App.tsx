@@ -1,25 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { createHttpDatasetSource, loadDataset } from '@campus-map/core';
-import { EditorMap } from './components/Map/EditorMap';
 import { TopBar } from './components/Layout/TopBar';
 import { StructurePanel } from './components/Layout/StructurePanel';
 import { ToolRail } from './components/Layout/ToolRail';
 import { ToolOptions } from './components/Layout/ToolOptions';
+import { MapWindows } from './components/Layout/MapWindows';
 import { Inspector } from './components/Layout/Inspector';
 import { StatusBar } from './components/UI/StatusBar';
 import { SearchPanel } from './components/UI/SearchPanel';
-import { Notice } from './components/UI/Notice';
-import { PlanStatus } from './components/UI/PlanStatus';
-import { AlignmentBar } from './components/UI/AlignmentBar';
-import { MeasureBar, PlacementBar } from './components/UI/PlacementBar';
 import { ImportDialog } from './components/UI/ImportDialog';
 import { ImportDropZone } from './components/UI/ImportDropZone';
 import { ContextMenu } from './components/UI/ContextMenu';
 import { DraftPrompt } from './components/UI/DraftPrompt';
 import { HelpDialog } from './components/UI/HelpDialog';
 import { KindsDialog } from './components/UI/KindsDialog';
+import { SandboxBanner } from './components/UI/Sandbox';
 import { useEditorStore, useUnsavedChanges } from './stores/editorStore';
 import { DATA_BASE_URL } from './config/dataBase';
+import { SPACE } from './config/space';
+import { fetchDiskManifest, fetchSandboxState, resetSandbox } from './utils/diskStore';
+import { loadedPlanFiles, planFilesByHash } from './utils/planFiles';
+import { isLeavingOnPurpose } from './utils/leavePage';
+import { watchSystemTheme } from './utils/theme';
 
 /**
  * Экран ошибки с возможностью перезагрузки.
@@ -80,6 +82,8 @@ function useUnloadGuard(): void {
     if (!unsaved) return;
 
     const handler = (event: BeforeUnloadEvent) => {
+      // В учебную копию и обратно редактор уходит сам, записав черновик.
+      if (isLeavingOnPurpose()) return;
       event.preventDefault();
       event.returnValue = '';
     };
@@ -94,7 +98,11 @@ const App: React.FC = () => {
   const isLoading = useEditorStore((s) => s.isLoading);
   const loadData = useEditorStore((s) => s.loadData);
   const initStorage = useEditorStore((s) => s.initStorage);
+  const syncSystemTheme = useEditorStore((s) => s.syncSystemTheme);
+  const workspace = useEditorStore((s) => s.workspace);
   useUnloadGuard();
+  // «Как в системе»: тема системы сменилась — сменилась и тема редактора.
+  useEffect(() => watchSystemTheme(syncSystemTheme), [syncSystemTheme]);
 
   useEffect(() => {
     // StrictMode монтирует эффект дважды; без флага отмены второй запуск
@@ -103,20 +111,35 @@ const App: React.FC = () => {
 
     const load = async () => {
       try {
+        // Учебную копию открыли адресом, а самой копии нет (её убрали
+        // вручную) — делаем её, иначе загружать нечего.
+        if (SPACE === 'sandbox') {
+          const sandbox = await fetchSandboxState();
+          if (sandbox && !sandbox.exists) {
+            const failure = await resetSandbox();
+            if (failure) throw new Error(`Учебная копия не создана: ${failure}`);
+          }
+        }
+
         // Загрузка и нормализация датасета — задача ядра. Собственный обход
         // файлов здесь дублировал `loadDataset`, отличался от него поведением
         // на ошибках и глушил их пустыми `catch {}`: отсутствующий этаж или
         // битый JSON проходили незамеченными, а `building` и `floor` узлам
         // приходилось проставлять вручную, хотя загрузчик берёт их из пути.
-        const { dataset, warnings } = await loadDataset(
-          createHttpDatasetSource({ baseUrl: DATA_BASE_URL })
-        );
+        //
+        // Манифест каталога данных — вместе с данными: по нему видно, каких
+        // планов на диске нет. Без него карта сначала запрашивала план по
+        // пути из формата и получала 404 — у пустой территории каждый раз.
+        const [{ dataset, warnings }, manifest] = await Promise.all([
+          loadDataset(createHttpDatasetSource({ baseUrl: DATA_BASE_URL })),
+          fetchDiskManifest(),
+        ]);
 
         if (cancelled) return;
-        loadData(dataset, warnings);
-        // Манифест каталога данных и черновик — после загрузки: черновик
-        // предлагается поверх уже открытых данных.
-        await initStorage();
+        const planFiles = loadedPlanFiles(dataset.campusMeta, dataset.buildingMetas);
+        loadData(dataset, warnings, manifest ? { planFiles: planFilesByHash(planFiles, manifest.files) } : {});
+        // Черновик — после загрузки: он предлагается поверх уже открытых данных.
+        await initStorage(manifest);
       } catch (cause) {
         console.error('Ошибка загрузки датасета:', cause);
         if (!cancelled) {
@@ -177,20 +200,16 @@ const App: React.FC = () => {
       {/* Карта в середине, всё остальное — в закреплённых колонках вокруг:
           ни одна панель не лежит поверх плана (запись 39). */}
       <div className="editor-shell">
+        <SandboxBanner />
         <TopBar />
         <div className="editor-body">
           <StructurePanel />
-          <ToolRail />
-          <main className="editor-workspace" aria-label="Карта">
-            <ToolOptions />
-            <div className="editor-map-area">
-              <EditorMap />
-              <PlanStatus />
-              <AlignmentBar />
-              <PlacementBar />
-              <MeasureBar />
-              <Notice />
-            </div>
+          {workspace === 'markup' && <ToolRail />}
+          <main className="editor-workspace" aria-label="Карты">
+            {/* Настройки инструмента — над вкладками, как в графических
+                редакторах: они для активной карты (запись 66). */}
+            {workspace === 'markup' && <ToolOptions />}
+            <MapWindows />
           </main>
           <Inspector />
         </div>

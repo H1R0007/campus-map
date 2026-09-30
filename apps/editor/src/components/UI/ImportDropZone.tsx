@@ -91,7 +91,7 @@ export const ImportDropZone: React.FC = () => {
     <div className="editor-drop" aria-hidden="true">
       <div className="editor-drop__box">
         <Icon name="upload" size={32} />
-        Отпустите — разберём планы
+        Отпустите, чтобы загрузить планы
       </div>
     </div>
   );

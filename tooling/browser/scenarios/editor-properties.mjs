@@ -23,7 +23,7 @@ export default {
       const room = await e.nodePoint('a1_room101');
       await e.click(room.x, room.y);
       assert.equal(await e.propertiesNodeId(), 'a1_room101');
-      assert.match(await e.panelSection('Названия'), /Названия \(4\)/);
+      assert.match(await e.panelSection('Названия'), /Названия · 4/);
 
       const input = await e.panelPoint('input[aria-label="Новое название"]');
       assert.ok(input);
@@ -32,7 +32,7 @@ export default {
       await e.key('Enter');
 
       let section = await e.panelSection('Названия');
-      assert.match(section, /Названия \(5\)/, `после добавления: ${section}`);
+      assert.match(section, /Названия · 5/, `после добавления: ${section}`);
       assert.match(section, /Проверочное имя/, 'добавленное название не показано');
       await shot('editor-properties');
 
@@ -40,14 +40,14 @@ export default {
       const remove = await e.panelPoint('button[aria-label="Удалить название «А-101»"]');
       await e.click(remove.x, remove.y);
       section = await e.panelSection('Названия');
-      assert.match(section, /Названия \(4\)/, `после удаления: ${section}`);
+      assert.match(section, /Названия · 4/, `после удаления: ${section}`);
       assert.match(section, /Проверочное имя/, 'добавленное название стёрлось при следующей правке');
       assert.doesNotMatch(section, /А-101/, 'удалено не то название');
 
       await e.key('z', { modifiers: 2 });
       await e.key('z', { modifiers: 2 });
       section = await e.panelSection('Названия');
-      assert.match(section, /Названия \(4\)/);
+      assert.match(section, /Названия · 4/);
       assert.doesNotMatch(section, /Проверочное имя/, 'отмена вернула прежние названия');
     });
 
@@ -55,32 +55,32 @@ export default {
       const stairs = await e.nodePoint('a1_stairs');
       await e.click(stairs.x, stairs.y);
       const before = await e.panelSection('Связи');
-      assert.match(before, /Связи \(1\)/, before);
+      assert.match(before, /Связи · 1/, before);
 
       const remove = await e.panelPoint('button[aria-label^="Удалить связь"]');
       await e.click(remove.x, remove.y);
-      assert.match(await e.panelSection('Связи'), /Связи \(0\)/, 'список связей не обновился');
+      assert.match(await e.panelSection('Связи'), /Связи · 0/, 'список связей не обновился');
       await e.key('z', { modifiers: 2 });
-      assert.match(await e.panelSection('Связи'), /Связи \(1\)/);
+      assert.match(await e.panelSection('Связи'), /Связи · 1/);
     });
 
     await step('список переходов обновляется после удаления перехода на карте', async () => {
       assert.equal(await e.propertiesNodeId(), 'a1_stairs');
-      assert.match(await e.panelSection('Переходы'), /Переходы \(1\)/);
+      assert.match(await e.panelSection('Переходы'), /Переходы · 1/);
 
       const row = await e.transitionRowPoint('a1_stairs|a2_stairs');
       await e.click(row.x, row.y, { button: 'right' });
       await e.menuPick('Удалить переход');
 
       assert.equal(await e.propertiesNodeId(), 'a1_stairs', 'узел остался выбранным');
-      assert.match(await e.panelSection('Переходы'), /Переходы \(0\)/, 'список переходов не обновился');
+      assert.match(await e.panelSection('Переходы'), /Переходы · 0/, 'список переходов не обновился');
       await e.key('z', { modifiers: 2 });
-      assert.match(await e.panelSection('Переходы'), /Переходы \(1\)/);
+      assert.match(await e.panelSection('Переходы'), /Переходы · 1/);
     });
 
     await step('названия — первый раздел карточки, служебное свёрнуто', async () => {
       const layout = await page.eval(`(() => {
-        const card = document.querySelector('[aria-label="Свойства узла"]');
+        const card = document.querySelector('[aria-label="Свойства точки"]');
         return {
           first: card.querySelector('section h3')?.textContent.trim(),
           serviceOpen: card.querySelector('details')?.open ?? null,
@@ -104,7 +104,7 @@ export default {
         await e.type(value);
       };
       const problem = () =>
-        page.eval(`document.querySelector('[aria-label="Свойства узла"] .editor-section__hint--problem')?.textContent.trim() ?? ''`);
+        page.eval(`document.querySelector('[aria-label="Свойства точки"] .editor-section__hint--problem')?.textContent.trim() ?? ''`);
 
       // Занятый id не принимается и объясняет, что не так.
       await setId('a1_hall');
@@ -120,7 +120,7 @@ export default {
       // Та же точка под новым id: карточка не собирается заново, блок не
       // сворачивается, курсор остаётся в поле id.
       const card = await page.eval(`(() => ({
-        open: document.querySelector('[aria-label="Свойства узла"] details')?.open ?? null,
+        open: document.querySelector('[aria-label="Свойства точки"] details')?.open ?? null,
         focus: document.activeElement?.getAttribute('aria-label') ?? null,
       }))()`);
       assert.equal(card.open, true, '«Служебное» свернулось после переименования');
@@ -128,8 +128,8 @@ export default {
       const ids = await e.nodeIds();
       assert.ok(ids.includes('a1_stairs_west'), 'точки с новым id нет на карте');
       assert.ok(!ids.includes('a1_stairs'), 'старый id остался на карте');
-      assert.match(await e.panelSection('Связи'), /Связи \(1\)/, 'переименование потеряло связь');
-      assert.match(await e.panelSection('Переходы'), /Переходы \(1\)/, 'переименование потеряло переход');
+      assert.match(await e.panelSection('Связи'), /Связи · 1/, 'переименование потеряло связь');
+      assert.match(await e.panelSection('Переходы'), /Переходы · 1/, 'переименование потеряло переход');
 
       const links = await page.eval(`[...document.querySelectorAll('path[data-edge]')].map((p) => p.dataset.edge)`);
       assert.ok(
@@ -156,7 +156,7 @@ export default {
       await e.key('Enter');
       assert.match(await e.panelSection('Названия'), /Коридор у лестницы/);
       assert.equal(
-        await page.eval(`document.querySelector('[aria-label="Свойства узла"] h2')?.textContent.trim()`),
+        await page.eval(`document.querySelector('[aria-label="Свойства точки"] h2')?.textContent.trim()`),
         'Коридор у лестницы',
         'заголовок карточки — первое название'
       );
@@ -231,8 +231,8 @@ export default {
       await e.key('Escape');
       let text = await overview();
       assert.match(text, /Корпус А, этаж 1/, text);
-      assert.match(text, /Узлов ?23/, text);
-      assert.match(text, /Все узлы плана связаны/, text);
+      assert.match(text, /Точек ?23/, text);
+      assert.match(text, /Все точки плана связаны/, text);
 
       const room = await e.nodePoint('a1_room103');
       await e.click(room.x, room.y);
@@ -245,7 +245,7 @@ export default {
       await shot('editor-plan-overview');
 
       await e.key('z', { modifiers: 2 });
-      assert.match(await overview(), /Все узлы плана связаны/, 'отмена не вернула связь в обзоре');
+      assert.match(await overview(), /Все точки плана связаны/, 'отмена не вернула связь в обзоре');
     });
   },
 };

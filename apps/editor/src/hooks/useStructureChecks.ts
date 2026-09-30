@@ -27,9 +27,8 @@ export function useStructureAction(): (action: StructureAction) => void {
         place(action.building);
         break;
       case 'open':
-        st.setCurrentBuilding(action.building);
-        if (action.floor !== null) st.setCurrentFloor(action.floor);
-        st.setInspectorTab('properties');
+        st.openPlan({ building: action.building, floor: action.floor });
+        st.setWorkspace('plans');
         break;
       case 'plan':
         st.openImport([], action.building === null ? { campus: true } : { building: action.building, floor: action.floor ?? undefined });

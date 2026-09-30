@@ -33,7 +33,7 @@ describe('проверка структуры', () => {
       { kind: 'place', building: 'building_g' },
       { kind: 'plan', building: 'building_g', floor: 1 },
     ]);
-    expect(issues[0].text).toMatch(/время в пути пропадает во всём кампусе/);
+    expect(issues[0].text).toMatch(/не показывает время в пути во всём кампусе/);
     expect(issues.every((issue) => issue.navigator)).toBe(true);
   });
 

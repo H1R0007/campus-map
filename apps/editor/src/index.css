@@ -3,66 +3,71 @@
 @tailwind utilities;
 
 /*
- * Тема редактора объявлена только здесь. Tailwind-классы `*-editor-*`
- * ссылаются на эти переменные (см. tailwind.config.js), поэтому менять
- * оформление можно в одном месте.
+ * Тема редактора объявлена только здесь (запись 56). Tailwind-классы
+ * `*-editor-*` ссылаются на эти переменные (см. tailwind.config.js), поэтому
+ * менять оформление можно в одном месте.
  *
- * Статусные цвета (успех / предупреждение / ошибка) намеренно не вынесены в
- * переменные: часть зелёного и янтарного в компонентах приходит из
- * `TRANSITION_COLORS` пакета mapkit и принадлежит типу перехода, а не теме.
- * Смешивать их в одном наборе переменных значит создать ложную связь.
+ * Две темы: тёмная графитовая (по умолчанию) и светлая. Тема — атрибут
+ * `data-theme` у `<html>` (`utils/theme.ts`); без него — тёмная. Акцент один —
+ * синий: кнопки, выбор, вкладки. Красный остаётся за удалением и ошибками.
+ *
+ * Цвета типов переходов сюда не входят: они приходят из `TRANSITION_COLORS`
+ * пакета mapkit, общие с навигатором, и принадлежат типу перехода, а не теме.
  */
-:root {
-    --editor-bg: #0b1020;
-    --editor-panel: #0f172a; /* slate-900 */
-    --editor-accent: #111c33;
+:root,
+:root[data-theme='dark'] {
+    --editor-bg: #1b1c1f;
+    --editor-panel: #232428;
+    /* Приподнятая поверхность: выбранный пункт, открытая вкладка, поле. */
+    --editor-accent: #2e3036;
     --editor-border: rgba(255, 255, 255, 0.08);
-    /*
-     * Акцент. Темнее прежнего #e94560: на нём стоит белый текст («Сохранить»,
-     * открытый этаж, выбранный инструмент), и контраст должен быть не ниже
-     * 4,5:1 — у прежнего было 3,8:1.
-     */
-    --editor-highlight: #d32f4a;
-    --editor-text: rgba(255, 255, 255, 0.92);
-    --editor-text-muted: rgba(255, 255, 255, 0.55);
+    /* Акцент. На нём белый текст, контраст 5,2:1. */
+    --editor-highlight: #2563eb;
+    --editor-text: #e6e7ea;
+    --editor-text-muted: #a0a4ad;
     /* Текст и значки поверх цветной заливки: акцента, типа перехода. */
     --editor-on-accent: #ffffff;
     /* Опасное действие — текст, а не заливка. */
-    --editor-danger: #fca5a5;
+    --editor-danger: #f87171;
     /* Подсветка пункта под курсором или в фокусе. */
-    --editor-hover: rgba(255, 255, 255, 0.08);
-    /* Подложка подписей на карте: читается и на светлом плане, и на тёмном фоне. */
+    --editor-hover: rgba(255, 255, 255, 0.06);
+    /* Подписи на карте: тёмная подложка и белый текст в обеих темах — план светлый. */
     --editor-label-bg: rgba(0, 0, 0, 0.78);
+    --editor-label-text: #ffffff;
+    --editor-label-muted: rgba(255, 255, 255, 0.7);
     --editor-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-    /* Состояния: предупреждение, успех, ошибка (заливка значков и счётчиков). */
-    --editor-warn: #fbbf24;
-    --editor-success: #22c55e;
-    --editor-error: #ef4444;
+    /* Состояния: предупреждение, успех, ошибка. */
+    --editor-warn: #e0a43a;
+    --editor-success: #34c46a;
+    --editor-error: #ef5350;
     /* Полоса выбранной вкладки и рамка поля в фокусе. */
-    --editor-focus: #e94560;
+    --editor-focus: #4c8dff;
     /* Затемнение под окном и полоса прокрутки. */
-    --editor-backdrop: rgba(0, 0, 0, 0.65);
+    --editor-backdrop: rgba(0, 0, 0, 0.6);
     --editor-scrollbar: rgba(255, 255, 255, 0.12);
-    --editor-scrollbar-hover: rgba(255, 255, 255, 0.18);
+    --editor-scrollbar-hover: rgba(255, 255, 255, 0.2);
 
     /*
      * Карта. Leaflet пишет цвет в атрибуты SVG, и слои читают эти токены
      * значением (`themeColor`), поэтому здесь — цвета, а не ссылки на другие
      * переменные.
      */
-    --editor-map-bg: #0a0f1e;
-    --editor-map-node: #6366f1;
-    --editor-map-node-stroke: #4f46e5;
+    --editor-map-bg: #161719;
+    --editor-map-node: #3b82f6;
+    --editor-map-node-stroke: #1d4ed8;
     --editor-map-portal: #f59e0b;
-    --editor-map-portal-stroke: #d97706;
-    /* Начало: первый узел связи, начало маршрута. */
+    --editor-map-portal-stroke: #b45309;
+    /* Выбранная точка: тёмно-синяя с жёлтой обводкой — видна на любом плане. */
+    --editor-map-selected-fill: #1e3a8a;
+    --editor-map-selected: #facc15;
+    /* Начало: первая точка связи, начало маршрута. */
     --editor-map-start: #22c55e;
-    --editor-map-start-stroke: #16a34a;
-    /* Конец маршрута и обводка выбранного узла. */
+    --editor-map-start-stroke: #15803d;
+    /* Конец маршрута. */
     --editor-map-finish: #ef4444;
-    --editor-map-finish-stroke: #dc2626;
+    --editor-map-finish-stroke: #b91c1c;
     --editor-map-route: #8b5cf6;
-    --editor-map-route-stroke: #7c3aed;
+    --editor-map-route-stroke: #6d28d9;
     --editor-map-marker-stroke: #ffffff;
     --editor-map-edge: #4b5563;
     --editor-map-edge-hover: #60a5fa;
@@ -74,7 +79,48 @@
     /* Черновые построения: линия, рамка выделения, сетка. */
     --editor-map-draft: #60a5fa;
     --editor-map-draft-point: #93c5fd;
-    --editor-map-grid: rgba(255, 255, 255, 0.12);
+    /* Сетка видна и на светлом плане, и на тёмном фоне вокруг него. */
+    --editor-map-grid: rgba(59, 130, 246, 0.35);
+    /* Ручки и отметки операций: постановка корпуса, совмещение, замер. */
+    --editor-map-handle: #2563eb;
+    --editor-map-handle-alt: #f59e0b;
+
+    /* Учебная копия: полоса над редактором. */
+    --editor-sandbox-bg: rgba(224, 164, 58, 0.14);
+    --editor-sandbox-border: rgba(224, 164, 58, 0.35);
+    --editor-sandbox-text: #f0d49a;
+}
+
+:root[data-theme='light'] {
+    --editor-bg: #e9ebef;
+    --editor-panel: #f7f8fa;
+    --editor-accent: #e3e6eb;
+    --editor-border: rgba(15, 23, 42, 0.12);
+    --editor-highlight: #2563eb;
+    --editor-text: #1f2328;
+    --editor-text-muted: #5b6270;
+    --editor-on-accent: #ffffff;
+    --editor-danger: #b3261e;
+    --editor-hover: rgba(15, 23, 42, 0.06);
+    --editor-label-bg: rgba(17, 24, 39, 0.82);
+    --editor-label-text: #ffffff;
+    --editor-label-muted: rgba(255, 255, 255, 0.7);
+    --editor-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    --editor-warn: #b7791f;
+    --editor-success: #15803d;
+    --editor-error: #d32f2f;
+    --editor-focus: #2563eb;
+    --editor-backdrop: rgba(15, 23, 42, 0.35);
+    --editor-scrollbar: rgba(15, 23, 42, 0.18);
+    --editor-scrollbar-hover: rgba(15, 23, 42, 0.3);
+
+    --editor-map-bg: #d8dce2;
+    --editor-map-line-hover: #0f172a;
+    --editor-map-grid: rgba(37, 99, 235, 0.3);
+
+    --editor-sandbox-bg: #fdf1d8;
+    --editor-sandbox-border: #eccb86;
+    --editor-sandbox-text: #7a4f06;
 }
 
 *,
@@ -150,9 +196,9 @@ input[type='checkbox'] {
 
 /* Кнопки масштаба Leaflet: свои 30×30 малы для пальца и неточной мыши. */
 .leaflet-control-zoom a {
-    width: 44px !important;
-    height: 44px !important;
-    line-height: 44px !important;
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
     font-size: 20px !important;
     background: var(--editor-panel) !important;
     color: var(--editor-text) !important;
@@ -192,7 +238,7 @@ input[type='checkbox'] {
     padding: 3px 8px;
     border-radius: 6px;
     background: var(--editor-label-bg);
-    color: var(--editor-text);
+    color: var(--editor-label-text);
     white-space: nowrap;
     line-height: 1.3;
 }
@@ -204,7 +250,7 @@ input[type='checkbox'] {
 
 .node-hover-label__id {
     font-size: 11px;
-    color: var(--editor-text-muted);
+    color: var(--editor-label-muted);
     font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
@@ -224,7 +270,7 @@ input[type='checkbox'] {
     border: 0;
     border-radius: 9999px;
     background: var(--editor-label-bg);
-    color: var(--editor-text);
+    color: var(--editor-label-text);
     font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
@@ -287,6 +333,34 @@ input[type='checkbox'] {
     color: var(--editor-danger);
 }
 
+.editor-dialog__text--lead {
+    color: var(--editor-text);
+}
+
+/* --- Учебная копия (запись 55) --- */
+
+/* Полоса над редактором, пока открыта копия: заметная, но спокойная. */
+.editor-sandbox-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
+    background: var(--editor-sandbox-bg);
+    border-bottom: 1px solid var(--editor-sandbox-border);
+    color: var(--editor-sandbox-text);
+    font-size: 13px;
+}
+
+.editor-sandbox-banner__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-sandbox-banner__error {
+    color: var(--editor-danger);
+}
+
+
 .editor-dialog__actions {
     display: flex;
     justify-content: flex-end;
@@ -295,10 +369,10 @@ input[type='checkbox'] {
 }
 
 .editor-button {
-    min-height: 44px;
-    padding: 0 18px;
+    min-height: 36px;
+    padding: 0 14px;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 14px;
     cursor: pointer;
 }
@@ -323,8 +397,9 @@ input[type='checkbox'] {
 .editor-notice-layer {
     position: absolute;
     top: 12px;
-    left: 0;
-    right: 0;
+    /* Слева — кнопки масштаба: сообщение их не закрывает и на узкой карте. */
+    left: 56px;
+    right: 12px;
     z-index: 1800;
     display: flex;
     justify-content: center;
@@ -424,7 +499,7 @@ input[type='checkbox'] {
     align-items: center;
     gap: 10px;
     width: 100%;
-    min-height: 44px;
+    min-height: 32px;
     padding: 0 14px;
     border: 0;
     background: transparent;
@@ -491,7 +566,7 @@ input[type='checkbox'] {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 56px;
+    min-height: 48px;
     padding: 6px 12px;
     background: var(--editor-panel);
     border-bottom: 1px solid var(--editor-border);
@@ -514,6 +589,88 @@ input[type='checkbox'] {
     flex: 1;
 }
 
+/*
+ * Режимы работы (запись 60): «Планы и корпуса», «Разметка», «Проверка».
+ * Выбранный — приподнятой плашкой с полосой акцента снизу, как вкладки.
+ */
+.editor-modes {
+    display: flex;
+    gap: 2px;
+    margin-left: 12px;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--editor-bg);
+}
+
+.editor-modes__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-modes__item:hover {
+    color: var(--editor-text);
+    background: var(--editor-hover);
+}
+
+.editor-modes__item[aria-pressed='true'] {
+    color: var(--editor-text);
+    background: var(--editor-accent);
+    box-shadow: inset 0 -2px 0 var(--editor-focus);
+}
+
+/* «Сохранить» и стрелка меню — одна кнопка из двух частей. */
+.editor-split {
+    display: flex;
+}
+
+.editor-split > .editor-split__main {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.editor-split > .editor-split__toggle {
+    min-width: 32px;
+    padding: 0 8px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.editor-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.editor-menu__item:hover:not(:disabled) {
+    background: var(--editor-hover);
+}
+
+.editor-menu__item:disabled {
+    color: var(--editor-text-muted);
+    cursor: default;
+}
+
 .editor-body {
     flex: 1;
     display: flex;
@@ -522,11 +679,62 @@ input[type='checkbox'] {
 
 .editor-sidebar,
 .editor-inspector {
+    position: relative;
     flex: none;
     display: flex;
     flex-direction: column;
     min-height: 0;
     background: var(--editor-panel);
+}
+
+/*
+ * Край колонки, который тянут мышью (запись 57): полоска у самой границы,
+ * под курсором и при перетаскивании — линия акцента.
+ */
+.editor-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 5;
+    width: 6px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.editor-resizer--right {
+    right: 0;
+}
+
+.editor-resizer--left {
+    left: 0;
+}
+
+.editor-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: transparent;
+    transition: background-color 120ms;
+}
+
+.editor-resizer--right::after {
+    right: 0;
+}
+
+.editor-resizer--left::after {
+    left: 0;
+}
+
+.editor-resizer:hover::after,
+.editor-resizer:active::after,
+.editor-resizer:focus-visible::after {
+    background: var(--editor-focus);
+}
+
+.editor-resizer:focus-visible {
+    outline: none;
 }
 
 .editor-sidebar {
@@ -563,7 +771,7 @@ input[type='checkbox'] {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: 52px;
+    min-height: 44px;
     padding: 4px 4px 4px 16px;
     border-bottom: 1px solid var(--editor-border);
 }
@@ -598,7 +806,7 @@ input[type='checkbox'] {
     justify-content: center;
     gap: 3px;
     width: 100%;
-    min-height: 56px;
+    min-height: 52px;
     padding: 4px 2px;
     border: 0;
     border-radius: 10px;
@@ -638,7 +846,7 @@ input[type='checkbox'] {
     display: flex;
     align-items: center;
     gap: 12px;
-    height: 56px;
+    height: 44px;
     padding: 0 12px;
     background: var(--editor-accent);
     border-bottom: 1px solid var(--editor-border);
@@ -680,6 +888,314 @@ input[type='checkbox'] {
     overflow: hidden;
 }
 
+/*
+ * «Планы и корпуса»: точки, связи и переходы видны, но бледные и не ловят
+ * щелчки — здесь правят планы, а не разметку (запись 60).
+ */
+.editor-map-area--quiet .leaflet-pane > svg path.leaflet-interactive {
+    pointer-events: none;
+}
+
+.editor-map-area--quiet .leaflet-overlay-pane path[data-node-id],
+.editor-map-area--quiet .leaflet-overlay-pane path[data-edge] {
+    opacity: 0.4;
+}
+
+/* Строка пути над картой: «Корпус А › Этаж 2». */
+.editor-mapbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 0 8px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-crumb {
+    min-height: 32px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-crumb:hover,
+.editor-crumb:focus-visible {
+    background: var(--editor-hover);
+    border-color: var(--editor-border);
+}
+
+.editor-crumb option {
+    background: var(--editor-panel);
+    color: var(--editor-text);
+}
+
+.editor-mapbar__sep,
+.editor-mapbar__empty {
+    color: var(--editor-text-muted);
+    font-size: 14px;
+}
+
+/* --- Окна карт (запись 66): вкладки, две карты рядом, свёрнутая полоска --- */
+.editor-mapwindows {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.editor-mapgroup {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    /* Слои Leaflet со своими z-index остаются внутри карты: пунктир между
+       картами и зоны переноса вкладки лежат поверх обеих. */
+    isolation: isolate;
+}
+
+.editor-mapwindows--split > .editor-mapgroup:first-child {
+    flex: 0 0 calc(var(--editor-split) - 3px);
+}
+
+.editor-splitter {
+    position: relative;
+    flex: none;
+    width: 6px;
+    background: var(--editor-border);
+    cursor: col-resize;
+    touch-action: none;
+    transition: background-color 120ms;
+}
+
+.editor-splitter:hover,
+.editor-splitter:active,
+.editor-splitter:focus-visible {
+    background: var(--editor-focus);
+    outline: none;
+}
+
+.editor-maptabs {
+    display: flex;
+    align-items: stretch;
+    min-height: 40px;
+    background: var(--editor-panel);
+    border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-maptabs__list {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.editor-maptab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: none;
+    max-width: 240px;
+    border-right: 1px solid var(--editor-border);
+    color: var(--editor-text-muted);
+}
+
+.editor-maptab:hover {
+    background: var(--editor-hover);
+}
+
+.editor-maptab--selected,
+.editor-maptab--selected:hover {
+    background: var(--editor-accent);
+    color: var(--editor-text);
+}
+
+/* Полоса под открытой вкладкой: синяя — у активной карты, серая — у соседней. */
+.editor-maptab--selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--editor-text-muted);
+}
+
+.editor-mapgroup--active .editor-maptab--selected::after {
+    background: var(--editor-focus);
+}
+
+.editor-maptab--dragged {
+    opacity: 0.5;
+}
+
+.editor-maptab--drop-before::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--editor-focus);
+}
+
+.editor-maptab__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 6px 0 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.editor-maptab__label:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: -2px;
+}
+
+.editor-maptab__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-maptab__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    margin-right: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0;
+}
+
+.editor-maptab:hover .editor-maptab__close,
+.editor-maptab--selected .editor-maptab__close,
+.editor-maptab__close:focus-visible {
+    opacity: 1;
+}
+
+.editor-maptab__close:hover {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-maptabs__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    padding: 0 6px;
+}
+
+.editor-button--compact {
+    min-height: 32px;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.editor-maptabs__actions .editor-button--ghost {
+    border-color: transparent;
+    color: var(--editor-text-muted);
+}
+
+.editor-maptabs__actions .editor-button--ghost:hover {
+    color: var(--editor-text);
+}
+
+/* Свёрнутая вторая карта: полоска у правого края с названием плана. */
+.editor-mapstrip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    width: 40px;
+    min-height: 0;
+    padding: 10px 0;
+    border: 0;
+    border-left: 1px solid var(--editor-border);
+    background: var(--editor-panel);
+    color: var(--editor-text-muted);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.editor-mapstrip:hover,
+.editor-mapstrip:focus-visible {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-mapstrip__label {
+    min-height: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    writing-mode: vertical-rl;
+}
+
+/* Куда отпустить вкладку: правая половина — «Открыть рядом», другая карта — «Перенести». */
+.editor-dropzone {
+    position: absolute;
+    inset: 8px;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--editor-focus);
+    border-radius: 12px;
+    background: var(--editor-panel);
+    color: var(--editor-text);
+    font-size: 15px;
+}
+
+.editor-dropzone--side {
+    left: 50%;
+    top: 88px;
+}
+
+.editor-dropzone--over {
+    border-style: solid;
+    background: var(--editor-accent);
+}
+
+.editor-dropzone__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.editor-crosslink {
+    position: absolute;
+    inset: 0;
+    z-index: 950;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
 .editor-statusbar {
     display: flex;
     align-items: center;
@@ -699,8 +1215,14 @@ input[type='checkbox'] {
     font-weight: 500;
 }
 
-.editor-statusbar__spacer {
+/* Подсказка инструмента: занимает свободное место и обрезается многоточием. */
+.editor-statusbar__hint {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--editor-text-muted);
 }
 
 .editor-statusbar__coords {
@@ -725,6 +1247,260 @@ input[type='checkbox'] {
     color: var(--editor-warn);
 }
 
+/* «Готовность 11/15» — кнопка той же высоты, что строка, без рамки. */
+.editor-statusbar__ready {
+    min-height: 32px;
+    margin: -4px 0;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-statusbar__ready:hover,
+.editor-statusbar__ready:focus-visible {
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+/* --- Готовность карты (запись 67) --- */
+
+.editor-ready {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.editor-ready__meter {
+    display: grid;
+    gap: 8px;
+}
+
+.editor-ready__count {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.editor-ready__count-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--editor-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-ready__count-label {
+    color: var(--editor-text-muted);
+    font-size: 13px;
+}
+
+.editor-ready__bar {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--editor-accent);
+    overflow: hidden;
+}
+
+.editor-ready__bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--editor-success);
+}
+
+.editor-ready__next {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.editor-ready__next-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__next-title {
+    font-size: 15px;
+    color: var(--editor-text);
+}
+
+.editor-ready__item {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 0;
+}
+
+/* Отметка: выполнено — зелёная галочка, не выполнено — кольцо цвета
+   предупреждения, ждёт другой строки — пунктирное кольцо, считается —
+   вращающееся. Спокойно: красным список не кричит. */
+.editor-ready__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    border-radius: 9999px;
+    color: var(--editor-success);
+}
+
+.editor-ready__item--todo .editor-ready__mark {
+    border: 2px solid var(--editor-warn);
+}
+
+.editor-ready__item--blocked .editor-ready__mark {
+    border: 2px dashed var(--editor-text-muted);
+}
+
+.editor-ready__item--pending .editor-ready__mark {
+    border: 2px solid var(--editor-border);
+    border-top-color: var(--editor-text-muted);
+    animation: editor-spin 1s linear infinite;
+}
+
+@keyframes editor-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .editor-ready__item--pending .editor-ready__mark {
+        animation: none;
+    }
+}
+
+.editor-ready__body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+/* Строкой текста, а не флексом: ⓘ встаёт за последним словом длинного названия. */
+.editor-ready__title-row {
+    display: block;
+}
+
+.editor-ready__title-row > * {
+    vertical-align: middle;
+}
+
+.editor-ready__title-row > .editor-info,
+.editor-ready__title-row > .editor-ready__optional {
+    margin-left: 6px;
+}
+
+.editor-ready__title {
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-ready__item--done .editor-ready__title {
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__optional {
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__status {
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__action {
+    justify-self: start;
+    margin-top: 4px;
+}
+
+.editor-ready__problems {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready__problems > li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0 8px;
+}
+
+.editor-ready__link {
+    min-height: 32px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--editor-focus);
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-ready__link:hover {
+    text-decoration: underline;
+}
+
+/* Полоса внизу структуры в «Планах и корпусах». */
+.editor-ready-strip {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 12px 0 4px;
+    border-top: 1px solid var(--editor-border);
+}
+
+.editor-ready-strip__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.editor-ready-strip__head:hover,
+.editor-ready-strip__head:focus-visible {
+    background: var(--editor-hover);
+}
+
+.editor-ready-strip__title {
+    flex: 1;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-ready-strip__count {
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-ready-strip__next {
+    margin: 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
 /* --- Структура: территория, корпуса, этажи --- */
 
 .editor-tree {
@@ -744,7 +1520,7 @@ input[type='checkbox'] {
     align-items: center;
     gap: 8px;
     width: 100%;
-    min-height: 44px;
+    min-height: 32px;
     padding: 0 10px;
     border: 0;
     border-radius: 10px;
@@ -818,7 +1594,7 @@ input[type='checkbox'] {
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: 44px;
+    min-height: 32px;
     padding: 0 8px;
     border-radius: 10px;
     cursor: pointer;
@@ -829,7 +1605,9 @@ input[type='checkbox'] {
     background: var(--editor-hover);
 }
 
-.editor-check input {
+/* Только сам флажок или переключатель: поле числа в строке — своей ширины. */
+.editor-check input[type='checkbox'],
+.editor-check input[type='radio'] {
     width: 18px;
     height: 18px;
     flex: none;
@@ -846,6 +1624,11 @@ input[type='checkbox'] {
     color: var(--editor-text-muted);
 }
 
+/* Короткий пример у варианта выбора: «Как у вида · «Медпункт»». */
+.editor-check__example {
+    color: var(--editor-text-muted);
+}
+
 .editor-check__count {
     font-size: 12px;
     color: var(--editor-text-muted);
@@ -854,13 +1637,13 @@ input[type='checkbox'] {
 
 .editor-input {
     width: 100%;
-    min-height: 44px;
-    padding: 0 12px;
-    border-radius: 10px;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
     border: 1px solid var(--editor-border);
     background: var(--editor-bg);
     color: var(--editor-text);
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .editor-input:focus-visible {
@@ -877,8 +1660,8 @@ input[type='checkbox'] {
     align-items: center;
     justify-content: center;
     flex: none;
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border: 0;
     border-radius: 10px;
     background: transparent;
@@ -929,27 +1712,86 @@ input[type='checkbox'] {
     background: var(--editor-hover);
 }
 
+/*
+ * Счётчик рядом с подписью: число спокойным цветом и точка состояния перед
+ * ним. Яркая плашка тянула взгляд сильнее, чем стоит замечание (запись 56).
+ */
 .editor-badge {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: 9999px;
+    gap: 5px;
     font-size: 12px;
-    font-weight: 700;
-    color: var(--editor-on-accent);
+    font-weight: 600;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-badge::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
     background: var(--editor-text-muted);
 }
 
-.editor-badge--error {
+.editor-badge--error::before {
     background: var(--editor-error);
 }
 
-.editor-badge--warn {
+.editor-badge--warn::before {
     background: var(--editor-warn);
-    color: var(--editor-bg);
+}
+
+/* --- Меню настроек в шапке --- */
+
+.editor-menu {
+    position: relative;
+}
+
+.editor-menu__popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 2500;
+    min-width: 200px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+}
+
+.editor-menu__title {
+    margin: 0 4px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+.editor-menu__options {
+    display: grid;
+    gap: 2px;
+}
+
+.editor-menu__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-menu__option:hover {
+    background: var(--editor-hover);
+}
+
+.editor-menu__option input {
+    accent-color: var(--editor-highlight);
 }
 
 /* Значок вида из данных: картинка — маска, цвет — цвет текста вокруг. */
@@ -1044,8 +1886,8 @@ input[type='checkbox'] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: 10px;
     border: 1px solid var(--editor-border);
     background: transparent;
@@ -1076,7 +1918,7 @@ input[type='checkbox'] {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 44px;
+    min-height: 32px;
     padding: 0 12px;
     border-radius: 10px;
     border: 1px solid var(--chip, var(--editor-border));
@@ -1099,13 +1941,23 @@ input[type='checkbox'] {
     border-bottom: 1px solid var(--editor-border);
 }
 
+/* Заголовок правой колонки вне «Проверки»: там одна вкладка — «Свойства». */
+.editor-tabs__title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 16px;
+}
+
 .editor-tab {
     flex: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    min-height: 52px;
+    min-height: 40px;
     padding: 0 6px;
     border: 0;
     border-bottom: 3px solid transparent;
@@ -1127,6 +1979,10 @@ input[type='checkbox'] {
 }
 
 .editor-tabpanel {
+    /* Граница для абсолютных элементов внутри (подписи для диктора): иначе
+       они держались бы за колонку, торчали из-под прокрутки вниз, и прокрутка
+       к строке сдвигала весь редактор. */
+    position: relative;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -1176,10 +2032,45 @@ input[type='checkbox'] {
     border-top: 1px solid var(--editor-border);
 }
 
+/* Заголовок секции карточки: мелко, заглавными, как в инспекторах редакторов (запись 61). */
 .editor-card__heading {
     margin: 0 0 6px;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--editor-text-muted);
+}
+
+/* Опасная зона внизу карточки: удаление — отдельно от остальных действий. */
+.editor-card__danger {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--editor-border);
+}
+
+/* Состояние строкой: «размещён», «не задан». */
+.editor-state--ok {
+    color: var(--editor-success);
+}
+
+.editor-state--warn {
+    color: var(--editor-warn);
+}
+
+/* Заголовок раздела карточки с пояснением ⓘ. */
+.editor-card__heading-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+
+.editor-card__heading-row > .editor-card__heading {
+    margin: 0;
 }
 
 .editor-card__row {
@@ -1215,7 +2106,7 @@ input[type='checkbox'] {
     display: flex;
     align-items: center;
     gap: 6px;
-    min-height: 44px;
+    min-height: 36px;
     padding: 0 4px;
     border-radius: 8px;
     font-size: 14px;
@@ -1265,14 +2156,115 @@ input[type='checkbox'] {
     color: var(--editor-danger);
 }
 
-.editor-input--id {
-    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+/* --- Поле и пояснение ⓘ (запись 58) --- */
+
+.editor-field {
+    display: block;
+    margin-bottom: 10px;
 }
 
-.editor-card__id {
-    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+.editor-field__label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
     font-size: 13px;
-    overflow-wrap: anywhere;
+    color: var(--editor-text-muted);
+}
+
+/* Поле в строку: подпись слева, список справа — в колонке «Показывать». */
+.editor-field--inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px;
+}
+
+.editor-field--inline .editor-field__label {
+    margin: 0;
+    color: var(--editor-text);
+    font-size: 14px;
+}
+
+.editor-field__problem {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--editor-danger);
+}
+
+/*
+ * Значок ⓘ: цель нажатия 24×24 — наименьшая по WCAG 2.2 (2.5.8); он стоит
+ * рядом с подписью, а не вместо кнопки действия.
+ */
+.editor-info {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    cursor: help;
+}
+
+.editor-info span {
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid currentColor;
+    border-radius: 9999px;
+    font: 600 10px/1 Georgia, serif;
+    font-style: italic;
+}
+
+.editor-info:hover,
+.editor-info[aria-expanded="true"] {
+    color: var(--editor-text);
+}
+
+.editor-info__tip {
+    position: fixed;
+    z-index: 4000;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--editor-panel);
+    border: 1px solid var(--editor-border);
+    box-shadow: var(--editor-shadow);
+    color: var(--editor-text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+/* Выбор из вариантов в окне: «с планом или без». */
+.editor-choice {
+    margin: 8px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+/* Флажок с пояснением: ⓘ рядом со строкой флажка, не внутри неё. */
+.editor-check-row {
+    display: flex;
+    align-items: center;
+}
+
+.editor-check-row > .editor-check {
+    flex: 1;
+    min-width: 0;
+}
+
+.editor-check-row > .editor-info {
+    margin-right: 4px;
+}
+
+.editor-input--id {
+    font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
 .editor-list {
@@ -1295,7 +2287,7 @@ input[type='checkbox'] {
 .editor-list__main {
     flex: 1;
     min-width: 0;
-    min-height: 44px;
+    min-height: 36px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1351,7 +2343,7 @@ input[type='checkbox'] {
     border: 1px solid var(--editor-border);
     background: var(--editor-bg);
     color: var(--editor-text);
-    font-size: 16px;
+    font-size: 14px;
     resize: vertical;
 }
 
@@ -1442,7 +2434,7 @@ input[type='checkbox'] {
 .editor-search__input {
     flex: 1;
     min-width: 0;
-    min-height: 44px;
+    min-height: 40px;
     border: 0;
     background: transparent;
     color: var(--editor-text);
@@ -1460,7 +2452,7 @@ input[type='checkbox'] {
 .editor-search__option {
     display: flex;
     align-items: center;
-    min-height: 52px;
+    min-height: 44px;
     padding: 6px 12px;
     border-radius: 10px;
     cursor: pointer;
@@ -1609,7 +2601,7 @@ input[type='checkbox'] {
     padding: 2px 6px;
     border-radius: 4px;
     background: var(--editor-label-bg);
-    color: var(--editor-text);
+    color: var(--editor-label-text);
     font-size: 12px;
     font-weight: 500;
     white-space: nowrap;
@@ -2023,45 +3015,6 @@ input[type='checkbox'] {
     }
 }
 
-/* --- Совмещение точек с новым планом (запись 49) --- */
-
-.editor-align-bar {
-    position: absolute;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 600;
-    width: min(640px, calc(100% - 24px));
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: var(--editor-panel);
-    border: 1px solid var(--editor-focus);
-    box-shadow: var(--editor-shadow);
-    color: var(--editor-text);
-}
-
-.editor-align-bar__title {
-    margin: 0 0 4px;
-    font-size: 15px;
-    font-weight: 600;
-}
-
-.editor-align-bar__text {
-    margin: 0 0 6px;
-    font-size: 13px;
-    color: var(--editor-text-muted);
-}
-
-.editor-align-bar__pairs {
-    margin: 0 0 6px;
-    padding-left: 20px;
-    font-size: 13px;
-}
-
-.editor-align-bar__pair--bad {
-    color: var(--editor-danger);
-}
-
 .editor-link-button {
     margin-left: 8px;
     padding: 0;
@@ -2074,17 +3027,72 @@ input[type='checkbox'] {
 }
 
 .editor-align-tip {
-    background: #e94560;
-    color: #ffffff;
+    background: var(--editor-map-handle);
+    color: var(--editor-on-accent);
     border: 0;
     font-weight: 700;
 }
 
 /* --- Корпуса на территории и их постановка (запись 50) --- */
 
+/* План, который размещают, — целиком: эталон ложится поверх линиями (запись 62). */
 .editor-placing-plan {
-    opacity: 0.6;
-    outline: 2px solid #e94560;
+    opacity: 1;
+}
+
+/* Линии эталона не ловят мышь: щелчок проходит к карте — ставит булавку. */
+.editor-reference-lines {
+    pointer-events: none;
+}
+
+/* Булавка (запись 63): оранжевая кнопка с белой каймой и тёмной серединой. */
+.editor-place-pin span {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border: 3px solid #ffffff;
+    border-radius: 9999px;
+    background: var(--editor-map-handle-alt);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), inset 0 0 0 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Шторка: вертикальная черта поверх карты с ручкой посередине. */
+.editor-swipe {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 650;
+    width: 16px;
+    margin-left: -8px;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.editor-swipe::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 7px;
+    width: 2px;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.editor-swipe__handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 9999px;
+    background: #ffffff;
+    color: #1f2328;
+    font-size: 15px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 
 .editor-campus-building {
@@ -2097,7 +3105,7 @@ input[type='checkbox'] {
     height: 22px;
     border: 3px solid #ffffff;
     border-radius: 9999px;
-    background: #e94560;
+    background: var(--editor-map-handle);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -2107,7 +3115,13 @@ input[type='checkbox'] {
 
 .editor-place-handle--rotate span {
     border-radius: 9999px;
-    background: #f59e0b;
+    background: var(--editor-map-handle-alt);
+    cursor: grab;
+}
+
+/* Ручка «довернуть вокруг булавки»: оранжевая, как булавка. */
+.editor-place-handle--turn span {
+    background: var(--editor-map-handle-alt);
     cursor: grab;
 }
 
@@ -2153,58 +3167,170 @@ input[type='checkbox'] {
     text-align: center;
 }
 
-/* «Как собрать карту» — шаги с состоянием и кнопкой (запись 52). */
-.editor-guide summary {
-    cursor: pointer;
-    list-style: none;
-    padding: 16px 16px 8px;
+
+/* Стены соседнего этажа — линиями, почти без прозрачности: заливок у них нет (запись 65). */
+.editor-ghost-plan {
+    opacity: 0.85;
 }
 
-.editor-guide__steps {
-    list-style: none;
-    margin: 0;
-    padding: 0 12px 12px;
-}
+/* --- Пошаговые панели операций (запись 64) --- */
 
-.editor-guide__step {
+.editor-operation {
     display: flex;
-    gap: 10px;
-    padding: 8px 4px;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px 16px;
+}
+
+.editor-operation__subject {
+    margin: 0;
+    font-weight: 600;
+}
+
+.editor-operation__note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--editor-text-muted);
+}
+
+.editor-operation__keys {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-operation__keys kbd {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--editor-accent);
+    color: var(--editor-text);
+    font: 500 12px ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.editor-operation__footer {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding-top: 12px;
     border-top: 1px solid var(--editor-border);
 }
 
-.editor-guide__step--next {
-    background: var(--editor-hover);
-    border-radius: 10px;
+.editor-operation__pairs {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
 }
 
-.editor-guide__mark {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 9999px;
-    border: 1px solid var(--editor-border);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.editor-guide__mark--done {
-    border-color: transparent;
-    color: var(--editor-success);
-}
-
-.editor-guide__body {
+.editor-operation__pairs li {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
-.editor-guide__title {
+.editor-operation__pair--bad {
+    color: var(--editor-warn);
+}
+
+/* Шаги: номер в кружке или галочка, заголовок, что делать. */
+.editor-steps {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.editor-steps__item {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 10px;
+}
+
+.editor-steps__mark {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--editor-border);
+    border-radius: 9999px;
+    font-size: 12px;
+    color: var(--editor-text-muted);
+}
+
+.editor-steps__item--now .editor-steps__mark {
+    border-color: var(--editor-highlight);
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+}
+
+.editor-steps__item--done .editor-steps__mark {
+    border-color: var(--editor-success);
+    background: var(--editor-success);
+    color: var(--editor-on-accent);
+}
+
+.editor-steps__body {
+    display: grid;
+    gap: 2px;
+}
+
+.editor-steps__title {
     font-weight: 600;
 }
-.editor-ghost-plan { opacity: 0.18; }
+
+.editor-steps__item--later .editor-steps__title {
+    color: var(--editor-text-muted);
+    font-weight: 400;
+}
+
+.editor-steps__text {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--editor-text-muted);
+}
+
+/* Выбор кнопками в ряд: «Контур · Все стены · Шторка». */
+.editor-segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--editor-bg);
+}
+
+.editor-segmented__item {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--editor-text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.editor-segmented__item:hover {
+    color: var(--editor-text);
+}
+
+.editor-segmented__item[aria-checked='true'] {
+    background: var(--editor-accent);
+    color: var(--editor-text);
+    box-shadow: inset 0 -2px 0 var(--editor-focus);
+}
+
+.editor-field--range {
+    margin-top: 10px;
+}
+
+.editor-field--range input[type='range'] {
+    width: 100%;
+    accent-color: var(--editor-highlight);
+}

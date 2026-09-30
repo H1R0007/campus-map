@@ -22,6 +22,12 @@ export function themeColor(token: EditorThemeToken): string {
 /** Цвета карты редактора: узлы, связи, маршрут, подсветка проблем. */
 export interface MapPalette {
   highlight: string;
+  /** Выбранная точка: заливка и обводка — видна и на синих точках, и на точках переходов. */
+  selectedFill: string;
+  selected: string;
+  /** Ручки и отметки операций: постановка корпуса, совмещение. */
+  handle: string;
+  handleAlt: string;
   node: string;
   nodeStroke: string;
   portal: string;
@@ -46,16 +52,26 @@ export interface MapPalette {
   labelText: string;
 }
 
-let palette: MapPalette | null = null;
+let palette: { theme: string; colors: MapPalette } | null = null;
 
 /**
- * Все цвета карты разом. Читаются из CSS один раз: тема в редакторе одна и
- * во время работы не меняется; появится переключение темы — здесь нужно
- * будет сбрасывать запомненное.
+ * Все цвета карты разом. Читаются из CSS один раз на тему: сменили тему
+ * (атрибут `data-theme`, запись 56) — цвета читаются заново.
  */
 export function mapPalette(): MapPalette {
-  palette ??= {
+  const theme = document.documentElement.dataset.theme ?? '';
+  if (palette?.theme === theme) return palette.colors;
+  palette = { theme, colors: readPalette() };
+  return palette.colors;
+}
+
+function readPalette(): MapPalette {
+  return {
     highlight: themeColor('--editor-highlight'),
+    selectedFill: themeColor('--editor-map-selected-fill'),
+    selected: themeColor('--editor-map-selected'),
+    handle: themeColor('--editor-map-handle'),
+    handleAlt: themeColor('--editor-map-handle-alt'),
     node: themeColor('--editor-map-node'),
     nodeStroke: themeColor('--editor-map-node-stroke'),
     portal: themeColor('--editor-map-portal'),
@@ -77,7 +93,6 @@ export function mapPalette(): MapPalette {
     draftPoint: themeColor('--editor-map-draft-point'),
     grid: themeColor('--editor-map-grid'),
     labelBg: themeColor('--editor-label-bg'),
-    labelText: themeColor('--editor-text'),
+    labelText: themeColor('--editor-label-text'),
   };
-  return palette;
 }

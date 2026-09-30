@@ -33,7 +33,7 @@ export default {
       await e.open();
       await e.openFloor('Корпус А', 1);
 
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       const kinds = await palette();
       assert.ok(kinds.includes('Коридор') && kinds.includes('Помещение'), `в палитре: ${JSON.stringify(kinds)}`);
       // Лестница, лифт и вход — переходы: их ставит инструмент «Переход».
@@ -51,7 +51,7 @@ export default {
       await e.press('Выбор (V)');
       assert.equal(await e.tool(), 'Выбор');
       await e.key('2', { code: 'Digit2' });
-      assert.equal(await e.tool(), 'Узел', 'цифра должна брать инструмент, которым ставят точки');
+      assert.equal(await e.tool(), 'Точка', 'цифра должна брать инструмент, которым ставят точки');
       assert.equal(await activeKind(), 'Помещение');
     });
 
@@ -150,7 +150,7 @@ export default {
     });
 
     await step('щелчок кистью «Туалет» ставит точку с названием, связью и видом места', async () => {
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       await e.key('3', { code: 'Digit3' });
       assert.equal(await activeKind(), 'Туалет');
 
@@ -164,7 +164,7 @@ export default {
       assert.equal(await edits(), editsBefore + 1, 'один щелчок — одна правка в истории');
       assert.equal(await e.propertiesNodeId(), added[0], 'поставленная точка не выбрана');
       assert.match(await e.panelSection('Названия'), /Туалет/, 'вид не дал названия');
-      assert.match(await e.panelSection('Связи'), /Связи \(1\)/, 'точка не прицепилась к ближайшей');
+      assert.match(await e.panelSection('Связи'), /Связи · 1/, 'точка не прицепилась к ближайшей');
       assert.equal(
         await page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim()`),
         'Туалет',
@@ -212,7 +212,7 @@ export default {
 
       // Карточка второй двери: нетронутое начало «А-1» названием не стало.
       assert.equal(await e.propertiesNodeId(), added[1]);
-      assert.match(await e.panelSection('Названия'), /Названия \(0\)/, 'нетронутое «А-1» стало названием');
+      assert.match(await e.panelSection('Названия'), /Названия · 0/, 'нетронутое «А-1» стало названием');
 
       // Первая дверь получила набранный номер: поиск его находит.
       await e.key('f', { modifiers: MOD.ctrl });
@@ -230,7 +230,7 @@ export default {
     await step('«Переход»: щелчок по пустому месту ставит лестницу на всех этажах, связанных переходами', async () => {
       await e.press('Переход (T)');
       await e.press('Лестница');
-      assert.match(await e.toolbar(), /сразу на всех этажах/, 'подсказка не говорит, что делает щелчок по пустому месту');
+      assert.match(await e.status(), /на всех этажах корпуса/, 'подсказка не говорит, что делает щелчок по пустому месту');
 
       // Что было на соседнем этаже до щелчка: с ним и сравним стопку.
       await e.key('PageUp');
@@ -252,7 +252,7 @@ export default {
       );
 
       await e.key('PageUp');
-      assert.match(await e.place(), /Этаж 2/);
+      assert.match(await e.place(), /этаж 2/);
       const newUpstairs = (await e.nodeIds()).filter((id) => !upstairsBefore.includes(id));
       assert.equal(newUpstairs.length, 1, 'на втором этаже лестницы нет');
       await shot('editor-kinds-stack');
@@ -270,7 +270,7 @@ export default {
       await e.click(empty2.x, empty2.y);
       assert.deepEqual(await e.nodeIds(), before, 'вход поставлен стопкой, хотя его ставят вручную');
       assert.match(await e.notice(), /вручную/);
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
     });
 
     await step('кисть «Коридор» ведёт линию: каждая точка связана с предыдущей', async () => {
@@ -298,11 +298,11 @@ export default {
       assert.ok(!between(added[2], 'a1_corridor_3'), 'третья точка прилипла к чужой точке вместо линии');
 
       // Пока линия ведётся, строка над картой так и говорит.
-      assert.match(await e.toolbar(), /Ведём линию/, 'редактор не показывает, что линия ведётся');
+      assert.match(await e.status(), /Enter или Esc — закончить/, 'редактор не показывает, что линия ведётся');
 
       // Enter заканчивает линию: следующая точка начинает новую.
       await e.key('Enter', { keyCode: 13 });
-      assert.doesNotMatch(await e.toolbar(), /Ведём линию/, 'Enter не закончил линию');
+      assert.doesNotMatch(await e.status(), /Enter или Esc — закончить/, 'Enter не закончил линию');
       await e.click(start.x + 3 * step, start.y - 60);
       const afterEnter = (await e.nodeIds()).filter((id) => !before.includes(id) && !added.includes(id));
       assert.equal(afterEnter.length, 1);
@@ -368,14 +368,18 @@ export default {
       assert.deepEqual(await e.nodeIds(), before);
     });
 
-    await step('калька: соседний этаж виден бледно и не ловит щелчки', async () => {
+    await step('«Сравнить с этажом»: соседний этаж виден и не ловит щелчки', async () => {
       const ghosts = () => page.eval(`document.querySelectorAll('.editor-ghost-node').length`);
       assert.equal(await ghosts(), 0, 'калька включена без спроса');
 
       // На первом этаже соседний снизу — не существует, поэтому берём этаж выше.
-      await e.toggleFilter('Соседний этаж бледно');
-      await page.sleep(400);
-      assert.ok((await ghosts()) > 0, 'калька не появилась');
+      await e.compareFloor('above');
+      assert.ok((await ghosts()) > 0, 'соседний этаж не появился');
+      await page.waitFor(`!!document.querySelector('img.editor-ghost-plan')`, 10_000);
+      // Соседний этаж — посчитанными линиями, а не полупрозрачным планом (запись 65).
+      assert.match(await page.eval(`document.querySelector('img.editor-ghost-plan').src`), /^blob:/, 'соседний этаж — самим планом, а не линиями');
+      const ghostOpacity = Number(await page.eval(`getComputedStyle(document.querySelector('img.editor-ghost-plan')).opacity`));
+      assert.ok(ghostOpacity >= 0.7, `стены соседнего этажа бледные: ${ghostOpacity}`);
 
       // Перетаскивание точки своего этажа не перерисовывает кальку: точки
       // соседнего этажа при этом не меняются.
@@ -431,14 +435,13 @@ export default {
       await e.key('Escape', { keyCode: 27 });
 
       await shot('editor-kinds-ghost');
-      await e.toggleFilter('Соседний этаж бледно');
-      await page.sleep(300);
-      assert.equal(await ghosts(), 0, 'калька осталась после выключения');
+      await e.compareFloor('none');
+      assert.equal(await ghosts(), 0, 'соседний этаж остался после выключения');
     });
 
     await step('удаление вида, у которого есть точки, — только после предупреждения', async () => {
       // Владелец: удаление с предупреждением — «это ОЧЕНЬ важно».
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       await page.eval(`[...document.querySelectorAll('[aria-label="Вид точки"] button')].find((b) => b.textContent.trim() === 'Лаборатория').click()`);
       assert.equal(await activeKind(), 'Лаборатория');
       const before = await e.nodeIds();
@@ -470,14 +473,14 @@ export default {
       await e.click(point.x, point.y);
       assert.equal(
         await page.eval(`document.querySelector('[aria-label="Вид места"] button[aria-pressed="true"]')?.textContent.trim()`),
-        'Обычное место',
+        'Без вида',
         'у места остался вид, которого больше нет'
       );
 
       // Одна отмена возвращает и вид, и его место.
       await e.key('Escape', { keyCode: 27 });
       await e.key('z', { modifiers: MOD.ctrl });
-      await e.press('Узел (N)');
+      await e.press('Точка (N)');
       assert.ok((await palette()).includes('Лаборатория'), 'отмена не вернула вид');
       await e.press('Выбор (V)');
       await e.click(point.x, point.y);

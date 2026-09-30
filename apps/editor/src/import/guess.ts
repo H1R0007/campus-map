@@ -24,9 +24,10 @@ export interface PlaceGuess {
   /**
    * Буква корпуса заглавной кириллицей («Б») или номер («2»). `latin` — буква,
    * как она стояла в имени файла: корпус в данных мог получить код по ней
-   * (`building_c`).
+   * (`building_c`). `name` — корпус назван адресом со строением («Садовая 5,
+   * стр. 2»): так называют файлы технических планов, и букв у корпусов там нет.
    */
-  building: { letter: string; latin?: string; from: Clue } | null;
+  building: { letter: string; latin?: string; name?: string; from: Clue } | null;
   floor: { floor: number; label?: string; from: Clue } | null;
   /** Почему лист — территория или не план. */
   kindFrom: Clue | null;
@@ -55,19 +56,53 @@ export function fileClueText(name: string): string {
   return base
     .replace(/\.[a-z0-9]{1,5}$/i, '')
     .replace(/([a-zа-я])(\d)/gi, '$1 $2')
-    .replace(/[_.]+/g, ' ')
+    .replace(/[_.+]+/g, ' ')
     .replace(/(^|\s)-|-(\s|$)/g, ' ')
     .trim();
 }
 
 const CAMPUS = /генплан|генеральн\S* план|ситуацион|план территори|схема территори|\bgenplan\b|\bsite ?plan\b|\bmaster ?plan\b|\bterritor/;
 const SKIP = /экспликац|спецификац|ведомост|титульн|пояснительн|условн\S* обозначен|легенд|\bexplikac|\beksplikac|\bexplication\b/;
+/**
+ * В имени файла, кроме экспликации, названы и планы: «экспликация+поэтажка»,
+ * «экспликация и поэтажные планы». Такой файл — не пропуск: экспликацию в нём
+ * узнают по заголовку листа, а планы этажей нужны. Одно слово «этаж» — не
+ * то: «экспликация 2 этажа» — экспликация.
+ */
+const PLANS_TOO = /поэтаж|(?:^|[^а-я])план|\bplan|\bpoetazh/;
 
-function buildingIn(text: string, origin: ClueOrigin): { letter: string; latin?: string } | null {
+/** Слова документа, а не адреса: их не берут в название корпуса. */
+const DOCUMENT_WORDS = /^(?:экспл\S*|поэтаж\S*|план\S*|этаж\S*|и|лист\S*|технич\S*|бти|копия|скан\S*|pdf)$/;
+
+/**
+ * Корпус, названный адресом со строением: «Садовая 5 стр 2», «Лесной вал 3,
+ * строение 1». Номер строения без дома не берётся: «стр. 2 из 5» на листе —
+ * страница, а не строение.
+ */
+function addressIn(text: string): { letter: string; name: string } | null {
+  const match = /(?:^|\s)((?:[а-я][а-я-]*\s+)*?)(\d{1,3}[а-я]?)\s*,?\s*(?:стр\.?|строение)\s*(\d{1,3}[а-я]?)(?![а-я0-9])/.exec(text);
+  if (!match) return null;
+  const street = match[1]
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word && !DOCUMENT_WORDS.test(word))
+    .slice(-3)
+    .map((word) => word[0].toUpperCase() + word.slice(1));
+  const house = street.length > 0 ? `${street.join(' ')} ${match[2]}` : `д. ${match[2]}`;
+  return { letter: `стр. ${match[3]}`, name: `${house}, стр. ${match[3]}` };
+}
+
+function buildingIn(text: string, origin: ClueOrigin): { letter: string; latin?: string; name?: string } | null {
   // «Корпус А», «корпуса Б», «корп. В», «корпус №2».
   // Буква отделена от слова: иначе окончание «корпус-а» читалось бы корпусом «А».
   const russian = /(?:^|[^а-я])корп(?:уса|усе|усом|усу|ус|\.)(?=[\s№«"'„])\s*(?:№\s*)?[«"'„]?\s*([а-я]|\d{1,2})(?![а-я0-9])/.exec(text);
   if (russian) return { letter: russian[1].toUpperCase() };
+  // Адрес — только в имени файла и заголовке: в остальном тексте листа
+  // «стр.» бывает и страницей.
+  if (origin === 'file' || origin === 'title') {
+    const address = addressIn(text);
+    if (address) return address;
+  }
   if (origin !== 'file') return null;
   // Латиница имени файла: «korpus b», «korp-v», «building 2», «bldg c».
   const latin = /(?:^|[^a-z])(?:korpus|korp|corpus|building|bldg|block)\s*-?\s*(zh|kh|ts|ch|sh|sch|yu|ya|[a-z]|\d{1,2})(?![a-z0-9])/.exec(text);
@@ -80,9 +115,11 @@ function floorIn(text: string, origin: ClueOrigin): { floor: number; label?: str
   const mezzanine = /антресол|\bantresol|\bmezzanin/.test(text);
   let number: number | null = null;
 
+  // «Поэтажный план», «поэтажка» — не этаж: номер после них — это номер дома
+  // («экспликация+поэтажка 6 стр 2»), а не этаж 6.
   const digits =
-    /(-?\d{1,2}(?:[.,]5)?)\s*-?\s*(?:го|й|ый|ий|ой|м|ом)?\s*этаж/.exec(text) ??
-    /этаж\S*\s*(?:№\s*)?(-?\d{1,2}(?:[.,]5)?)(?![0-9])/.exec(text) ??
+    /(-?\d{1,2}(?:[.,]5)?)\s*-?\s*(?:го|й|ый|ий|ой|м|ом)?\s*(?<!по)этаж/.exec(text) ??
+    /(?<!по)этаж\S*\s*(?:№\s*)?(-?\d{1,2}(?:[.,]5)?)(?![0-9])/.exec(text) ??
     (origin === 'file'
       ? (/(?:^|[^a-z])(?:etazh|etaj|etage|floor|level|uroven)\s*-?\s*(-?\d{1,2})(?![0-9])/.exec(text) ??
         /(?:^|[^0-9])(-?\d{1,2})\s*-?\s*(?:st|nd|rd|th)?\s*(?:etazh|etaj|floor|level)/.exec(text))
@@ -90,7 +127,7 @@ function floorIn(text: string, origin: ClueOrigin): { floor: number; label?: str
   if (digits) number = Number(digits[1].replace(',', '.'));
 
   if (number === null) {
-    const word = /([а-я]+)\s+этаж/.exec(text);
+    const word = /([а-я]+)\s+(?<!по)этаж/.exec(text);
     if (word) number = ORDINALS.find(([pattern]) => pattern.test(word[1]))?.[1] ?? null;
   }
 
@@ -138,8 +175,10 @@ export function guessPlace(clues: readonly Clue[]): PlaceGuess {
   for (const clue of sorted) {
     const text = normalize(clue.origin === 'file' ? fileClueText(clue.text) : clue.text);
     // Экспликация узнаётся только по заголовку или имени файла: в тексте
-    // плана это слово бывает и в сноске.
-    if (!skipFrom && (clue.origin === 'title' || clue.origin === 'file') && SKIP.test(text)) skipFrom = clue;
+    // плана это слово бывает и в сноске. Имя файла, где названы и планы
+    // («экспликация+поэтажка»), листы не пропускает.
+    const skipHere = SKIP.test(text) && (clue.origin === 'title' || (clue.origin === 'file' && !PLANS_TOO.test(text)));
+    if (!skipFrom && skipHere) skipFrom = clue;
     if (!campusFrom && CAMPUS.test(text)) campusFrom = clue;
     if (!building) {
       const found = buildingIn(text, clue.origin);

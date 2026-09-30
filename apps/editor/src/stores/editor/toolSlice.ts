@@ -57,7 +57,7 @@ export interface ToolSlice {
   lineSetAutoConnect: (v: boolean) => void;
 }
 
-export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
+export const createToolSlice: EditorSlice<ToolSlice> = (set, get) => ({
   activeTool: 'select',
   activeKindId: 'room',
   chainLastNodeId: null,
@@ -86,7 +86,9 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
       s.chainLastNodeId = null;
     }),
 
-  setActiveTool: (tool) =>
+  setActiveTool: (tool) => {
+    // Инструменты правки живут в «Разметке»: взяли инструмент — открыли её (запись 60).
+    if (tool !== 'select' && get().workspace !== 'markup') get().setWorkspace('markup');
     set((state) => {
       state.activeTool = tool;
       state.edgeStartNodeId = null;
@@ -96,7 +98,8 @@ export const createToolSlice: EditorSlice<ToolSlice> = (set) => ({
         state.lineTool.start = null;
         state.lineTool.end = null;
       }
-    }),
+    });
+  },
 
   setTransitionType: (type) =>
     set((s) => {

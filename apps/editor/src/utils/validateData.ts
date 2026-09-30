@@ -34,16 +34,16 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
   for (const [id, node] of nodes) {
     for (const neighbor of node.neighbors) {
       if (neighbor === id) {
-        errors.push(`Узел «${id}» указан соседом самому себе`);
+        errors.push(`Точка «${id}» связана сама с собой`);
       } else if (!nodes.has(neighbor)) {
-        errors.push(`Узел «${id}» ссылается на несуществующего соседа «${neighbor}»`);
+        errors.push(`Точка «${id}» связана с несуществующей точкой «${neighbor}»`);
       }
     }
 
     // Повтор соседа ничего не ломает в маршруте, но это след ручной правки
     // файла, и автоисправление его убирает.
     if (new Set(node.neighbors).size !== node.neighbors.length) {
-      warnings.push(`У узла «${id}» один и тот же сосед указан несколько раз`);
+      warnings.push(`У точки «${id}» одна и та же связь записана несколько раз`);
     }
   }
 
@@ -66,10 +66,10 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
   // Переход между этажами обязан опираться на существующие узлы с обеих сторон.
   for (const transition of transitions) {
     if (!nodes.has(transition.fromNode)) {
-      errors.push(`Переход ссылается на несуществующий начальный узел «${transition.fromNode}»`);
+      errors.push(`Переход начинается в несуществующей точке «${transition.fromNode}»`);
     }
     if (!nodes.has(transition.toNode)) {
-      errors.push(`Переход ссылается на несуществующий конечный узел «${transition.toNode}»`);
+      errors.push(`Переход ведёт в несуществующую точку «${transition.toNode}»`);
     }
   }
 
@@ -82,7 +82,7 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
 
     if (from.building === to.building && from.floor === to.floor) {
       warnings.push(
-        `Переход «${transition.fromNode}» — «${transition.toNode}» соединяет узлы одного плана: ` +
+        `Переход «${transition.fromNode}» — «${transition.toNode}» соединяет точки одного плана: ` +
           `между ними нужна связь, а не переход`
       );
     }
@@ -105,7 +105,7 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
     if (node.building === CAMPUS_BUILDING_ID) {
       if (node.floor !== CAMPUS_FLOOR) {
         warnings.push(
-          `Узел территории кампуса «${id}» имеет floor=${node.floor}, ожидается ${CAMPUS_FLOOR}`
+          `Точка территории «${id}» записана на этаж ${node.floor}, а у территории этаж ${CAMPUS_FLOOR}`
         );
       }
       continue;
@@ -113,14 +113,14 @@ export function validateDataset(params: ValidateDatasetParams): ValidationResult
 
     const meta = buildingMetas.get(node.building);
     if (!meta) {
-      errors.push(`Узел «${id}» ссылается на неизвестный корпус «${node.building}»`);
+      errors.push(`Точка «${id}» относится к неизвестному корпусу «${node.building}»`);
       continue;
     }
 
     if (!meta.floors.some((floor) => floor.floor === node.floor)) {
       const listed = meta.floors.map((floor) => floor.floor).join(', ') || '—';
       errors.push(
-        `Узел «${id}» ссылается на этаж ${node.floor}, но в meta.json корпуса ` +
+        `Точка «${id}» относится к этажу ${node.floor}, но в meta.json корпуса ` +
           `«${node.building}» объявлены этажи: ${listed}`
       );
     }

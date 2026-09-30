@@ -6,8 +6,9 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { Icon } from './Icon';
-import { PlanOverview } from './PlanOverview';
+import { PlanStatsCard } from './PlanOverview';
 import { SessionBar } from './SessionBar';
+import { InfoTip } from './Field';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { nodeIdProblem } from '../../utils/nodeIds';
@@ -47,8 +48,8 @@ function useCardKey(nodeId: string | null): string | null {
 }
 
 /**
- * Вкладка «Свойства» инспектора: карточка выбранного узла, сводка по
- * нескольким выбранным, а без выбора — обзор открытого плана.
+ * Правая колонка «Разметки»: свойства выбранной точки, сводка по нескольким
+ * выбранным, а без выбора — цифры открытого плана.
  */
 export const PropertiesView: React.FC = () => {
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
@@ -79,7 +80,7 @@ export const PropertiesView: React.FC = () => {
             Действия с ними — в строке над картой и в меню правой кнопки; стрелки сдвигают все сразу.
           </p>
         </header>
-        <section className="editor-card__section" aria-label="Выбранные узлы">
+        <section className="editor-card__section" aria-label="Выбранные точки">
           <ul className="editor-list">
             {selectedIds.slice(0, 30).map((id) => (
               <li key={id} className="editor-list__row">
@@ -95,7 +96,7 @@ export const PropertiesView: React.FC = () => {
     );
   }
 
-  return <PlanOverview />;
+  return <PlanStatsCard />;
 };
 
 /**
@@ -137,7 +138,7 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
 
   return (
     <CardEdit.Provider value={edit}>
-      <section aria-label="Свойства узла" data-node-id={node.id} className="editor-card">
+      <section aria-label="Свойства точки" data-node-id={node.id} className="editor-card">
         <header className="editor-card__header">
           <h2 className={`editor-card__title${aliases.length === 0 ? ' editor-card__title--empty' : ''}`}>
             {aliases[0] ?? 'Без названия'}
@@ -174,7 +175,7 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
             }}
           >
             <Icon name="trash" />
-            Удалить узел
+            Удалить точку
           </button>
           <button type="button" className="editor-button editor-button--ghost" onClick={onClose} title="Снять выбор (Esc)">
             Снять выбор
@@ -185,7 +186,6 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
   );
 };
 
-/** Названия узла: первое — главное, остальные — как ещё ищут это место. */
 /**
  * Вид места: туалет, еда, гардероб, выход.
  *
@@ -203,7 +203,7 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
   if (!named) {
     return (
       <p className="editor-section__hint">
-        Вид ставится у места с названием: по нему навигатор ведёт «к ближайшему туалету» и показывает значок.
+        Вид задают у места с названием: по виду навигатор ищет «ближайший туалет» и показывает значок.
       </p>
     );
   }
@@ -234,12 +234,13 @@ const PlaceKind: React.FC<{ nodeId: string; named: boolean }> = ({ nodeId, named
         aria-pressed={category === null}
         onClick={() => edit(() => setNodeCategory(nodeId, null))}
       >
-        Обычное место
+        Без вида
       </button>
     </div>
   );
 };
 
+/** Названия узла: первое — главное, остальные — как ещё ищут это место. */
 const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId, aliases }) => {
   const setNodeAliases = useEditorStore((s) => s.setNodeAliases);
   const nameEditNodeId = useEditorStore((s) => s.nameEditNodeId);
@@ -311,12 +312,14 @@ const NamesSection: React.FC<{ nodeId: string; aliases: string[] }> = ({ nodeId,
 
   return (
     <section className="editor-card__section" aria-labelledby="card-names">
-      <h3 id="card-names" className="editor-card__heading">
-        Названия ({aliases.length})
-      </h3>
-      <p className="editor-section__hint">
-        Первое — главное: его видно на карте и в поиске. Остальные — как ещё ищут это место.
-      </p>
+      <div className="editor-card__heading-row">
+        <h3 id="card-names" className="editor-card__heading">
+          Названия · {aliases.length}
+        </h3>
+        <InfoTip about="Названия">
+          Первое название — главное: его видно на карте и в поиске. Остальные — другие слова, по которым ищут это место.
+        </InfoTip>
+      </div>
 
       <ul className="editor-list">
         {aliases.map((alias, index) => (
@@ -431,10 +434,10 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   return (
     <section className="editor-card__section" aria-labelledby="card-links">
       <h3 id="card-links" className="editor-card__heading">
-        Связи ({node.neighbors.length})
+        Связи · {node.neighbors.length}
       </h3>
       {node.neighbors.length === 0 && (
-        <p className="editor-section__hint">Узел ни с чем не связан: маршрут к нему не построится.</p>
+        <p className="editor-section__hint">Точка ни с чем не связана: маршрут к ней не построится.</p>
       )}
       <ul className="editor-list">
         {node.neighbors.map((id) => (
@@ -468,7 +471,9 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
           onClick={() => setShowNearest(!showNearest)}
         >
           <Icon name="zap" />
-          Соединить с ближайшим
+          {/* Кнопка открывает список, а соединяет выбор в нём: название так и
+              говорит — «Соединить с ближайшим» обещало связь одним нажатием. */}
+          Выбрать из ближайших…
         </button>
         <button
           type="button"
@@ -477,7 +482,7 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
             setActiveTool('edge');
             setEdgeStartNode(nodeId);
           }}
-          title="Инструмент «Связь» от этого узла: щёлкните второй узел на карте"
+          title="Инструмент «Связь» от этой точки: щёлкните вторую точку на карте"
         >
           <Icon name="link" />
           Связь отсюда
@@ -485,8 +490,8 @@ const LinksSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
       </div>
 
       {showNearest && (
-        <ul className="editor-list mt-2" aria-label="Ближайшие несвязанные узлы">
-          {nearest.length === 0 && <li className="editor-section__hint">На плане нет узлов без связи с этим.</li>}
+        <ul className="editor-list mt-2" aria-label="Ближайшие несвязанные точки">
+          {nearest.length === 0 && <li className="editor-section__hint">На плане нет точек без связи с этой.</li>}
           {nearest.map(({ node: candidate, away }) => (
             <li
               key={candidate.id}
@@ -525,9 +530,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const removeTransition = useEditorStore((s) => s.removeTransition);
   const edit = useCardEdit();
   const centerOnNode = useEditorStore((s) => s.centerOnNode);
-  const setActiveTool = useEditorStore((s) => s.setActiveTool);
-  const setTransitionStartNode = useEditorStore((s) => s.setTransitionStartNode);
-  const setTransitionType = useEditorStore((s) => s.setTransitionType);
+  const startTransitionFrom = useEditorStore((s) => s.startTransitionFrom);
   const [picking, setPicking] = useState(false);
 
   const transitions = useMemo(
@@ -535,17 +538,16 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
     [allTransitions, nodeId]
   );
 
+  // Второй конец выбирают на соседней карте: она открывается с подходящим планом (запись 66).
   const startTransition = (type: TransitionType) => {
-    setTransitionType(type);
-    setActiveTool('transition');
-    setTransitionStartNode(nodeId);
+    startTransitionFrom(nodeId, type);
     setPicking(false);
   };
 
   return (
     <section className="editor-card__section" aria-labelledby="card-transitions">
       <h3 id="card-transitions" className="editor-card__heading">
-        Переходы ({transitions.length})
+        Переходы · {transitions.length}
       </h3>
       <ul className="editor-list">
         {transitions.map((t) => {
@@ -569,7 +571,7 @@ const TransitionsSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
                 <span className="editor-list__text">
                   <span className="editor-list__name">{nodeTitle(otherId, allAliases)}</span>
                   <span className="editor-list__sub">
-                    {TRANSITION_LABELS[t.type]} · {other ? nodePlaceLabel(other, buildingMetas) : 'узла нет'}
+                    {TRANSITION_LABELS[t.type]} · {other ? nodePlaceLabel(other, buildingMetas) : 'точки нет'}
                   </span>
                 </span>
               </button>
@@ -642,9 +644,14 @@ const CommentSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
 
   return (
     <section className="editor-card__section" aria-labelledby="card-comment">
-      <h3 id="card-comment" className="editor-card__heading">
-        Заметка разметчика
-      </h3>
+      <div className="editor-card__heading-row">
+        <h3 id="card-comment" className="editor-card__heading">
+          Заметка разметчика
+        </h3>
+        <InfoTip about="Заметка разметчика">
+          Видна только команде разметки и не влияет на маршруты. Сохраняется, когда поле теряет фокус; Esc отменяет.
+        </InfoTip>
+      </div>
       <textarea
         value={draft}
         rows={3}
@@ -670,9 +677,6 @@ const CommentSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
         }}
         className="editor-textarea"
       />
-      <p className="editor-section__hint">
-        Видна только команде разметки и на маршруты не влияет. Сохраняется, когда поле теряет фокус; Esc отменяет.
-      </p>
     </section>
   );
 };

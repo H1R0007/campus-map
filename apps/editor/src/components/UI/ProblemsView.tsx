@@ -94,7 +94,7 @@ export const ProblemsView: React.FC = () => {
         <section className="editor-card__section" aria-label={`Корпуса, этажи и планы: ${structure.length}`}>
           <h3 className="editor-card__heading editor-problems__title editor-problems__title--warn">
             <Icon name="building" />
-            Корпуса, этажи и планы ({structure.length})
+            Корпуса, этажи и планы · {structure.length}
           </h3>
           <p className="editor-section__hint">Этого не хватит навигатору. Кнопка у находки ведёт туда, где её исправляют.</p>
           <ul className="editor-problems editor-problems--actions">
@@ -121,12 +121,12 @@ export const ProblemsView: React.FC = () => {
 
       <section className="editor-card__section" aria-labelledby="problems-metric">
         <h3 id="problems-metric" className="editor-card__heading">
-          Метрика кампуса
+          Время в пути
         </h3>
         <p className="editor-section__hint">
           {metricMode === 'metric'
-            ? 'Планы привязаны к территории: навигатор показывает время в пути.'
-            : 'Пиксельный режим: планы не привязаны к метрике кампуса, и навигатор не показывает время в пути.'}
+            ? 'Корпуса размещены на территории: навигатор показывает время в пути.'
+            : 'Навигатор не покажет время в пути, пока не заданы масштаб территории, размещение корпусов и высоты этажей — см. «Готовность».'}
         </p>
       </section>
     </div>
@@ -148,7 +148,7 @@ const ProblemList: React.FC<{ title: string; kind: 'error' | 'warn' | 'note'; it
     <section className="editor-card__section" aria-label={`${title}: ${items.length}`}>
       <h3 className={`editor-card__heading editor-problems__title editor-problems__title--${kind}`}>
         <Icon name={kind === 'error' ? 'errorCircle' : kind === 'warn' ? 'warning' : 'note'} />
-        {title} ({items.length})
+        {title} · {items.length}
       </h3>
       {hint && <p className="editor-section__hint">{hint}</p>}
       <ul className="editor-problems">

@@ -12,6 +12,7 @@ import { planScopeKey } from '../../utils/planFiles';
 import { syncPortals } from './graphState';
 import { applyStructureSide, forgetPlace, snapshotPlace } from './historyApply';
 import { openingFloorOf } from './viewSlice';
+import { renumberTabsIn } from './windowSlice';
 import type { EditorSlice, EditorStore } from './types';
 
 /**
@@ -184,7 +185,13 @@ export function buildingLetter(name: string): string | null {
  */
 export function buildingIdFor(name: string, taken: (id: string) => boolean): string {
   const letter = buildingLetter(name);
-  const slug = transliterate(letter ?? name)
+  // Корпус с адресом («Садовая 5, стр. 3») — коротко: начало улицы, дом,
+  // строение (`sad5s3`). Код входит в id каждой точки корпуса.
+  const address = /^(.*?)(\d+[а-яa-z]?)\s*,?\s*(?:стр\.?|строение)\s*(\d+[а-яa-z]?)$/i.exec(name.trim());
+  const short = address
+    ? `${transliterate(address[1]).replace(/[^a-z]/g, '').slice(0, 3)}${transliterate(address[2])}s${transliterate(address[3])}`
+    : null;
+  const slug = transliterate(short ?? letter ?? name)
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
   const base = `building_${slug || 'new'}`;
@@ -300,7 +307,16 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
    * историю раньше, чем меняются данные, как у всех остальных правок: запись
    * «со стороны» закрывает открытую правку панели по данным «до».
    */
-  const commit = (description: string, nodeIds: readonly string[], mutate: (s: State) => void): void => {
+  /**
+   * Правка структуры с записью в историю. `windows` — что сделать со
+   * вкладками карт: они не часть данных, и в историю не попадают.
+   */
+  const commit = (
+    description: string,
+    nodeIds: readonly string[],
+    mutate: (s: State) => void,
+    windows?: (s: State) => void
+  ): void => {
     const current = get();
     const next = produce(current, (draft) => {
       mutate(draft);
@@ -311,9 +327,12 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
     const after = sideOf(next, ids);
 
     useHistoryStore.getState().push({ type: 'STRUCTURE', description, undoData: before, redoData: after });
+    // Добавили этаж, загрузили планы — новое открывается в текущей вкладке,
+    // как любой план из дерева (запись 66).
     set((s) => {
       applyStructureSide(s, after);
       syncPortals(s);
+      windows?.(s);
     });
   };
 
@@ -441,6 +460,8 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
           if (planKey !== undefined) s.planFiles.set(planScopeKey(buildingId, nextFloor), planKey);
           if (s.currentBuilding === buildingId && s.currentFloor === floor) s.currentFloor = nextFloor;
         }
+      }, (s) => {
+        if (renumbered) renumberTabsIn(s, buildingId, floor, nextFloor);
       });
       return null;
     },
@@ -546,7 +567,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
         request.campus ? 'план территории' : '',
       ].filter(Boolean);
 
-      commit(`Планы из файлов: ${parts.join(', ')}`, moved, (s) => {
+      commit(`Загружены планы: ${parts.join(', ')}`, moved, (s) => {
         for (const [id, transform] of moves) {
           const node = s.nodes.get(id)!;
           const next = applySimilarity(transform, node);
@@ -601,7 +622,7 @@ export const createStructureSlice: EditorSlice<StructureSlice> = (set, get) => {
       // и масштаб, что у корпуса.
       const before = completePlacement(meta.placement);
       const shift = before ? composeSimilarity(worldOf(placement), invertSimilarity(worldOf(before))) : null;
-      commit(`Корпус «${meta.name}» ${placed ? 'передвинут' : 'поставлен'} на территорию`, [], (s) => {
+      commit(`Корпус «${meta.name}» ${placed ? 'перемещён на территории' : 'размещён на территории'}`, [], (s) => {
         if (campusScale !== undefined && s.campusMeta) s.campusMeta.metersPerPixel = Math.round(campusScale * 1e7) / 1e7;
         const target = s.buildingMetas.get(id)!;
         if (shift && before) {

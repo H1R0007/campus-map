@@ -150,7 +150,7 @@ describe('импорт одной правкой', () => {
       { building: null, floor: null },
     ]);
     expect(useHistoryStore.getState().entries).toHaveLength(1);
-    expect(useHistoryStore.getState().entries[0].description).toBe('Планы из файлов: 4 этажа, план территории');
+    expect(useHistoryStore.getState().entries[0].description).toBe('Загружены планы: 4 этажа, план территории');
     expect(metas().get('building_g')?.floors.map((floor) => floor.floor)).toEqual([1, 2]);
     expect(metas().get('building_a')?.floors.map((floor) => [floor.floor, floor.planFormat])).toEqual([
       [1, 'svg'],

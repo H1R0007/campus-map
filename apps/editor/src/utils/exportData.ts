@@ -79,7 +79,7 @@ export async function exportToZip(dataset: Dataset, extras: ArchiveExtras = NO_E
   const sourcesNote =
     extras.sources.length === 0
       ? ''
-      : '\nПрисланные оригиналы планов лежат в `data-sources/` — рядом с `data/`. В git они\nне попадают (запись 46): это нужно редактору, чтобы переделать план.\n';
+      : '\nПрисланные оригиналы планов лежат в `data-sources/` — рядом с `data/`. В git они\nне попадают (запись 46): это нужно редактору, чтобы изменить обрезку плана.\n';
   const deletedNote =
     extras.deleted.length === 0
       ? ''

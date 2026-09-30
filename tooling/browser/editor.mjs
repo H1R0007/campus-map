@@ -80,6 +80,18 @@ export function editorHelpers(page, base) {
       await page.sleep(400);
     },
 
+    /** Режим работы по подписи: «Планы и корпуса», «Разметка», «Проверка» (запись 60). */
+    async mode(label) {
+      const clicked = await page.eval(`(() => {
+        const button = [...document.querySelectorAll('.editor-modes__item')].find((b) => b.textContent.trim().startsWith(${JSON.stringify(label)}));
+        if (!button) return false;
+        button.click();
+        return true;
+      })()`);
+      if (!clicked) throw new Error(`нет режима «${label}»`);
+      await page.sleep(400);
+    },
+
     /** Открывает план этажа корпуса через «Структуру». */
     async openFloor(building, floor) {
       await helpers.press(building);
@@ -237,7 +249,7 @@ export function editorHelpers(page, base) {
      */
     async panelPoint(selector) {
       const point = await page.eval(`(() => {
-        const panel = document.querySelector('[aria-label="Свойства узла"]');
+        const panel = document.querySelector('[aria-label="Свойства точки"]');
         const el = panel?.querySelector(${JSON.stringify(selector)});
         if (!el) return null;
         el.scrollIntoView({ block: 'center' });
@@ -255,7 +267,7 @@ export function editorHelpers(page, base) {
     /** Текст раздела карточки свойств по началу заголовка («Названия», «Связи»). */
     panelSection: (heading) =>
       page.eval(`(() => {
-        const panel = document.querySelector('[aria-label="Свойства узла"]');
+        const panel = document.querySelector('[aria-label="Свойства точки"]');
         const section = [...(panel?.querySelectorAll('section') ?? [])].find((s) => s.textContent.trim().startsWith(${JSON.stringify(heading)}));
         return section ? section.textContent.replace(/\\s+/g, ' ').trim() : null;
       })()`),
@@ -268,7 +280,7 @@ export function editorHelpers(page, base) {
 
     /** Значение поля карточки свойств по подписи для диктора. */
     panelValue: (label) =>
-      page.eval(`document.querySelector('[aria-label="Свойства узла"] [aria-label=${JSON.stringify(label)}]')?.value ?? null`),
+      page.eval(`document.querySelector('[aria-label="Свойства точки"] [aria-label=${JSON.stringify(label)}]')?.value ?? null`),
 
     /** Включает или выключает флажок по подписи: «Показывать на карте», «Сетка», вкладка «Маршрут». */
     async toggleFilter(label) {
@@ -280,6 +292,19 @@ export function editorHelpers(page, base) {
       })()`);
       if (!ok) throw new Error(`нет переключателя «${label}»`);
       await page.sleep(300);
+    },
+
+    /** «Сравнить с этажом»: `none`, `below` или `above` (запись 65). */
+    async compareFloor(value) {
+      const ok = await page.eval(`(() => {
+        const select = document.querySelector('select[aria-label="Сравнить с этажом"]');
+        if (!select) return false;
+        select.value = ${JSON.stringify(value)};
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`);
+      if (!ok) throw new Error('нет списка «Сравнить с этажом»');
+      await page.sleep(400);
     },
 
     /** Текст сообщения над картой или пустая строка. */
@@ -311,7 +336,7 @@ export function editorHelpers(page, base) {
     /** Текст строки состояния. */
     status: () => page.eval(`document.querySelector('footer[aria-label="Строка состояния"]')?.textContent ?? ''`),
 
-    /** Открытый план словами: «Корпус А / Этаж 2» или «Кампус». */
+    /** Открытый план словами: «Корпус А, этаж 2» или «Территория». */
     place: () => page.eval(`document.querySelector('[data-status-place]')?.textContent ?? ''`),
 
     /** Сколько узлов выбрано — по строке состояния. */
@@ -322,7 +347,7 @@ export function editorHelpers(page, base) {
 
     /** id узла в карточке свойств или `null`, если карточки нет. */
     propertiesNodeId: () =>
-      page.eval(`document.querySelector('[aria-label="Свойства узла"]')?.getAttribute('data-node-id') ?? null`),
+      page.eval(`document.querySelector('[aria-label="Свойства точки"]')?.getAttribute('data-node-id') ?? null`),
   };
 
   return helpers;

@@ -9,7 +9,7 @@ import { repoRoot } from '../../lib/vite-server.mjs';
  *
  * План этажа с точками заменяют картинкой другого масштаба — редактор сам
  * предлагает совместить. Две пары «точка — её место» двигают все точки этажа,
- * одна отмена возвращает. «Переделать план…» с другой рамкой того же листа
+ * одна отмена возвращает. «Изменить обрезку…» с другой рамкой того же листа
  * пересчитывает точки сам, без пар.
  */
 
@@ -34,10 +34,12 @@ export default {
       return { x: Number(match[1]), y: Number(match[2]) };
     };
     /** Координаты точки — из карточки. */
+    // Координаты — в свойствах точки, а они в «Разметке» (запись 60).
     const nodeXY = async (id) => {
+      await e.mode('Разметка');
       const point = await e.nodePoint(id, { allowCovered: true });
       await e.click(point.x, point.y);
-      await page.eval(`document.querySelector('[aria-label="Свойства узла"] details')?.setAttribute('open', '')`);
+      await page.eval(`document.querySelector('[aria-label="Свойства точки"] details')?.setAttribute('open', '')`);
       await page.sleep(200);
       const xy = { x: Number(await e.panelValue('Координата X')), y: Number(await e.panelValue('Координата Y')) };
       await e.key('Escape');
@@ -71,6 +73,7 @@ export default {
         thirdAt: await nodeXY(third.id),
       };
 
+      await e.mode('Планы и корпуса');
       await e.press('Заменить план…');
       const { root } = await page.send('DOM.getDocument', { depth: 1 });
       const { nodeId } = await page.send('DOM.querySelector', { nodeId: root.nodeId, selector: 'input[data-import-files]' });
@@ -80,8 +83,8 @@ export default {
       await page.eval(`[...document.querySelectorAll('[role="dialog"] button')].at(-1).click()`);
       await page.waitFor(`!document.querySelector('.editor-dialog--import')`, 30_000);
 
-      assert.match(await barText(), /Совмещение точек с новым планом — Корпус Б, этаж 2/);
-      assert.match(await barText(), /Щёлкните точку, затем место на новом плане/);
+      assert.match(await barText(), /Новый план — Корпус Б, этаж 2/);
+      assert.match(await barText(), /Щёлкните точку, которая стоит не на своём месте/);
       await shot('editor-align-start');
     });
 
@@ -120,8 +123,8 @@ export default {
       const thirdPoint = await e.nodePoint(third, { allowCovered: true });
       await e.click(thirdPoint.x, thirdPoint.y);
       await e.click(onOther.x, onOther.y);
-      assert.equal(await page.eval(`document.querySelectorAll('.editor-align-bar__pairs li').length`), 3, 'щелчок по другой точке не поставил выбранную');
-      await page.eval(`[...document.querySelectorAll('.editor-align-bar__pairs li')].at(-1).querySelector('button').click()`);
+      assert.equal(await page.eval(`document.querySelectorAll('.editor-operation__pairs li').length`), 3, 'щелчок по другой точке не поставил выбранную');
+      await page.eval(`[...document.querySelectorAll('.editor-operation__pairs li')].at(-1).querySelector('button').click()`);
       await page.sleep(200);
 
       const ghosts = await page.eval(`document.querySelectorAll('path[stroke-dasharray="2 3"]').length`);
@@ -131,7 +134,7 @@ export default {
     });
 
     await step('«Применить» двигает все точки этажа, отмена возвращает', async () => {
-      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение точек с планом"] button')].find((b) => b.textContent === 'Применить').click()`);
+      await page.eval(`[...document.querySelectorAll('[aria-label="Совмещение точек с планом"] button')].find((b) => b.textContent.trim() === 'Готово').click()`);
       await page.sleep(400);
       assert.equal(await barText(), '', 'совмещение не закрылось');
       const moved = await nodeXY(expected.id);
@@ -147,14 +150,15 @@ export default {
       await e.key('y', { modifiers: MOD.ctrl });
     });
 
-    await step('«Переделать план…» с другой рамкой — точки пересчитываются сами', async () => {
+    await step('«Изменить обрезку…» с другой рамкой — точки пересчитываются сами', async () => {
       await e.key('s', { modifiers: MOD.ctrl });
       await page.waitFor(`document.querySelector('.editor-notice')?.textContent.includes('Сохранено в data/')`, 30_000);
       const source = JSON.parse(readFileSync(path.join(dataDir, 'buildings/building_b/meta.json'), 'utf8')).floors.find((floor) => floor.floor === 2).source;
       assert.ok(source.crop, 'план сделан с обрезкой полей');
       const beforeRedo = await nodeXY(before.first);
 
-      await e.press('Переделать план…');
+      await e.mode('Планы и корпуса');
+      await e.press('Изменить обрезку…');
       await page.waitFor(`!!document.querySelector('.editor-import__piece')`, 30_000);
       assert.match(await page.eval(`document.querySelector('.editor-import__piece').textContent`), /Точки этажа пересчитаются вместе с планом/);
       // Лист открылся с той рамкой, с которой план сделан.

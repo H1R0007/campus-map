@@ -4,14 +4,22 @@ import type { PlaceKind } from '@campus-map/core';
 /**
  * Приставка плана в id: корпус и этаж.
  *
- * Соглашение датасета — `a1_room101`, `campus_gate`: буква корпуса берётся из
- * последней части его id (`building_a` → `a`), к ней приписан этаж.
+ * Соглашение датасета — `a1_room101`, `campus_gate`: код корпуса — его id без
+ * `building_` (`building_a` → `a`), к нему приписан этаж. Код, который кончается
+ * цифрой (`building_sad5s3` — корпус с адресом, `building_g_2` — второй
+ * «Корпус Г»), отделяется от этажа чертой: `sad5s3_1`, а не `sad5s31`.
+ *
+ * Этаж — только латиницей и цифрами, как требует проверка id: подвал −1 —
+ * `m1` (`am1_room`), антресоль 1.5 — `1p5`. Прежде минус и точка попадали в
+ * id как есть (`a-1_room`), и редактор выдавал id, которые сам же не
+ * принимал при переименовании.
  */
 export function planPrefix(building: string | null, floor: number | null): string {
   if (building === null || building === CAMPUS_BUILDING_ID) return 'campus';
-  const tail = building.split('_').pop() ?? building;
-  const letters = tail.toLowerCase().replace(/[^a-z0-9]/g, '') || 'x';
-  return `${letters}${floor ?? 0}`;
+  const code = building.startsWith('building_') ? building.slice('building_'.length) : (building.split('_').pop() ?? building);
+  const letters = code.toLowerCase().replace(/[^a-z0-9]/g, '') || 'x';
+  const level = String(floor ?? 0).replace('-', 'm').replace('.', 'p');
+  return /\d$/.test(letters) ? `${letters}_${level}` : `${letters}${level}`;
 }
 
 /** Только то, что годится в id: латиница, цифры и подчёркивание. */

@@ -159,7 +159,7 @@ export const IconPicker: React.FC<IconPickerProps> = ({ current, onPick, onClose
             Библиотека значков не загрузилась. Можно загрузить свой значок кнопкой ниже.
           </p>
         ) : !library ? (
-          <p className="editor-section__hint">Загружаю значки…</p>
+          <p className="editor-section__hint">Загрузка значков…</p>
         ) : query.trim() ? (
           results.length > 0 ? (
             <section aria-label="Найденные значки">

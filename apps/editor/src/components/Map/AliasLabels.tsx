@@ -5,6 +5,7 @@ import type { MapNode } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { floorNodesOf } from '../../stores/editor/dataSlice';
 import { useQuiet } from '../../hooks/useQuiet';
+import { usePlanView } from './planView';
 
 /**
  * Сколько экранных пикселей должно быть между соседними узлами, чтобы их
@@ -52,8 +53,7 @@ function medianSpacing(nodes: readonly MapNode[]): number {
 export const AliasLabels: React.FC = () => {
   const map = useMap();
   const allNodes = useEditorStore((s) => s.nodes);
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const showPortals = useEditorStore((s) => s.displayFilters.showPortals);
   const aliases = useEditorStore((s) => s.aliases);
   const showAliasLabels = useEditorStore((s) => s.displayFilters.showAliasLabels);

@@ -11,6 +11,7 @@ import type { AlignSlice } from './alignSlice';
 import type { PlaceSlice } from './placeSlice';
 import type { ToolSlice } from './toolSlice';
 import type { ViewSlice } from './viewSlice';
+import type { WindowSlice } from './windowSlice';
 
 /**
  * Стор редактора целиком — объединение срезов.
@@ -32,7 +33,8 @@ export type EditorStore = DataSlice &
   StorageSlice &
   StructureSlice &
   AlignSlice &
-  PlaceSlice;
+  PlaceSlice &
+  WindowSlice;
 
 /** Создатель среза: `set` с immer поверх всего стора, срез возвращает свою часть. */
 export type EditorSlice<T> = StateCreator<EditorStore, [['zustand/immer', never]], [], T>;

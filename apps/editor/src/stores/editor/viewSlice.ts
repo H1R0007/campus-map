@@ -1,6 +1,8 @@
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import type { BuildingMeta } from '@campus-map/core';
 import type { EditorSlice } from './types';
+import { showPlanIn } from './windowSlice';
+import type { OpenHow } from './windowSlice';
 
 /**
  * Этаж, который открывается при выборе корпуса: этаж входа из данных, без
@@ -16,7 +18,7 @@ export function openingFloorOf(meta: BuildingMeta | undefined): number | null {
 }
 
 export interface DisplayFilters {
-  /** Соседний этаж бледно поверх открытого — «калька». */
+  /** «Сравнить с этажом»: соседний этаж красными стенами поверх открытого (запись 65). */
   showNeighbourFloor: boolean;
   /** Какой этаж показывать калькой: ниже (`true`) или выше. */
   neighbourFloorBelow: boolean;
@@ -69,8 +71,11 @@ export interface ViewSlice {
   requestFitPlan: () => void;
   /** Открывает план узла, ставит его в центр и выделяет. */
   centerOnNode: (nodeId: string, keepZoom?: boolean) => void;
-  /** Открывает план узла, не трогая камеру и выделение. */
-  navigateToNode: (nodeId: string) => void;
+  /**
+   * Открывает план узла, не трогая камеру и выделение: в текущей вкладке, а
+   * если план на виду на соседней карте — там (запись 66).
+   */
+  navigateToNode: (nodeId: string, how?: OpenHow) => void;
   setDisplayFilters: (filters: Partial<DisplayFilters>) => void;
   setGridSettings: (settings: Partial<GridSettings>) => void;
   snapToGrid: (value: number) => number;
@@ -174,25 +179,15 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
     }, 100);
   },
 
-  navigateToNode: (nodeId) => {
+  navigateToNode: (nodeId, how = 'here') => {
     const node = get().nodes.get(nodeId);
     if (!node) return;
 
+    const plan =
+      node.building === CAMPUS_BUILDING_ID ? { building: null, floor: null } : { building: node.building, floor: node.floor };
     const { currentBuilding, currentFloor } = get();
-
-    if (node.building === CAMPUS_BUILDING_ID) {
-      if (currentBuilding !== null) {
-        set((s) => {
-          s.currentBuilding = null;
-          s.currentFloor = null;
-        });
-      }
-    } else if (currentBuilding !== node.building || currentFloor !== node.floor) {
-      set((s) => {
-        s.currentBuilding = node.building;
-        s.currentFloor = node.floor;
-      });
-    }
+    if (plan.building === currentBuilding && plan.floor === currentFloor) return;
+    set((s) => showPlanIn(s, plan, how));
   },
 
   setDisplayFilters: (filters) =>

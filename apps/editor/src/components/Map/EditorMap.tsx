@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import { DEFAULT_INSETS, PixelMap, fitPaddingOf, flyToBounds, useMapFrame } from '@campus-map/mapkit';
 import { useEditorStore } from '../../stores/editorStore';
@@ -6,9 +6,10 @@ import { useCursorStore } from '../../stores/cursorStore';
 import type { EditorStore, EditorTool } from '../../stores/editorStore';
 import { blankPlanUrl, usePlanUrl } from '../../hooks/usePlanUrl';
 import { planScopeKey } from '../../utils/planFiles';
+import { recalledView, registerMap, rememberView } from '../../utils/mapWindows';
 import { isMapClickSuppressed, suppressNextMapClick } from '../../utils/clickGuard';
 import { visibleKinds } from '../../utils/placeKinds';
-import { TRANSITION_LABELS } from '../../utils/labels';
+import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { EditorNodes } from './EditorNodes';
 import { EditorEdges } from './EditorEdges';
 import { EditorTransitions } from './EditorTransitions';
@@ -23,6 +24,7 @@ import { AliasLabels } from './AliasLabels';
 import { AlignmentLayer } from './AlignmentLayer';
 import { CampusBuildings, MeasureLayer, PlacementLayer } from './PlacementLayers';
 import { EDITOR_UNDERLAY } from './panes';
+import { usePlanView } from './planView';
 
 const CameraController: React.FC = () => {
   const map = useMap();
@@ -69,7 +71,10 @@ const ARROW_STEPS: Record<string, { x: number; y: number }> = {
 /** На сколько стрелка двигает карту, когда ничего не выбрано, — пиксели экрана. */
 const PAN_STEP = 120;
 
-/** Соседний этаж открытого корпуса: PageUp — выше, PageDown — ниже. */
+/**
+ * Соседний этаж открытого корпуса: PageUp — выше, PageDown — ниже. Этаж
+ * меняется в той же вкладке, как в строке пути над картой.
+ */
 function stepFloor(st: EditorStore, direction: 1 | -1): void {
   if (st.currentBuilding === null || st.currentFloor === null) return;
 
@@ -80,7 +85,7 @@ function stepFloor(st: EditorStore, direction: 1 | -1): void {
   const next = index < 0 ? undefined : floors[index + direction];
   if (next === undefined) return;
 
-  st.setCurrentFloor(next);
+  st.openPlan({ building: st.currentBuilding, floor: next }, 'here');
 }
 
 /**
@@ -117,7 +122,9 @@ const KeyboardHandler: React.FC = () => {
         st.helpOpen ||
         st.searchOpen ||
         st.kindsOpen ||
-        target?.closest?.('[role="menu"], [role="dialog"]')
+        target?.closest?.('[role="menu"], [role="dialog"]') ||
+        // Открытое пояснение ⓘ и меню настроек закрываются своим Escape.
+        target?.closest?.('.editor-info[aria-expanded="true"], .editor-menu')
       ) {
         return;
       }
@@ -134,7 +141,7 @@ const KeyboardHandler: React.FC = () => {
       // двигают выбранный узел за спиной у человека.
       if (
         (ARROW_STEPS[code] || code === 'Home' || code === 'End') &&
-        target?.closest?.('[role="tablist"], [role="listbox"], [role="radiogroup"]')
+        target?.closest?.('[role="tablist"], [role="listbox"], [role="radiogroup"], [role="separator"]')
       ) {
         return;
       }
@@ -172,6 +179,11 @@ const KeyboardHandler: React.FC = () => {
 
       if (ctrl) {
         switch (code) {
+          // Как в VS Code: спрятать или показать левую колонку (запись 57).
+          case 'KeyB':
+            e.preventDefault();
+            st.setStructureCollapsed(!st.structureCollapsed);
+            return;
           case 'KeyZ':
             e.preventDefault();
             if (e.shiftKey) st.redo();
@@ -346,7 +358,8 @@ const MapEventHandler: React.FC = () => {
         return;
       }
       if (st.placing) {
-        if (st.placing.pairMode) st.placingClick(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+        // Щелчок по карте ставит булавку — или переставляет её (запись 63).
+        st.setPlacingPin({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
         return;
       }
 
@@ -365,15 +378,33 @@ const MapEventHandler: React.FC = () => {
       }
 
       if (st.activeTool === 'transition') {
+        // Начатый вручную переход: пустое место другого плана — его второй
+        // конец новой точкой. Вход ставят и на пустую территорию, где
+        // щёлкнуть больше не по чему.
+        if (st.transitionStartNodeId !== null) {
+          const start = st.transitionStartNodeId;
+          const placed = st.placeTransitionEnd(x, y, { align: !dom.altKey });
+          if (placed === 'samePlan') {
+            st.showNotice('Второй конец перехода — на другом плане: щёлкните его на соседней карте или откройте другой план.', 'warn');
+          } else if (placed !== null) {
+            st.showNotice(`${TRANSITION_LABELS[st.transitionType]}: «${nodeTitle(start, st.aliases)}» — новая точка`);
+          }
+          return;
+        }
         // Щелчок по пустому месту: лестница или лифт сразу на всех этажах
-        // корпуса, связанные переходами. Начатый вручную переход щелчок по
-        // пустому месту не трогает: он ждёт вторую точку.
-        if (st.transitionStartNodeId !== null) return;
+        // корпуса, связанные переходами.
         const placed = st.placeTransitionStack(x, y, { align: !dom.altKey, linkToLast: dom.shiftKey });
         if (placed === null) {
           st.showNotice(
             `${TRANSITION_LABELS[st.transitionType]} ставится вручную: щёлкните точку на одном плане, затем точку на другом.`
           );
+        } else {
+          // Один щелчок поставил точки на всех этажах — это видно словами, а
+          // не только на открытом плане.
+          const floors = st.currentBuilding === null ? 0 : (st.buildingMetas.get(st.currentBuilding)?.floors.length ?? 0);
+          if (floors > 1) {
+            st.showNotice(`${TRANSITION_LABELS[st.transitionType]}: точки на ${floors} этажах, связаны переходами. Ctrl+Z уберёт все разом`);
+          }
         }
         return;
       }
@@ -420,6 +451,8 @@ const MapEventHandler: React.FC = () => {
     contextmenu: (e) => {
       const dom = e.originalEvent;
       dom.preventDefault();
+      // В «Планах и корпусах» меню точек и связей не к месту (запись 60).
+      if (useEditorStore.getState().workspace === 'plans') return;
       useEditorStore.getState().openContextMenu(dom.clientX, dom.clientY, {
         kind: 'map',
         x: Math.round(e.latlng.lng),
@@ -452,6 +485,35 @@ const MapResizeWatcher: React.FC = () => {
 };
 
 /**
+ * Вид вкладки запоминается при каждой остановке карты, а сама карта
+ * записывается в окна — по ней рисуется пунктир перехода между картами.
+ */
+const ViewKeeper: React.FC<{ tabId: string; planKey: string }> = ({ tabId, planKey }) => {
+  const map = useMap();
+  const { group } = usePlanView();
+  const key = useRef({ tabId, planKey });
+  key.current = { tabId, planKey };
+
+  useEffect(() => {
+    registerMap(group, map);
+    return () => registerMap(group, null);
+  }, [group, map]);
+
+  useEffect(() => {
+    const save = () => {
+      const center = map.getCenter();
+      rememberView(key.current.tabId, key.current.planKey, { x: center.lng, y: center.lat, zoom: map.getZoom() });
+    };
+    map.on('moveend', save);
+    return () => {
+      map.off('moveend', save);
+    };
+  }, [map]);
+
+  return null;
+};
+
+/**
  * Карта редактора.
  *
  * Обвязка подложки (определение размера плана, границы, подгонка viewport,
@@ -466,11 +528,16 @@ const MapResizeWatcher: React.FC = () => {
  * Ограничение панорамирования пределами плана не включается — разметчик
  * должен иметь возможность работать за краями изображения.
  */
-export const EditorMap: React.FC = () => {
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+export const EditorMap: React.FC<{ tabId: string }> = ({ tabId }) => {
+  // План — из окна карты: у второй карты свой (запись 66).
+  const { building: currentBuilding, floor: currentFloor, active } = usePlanView();
   const campusMeta = useEditorStore((s) => s.campusMeta);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
+  const theme = useEditorStore((s) => s.theme);
+  // На время размещения и замера точки, связи и подписи убраны: здесь
+  // совмещают планы, а точки только мешают (запись 62). Операция идёт на
+  // активной карте; соседняя показывает свой план как обычно.
+  const planOperation = useEditorStore((s) => active && (s.placing !== null || s.measuring !== null));
 
   // Корпус без этажей показывает территорию: разметки на нём нет, а поверх
   // карты — предложение добавить этажи (`PlanStatus`).
@@ -482,39 +549,60 @@ export const EditorMap: React.FC = () => {
       : buildingMetas.get(building)?.floors.find((meta) => meta.floor === currentFloor)?.mapSize;
   // У плана без файла — прозрачная подложка его размера: точки ставятся как обычно.
   const mapUrl = plan.url ?? blankPlanUrl(mapSize);
+  const planKey = `${planScopeKey(building, currentFloor)}|${plan.key ?? 'blank'}`;
+  // Вернулись на вкладку — план там, где его оставили; впервые открытый или
+  // с новой картинкой — целиком.
+  const restoreView = useMemo(() => recalledView(tabId, planKey), [tabId, planKey]);
 
   return (
     <PixelMap
       url={mapUrl}
-      // Вид подгоняется под план, когда открыли другой план или сменили его
-      // содержимое, — но не когда сохранение перенесло тот же файл.
-      fitKey={`${planScopeKey(building, currentFloor)}|${plan.key ?? 'blank'}`}
+      // Вид подгоняется под план, когда открыли другую вкладку, другой план
+      // или сменили его содержимое, — но не когда сохранение перенесло тот же файл.
+      fitKey={`${tabId}|${planKey}`}
+      restoreView={restoreView}
       maxZoom={6}
       zoomControl
       doubleClickZoom={false}
-      overlayOpacity={0.6}
       imagePane={EDITOR_UNDERLAY}
     >
-      <CameraController />
+      <ViewKeeper tabId={tabId} planKey={planKey} />
       <MapResizeWatcher />
-      <KeyboardHandler />
+      {/* Камера и клавиши — у активной карты: команды идут туда, где работают. */}
+      {active && <CameraController />}
+      {active && <KeyboardHandler />}
 
-      {/* overlays order */}
+      {/* Слои читают цвета темы значением: сменили тему — слои
+          строятся заново, сама карта и её вид остаются (запись 56). */}
+      <React.Fragment key={theme}>
       <CampusBuildings />
-      <NeighbourFloor />
-      <GridOverlay />
-      <EditorEdges />
-      <EditorTransitions />
-      <RouteOverlay />
-      <ChainPreview />
-      <SnapPreview />
-      <LineToolPreview />
-      <SelectionBox />
-      <EditorNodes />
-      <AliasLabels />
-      <AlignmentLayer />
-      <PlacementLayer />
-      <MeasureLayer />
+      {!planOperation && (
+        <>
+          <NeighbourFloor />
+          <GridOverlay />
+          <EditorEdges />
+          <EditorTransitions />
+          <RouteOverlay />
+          {active && (
+            <>
+              <ChainPreview />
+              <SnapPreview />
+              <LineToolPreview />
+              <SelectionBox />
+            </>
+          )}
+          <EditorNodes />
+          <AliasLabels />
+        </>
+      )}
+      {active && (
+        <>
+          <AlignmentLayer />
+          <PlacementLayer />
+          <MeasureLayer />
+        </>
+      )}
+      </React.Fragment>
 
       <MapEventHandler />
     </PixelMap>

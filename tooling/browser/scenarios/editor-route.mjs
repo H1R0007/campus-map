@@ -16,7 +16,7 @@ export default {
   async run({ page, base, step, shot }) {
     await page.viewport(1600, 900, 1);
     const e = editorHelpers(page, base);
-    const floorOf = async () => (await e.place()).match(/Этаж (-?\d+)/)?.[1] ?? null;
+    const floorOf = async () => (await e.place()).match(/этаж (-?\d+)/)?.[1] ?? null;
 
     /** Где сейчас метка, идущая по маршруту, и есть ли линия маршрута. */
     const marker = () =>
@@ -32,6 +32,7 @@ export default {
     await step('маршрут строится щелчками по узлам', async () => {
       await e.open();
       await e.openFloor('Корпус А', 1);
+      await e.mode('Проверка');
       await e.press('Маршрут');
 
       const start = await e.nodePoint('a1_room101');
@@ -44,6 +45,13 @@ export default {
       await shot('editor-route');
     });
 
+    await step('«Готовность карты» помнит проложенный маршрут (запись 67)', async () => {
+      await e.press('Готовность');
+      const status = await page.eval(`document.querySelector('[data-ready="routeChecked"] .editor-ready__status')?.textContent ?? ''`);
+      assert.equal(status, 'Проложено маршрутов: 1');
+      await e.press('Маршрут');
+    });
+
     await step('метка идёт по маршруту, пока открыта вкладка «Маршрут»', async () => {
       const first = await marker();
       assert.ok(first.at, 'метки маршрута нет');
@@ -52,8 +60,8 @@ export default {
       assert.notEqual(second.at, first.at, 'метка стоит на месте');
     });
 
-    await step('на другой вкладке метка стоит, а линия остаётся', async () => {
-      await e.press('Свойства');
+    await step('в другом режиме метка стоит, а линия остаётся', async () => {
+      await e.mode('Разметка');
       await page.sleep(300);
       const first = await marker();
       assert.ok(first.line, 'линия маршрута пропала вместе с вкладкой');
@@ -64,8 +72,19 @@ export default {
     });
 
     await step('маршрут через этажи не переключает план сам', async () => {
+      await e.mode('Проверка');
       await e.press('Маршрут');
       await e.press('Сброс');
+
+      // Маршрут ждёт первую точку, но вне «Проверки» щелчок по точке выбирает
+      // её, а не начинает маршрут (запись 60).
+      await e.mode('Разметка');
+      const other = await e.nodePoint('a1_room102');
+      await e.click(other.x, other.y);
+      assert.equal(await e.propertiesNodeId(), 'a1_room102', 'щелчок в «Разметке» ушёл в маршрут');
+      await e.key('Escape');
+      await e.mode('Проверка');
+      await e.press('Маршрут');
 
       const start = await e.nodePoint('a1_room101');
       await e.click(start.x, start.y);
@@ -84,7 +103,7 @@ export default {
 
     await step('«вести карту за меткой» включается явно и снимается переключением плана', async () => {
       await e.toggleFilter('Вести карту за меткой');
-      await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('Этаж 2')`, 8000);
+      await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('этаж 2')`, 8000);
 
       await e.key('PageDown');
       assert.equal(await floorOf(), '1');

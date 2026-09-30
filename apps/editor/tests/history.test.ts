@@ -246,7 +246,7 @@ describe('отмена показывает, где случилась прав�
 
     select('a1_hall', 'a1_room101', 'a1_stairs');
     store().moveSelectedBy(5, 0);
-    expect(useHistoryStore.getState().getUndoDescription()).toBe('Перемещено: 3 узла');
+    expect(useHistoryStore.getState().getUndoDescription()).toBe('Перемещено: 3 точки');
   });
 
   it('правку на открытом плане план не переключает', () => {
@@ -444,6 +444,62 @@ describe('щелчок кистью связывает точки только �
 
     const id = store().placeTransitionStack(50, 50)!;
     expect(planOf(id)).toBe('building_b:1');
+  });
+});
+
+describe('второй конец перехода — щелчком по пустому месту другого плана', () => {
+  /** Начать вход у двери первого этажа и открыть территорию, как делает соседняя карта. */
+  const startEntrance = () => {
+    openFloor(1);
+    pickTransition('entrance');
+    store().setTransitionStartNode('a1_room101');
+    openFloor(null);
+  };
+
+  it('новая точка на территории замыкает вход одной правкой', () => {
+    startEntrance();
+    const before = dataSnapshot();
+    const edits = useHistoryStore.getState().currentIndex;
+
+    const id = store().placeTransitionEnd(40, 40, { align: false });
+    expect(typeof id === 'string' && id !== 'samePlan').toBe(true);
+    const end = id as string;
+    expect(planOf(end)).toBe('CAMPUS:0');
+    expect(store().transitions).toContainEqual({ fromNode: 'a1_room101', toNode: end, type: 'entrance' });
+    expect(store().nodes.get(end)?.isPortal).toBe(true);
+    expect(store().transitionStartNodeId).toBeNull();
+    expect(useHistoryStore.getState().currentIndex).toBe(edits + 1);
+
+    // Одна отмена — ни точки, ни перехода; повтор — оба.
+    const after = dataSnapshot();
+    store().undo();
+    expect(dataSnapshot()).toEqual(before);
+    store().redo();
+    expect(dataSnapshot()).toEqual(after);
+  });
+
+  it('новая точка связывается с ближайшей на своём плане', () => {
+    startEntrance();
+    const end = store().placeTransitionEnd(300, 360, { align: false }) as string;
+    expect(store().nodes.get(end)?.neighbors.length).toBe(1);
+    expect(crossPlanLinks()).toEqual([]);
+  });
+
+  it('на том же плане, что начало, точка не ставится', () => {
+    openFloor(1);
+    pickTransition('entrance');
+    store().setTransitionStartNode('a1_room101');
+    const before = dataSnapshot();
+
+    expect(store().placeTransitionEnd(250, 150)).toBe('samePlan');
+    expect(dataSnapshot()).toEqual(before);
+    expect(store().transitionStartNodeId).toBe('a1_room101');
+  });
+
+  it('без начатого перехода — ничего', () => {
+    openFloor(null);
+    pickTransition('entrance');
+    expect(store().placeTransitionEnd(40, 40)).toBeNull();
   });
 });
 

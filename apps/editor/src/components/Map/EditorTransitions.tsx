@@ -8,6 +8,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { splitFloorTransitions } from '../../utils/floorTransitions';
 import type { FloorTransitions, TransitionTarget } from '../../utils/floorTransitions';
 import { TRANSITION_LABELS } from '../../utils/labels';
+import { usePlanView } from './planView';
 
 const NO_TRANSITIONS: FloorTransitions = { lines: [], markers: [] };
 
@@ -86,8 +87,7 @@ export const EditorTransitions: React.FC = () => {
   const transitions = useEditorStore((s) => s.transitions);
   const nodes = useEditorStore((s) => s.nodes);
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const showTransitions = useEditorStore((s) => s.displayFilters.showTransitions);
   const hoveredTransition = useEditorStore((s) => s.hoveredTransition);
   const setHoveredTransition = useEditorStore((s) => s.setHoveredTransition);

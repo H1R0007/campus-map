@@ -73,6 +73,41 @@ export function scaleFrame(frame: Similarity, pivot: Point, factor: number): Sim
   return composeSimilarity(zoom, frame);
 }
 
+/**
+ * Булавка (запись 63): план доворачивают вокруг приколотой точки — как лист
+ * на столе, прижатый пальцем. Взятую точку плана ведут к её месту: план
+ * поворачивается вокруг булавки, а если масштаб неизвестен — ещё и
+ * растягивается, так что взятая точка идёт ровно за курсором.
+ *
+ * @param start план и взятая точка (на территории) в начале перетаскивания
+ * @param pin где стоит булавка, пиксели территории
+ * @param now где курсор сейчас
+ * @param allowScale растягивать ли: нет, если масштаб известен по чертежу
+ */
+export function turnAroundPin(start: { frame: Similarity; at: Point }, pin: Point, now: Point, allowScale: boolean): Similarity {
+  const before = { x: start.at.x - pin.x, y: start.at.y - pin.y };
+  const after = { x: now.x - pin.x, y: now.y - pin.y };
+  const from = Math.hypot(before.x, before.y);
+  const to = Math.hypot(after.x, after.y);
+  if (from < 1e-9 || to < 1e-9) return start.frame;
+  const degrees = ((Math.atan2(after.y, after.x) - Math.atan2(before.y, before.x)) * 180) / Math.PI;
+  const turned = rotateFrame(start.frame, pin, degrees);
+  return allowScale ? scaleFrame(turned, pin, to / from) : turned;
+}
+
+/** Угол плана, дальний от точки территории: за него удобно доворачивать вокруг булавки. */
+export function farCorner(frame: Similarity, planSize: MapSize, from: Point): Point {
+  const corners = [
+    { x: 0, y: 0 },
+    { x: planSize.width, y: 0 },
+    { x: planSize.width, y: planSize.height },
+    { x: 0, y: planSize.height },
+  ].map((corner) => applySimilarity(frame, corner));
+  return corners.reduce((best, corner) =>
+    Math.hypot(corner.x - from.x, corner.y - from.y) > Math.hypot(best.x - from.x, best.y - from.y) ? corner : best
+  );
+}
+
 /** Тот же план с заданными масштабом и поворотом — центр на месте: для полей ввода. */
 export function withScaleAndRotation(frame: Similarity, planSize: MapSize, scale: number, degrees: number): Similarity {
   const center = frameCenter(frame, planSize);

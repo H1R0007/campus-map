@@ -9,6 +9,7 @@ import type { NodePosition } from '../../stores/historyStore';
 import { suppressNextMapClick } from '../../utils/clickGuard';
 import { TRANSITION_LABELS, nodeTitle } from '../../utils/labels';
 import { mapPalette } from '../../utils/themeColor';
+import { usePlanView } from './planView';
 
 /** С какого сдвига курсора, в пикселях экрана, нажатие становится перетаскиванием. */
 const DRAG_THRESHOLD = 4;
@@ -50,8 +51,7 @@ export const EditorNodes: React.FC = () => {
   const palette = mapPalette();
 
   const allNodes = useEditorStore((s) => s.nodes);
-  const currentBuilding = useEditorStore((s) => s.currentBuilding);
-  const currentFloor = useEditorStore((s) => s.currentFloor);
+  const { building: currentBuilding, floor: currentFloor } = usePlanView();
   const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
   const hoveredNodeId = useEditorStore((s) => s.hoveredNodeId);
   const aliases = useEditorStore((s) => s.aliases);
@@ -213,10 +213,8 @@ export const EditorNodes: React.FC = () => {
         const startId = st.transitionStartNodeId;
 
         if (!startId) {
-          st.setTransitionStartNode(nodeId);
-          st.showNotice(
-            `${TRANSITION_LABELS[type]} от «${nodeTitle(nodeId, st.aliases)}». Выберите второй узел — этаж или корпус можно переключить.`
-          );
+          // Второй конец обычно на другом плане: он открывается на соседней карте (запись 66).
+          st.startTransitionFrom(nodeId, type);
           return;
         }
         if (startId === nodeId) return;
@@ -228,9 +226,9 @@ export const EditorNodes: React.FC = () => {
             `${TRANSITION_LABELS[type]}: «${nodeTitle(startId, st.aliases)}» — «${nodeTitle(nodeId, st.aliases)}»`
           );
         } else if (result === 'samePlan') {
-          st.showNotice('Оба узла на одном плане: их соединяет связь, а не переход.', 'warn');
+          st.showNotice('Обе точки на одном плане: их соединяет связь, а не переход.', 'warn');
         } else if (result === 'exists') {
-          st.showNotice('Переход между этими узлами уже есть.', 'warn');
+          st.showNotice('Переход между этими точками уже есть.', 'warn');
         }
         return;
       }
@@ -255,7 +253,7 @@ export const EditorNodes: React.FC = () => {
       if (st.measuring || st.placing) {
         const { lat, lng } = map.mouseEventToLatLng(dom);
         if (st.measuring) st.measureClick(Math.round(lng * 10) / 10, Math.round(lat * 10) / 10);
-        else if (st.placing?.pairMode) st.placingClick(Math.round(lng * 10) / 10, Math.round(lat * 10) / 10);
+        else st.setPlacingPin({ x: Math.round(lng * 10) / 10, y: Math.round(lat * 10) / 10 });
         return;
       }
 
@@ -279,10 +277,6 @@ export const EditorNodes: React.FC = () => {
 
       // Симулятор маршрута ждёт точку — щелчок выбирает её.
       if (st.pickRouteNode(node.id)) return;
-
-      // Выбранное на карте показывает карточку, даже если в инспекторе была
-      // открыта проверка или маршрут.
-      if (st.inspectorTab !== 'properties') st.setInspectorTab('properties', false);
 
       if (dom.shiftKey || dom.ctrlKey || dom.metaKey) {
         st.toggleSelectNode(node.id, true);
@@ -378,8 +372,8 @@ export const EditorNodes: React.FC = () => {
           strokeColor = palette.finishStroke;
         }
         if (isSelected) {
-          fillColor = palette.highlight;
-          strokeColor = palette.finishStroke;
+          fillColor = palette.selectedFill;
+          strokeColor = palette.selected;
         }
 
         let extraStroke: string | null = null;
