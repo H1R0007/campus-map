@@ -63,10 +63,9 @@ export default {
     });
 
     await step('нажатие на название, вышедшее за крышу, открывает корпус', async () => {
-      // Отдалились — корпуса мельче своих названий: край названия стоит на траве.
-      await v.click('Отдалить');
-      await page.sleep(600);
-      const target = await page.eval(`(() => {
+      // Отдаляемся, пока край какого-нибудь видимого названия не встанет на
+      // траву: на сколько шагов — зависит от шрифта (в CI на Linux буквы уже).
+      const overhanging = `(() => {
         for (const label of document.querySelectorAll('.campus-roof-label')) {
           if (Number(label.style.opacity) < 0.9) continue;
           const index = [...label.classList].find((name) => name.startsWith('campus-building-'));
@@ -77,7 +76,13 @@ export default {
           }
         }
         return null;
-      })()`);
+      })()`;
+      let target = null;
+      for (let step = 0; step < 4 && target === null; step += 1) {
+        await v.click('Отдалить');
+        await page.sleep(600);
+        target = await page.eval(overhanging);
+      }
       assert.ok(target !== null, 'есть название шире своей крыши');
       await page.tap(target.x, target.y);
       await waitShown(`${target.building}#1`);
