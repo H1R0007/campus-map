@@ -63,30 +63,24 @@ export default {
     });
 
     await step('нажатие на название, вышедшее за крышу, открывает корпус', async () => {
-      // Отдаляемся, пока край какого-нибудь видимого названия не встанет на
-      // траву: на сколько шагов — зависит от шрифта (в CI на Linux буквы уже).
-      const overhanging = `(() => {
-        for (const label of document.querySelectorAll('.campus-roof-label')) {
-          if (Number(label.style.opacity) < 0.9) continue;
-          const index = [...label.classList].find((name) => name.startsWith('campus-building-'));
-          const roof = document.querySelector('.campus-roof.' + index).getBoundingClientRect();
-          const text = label.firstElementChild.getBoundingClientRect();
-          if (text.right - 3 > roof.right + 4) {
-            return { x: text.right - 3, y: text.top + text.height / 2, building: label.firstElementChild.dataset.building, name: label.textContent };
-          }
-        }
-        return null;
-      })()`;
-      let target = null;
-      for (let step = 0; step < 4 && target === null; step += 1) {
-        await v.click('Отдалить');
-        await page.sleep(600);
-        target = await page.eval(overhanging);
-      }
-      assert.ok(target !== null, 'есть название шире своей крыши');
+      // Насколько название выходит за крышу, зависит от шрифта: на Windows
+      // тестовые названия умещаются, в CI на Linux буквы шире. Поэтому название
+      // корпуса В здесь длинное, как у официального корпуса: его конец на траве
+      // при любом шрифте. Видимость названий пересчитывается при масштабе, а
+      // карта не двигается — название остаётся видимым.
+      const target = await page.eval(`(() => {
+        const text = document.querySelector('.campus-roof-label [data-building="building_c"]');
+        text.textContent = 'Корпус В · учебно-лабораторный корпус';
+        const label = text.parentElement;
+        const index = [...label.classList].find((name) => name.startsWith('campus-building-'));
+        const roof = document.querySelector('.campus-roof.' + index).getBoundingClientRect();
+        const rect = text.getBoundingClientRect();
+        return { x: rect.right - 4, y: rect.top + rect.height / 2, onGrass: rect.right - 4 > roof.right + 10, visible: Number(label.style.opacity) > 0.9 };
+      })()`);
+      assert.ok(target.visible && target.onGrass, `конец названия виден и стоит на траве: ${JSON.stringify(target)}`);
       await page.tap(target.x, target.y);
-      await waitShown(`${target.building}#1`);
-      assert.ok((await v.headerText()).includes(target.name), `открыт ${target.name}`);
+      await waitShown('building_c#1');
+      assert.ok((await v.headerText()).includes('Корпус В'), 'открыт корпус В');
     });
 
     await step('корпус из шапки: камера приближает его, вместо крыши — этаж, в шапке — корпус', async () => {
