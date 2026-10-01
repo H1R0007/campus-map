@@ -40,6 +40,25 @@ export default {
       );
       assert.deepEqual(await shownFloors(), []);
       assert.ok((await v.headerText()).includes('Корпуса'), 'в шапке телефона — кнопка «Корпуса»');
+
+      // Корпуса подписаны и на общем виде, где названия шире крыш, — и названия
+      // не налезают друг на друга. Прежде подпись была только у крыши, на
+      // которой она помещалась, и первый экран телефона был без единой подписи.
+      const labels = await page.eval(`[...document.querySelectorAll('.campus-roof-label')].map((label) => {
+        const rect = label.firstElementChild.getBoundingClientRect();
+        return { text: label.textContent, opacity: Number(getComputedStyle(label).opacity), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      })`);
+      assert.deepEqual(
+        labels.filter((label) => label.opacity > 0.9).map((label) => label.text).sort(),
+        ['Корпус А', 'Корпус Б', 'Корпус В'],
+        `подписи общего вида: ${JSON.stringify(labels)}`
+      );
+      for (const [index, a] of labels.entries()) {
+        for (const b of labels.slice(index + 1)) {
+          const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+          assert.ok(apart, `подписи «${a.text}» и «${b.text}» налезают друг на друга`);
+        }
+      }
       await shot('viewer-canvas-overview');
     });
 
