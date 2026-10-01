@@ -1,7 +1,7 @@
-import { CAMPUS_BUILDING_ID, createCampusProjection, floorLabel } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, createCampusProjection } from '@campus-map/core';
 import type { BuildingMeta, CampusMeta, MapNode } from '@campus-map/core';
 import { planScopeKey } from './planFiles';
-import { plural } from './labels';
+import { buildingRef, floorRef, plural } from './labels';
 
 /**
  * Проверка структуры: корпуса, этажи, планы, привязка к территории
@@ -62,7 +62,7 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
   for (const meta of buildingMetas.values()) {
     if (meta.floors.length === 0) {
       issues.push({
-        text: `Корпус «${meta.name}» без этажей: в навигаторе его не открыть`,
+        text: `${buildingRef(meta)} без этажей: в навигаторе его не открыть`,
         action: { kind: 'open', building: meta.id, floor: null },
         actionLabel: 'Открыть',
         navigator: true,
@@ -75,13 +75,13 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
       issues.push(
         onlyHeight
           ? {
-              text: `У корпуса «${meta.name}» не заданы высоты этажей: без них навигатор не считает время на лестницах, и время в пути пропадает во всём кампусе`,
+              text: `${buildingRef(meta)}: не заданы высоты этажей — без них навигатор не считает время на лестницах, и время в пути пропадает на всей карте`,
               action: { kind: 'open', building: meta.id, floor: null },
               actionLabel: 'Открыть корпус',
               navigator: true,
             }
           : {
-              text: `Корпус «${meta.name}» не размещён на территории: пока его нет на месте, навигатор не показывает время в пути во всём кампусе`,
+              text: `${buildingRef(meta)} не размещён на территории: пока его нет на месте, навигатор не показывает время в пути на всей карте`,
               action: { kind: 'place', building: meta.id },
               actionLabel: 'Разместить…',
               navigator: true,
@@ -103,7 +103,7 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
     for (const floor of meta.floors) {
       if (planFiles.has(planScopeKey(meta.id, floor.floor))) continue;
       issues.push({
-        text: `У этажа ${floorLabel(meta, floor.floor)} корпуса «${meta.name}» нет плана: в навигаторе вместо плана пустое поле`,
+        text: `${floorRef(meta, floor.floor)}: нет плана — в навигаторе вместо плана пустое поле`,
         action: { kind: 'plan', building: meta.id, floor: floor.floor },
         actionLabel: 'Добавить план…',
         navigator: true,
@@ -131,7 +131,7 @@ export function structureChecks({ campusMeta, buildingMetas, planFiles, nodes }:
     const campus = building === CAMPUS_BUILDING_ID;
     const meta = buildingMetas.get(building);
     issues.push({
-      text: `${campus ? 'На территории' : `На этаже ${floorLabel(meta, floor)} корпуса «${meta?.name ?? building}»`} ${count} ${plural(count, ['точка', 'точки', 'точек'])} за краем плана — похоже, план заменили, а точки не совместили`,
+      text: `${campus ? 'Территория' : floorRef(meta, floor, building)}: ${count} ${plural(count, ['точка', 'точки', 'точек'])} за краем плана — похоже, план заменили, а точки не совместили`,
       action: { kind: 'align', building: campus ? null : building, floor: campus ? null : floor },
       actionLabel: 'Совместить…',
       navigator: false,

@@ -92,7 +92,7 @@ describe('постановка', () => {
 
     expect(store().placing).toBeNull();
     expect(useHistoryStore.getState().entries).toHaveLength(1);
-    expect(useHistoryStore.getState().entries[0].description).toBe('Корпус «Корпус А» перемещён на территории');
+    expect(useHistoryStore.getState().entries[0].description).toBe('«Корпус А» перемещён на территории');
     const { campusMeta, buildingMetas } = store();
     const projection = createCampusProjection(campusMeta!, buildingMetas.values());
     const world = projection.toWorld({ building: 'building_a', floor: 1, x: 100, y: 120 })!;
@@ -184,7 +184,7 @@ describe('совмещение этажа с этажом входа', () => {
     store().setPlacingFrame(frame);
     store().applyPlacing();
 
-    expect(useHistoryStore.getState().entries[0].description).toBe('Этаж 2 корпуса «Корпус А» совмещён с этажом входа');
+    expect(useHistoryStore.getState().entries[0].description).toBe('Корпус А, этаж 2 совмещён с этажом входа');
     // Точка этажа 2 и то место этажа 1, куда она легла, — одно место территории.
     const upstairs = world(2, 100, 60);
     const below = world(1, 0.5 * 100 + 20, 0.5 * 60 + 10);

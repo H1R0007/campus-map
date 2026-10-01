@@ -1,9 +1,10 @@
-import { CAMPUS_BUILDING_ID, floorLabel } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import type { MapNode } from '@campus-map/core';
 import { fitSimilarity } from '../../import/planGeometry';
 import type { SimilarityFit } from '../../import/planGeometry';
 import type { PlanRef } from './structureSlice';
 import { showExistingPlan } from './historyApply';
+import { floorRef } from '../../utils/labels';
 import type { EditorSlice } from './types';
 
 /**
@@ -122,11 +123,8 @@ export const createAlignSlice: EditorSlice<AlignSlice> = (set, get) => {
       const fit = alignmentFit(alignment.pairs, nodes);
       if (!fit) return;
       const { plan } = alignment;
-      const where =
-        plan.building === null
-          ? 'территории'
-          : `этажа ${floorLabel(buildingMetas.get(plan.building), plan.floor ?? 0)} корпуса «${buildingMetas.get(plan.building)?.name ?? plan.building}»`;
-      get().moveNodesOfPlan(plan, fit.transform, `Точки ${where} совмещены с планом`);
+      const where = plan.building === null ? 'Территория' : floorRef(buildingMetas.get(plan.building), plan.floor ?? 0, plan.building);
+      get().moveNodesOfPlan(plan, fit.transform, `Точки совмещены с планом: ${where}`);
       open(alignment.queue);
     },
 

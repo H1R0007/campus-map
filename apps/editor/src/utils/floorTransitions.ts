@@ -4,7 +4,7 @@ import { CAMPUS_BUILDING_ID, isNodeInScope, floorLabel } from '@campus-map/core'
 /** Переход с узла текущего плана на другой план и подпись назначения. */
 export interface TransitionTarget {
   transition: Transition;
-  /** Куда ведёт переход: «↑ этаж 3», «Корпус Б, этаж 2», «Кампус». */
+  /** Куда ведёт переход: «↑ этаж 3», «Корпус Б, этаж 2», «Территория». */
   label: string;
 }
 
@@ -75,7 +75,7 @@ export function splitFloorTransitions(
  * отметка. В своём корпусе важнее направление («↑ этаж 3»), в чужом — корпус.
  */
 function targetLabel(here: MapNode, there: MapNode, buildingMetas: ReadonlyMap<string, BuildingMeta>): string {
-  if (there.building === CAMPUS_BUILDING_ID) return 'Кампус';
+  if (there.building === CAMPUS_BUILDING_ID) return 'Территория';
 
   // Тот же корпус и тот же этаж попали бы в линии: здесь этажи разные.
   if (there.building === here.building) {

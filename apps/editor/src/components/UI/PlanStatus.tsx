@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { planScopeKey } from '../../utils/planFiles';
+import { floorRef } from '../../utils/labels';
 import { usePlanView } from '../Map/planView';
 import { Icon } from './Icon';
 import { NewFloorDialog } from './AddDialogs';
@@ -65,7 +65,7 @@ export const PlanStatus: React.FC = () => {
   }
 
   const title =
-    planBuilding === null ? 'У территории пока нет плана' : `У этажа ${floorLabel(building, currentFloor ?? 0)} корпуса «${building?.name}» пока нет плана`;
+    planBuilding === null ? 'У территории пока нет плана' : `${floorRef(building, currentFloor ?? 0)}: плана пока нет`;
 
   return (
     <div className="editor-plan-status editor-plan-status--blocking" role="region" aria-label="План не добавлен">

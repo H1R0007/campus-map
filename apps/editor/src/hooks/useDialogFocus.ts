@@ -13,7 +13,8 @@ const FOCUSABLE =
  *
  * @param initial элемент, который получает фокус первым; по умолчанию —
  *   помеченный `data-autofocus` (поле, с которого начинают ввод), иначе
- *   первый доступный в окне
+ *   первая кнопка внизу окна — безопасная: «Отмена», «Оставить» (Enter по
+ *   ошибке ничего не удалит), иначе первый доступный в окне
  */
 export function useDialogFocus(
   open: boolean,
@@ -34,6 +35,7 @@ export function useDialogFocus(
     (
       initial?.current ??
       root?.querySelector<HTMLElement>('[data-autofocus]') ??
+      root?.querySelector<HTMLElement>('.editor-dialog__actions button:not([disabled])') ??
       root?.querySelector<HTMLElement>(FOCUSABLE) ??
       root
     )?.focus();

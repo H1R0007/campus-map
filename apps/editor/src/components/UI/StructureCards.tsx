@@ -9,7 +9,7 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { heldFile, planScopeKey } from '../../utils/planFiles';
 import { heldSource } from '../../utils/saveFiles';
 import { fetchSourceFile } from '../../utils/diskStore';
-import { plural } from '../../utils/labels';
+import { buildingRef, floorRef, plural } from '../../utils/labels';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from './Icon';
 import { SessionBar } from './SessionBar';
@@ -83,7 +83,7 @@ const PlanFacts: React.FC<{ scope: string; meta: Pick<FloorMeta, 'mapSize' | 'pl
 /** Правка этажа из карточки — в её сессии: всё, что сделано в карточке, отменится разом. */
 function useFloorChange(building: BuildingMeta, floor: FloorMeta) {
   const updateFloor = useEditorStore((s) => s.updateFloor);
-  const edit = useSessionEdit(`floor:${building.id}/${floor.floor}`, `Этаж ${floorLabel(building, floor.floor)} корпуса «${building.name}»`);
+  const edit = useSessionEdit(`floor:${building.id}/${floor.floor}`, floorRef(building, floor.floor));
   return (patch: Parameters<typeof updateFloor>[2]) => {
     let problem: string | null = null;
     edit(() => {
@@ -141,7 +141,7 @@ export const FloorSection: React.FC<{ building: BuildingMeta; floor: FloorMeta }
 export const BuildingSection: React.FC<{ building: BuildingMeta }> = ({ building }) => {
   const updateBuilding = useEditorStore((s) => s.updateBuilding);
   const sessionKey = `building:${building.id}`;
-  const edit = useSessionEdit(sessionKey, `Корпус «${building.name}»`);
+  const edit = useSessionEdit(sessionKey, buildingRef(building));
 
   const change = (patch: Parameters<typeof updateBuilding>[1]) => {
     let problem: string | null = null;
@@ -400,8 +400,8 @@ const FloorPlacementSection: React.FC<{ building: BuildingMeta; floor: FloorMeta
       info="Если план этажа начерчен в другом масштабе или со смещением, лестницы соседних этажей разъедутся. Совместите этаж с этажом входа."
     >
       <dl className="editor-facts">
-        <dt>Положение</dt>
-        <dd>{floor.placement ? 'совмещён с этажом входа' : `как у этажа входа ${floorLabel(building, entrance)}`}</dd>
+        <dt>С этажом входа {floorLabel(building, entrance)}</dt>
+        <dd>{floor.placement ? 'совмещён' : 'лежит как есть'}</dd>
       </dl>
       <div className="editor-card__actions">
         <button
@@ -505,7 +505,8 @@ export const DeleteDialog: React.FC<{ open: boolean; onClose: () => void; buildi
 
   const impact = deletionImpact(building.id, floor);
   const whole = floor === undefined;
-  const what = whole ? `корпус «${building.name}»` : `этаж ${floorLabel(building, floor)} корпуса «${building.name}»`;
+  // «Удалить Корпус А, этаж 2?» читалось как удаление корпуса — этаж называем первым.
+  const what = floor === undefined ? buildingRef(building) : `этаж ${floorLabel(building, floor)} (${building.name})`;
   const blocked = whole && impact.nodes > 0 && !understood;
 
   const confirm = () => {
