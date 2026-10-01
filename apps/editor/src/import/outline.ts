@@ -124,6 +124,16 @@ export function splitOutlineEdge(outline: readonly OutlinePoint[], index: number
 }
 
 /**
+ * Новая вершина на ребре `index` → `index + 1` там, куда щёлкнули («+» на
+ * линии, запись 80). У дуги — посередине дуги (`splitOutlineEdge`): точка
+ * щелчка на дуге не лежит.
+ */
+export function insertOutlinePoint(outline: readonly OutlinePoint[], index: number, point: Point): OutlinePoint[] {
+  if (outline[index]?.bulge) return splitOutlineEdge(outline, index);
+  return [...outline.slice(0, index + 1), { x: point.x, y: point.y }, ...outline.slice(index + 1)];
+}
+
+/**
  * Убирает вершину. Контуру нужно хотя бы три вершины — или две, если ребро
  * между ними дуга (круг, «линза»).
  */

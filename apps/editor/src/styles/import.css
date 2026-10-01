@@ -1,30 +1,66 @@
-/* Стили редактора: окно «Загрузка планов». Порядок подключения — в main.tsx. */
+/* Стили редактора: мастерская листов — планы из файлов. Порядок подключения — в main.tsx. */
 
-/* --- Окно «Планы из файлов» (запись 48) --- */
+/* --- Мастерская листов во весь экран (записи 48 и 80) --- */
 
+/* Листы слева, лист посередине, свойства справа; сверху — заголовок и отмена, снизу — «Добавить». */
 .editor-dialog--import {
-    max-width: min(1180px, 100%);
-    height: min(88vh, 900px);
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-}
-
-.editor-dialog--import .editor-help__head {
-    padding: 16px 20px 8px;
-}
-
-.editor-dialog--import .editor-dialog__title {
-    margin: 0;
-}
-
-.editor-import {
-    flex: 1;
-    min-height: 0;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
     display: grid;
-    grid-template-columns: minmax(220px, 300px) 1fr;
-    border-top: 1px solid var(--editor-border);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.editor-workshop__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 6px 10px 6px 16px;
     border-bottom: 1px solid var(--editor-border);
+}
+
+.editor-workshop__head .editor-dialog__title {
+    margin: 0;
+    font-size: 16px;
+}
+
+.editor-workshop__progress {
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--editor-hover);
+    color: var(--editor-text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-workshop__history {
+    display: flex;
+    gap: 2px;
+}
+
+.editor-workshop__keys {
+    margin-left: auto;
+    color: var(--editor-text-muted);
+    font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+    .editor-workshop__keys {
+        visibility: hidden;
+    }
+}
+
+.editor-workshop__body {
+    display: grid;
+    grid-template-columns: minmax(200px, 264px) minmax(0, 1fr) minmax(280px, 340px);
+    min-height: 0;
 }
 
 .editor-import__list {
@@ -82,6 +118,7 @@
 
 .editor-import__caption {
     display: flex;
+    flex: 1;
     flex-direction: column;
     min-width: 0;
     gap: 2px;
@@ -103,15 +140,89 @@
     color: var(--editor-danger);
 }
 
+/* Отметка листа: проверен, нужно решить, пропускается, ещё не смотрели. */
+.editor-import__mark {
+    flex: none;
+    display: flex;
+    color: var(--editor-text-muted);
+}
+
+.editor-import__item--done .editor-import__mark {
+    color: var(--editor-success);
+}
+
+.editor-import__item--problem .editor-import__mark {
+    color: var(--editor-danger);
+}
+
+.editor-import__item--skip {
+    opacity: 0.65;
+}
+
 .editor-import__detail {
+    overflow-x: hidden;
     overflow-y: auto;
-    padding: 12px 16px;
+    padding: 12px 14px;
+    border-left: 1px solid var(--editor-border);
 }
 
 .editor-import__piece {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.editor-workshop__sheet-name {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.editor-workshop__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Кнопки листа — по две в ряд: колонка узкая, а их шесть. */
+.editor-workshop__tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.editor-workshop__tools .editor-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 13px;
+    line-height: 1.2;
+    white-space: normal;
+}
+
+/* «Лист готов» всегда на виду — прилипает к низу колонки. */
+.editor-workshop__confirm {
+    position: sticky;
+    bottom: -12px;
+    margin: 0 -14px -12px;
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--editor-border);
+    background: var(--editor-panel);
+}
+
+.editor-workshop__kbd {
+    margin-left: auto;
+    padding: 0 6px;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11px;
+    opacity: 0.75;
 }
 
 .editor-import__notes {
@@ -122,14 +233,20 @@
     color: var(--editor-text-muted);
 }
 
+.editor-import__shape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
 .editor-import__empty {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 12px;
-    margin: 0 20px;
+    margin: 20px;
     padding: 24px;
     border: 2px dashed var(--editor-border);
     border-radius: 14px;
@@ -144,7 +261,8 @@
 .editor-import__actions {
     align-items: center;
     margin: 0;
-    padding: 12px 20px 16px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--editor-border);
 }
 
 .editor-import__status {
@@ -154,52 +272,150 @@
     color: var(--editor-text-muted);
 }
 
-/* Лист с областью будущего плана: вне области — затемнено. */
-.editor-crop {
+/* Вопрос «Закрыть мастерскую?» — поверх неё. */
+.editor-workshop__ask {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--editor-backdrop);
+}
+
+/* --- Лист посередине: приближают колесом, двигают, как карту --- */
+
+.editor-workshop__center {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.editor-workshop__center--empty {
+    align-items: center;
+    justify-content: center;
+}
+
+.editor-workshop__canvas {
     position: relative;
-    max-width: 100%;
-    background: #ffffff;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
+    background: var(--editor-map-bg);
+    cursor: grab;
     touch-action: none;
     user-select: none;
+    outline: none;
+}
+
+.editor-workshop__canvas:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--editor-focus);
+}
+
+.editor-workshop__canvas--pan,
+.editor-workshop__canvas--pan * {
+    cursor: grab !important;
+}
+
+.editor-workshop__canvas--add {
+    cursor: copy;
+}
+
+/* Лист целиком и дорисованная крупно видимая часть — под ручками, мышь их не ловит. */
+.editor-crop__image,
+.editor-workshop__detail {
+    position: absolute;
+    pointer-events: none;
 }
 
 .editor-crop__image {
+    background: #ffffff;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.25);
+}
+
+.editor-crop__image-canvas,
+.editor-workshop__detail-canvas {
     display: block;
     width: 100%;
     height: 100%;
 }
 
 .editor-crop__loading {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
-    color: #374151;
+    color: var(--editor-text-muted);
     font-size: 14px;
 }
 
+.editor-workshop__bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 8px 4px 12px;
+    border-top: 1px solid var(--editor-border);
+    font-size: 12px;
+}
+
+.editor-workshop__hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--editor-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-workshop__zoom {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.editor-workshop__percent {
+    min-width: 52px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Рамка области: вне её — затемнено. Ручки маленькие, а ловятся шире, чем видны. */
 .editor-crop__box {
     position: absolute;
     box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55);
-    outline: 2px solid var(--editor-focus);
+    outline: 1.5px solid var(--editor-focus);
     cursor: move;
 }
 
-.editor-crop__handle {
+.editor-crop__handle,
+.editor-outline__corner,
+.editor-outline__edge {
     position: absolute;
-    width: 18px;
-    height: 18px;
-    margin: -9px 0 0 -9px;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
     padding: 0;
-    border: 2px solid #ffffff;
-    border-radius: 4px;
-    background: var(--editor-focus);
+    border: 1.5px solid var(--editor-focus);
+    border-radius: 2px;
+    background: #ffffff;
+    touch-action: none;
 }
 
-.editor-crop__handle:focus-visible {
-    outline: 3px solid #ffffff;
+.editor-crop__handle::before,
+.editor-outline__corner::before,
+.editor-outline__edge::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+}
+
+.editor-crop__handle:focus-visible,
+.editor-outline__corner:focus-visible,
+.editor-outline__edge:focus-visible {
+    outline: 2px solid var(--editor-focus);
     outline-offset: 2px;
 }
 
@@ -212,7 +428,92 @@
 .editor-crop__handle--sw { left: 0; top: 100%; cursor: nesw-resize; }
 .editor-crop__handle--w { left: 0; top: 50%; cursor: ew-resize; }
 
-/* Файлы несут над редактором. */
+/* --- Контур здания на листе (записи 73 и 80) --- */
+
+/* Слой контура мышь пропускает к листу: ловят только ручки. */
+.editor-outline {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.editor-outline__svg {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+/* За контуром — затемнено: в план не попадёт. */
+.editor-outline__shade {
+    fill: rgba(15, 17, 21, 0.55);
+}
+
+.editor-outline__line {
+    fill: none;
+    stroke: var(--editor-focus);
+    stroke-width: 1.5;
+}
+
+.editor-outline__corner,
+.editor-outline__edge {
+    pointer-events: auto;
+    cursor: grab;
+}
+
+/* Выбранный угол залит: Delete уберёт его, стрелки сдвинут. */
+.editor-outline__corner[aria-pressed='true'] {
+    background: var(--editor-focus);
+    border-color: #ffffff;
+    box-shadow: 0 0 0 1.5px var(--editor-focus);
+}
+
+/* Середина ребра — круглая и меньше: тянут — дуга, двойной щелчок — угол. */
+.editor-outline__edge {
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    opacity: 0.85;
+}
+
+.editor-outline__edge--arc {
+    background: var(--editor-focus);
+    border-color: #ffffff;
+}
+
+/* «+» на линии контура: щелчок поставит здесь угол. */
+.editor-outline__add {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border-radius: 50%;
+    background: var(--editor-focus);
+    box-shadow: 0 0 0 1.5px #ffffff;
+}
+
+.editor-outline__add::before,
+.editor-outline__add::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    background: #ffffff;
+    transform: translate(-50%, -50%);
+}
+
+.editor-outline__add::before {
+    width: 8px;
+    height: 2px;
+}
+
+.editor-outline__add::after {
+    width: 2px;
+    height: 8px;
+}
+
+/* --- Файлы несут над редактором --- */
+
 .editor-drop {
     position: fixed;
     inset: 0;
@@ -237,19 +538,6 @@
     font-size: 18px;
 }
 
-@media (max-width: 760px) {
-    .editor-import {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
-    }
-
-    .editor-import__list {
-        max-height: 30vh;
-        border-right: 0;
-        border-bottom: 1px solid var(--editor-border);
-    }
-}
-
 .editor-link-button {
     margin-left: 8px;
     padding: 0;
@@ -266,72 +554,4 @@
     color: var(--editor-on-accent);
     border: 0;
     font-weight: 700;
-}
-
-/* --- Контур здания на листе (запись 73) --- */
-
-.editor-import__shape {
-    align-items: center;
-}
-
-.editor-outline {
-    position: absolute;
-    inset: 0;
-}
-
-.editor-outline__svg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-
-/* За контуром — затемнено: в план не попадёт. */
-.editor-outline__shade {
-    fill: rgba(15, 17, 21, 0.55);
-}
-
-.editor-outline__line {
-    fill: none;
-    stroke: var(--editor-focus);
-    stroke-width: 2;
-}
-
-.editor-outline__corner,
-.editor-outline__edge {
-    position: absolute;
-    width: 18px;
-    height: 18px;
-    margin: -9px 0 0 -9px;
-    padding: 0;
-    border: 2px solid #ffffff;
-    background: var(--editor-focus);
-    cursor: grab;
-    touch-action: none;
-}
-
-.editor-outline__corner {
-    border-radius: 4px;
-}
-
-/* Середина ребра — круглая и меньше: тянут — дуга, двойной щелчок — угол. */
-.editor-outline__edge {
-    width: 14px;
-    height: 14px;
-    margin: -7px 0 0 -7px;
-    border-radius: 50%;
-    background: var(--editor-panel);
-    border-color: var(--editor-focus);
-}
-
-.editor-outline__edge--arc {
-    background: var(--editor-focus);
-    border-color: #ffffff;
-}
-
-.editor-outline__corner:focus-visible,
-.editor-outline__edge:focus-visible {
-    outline: 3px solid #ffffff;
-    outline-offset: 2px;
 }

@@ -37,6 +37,7 @@ import editorReadiness from './browser/scenarios/editor-readiness.mjs';
 import editorStructure from './browser/scenarios/editor-structure.mjs';
 import editorImport from './browser/scenarios/editor-import.mjs';
 import editorOutline from './browser/scenarios/editor-outline.mjs';
+import editorWorkshop from './browser/scenarios/editor-workshop.mjs';
 import editorAlign from './browser/scenarios/editor-align.mjs';
 import editorPlace from './browser/scenarios/editor-place.mjs';
 import editorLayout from './browser/scenarios/editor-layout.mjs';
@@ -82,6 +83,7 @@ const SCENARIOS = [
   editorStructure,
   editorImport,
   editorOutline,
+  editorWorkshop,
   editorAlign,
   editorPlace,
   editorLayout,
