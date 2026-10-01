@@ -49,14 +49,19 @@ const escapeHtml = (text: string) =>
   text.replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char] ?? char);
 
 const roofLabels = new Map<string, L.DivIcon>();
-function roofLabelIcon(text: string, index: number): L.DivIcon {
-  const key = `${index}:${text}`;
+/**
+ * Название корпуса. `data-building` — по нему нажатие на название открывает
+ * корпус (`PlaceLayer`): название бывает шире крыши, и мимо крыши палец
+ * попадает в само название.
+ */
+function roofLabelIcon(text: string, index: number, buildingId: string): L.DivIcon {
+  const key = `${index}:${buildingId}:${text}`;
   let icon = roofLabels.get(key);
   if (!icon) {
     icon = L.divIcon({
       className: `campus-roof-label ${buildingClass(index)}`,
       iconSize: [0, 0],
-      html: `<span>${escapeHtml(text)}</span>`,
+      html: `<span data-building="${escapeHtml(buildingId)}">${escapeHtml(text)}</span>`,
     });
     roofLabels.set(key, icon);
   }
@@ -284,7 +289,7 @@ export const CanvasPlans: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
             />
             <Marker
               position={meterLatLng(center)}
-              icon={roofLabelIcon(names[index], index)}
+              icon={roofLabelIcon(names[index], index, building.id)}
               interactive={false}
               keyboard={false}
             />

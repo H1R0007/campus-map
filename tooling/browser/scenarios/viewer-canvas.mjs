@@ -62,7 +62,30 @@ export default {
       await shot('viewer-canvas-overview');
     });
 
+    await step('нажатие на название, вышедшее за крышу, открывает корпус', async () => {
+      // Отдалились — корпуса мельче своих названий: край названия стоит на траве.
+      await v.click('Отдалить');
+      await page.sleep(600);
+      const target = await page.eval(`(() => {
+        for (const label of document.querySelectorAll('.campus-roof-label')) {
+          if (Number(label.style.opacity) < 0.9) continue;
+          const index = [...label.classList].find((name) => name.startsWith('campus-building-'));
+          const roof = document.querySelector('.campus-roof.' + index).getBoundingClientRect();
+          const text = label.firstElementChild.getBoundingClientRect();
+          if (text.right - 3 > roof.right + 4) {
+            return { x: text.right - 3, y: text.top + text.height / 2, building: label.firstElementChild.dataset.building, name: label.textContent };
+          }
+        }
+        return null;
+      })()`);
+      assert.ok(target !== null, 'есть название шире своей крыши');
+      await page.tap(target.x, target.y);
+      await waitShown(`${target.building}#1`);
+      assert.ok((await v.headerText()).includes(target.name), `открыт ${target.name}`);
+    });
+
     await step('корпус из шапки: камера приближает его, вместо крыши — этаж, в шапке — корпус', async () => {
+      await v.open('/');
       await v.openBuilding('Корпус Б');
       await waitShown('building_b#1');
       await page.waitFor(`[...document.querySelectorAll('.campus-roof')].some((roof) => Number(getComputedStyle(roof).fillOpacity) < 0.05)`);
