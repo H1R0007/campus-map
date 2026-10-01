@@ -12,6 +12,7 @@
  * - `projection.ts` — метрическое пространство кампуса: привязка планов;
  * - `pathfinding/` — A*, модель стоимости и альтернативные маршруты;
  * - `aliases/` — нечёткий поиск по названиям;
+ * - `panoramas/` — панорамы 360° в точках графа и стрелки между ними;
  * - `types/`   — доменные типы и контракт формата данных.
  */
 
@@ -82,6 +83,20 @@ export {
 
 // Поиск пути
 export { findAlternativePaths, findNearest, findPath } from './pathfinding/astar.js';
+
+// Панорамы 360° в точках графа
+export type { Panorama, PanoramaData, PanoramasFileData } from './panoramas/types.js';
+export { PANORAMAS_PATH, normalizeDegrees, parsePanoramas, type ParsedPanoramas } from './panoramas/manifest.js';
+export {
+  bearingOf,
+  panoramaLinks,
+  planRotationLookup,
+  routePanoramaViews,
+  yawOnPanorama,
+  type PanoramaLink,
+  type PanoramaLinkOptions,
+  type RoutePanoramaView,
+} from './panoramas/links.js';
 
 // Поиск по названиям
 export { AliasManager, type AliasLoadOptions } from './aliases/AliasManager.js';
