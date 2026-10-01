@@ -112,7 +112,10 @@ export const en: Messages = {
   },
 
   link: {
-    notFound: (points) => `The point from the link was not found: ${points}`,
+    notFound: 'The place from the link was not found',
+    outdated: 'The link or QR code may be outdated — find the place with search.',
+    code: (points) => `Code: ${points}`,
+    search: 'Find a place',
     dismiss: 'Dismiss',
   },
 

@@ -149,6 +149,23 @@ export default {
       assert.ok(idle.includes('Откуда начать маршрут?') && idle.includes('А-305'), 'поиск начала и точка цели');
     });
 
+    await step('устаревшая ссылка: сообщение говорит, что делать, и открывает поиск', async () => {
+      await v.open('/?to=no_such_room');
+      const alert = await page.eval(`document.querySelector('[role="alert"]')?.textContent ?? ''`);
+      assert.ok(alert.includes('Место из ссылки не найдено') && alert.includes('найдите место поиском'), `сообщение: ${alert}`);
+      assert.ok(alert.includes('Код: no_such_room'), 'код точки — для того, кто чинит табличку');
+      await v.click('Найти место');
+      assert.ok(await v.searchOpen(), 'кнопка открыла поиск');
+      assert.equal(await page.eval(`!!document.querySelector('[role="alert"]')`), false, 'сообщение убрано');
+      await page.key('Escape');
+
+      // Начало из ссылки нашлось, цель — нет: поиск сразу спрашивает, куда идти.
+      await v.open('/?from=a1_entrance&to=no_such_room');
+      await v.click('Найти место');
+      assert.ok((await page.eval(`document.querySelector('[data-search-view] input')?.placeholder`)).includes('Куда'), 'поиск цели');
+      await page.key('Escape');
+    });
+
     await step('нажатие на точку плана открывает карточку места', async () => {
       await v.open('/');
       await v.openBuilding('Корпус А');
