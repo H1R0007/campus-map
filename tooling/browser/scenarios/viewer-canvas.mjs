@@ -68,16 +68,26 @@ export default {
       // корпуса В здесь длинное, как у официального корпуса: его конец на траве
       // при любом шрифте. Видимость названий пересчитывается при масштабе, а
       // карта не двигается — название остаётся видимым.
+      // Точка нажатия — вдоль названия: на экране (в CI длинное название уходит
+      // за край телефона), не на крыше, не под колонкой кнопок справа и не на
+      // другом названии.
       const target = await page.eval(`(() => {
         const text = document.querySelector('.campus-roof-label [data-building="building_c"]');
-        text.textContent = 'Корпус В · учебно-лабораторный корпус';
+        text.textContent = 'Корпус В · учебно-лабораторный';
         const label = text.parentElement;
-        const index = [...label.classList].find((name) => name.startsWith('campus-building-'));
-        const roof = document.querySelector('.campus-roof.' + index).getBoundingClientRect();
         const rect = text.getBoundingClientRect();
-        return { x: rect.right - 4, y: rect.top + rect.height / 2, onGrass: rect.right - 4 > roof.right + 10, visible: Number(label.style.opacity) > 0.9 };
+        const roofs = [...document.querySelectorAll('.campus-roof')].map((roof) => roof.getBoundingClientRect());
+        const others = [...document.querySelectorAll('.campus-roof-label span')].filter((span) => span !== text).map((span) => span.getBoundingClientRect());
+        const inside = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+        const y = rect.top + rect.height / 2;
+        for (let x = rect.left + 4; x <= rect.right - 4; x += 6) {
+          if (x < 8 || x > innerWidth - 80) continue;
+          if (roofs.some((r) => inside(r, x, y)) || others.some((r) => inside(r, x, y))) continue;
+          return { x, y, visible: Number(label.style.opacity) > 0.9 };
+        }
+        return { visible: Number(label.style.opacity) > 0.9, rect: [rect.left, rect.right] };
       })()`);
-      assert.ok(target.visible && target.onGrass, `конец названия виден и стоит на траве: ${JSON.stringify(target)}`);
+      assert.ok(target.visible && target.x !== undefined, `у названия есть видимая точка на траве: ${JSON.stringify(target)}`);
       await page.tap(target.x, target.y);
       await waitShown('building_c#1');
       assert.ok((await v.headerText()).includes('Корпус В'), 'открыт корпус В');
