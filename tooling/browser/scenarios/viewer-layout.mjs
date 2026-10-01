@@ -64,6 +64,14 @@ export default {
       const text = await v.panelText();
       assert.ok(text.includes('Куда вы хотите попасть?') && text.includes('Главный вход корпуса А'));
       await v.click('Куда вы хотите попасть?');
+      // Начало известно — у каждой найденной столовой видно, сколько до неё идти.
+      await v.typeSearch('столовая');
+      const canteens = await v.options();
+      assert.ok(
+        canteens.length === 2 && canteens.every((lines) => /, этаж 1 · ~\d+\sмин$/.test(lines[lines.length - 1])),
+        `время до каждой столовой: ${JSON.stringify(canteens)}`
+      );
+      await page.eval(`document.querySelector('[data-search-view] button[aria-label="Очистить поиск"]').click()`);
       await v.typeSearch('305');
       await v.chooseOption('А-305');
       await page.waitFor(`${PANEL}.querySelector('h2')?.textContent === 'А-305'`);
