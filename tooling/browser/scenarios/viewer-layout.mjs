@@ -52,7 +52,18 @@ export default {
 
       const handle = `section[aria-label="Панель навигатора"] > button[aria-expanded]`;
       const [x, y] = await v.center(handle);
-      await page.dragVertical(x, y, -90);
+
+      // Свёрнутая шторка едет за пальцем вверх, а не ждёт, пока его отпустят.
+      const top = () => page.eval(`Math.round(${PANEL}.getBoundingClientRect().top)`);
+      const before = await top();
+      const mouse = (type, my, buttons) => page.send('Input.dispatchMouseEvent', { type, x, y: my, button: 'left', buttons, clickCount: 1 });
+      await mouse('mousePressed', y, 1);
+      for (let i = 1; i <= 6; i += 1) await mouse('mouseMoved', y - i * 20, 1);
+      await page.sleep(150);
+      const during = await top();
+      assert.ok(Math.abs(during - (before - 120)) <= 4, `верх шторки под пальцем: ${before} → ${during}, ждали ${before - 120}`);
+      await mouse('mouseReleased', y - 120, 0);
+      await page.sleep(400);
       assert.ok((await v.panelText()).includes('Ограничения'), 'жест вверх раскрыл');
       const [x2, y2] = await v.center(handle);
       await page.dragVertical(x2, y2, 90);
@@ -489,6 +500,13 @@ export default {
       await page.dragVertical(x, y, -240);
       await page.waitFor(`!!document.querySelector('button[aria-label="Свернуть панель"]')`);
       await page.sleep(400);
+      // Раскрытая шторка на общем виде низкая: кнопки масштаба остаются над ней,
+      // а не пропадают там, где она поднялась.
+      const raised = await page.eval(`(() => {
+        const zoom = document.querySelector('.campus-zoom-controls');
+        return { zoomBottom: zoom ? zoom.getBoundingClientRect().bottom : null, sheetTop: ${PANEL}.getBoundingClientRect().top };
+      })()`);
+      assert.ok(raised.zoomBottom !== null && raised.zoomBottom <= raised.sheetTop, `кнопки масштаба над раскрытой шторкой: ${JSON.stringify(raised)}`);
       [x, y] = await handle();
       await page.dragVertical(x, y, 240);
       await page.waitFor(`!!document.querySelector('button[aria-label="Развернуть панель"]')`);

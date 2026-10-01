@@ -112,13 +112,31 @@ export const NavigatorPanel: React.FC = () => {
 
   // --- Ручка шторки ---
 
-  const drag = useRef<{ startY: number; dy: number } | null>(null);
+  /**
+   * Жест по ручке: шторка держит верх под пальцем — `startTop + dy`.
+   *
+   * Раскрытая едет за пальцем вниз. Свёрнутую, которую тянут вверх, раньше не
+   * двигали: она ждала, пока палец отпустят, и только тогда вставала на место —
+   * вниз жест был плавным, вверх нет. Теперь она раскрывается, как только палец
+   * пошёл вверх, и выезжает за ним: раскрытая шторка сдвинута вниз так, что её
+   * верх стоит под пальцем, а выше своего места не поднимается. Отпустили
+   * раньше порога — шторка снова свёрнута.
+   */
+  const drag = useRef<{ startY: number; dy: number; startTop: number; fromCollapsed: boolean } | null>(null);
   const dragged = useRef(false);
-  const [dragOffset, setDragOffset] = useState<number | null>(null);
+  const [dragDy, setDragDy] = useState<number | null>(null);
+  // Свёрнута обратно после жеста вверх: без анимации, иначе свёрнутая шторка
+  // въезжала бы снизу из положения раскрытой.
+  const collapsedBack = useRef(false);
 
   const onHandlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    drag.current = { startY: event.clientY, dy: 0 };
+    drag.current = {
+      startY: event.clientY,
+      dy: 0,
+      startTop: panelRef.current?.getBoundingClientRect().top ?? 0,
+      fromCollapsed: !expanded,
+    };
     dragged.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -129,21 +147,43 @@ export const NavigatorPanel: React.FC = () => {
 
     current.dy = event.clientY - current.startY;
     if (Math.abs(current.dy) > TAP_SLOP_PX) dragged.current = true;
-
-    // Раскрытая шторка едет за пальцем вниз. Свёрнутую вверх не тянем: расти
-    // ей некуда, пока не раскрыта, — решение принимается при отпускании.
-    setDragOffset(expanded ? Math.max(0, current.dy) : 0);
+    if (current.fromCollapsed && current.dy < -TAP_SLOP_PX) setSheetExpanded(true);
+    setDragDy(current.dy);
   };
 
   const onHandlePointerEnd = () => {
     const current = drag.current;
     drag.current = null;
-    setDragOffset(null);
+    setDragDy(null);
     if (!current || !dragged.current) return;
 
-    if (current.dy < -DRAG_THRESHOLD_PX) setSheetExpanded(true);
-    else if (current.dy > DRAG_THRESHOLD_PX) setSheetExpanded(false);
+    if (current.fromCollapsed) {
+      const open = current.dy < -DRAG_THRESHOLD_PX;
+      collapsedBack.current = !open;
+      setSheetExpanded(open);
+    } else if (current.dy > DRAG_THRESHOLD_PX) {
+      setSheetExpanded(false);
+    }
   };
+
+  // Сдвиг шторки за пальцем — прямо в стиль, после того как раскладка
+  // обновилась: высоту раскрытой шторки до отрисовки не узнать, а кадр с
+  // раскрытой шторкой без сдвига мелькал бы.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const current = drag.current;
+    if (!panel) return;
+    panel.style.transform = '';
+    if (dragDy === null || current === null) return;
+
+    const naturalTop = panel.getBoundingClientRect().top;
+    const offset = Math.max(0, current.startTop + dragDy - naturalTop);
+    if (offset > 0) panel.style.transform = `translateY(${offset}px)`;
+  }, [dragDy, expanded]);
+
+  useEffect(() => {
+    collapsedBack.current = false;
+  });
 
   const onHandleClick = () => {
     // После жеста браузер присылает ещё и click — нажатием он не считается.
@@ -187,10 +227,9 @@ export const NavigatorPanel: React.FC = () => {
         ref={panelRef}
         aria-label={messages.sheet.label}
         onKeyDown={onKeyDown}
-        style={dragOffset ? { transform: `translateY(${dragOffset}px)` } : undefined}
         className={`fixed z-[1000] inset-x-0 bottom-0 flex flex-col bg-surface border border-gray-100 shadow-2xl rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-4 sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:w-[26rem] sm:rounded-3xl sm:pb-0 wide:top-4 wide:bottom-auto wide:w-[24rem] wide:max-h-[calc(100%-2rem)] wide:rounded-2xl ${
-          dragOffset === null ? 'campus-panel--animated' : ''
-        } ${!isWide && mapGesture && dragOffset === null ? 'campus-panel--peek' : ''}`}
+          dragDy === null && !collapsedBack.current ? 'campus-panel--animated' : ''
+        } ${!isWide && mapGesture && dragDy === null ? 'campus-panel--peek' : ''}`}
       >
         {hasHandle && (
           <button
