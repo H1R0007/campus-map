@@ -257,10 +257,13 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
         ) : buildingMatches.length > 0 ? null : trimmed !== '' ? (
           // Пока запрос не устоялся (задержка поиска), «ничего не нашлось» не
           // показываем: иначе оно мигало бы на каждой букве.
+          // Под «ничего не нашлось» — что вообще можно искать: человек набрал
+          // «аудитория пятьсот», а поиск ждёт номер.
           settled && (
-            <p role="status" className="px-4 py-8 text-center text-sm text-gray-600">
-              {messages.search.nothingFound(trimmed)}
-            </p>
+            <div role="status" className="px-4 py-8 text-center">
+              <p className="text-sm font-medium text-gray-800">{messages.search.nothingFound(trimmed)}</p>
+              <p className="mt-1 text-sm text-gray-600">{messages.search.hint}</p>
+            </div>
           )
         ) : (
           <div className="px-2 py-2 space-y-5">
