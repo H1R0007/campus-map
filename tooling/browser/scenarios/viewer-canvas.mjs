@@ -318,5 +318,22 @@ export default {
       assert.ok(Math.abs(await rotationOf(CAMPUS_PLAN)) < 0.5, 'карта снова ровно на север');
       assert.equal(await page.eval(`!!${COMPASS}`), false, 'компаса нет');
     });
+
+    await step('широкий экран: место по ссылке — с этажом вокруг, а не кусок этажа во весь экран', async () => {
+      await page.viewport(1440, 900, 1);
+      await v.open('/?to=a3_room305');
+      await waitShown('building_a#3');
+      await page.sleep(1200);
+      // Прежде камера показывала 30 метров вокруг места и на мониторе: помещения
+      // во весь экран, лестница и входы за краем. Теперь этаж корпуса А (60 м)
+      // целиком в свободной части справа от панели.
+      const floor = await page.eval(`(() => {
+        const plan = document.querySelector('.campus-placed-plan[data-plan="floor"][data-building="building_a"][data-floor="3"]').getBoundingClientRect();
+        const panel = document.querySelector('section[aria-label="Панель навигатора"]').getBoundingClientRect();
+        return { left: Math.round(plan.left - panel.right), right: Math.round(innerWidth - plan.right), width: Math.round(plan.width) };
+      })()`);
+      assert.ok(floor.left > -2 && floor.right > -2, `этаж целиком справа от панели: ${JSON.stringify(floor)}`);
+      assert.ok((await v.heading()).includes('А-305'), 'карточка места открыта');
+    });
   },
 };

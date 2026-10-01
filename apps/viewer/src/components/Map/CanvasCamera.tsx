@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { containsPoint, fitPaddingOf, meterLatLng, useMapFrame, viewBoundsOf } from '@campus-map/mapkit';
 import { useMapStore } from '../../stores/mapStore';
 import type { CanvasLayout } from '../../utils/canvasLayout';
-import { DETAIL_PIXELS_PER_METER, PRELOAD_SHARE, isRevealedAt, screenShare } from '../../utils/canvasReveal';
+import { DETAIL_PIXELS_PER_METER, PRELOAD_SHARE, focusSpan, isRevealedAt, screenShare } from '../../utils/canvasReveal';
 import { focusBounds } from '../../utils/routeGeometry';
 import { CAMERA_SETTLED, fitSoon, isCameraBusy } from './mapCamera';
 import { useMapInsets } from './mapChrome';
@@ -13,7 +13,10 @@ import { useMapInsets } from './mapChrome';
 const SCREEN_PAD = 0.25;
 
 
-/** Сколько территории вокруг места показывает камера, метры: место и соседние помещения. */
+/**
+ * Сколько территории вокруг места показывает камера самое меньшее, метры:
+ * место и соседние помещения. На большом экране — больше (`focusSpan`).
+ */
 const PLACE_SPAN_METERS = 30;
 
 /** Запас от интерфейса до того, к чему ведёт камера, px. */
@@ -65,7 +68,16 @@ export const CanvasCamera: React.FC<{ layout: CanvasLayout }> = ({ layout }) => 
       if (building) targetBounds = L.latLngBounds(building.footprint.map(meterLatLng));
     } else {
       const world = graph.getWorld(target.nodeId);
-      if (world) targetBounds = L.latLngBounds(focusBounds([[world.y, world.x]], PLACE_SPAN_METERS));
+      if (world) {
+        const size = map.getSize();
+        const edges = latestInsets.current;
+        const span = focusSpan(
+          PLACE_SPAN_METERS,
+          size.x - edges.left - edges.right - 2 * VIEW_MARGIN,
+          size.y - edges.top - edges.bottom - 2 * VIEW_MARGIN
+        );
+        targetBounds = L.latLngBounds(focusBounds([[world.y, world.x]], span));
+      }
     }
 
     if (targetBounds === null) return;

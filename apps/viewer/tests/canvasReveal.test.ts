@@ -1,13 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FOCUS_PIXELS_PER_METER,
   HIDDEN_SHARE,
   REVEALED_SHARE,
   REVEAL_END_SHARE,
   REVEAL_START_SHARE,
+  focusSpan,
   isRevealedAt,
   revealAmount,
   screenShare,
 } from '../src/utils/canvasReveal';
+
+describe('focusSpan', () => {
+  it('телефон: свободно 262 × 550 px — прежние 30 метров вокруг места', () => {
+    expect(focusSpan(30, 262, 550)).toBe(30);
+  });
+
+  it('монитор: свободно 900 × 764 px — сколько помещается при читаемой крупности', () => {
+    expect(focusSpan(30, 900, 764)).toBeCloseTo(764 / FOCUS_PIXELS_PER_METER, 9);
+    expect(focusSpan(30, 900, 764)).toBeGreaterThan(60);
+  });
+
+  it('по меньшей стороне свободного места: узкая полоса не отдаляет', () => {
+    expect(focusSpan(28, 2000, 200)).toBe(28);
+  });
+});
 
 /**
  * Крыша или этаж на холсте кампуса (запись 32).
