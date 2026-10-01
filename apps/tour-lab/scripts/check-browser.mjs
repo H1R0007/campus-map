@@ -366,6 +366,15 @@ const SCENARIOS = [
         assert(layout.buttons >= 44, `кнопки «Куда отсюда» ${layout.buttons}px`);
         assert(layout.background === 'rgb(14, 18, 25)', `фон тёмной темы: ${layout.background}`);
       });
+
+      await step('стрелки не заходят на панель кнопок просмотрщика', async () => {
+        // Стрелка ко входу — сзади, то есть внизу экрана, у самой панели.
+        const overlap = await page.eval(`(() => {
+          const bar = document.querySelector('.psv-navbar').getBoundingClientRect().top;
+          return [...document.querySelectorAll('.tour-arrow')].map((a) => Math.round(a.getBoundingClientRect().bottom - bar)).filter((d) => d > 0);
+        })()`);
+        assert(overlap.length === 0, `стрелки на панели кнопок, на ${overlap.join(', ')} px`);
+      });
       await shot('lab-4-phone');
 
       await step('нажатие на стрелку на телефоне', async () => {
