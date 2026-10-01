@@ -174,6 +174,23 @@ export default {
       await page.key('Escape');
     });
 
+    await step('«Поделиться местом» — ссылка на карточку места, а не на маршрут', async () => {
+      await v.open('/');
+      await v.click('Найти аудиторию или место');
+      await v.typeSearch('305');
+      await v.chooseOption('А-305');
+      // Выбор места адрес не меняет — ссылку собирает карточка.
+      assert.ok(!(await v.href()).includes('to='), 'в адресе места нет');
+      await page.eval('delete Navigator.prototype.share; delete Navigator.prototype.clipboard;');
+      await v.click('Поделиться местом');
+      await page.waitFor(`document.body.innerText.includes('Скопируйте ссылку')`);
+      const field = await page.eval(`(() => { const i = document.activeElement; return { value: i.value, label: i.getAttribute('aria-label') }; })()`);
+      assert.equal(new URL(field.value).search, '?to=a3_room305', `ссылка на место: ${field.value}`);
+      assert.equal(field.label, 'Ссылка на место');
+      await v.click('Готово');
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Поделиться местом', 'фокус вернулся на кнопку');
+    });
+
     await step('нажатие на точку плана открывает карточку места', async () => {
       await v.open('/');
       await v.openBuilding('Корпус А');

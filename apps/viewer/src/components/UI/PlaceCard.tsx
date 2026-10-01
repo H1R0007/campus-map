@@ -1,9 +1,11 @@
 import React from 'react';
+import type { ShareRoute } from '../../hooks/useShareRoute';
 import { messagesFor, useLanguage } from '../../i18n';
 import { useMapStore } from '../../stores/mapStore';
 import { useRouteStore } from '../../stores/routeStore';
 import type { RouteField } from '../../stores/routeStore';
 import { useUiStore } from '../../stores/uiStore';
+import { routeLink } from '../../utils/deepLink';
 import { nodeName, nodePlaceLabel } from '../../utils/placeLabels';
 import { portalTypeOf } from '../../utils/portals';
 import { Icon } from './Icon';
@@ -12,6 +14,7 @@ import { PlaceIcon } from './PlaceIcon';
 
 interface PlaceCardProps {
   nodeId: string;
+  share: ShareRoute;
 }
 
 /**
@@ -24,8 +27,12 @@ interface PlaceCardProps {
  *
  * Точку перехода без названия сделать концом маршрута нельзя — у неё нет имени
  * для подписи; карточка показывает только тип и положение.
+ *
+ * «Поделиться местом» отправляет ссылку на эту карточку (`?to=`): преподаватель
+ * присылает группе аудиторию, и каждый строит маршрут от себя. Прежде
+ * поделиться можно было только маршрутом — с чужим началом.
  */
-export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
+export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId, share }) => {
   const graph = useMapStore((s) => s.graph);
   const aliasManager = useMapStore((s) => s.aliasManager);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
@@ -74,6 +81,17 @@ export const PlaceCard: React.FC<PlaceCardProps> = ({ nodeId }) => {
           </h2>
           <p className="mt-0.5 text-sm text-gray-600">{details}</p>
         </div>
+        {/* На очень узком экране (текст 200 %) кнопки нет: рядом с двумя
+            кнопками название места снова ломалось бы посреди слова. */}
+        {name !== null && (
+          <IconButton
+            ref={share.buttonRef}
+            icon="share"
+            label={messages.place.share}
+            onClick={() => share.sharePlace(routeLink(window.location.href, { from: null, to: nodeId }, language), name)}
+            className="-mt-1 compact:hidden"
+          />
+        )}
         <IconButton icon="close" label={messages.place.close} onClick={() => selectNode(null)} className="-mt-1 -mr-2" />
       </div>
 

@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
+import type { ShareKind } from '../../hooks/useShareRoute';
 import { useMessages } from '../../i18n';
 import { Icon } from './Icon';
 
 interface ShareFeedbackProps {
   /** Ссылка только что скопирована. */
   copied: boolean;
-  /** Ссылка, которую скопировать не удалось; `null` — окно закрыто. */
-  manualLink: string | null;
+  /** Ссылка, которую скопировать не удалось, и чья она; `null` — окно закрыто. */
+  manual: { url: string; kind: ShareKind } | null;
   onCloseManual: () => void;
 }
 
@@ -27,9 +28,10 @@ const MANUAL_HINT_ID = 'share-link-hint';
  * браузера), раньше не происходило ничего. Теперь открывается диалог со
  * ссылкой, выделенной целиком: остаётся скопировать её вручную.
  */
-export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink, onCloseManual }) => {
+export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manual, onCloseManual }) => {
   const messages = useMessages();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const manualLink = manual?.url ?? null;
 
   const linkRef = useRef<HTMLInputElement>(null);
 
@@ -80,7 +82,7 @@ export const ShareFeedback: React.FC<ShareFeedbackProps> = ({ copied, manualLink
               ref={linkRef}
               readOnly
               value={manualLink}
-              aria-label={messages.route.linkLabel}
+              aria-label={manual?.kind === 'place' ? messages.place.linkLabel : messages.route.linkLabel}
               // Фокус приходит сюда при открытии (`useDialogFocus`), и ссылка
               // сразу выделена: остаётся «Копировать» в меню или Ctrl+C.
               onFocus={(event) => event.currentTarget.select()}

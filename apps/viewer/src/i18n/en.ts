@@ -63,6 +63,8 @@ export const en: Messages = {
     route: 'Directions',
     from: 'From here',
     close: 'Close place card',
+    share: 'Share place',
+    linkLabel: 'Link to the place',
   },
 
   quick: {

@@ -168,7 +168,7 @@ export const NavigatorPanel: React.FC = () => {
 
   const content =
     mode === 'place' && selectedNodeId !== null ? (
-      <PlaceCard nodeId={selectedNodeId} />
+      <PlaceCard nodeId={selectedNodeId} share={share} />
     ) : mode === 'arrived' ? (
       <ArrivalCard />
     ) : mode === 'navigate' ? (
@@ -181,7 +181,7 @@ export const NavigatorPanel: React.FC = () => {
 
   return (
     <>
-      <ShareFeedback copied={share.copied} manualLink={share.manualLink} onCloseManual={share.closeManual} />
+      <ShareFeedback copied={share.copied} manual={share.manual} onCloseManual={share.closeManual} />
 
       <section
         ref={panelRef}
