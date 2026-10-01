@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { nextBuildingName } from '../../stores/editor/structureSlice';
-import { outlineBox, outlineOfBox, traceBuildingOutline } from '../../import/outline';
+import { outlineBox, outlineOfBox } from '../../import/outline';
 import type { OutlinePoint } from '../../import/outline';
 import { rotatePiece } from '../../import/importModel';
 import type { BuildingChoice, Piece, PieceCheck, PieceTarget } from '../../import/importModel';
 import { metersPerUnitOf, previewPlan } from '../../import/output';
 import { displayName } from '../../import/readers';
 import type { ImportSheet } from '../../import/readers';
+import { traceOnSheet } from '../../import/traceSheet';
 import { clampBox, contentBox, scaleBox } from '../../import/trim';
 import type { Size } from '../../import/sheetView';
 import { Icon } from './Icon';
@@ -22,8 +23,6 @@ import { Icon } from './Icon';
 
 /** Длинная сторона листа при поиске полей. */
 const TRIM_SIDE = 640;
-/** Длинная сторона области при поиске контура. */
-const TRACE_SIDE = 1400;
 
 export const PieceProperties: React.FC<{
   piece: Piece;
@@ -77,16 +76,12 @@ export const PieceProperties: React.FC<{
     setTracing('Поиск контура…');
     try {
       // Ищется внутри нынешней рамки: поля и соседние чертежи листа не мешают.
-      const area = piece.crop ?? { x: 0, y: 0, ...page };
-      const scale = TRACE_SIDE / Math.max(area.width, area.height);
-      const canvas = await sheet.render(piece.rotation, area, scale);
-      const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
-      const found = traceBuildingOutline({ width: canvas.width, height: canvas.height, data: pixels.data });
+      const found = await traceOnSheet(sheet, piece.rotation, piece.crop ?? { x: 0, y: 0, ...page }, { metersPerUnit: metersPerUnitOf(sheet, Number(piece.scaleText) || undefined) });
       if (!found) {
-        setTracing('Контур не нашёлся: обведите углы вручную');
+        setTracing('Контур не нашёлся: обведите здание по точкам (P)');
         return;
       }
-      setOutline(found.map((point) => ({ x: area.x + point.x / scale, y: area.y + point.y / scale })));
+      setOutline(found);
       setTracing(null);
     } catch (cause) {
       setTracing(`Контур не нашёлся: ${cause instanceof Error ? cause.message : String(cause)}`);

@@ -178,11 +178,20 @@ const gapOf = (width: number, height: number) => Math.max(4, Math.round(Math.max
  * Всё, что отличается от цвета листа, — здание; щели дверей закрываются
  * расширением на `gap`; снаружи — то, до чего дотекает заливка от края
  * картинки; расширение возвращается назад; остаётся самый большой кусок —
- * надпись-заголовок и штамп отпадают.
+ * надпись-заголовок и штамп отпадают. С точкой `seed` («здание здесь»,
+ * запись 81) — кусок под ней, а щёлкнули мимо — ближайший к ней.
  *
  * @param gap ширина щели, которую закрыть, пиксели; по умолчанию — от размера картинки
+ * @param seed точка картинки, у которой здание, пиксели
+ * @param stats сюда пишется `hollow` — доля самой большой пустоты внутри куска
+ *   (запись 81): у рамки листа это поле вокруг чертежа, у здания — комната
  */
-export function silhouette(src: Pixels, gap = gapOf(src.width, src.height)): Uint8Array {
+export function silhouette(
+  src: Pixels,
+  gap = gapOf(src.width, src.height),
+  seed?: { x: number; y: number },
+  stats?: { hollow: number }
+): Uint8Array {
   const { width, height, data: d } = src;
   const size = width * height;
   const bg = pageColor(src);
@@ -258,9 +267,72 @@ export function silhouette(src: Pixels, gap = gapOf(src.width, src.height)): Uin
     }
   }
 
+  if (seed && next > 0) best = labelNear(label, width, height, seed);
+
   const mask = new Uint8Array(size);
   if (best !== 0) for (let p = 0; p < size; p += 1) if (label[p] === best) mask[p] = 1;
+  if (stats) stats.hollow = largestHollow(mask, closed, width, height);
   return mask;
+}
+
+/**
+ * Доля самой большой связной пустоты внутри куска — дальше щели `gap` от
+ * любой линии. Рамка листа замыкает чертёж, заголовок и штамп вместе с полем
+ * бумаги между ними — это поле и есть большая пустота. У здания пустоты —
+ * комнаты, каждая за своими стенами.
+ */
+function largestHollow(mask: Uint8Array, closed: Uint8Array, width: number, height: number): number {
+  let total = 0;
+  for (let p = 0; p < mask.length; p += 1) total += mask[p];
+  if (total === 0) return 0;
+  const seen = new Uint8Array(mask.length);
+  const stack = new Int32Array(mask.length);
+  let largest = 0;
+  for (let start = 0; start < mask.length; start += 1) {
+    if (!mask[start] || closed[start] || seen[start]) continue;
+    let top = 0;
+    let count = 0;
+    stack[top++] = start;
+    seen[start] = 1;
+    while (top > 0) {
+      const p = stack[--top];
+      count += 1;
+      const x = p % width;
+      const visit = (q: number) => {
+        if (mask[q] && !closed[q] && !seen[q]) {
+          seen[q] = 1;
+          stack[top++] = q;
+        }
+      };
+      if (x + 1 < width) visit(p + 1);
+      if (x > 0) visit(p - 1);
+      if (p + width < width * height) visit(p + width);
+      if (p >= width) visit(p - width);
+    }
+    largest = Math.max(largest, count);
+  }
+  return largest / total;
+}
+
+/** Метка куска под точкой, а если под ней пусто — ближайшего к ней. */
+function labelNear(label: Int32Array, width: number, height: number, seed: { x: number; y: number }): number {
+  const sx = Math.min(width - 1, Math.max(0, Math.round(seed.x)));
+  const sy = Math.min(height - 1, Math.max(0, Math.round(seed.y)));
+  if (label[sy * width + sx]) return label[sy * width + sx];
+  let best = 0;
+  let bestDistance = Infinity;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const value = label[y * width + x];
+      if (!value) continue;
+      const distance = (x - sx) ** 2 + (y - sy) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = value;
+      }
+    }
+  }
+  return best;
 }
 
 /**

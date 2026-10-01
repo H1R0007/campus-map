@@ -3,12 +3,19 @@ import type { ImportSheet } from '../../import/readers';
 import type { Piece } from '../../import/importModel';
 import { bulgeThrough, insertOutlinePoint, outlineBox, removeOutlinePoint, splitOutlineEdge } from '../../import/outline';
 import type { OutlinePoint } from '../../import/outline';
+import { cutOutline, outlineFromClicks } from '../../import/outlineEdit';
+import { metersPerUnitOf } from '../../import/output';
+import { traceOnSheet } from '../../import/traceSheet';
 import { clampBox, dragBox } from '../../import/trim';
 import type { Box, CropHandle } from '../../import/trim';
-import { fitView, nearestEdgePoint, toPage, visiblePart, zoomAt } from '../../import/sheetView';
+import { fitView, nearestEdgePoint, toPage, toScreen, visiblePart, zoomAt } from '../../import/sheetView';
 import type { Point, SheetView, Size } from '../../import/sheetView';
 import { CropOverlay } from './CropEditor';
 import { OutlineOverlay } from './OutlineEditor';
+import { FrameOverlay, SheetMenu, SketchOverlay, ToolPalette } from './SheetTools';
+import type { MenuItem } from './SheetTools';
+import { TOOL_HINTS } from './sheetToolList';
+import type { SheetTool } from './sheetToolList';
 import { Icon } from './Icon';
 
 /**
@@ -22,6 +29,11 @@ import { Icon } from './Icon';
  *
  * Поверх — рамка области (`CropOverlay`) или контур здания (`OutlineOverlay`);
  * их перетаскивания ведёт холст: он знает, где лист на экране.
+ *
+ * Слева — инструменты (запись 81, `SheetTools`): выбор, рука, контур по
+ * точкам, прямоугольник, вырезать, «здание здесь»; правая кнопка — меню у
+ * точки листа. Escape идёт по шагу назад: меню, начатая обводка, инструмент,
+ * выбранный угол — и только потом мастерская.
  */
 
 /** Длинная сторона листа, нарисованного целиком, px. */
@@ -39,12 +51,37 @@ const STRAIGHT_SNAP_PX = 5;
 const PAN_STEP = 60;
 /** Шаг кнопок «+» и «−». */
 const ZOOM_STEP = 1.5;
+/** Щелчок ближе стольких px к первой точке обводки замыкает её. */
+const CLOSE_RADIUS = 10;
+/** Прямоугольник меньше стольких px по стороне — случайный щелчок, а не рамка. */
+const MIN_FRAME_PX = 4;
+/** Сколько держится сообщение внизу листа, мс. */
+const NOTICE_MS = 5000;
 
 type Drag =
   | { kind: 'pan'; pointer: number; x: number; y: number; view: SheetView }
   | { kind: 'corner'; pointer: number; index: number }
   | { kind: 'edge'; pointer: number; index: number }
-  | { kind: 'crop'; pointer: number; handle: CropHandle; x: number; y: number; box: Box };
+  | { kind: 'crop'; pointer: number; handle: CropHandle; x: number; y: number; box: Box }
+  | { kind: 'frame'; pointer: number };
+
+/** Растягиваемый прямоугольник инструмента: будущая область или вырез. */
+interface Frame {
+  kind: 'rect' | 'cut';
+  from: Point;
+  to: Point;
+}
+
+/** Точка после последней с Shift — по горизонтали, вертикали или под 45°: стены ровные. */
+function snapFrom(points: readonly Point[], raw: Point, shift: boolean): Point {
+  const last = points[points.length - 1];
+  if (!shift || !last) return raw;
+  const dx = raw.x - last.x;
+  const dy = raw.y - last.y;
+  const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+  const length = dx * Math.cos(angle) + dy * Math.sin(angle);
+  return { x: last.x + length * Math.cos(angle), y: last.y + length * Math.sin(angle) };
+}
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
@@ -79,12 +116,37 @@ export const SheetCanvas: React.FC<{
   onDrag: (change: (piece: Piece) => Piece) => void;
   /** Правка одним действием; подряд идущие с одним `key` — одна запись истории. */
   onEdit: (change: (piece: Piece) => Piece, key?: string) => void;
-}> = ({ sheet, piece, page, pictures, selected, onSelect: setSelected, onGesture, onDrag, onEdit }) => {
+  /** Инструмент — общий для всех листов: штамп вырезают на листе за листом. */
+  tool: SheetTool;
+  onTool: (tool: SheetTool) => void;
+  /** Шаг назад по Escape: `true` — холст что-то отменил, мастерскую не закрывать. */
+  escapeRef: React.MutableRefObject<(() => boolean) | null>;
+}> = ({ sheet, piece, page, pictures, selected, onSelect: setSelected, onGesture, onDrag, onEdit, tool, onTool, escapeRef }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [area, setArea] = useState<Size | null>(null);
   const [view, setView] = useState<SheetView | null>(null);
   const [addHint, setAddHint] = useState<{ index: number; point: Point } | null>(null);
   const [space, setSpace] = useState(false);
+  const [sketch, setSketch] = useState<Point[]>([]);
+  const [cursor, setCursor] = useState<Point | null>(null);
+  const [frame, setFrameState] = useState<Frame | null>(null);
+  /** Прямоугольник — и в ссылке: отпускание кнопки читает самый свежий. */
+  const frameRef = useRef<Frame | null>(null);
+  const setFrame = (next: Frame | null) => {
+    frameRef.current = next;
+    setFrameState(next);
+  };
+  const [menu, setMenu] = useState<{ x: number; y: number; at: Point; corner: number | null; edge: number | null } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | undefined>(undefined);
+  /** Сообщение внизу листа; `keep` — пока его не сменят (поиск идёт). */
+  const say = (text: string | null, keep = false) => {
+    window.clearTimeout(noticeTimer.current);
+    setNotice(text);
+    if (text && !keep) noticeTimer.current = window.setTimeout(() => setNotice(null), NOTICE_MS);
+  };
+  useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
+  const searching = useRef(false);
   const drag = useRef<Drag | null>(null);
   /** Человек сам двигал или приближал лист: при смене размера окна не вписывать заново. */
   const moved = useRef(false);
@@ -119,6 +181,14 @@ export const SheetCanvas: React.FC<{
   useEffect(() => {
     if (!drag.current) setAddHint(null);
   }, [outline]);
+
+  // Другой инструмент — начатое прежним бросается.
+  useEffect(() => {
+    setSketch([]);
+    setCursor(null);
+    setFrame(null);
+    setAddHint(null);
+  }, [tool]);
 
   const fittedFor = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -252,17 +322,169 @@ export const SheetCanvas: React.FC<{
     if (!view) return;
     capture(event, { kind: 'pan', pointer: event.pointerId, x: event.clientX, y: event.clientY, view });
   };
-  /** Средняя кнопка и пробел двигают лист и поверх ручек: ручка событие пропускает. */
-  const panInstead = (event: React.PointerEvent) => event.button === 1 || (event.button === 0 && space);
+  /** Средняя кнопка, пробел и «Рука» двигают лист и поверх ручек: ручка событие пропускает. */
+  const panInstead = (event: React.PointerEvent) => event.button === 1 || (event.button === 0 && (space || tool === 'hand'));
+
+  // --- инструменты (запись 81) ---
+
+  const finishSketch = (points: readonly Point[]) => {
+    const next = outlineFromClicks(points);
+    setSketch([]);
+    setCursor(null);
+    if (!next) {
+      say('Нужно хотя бы три угла не на одной прямой — обведите заново');
+      return;
+    }
+    onEdit((current) => withOutline(current, next));
+    onTool('select');
+    say('Контур замкнут — углы можно поправить');
+  };
+  const addSketchPoint = (raw: Point, shift: boolean) => {
+    if (!view) return;
+    const at = toScreen(view, raw);
+    const near = (point: Point, radius: number) => {
+      const p = toScreen(view, point);
+      return Math.hypot(p.x - at.x, p.y - at.y) <= radius;
+    };
+    // Щелчок по первой точке или второй щелчок двойного — замкнуть.
+    if (sketch.length >= 3 && (near(sketch[0], CLOSE_RADIUS) || near(sketch[sketch.length - 1], MIN_FRAME_PX))) {
+      finishSketch(sketch);
+      return;
+    }
+    if (sketch.length > 0 && near(sketch[sketch.length - 1], MIN_FRAME_PX)) return;
+    setSketch([...sketch, clampPage(snapFrom(sketch, raw, shift))]);
+    say(null);
+  };
+  const finishFrame = () => {
+    const current = frameRef.current;
+    setFrame(null);
+    if (!current || !view) return;
+    const cut: Box = {
+      x: Math.min(current.from.x, current.to.x),
+      y: Math.min(current.from.y, current.to.y),
+      width: Math.abs(current.to.x - current.from.x),
+      height: Math.abs(current.to.y - current.from.y),
+    };
+    if (cut.width * view.scale < MIN_FRAME_PX || cut.height * view.scale < MIN_FRAME_PX) return;
+    if (current.kind === 'rect') {
+      onEdit((p) => ({ ...p, crop: clampBox(cut, page), outline: null, trimmed: false }));
+      onTool('select');
+      return;
+    }
+    const result = cutOutline(piece.outline ?? null, piece.crop, page, cut);
+    if ('problem' in result) {
+      say(result.problem);
+      return;
+    }
+    onEdit((p) => withOutline(p, result.outline));
+    say(result.dropped > 0 ? 'Вырезано, отрезанный кусок убран целиком' : 'Вырезано');
+  };
+  const findBuilding = async (at: Point) => {
+    if (searching.current) return;
+    searching.current = true;
+    say('Ищу здание…', true);
+    try {
+      // По всему листу: щёлкнули по зданию — значит, оно тут, даже если рамка его режет.
+      const found = await traceOnSheet(sheet, piece.rotation, { x: 0, y: 0, width: page.width, height: page.height }, {
+        seed: at,
+        metersPerUnit: metersPerUnitOf(sheet, Number(piece.scaleText) || undefined),
+      });
+      if (!found) {
+        say('Здание не нашлось — обведите его по точкам (P)');
+        return;
+      }
+      onEdit((current) => withOutline(current, found));
+      onTool('select');
+      say('Контур найден — проверьте углы');
+    } catch (cause) {
+      say(`Здание не нашлось: ${cause instanceof Error ? cause.message : String(cause)}`);
+    } finally {
+      searching.current = false;
+    }
+  };
+
+  const closeMenu = () => {
+    setMenu(null);
+    containerRef.current?.focus({ preventScroll: true });
+  };
+  const onContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (!view) return;
+    const target = event.target as HTMLElement;
+    const corner = target.closest<HTMLElement>('[data-corner]')?.dataset.corner;
+    const edge = target.closest<HTMLElement>('[data-edge]')?.dataset.edge;
+    const at = local(event);
+    setMenu({ ...at, at: clampPage(toPage(view, at)), corner: corner === undefined ? null : Number(corner), edge: edge === undefined ? null : Number(edge) });
+    if (corner !== undefined) setSelected(Number(corner));
+  };
+  const menuItems = (open: NonNullable<typeof menu>): MenuItem[] => {
+    const items: MenuItem[] = [];
+    if (outline && open.corner !== null) {
+      const index = open.corner;
+      items.push({ label: 'Убрать угол', key: 'Delete', disabled: outline.length <= 3 && !outline.some((p) => p.bulge), run: () => removeCorner(index) });
+    }
+    if (outline && open.edge !== null) {
+      const index = open.edge;
+      items.push({ label: 'Поставить угол посередине', run: () => onEdit((p) => (p.outline ? withOutline(p, splitOutlineEdge(p.outline, index)) : p)) });
+      if (outline[index]?.bulge) {
+        items.push({
+          label: 'Сделать ребро прямым',
+          run: () => onEdit((p) => (p.outline ? withOutline(p, p.outline.map((point, i) => (i === index ? { x: point.x, y: point.y } : point))) : p)),
+        });
+      }
+    }
+    items.push(
+      { label: 'Найти здание здесь', key: 'B', run: () => void findBuilding(open.at) },
+      { label: 'Обвести по точкам', key: 'P', run: () => onTool('polygon') },
+      { label: 'Вырезать прямоугольником', key: 'X', run: () => onTool('cut') },
+      { label: 'Показать лист целиком', key: '0', run: fit }
+    );
+    return items;
+  };
+
+  // Escape — по шагу назад; мастерская спрашивает холст первой.
+  useEffect(() => {
+    escapeRef.current = () => {
+      if (menu) closeMenu();
+      else if (sketch.length > 0) {
+        setSketch([]);
+        setCursor(null);
+      } else if (frameRef.current) {
+        drag.current = null;
+        setFrame(null);
+      } else if (tool !== 'select') onTool('select');
+      else if (selected !== null) setSelected(null);
+      else return false;
+      return true;
+    };
+  });
+  useEffect(
+    () => () => {
+      escapeRef.current = null;
+    },
+    [escapeRef]
+  );
 
   const onPointerDown = (event: React.PointerEvent) => {
     containerRef.current?.focus({ preventScroll: true });
+    if (menu) setMenu(null);
     if (panInstead(event)) {
       event.preventDefault();
       startPan(event);
       return;
     }
     if (event.button !== 0 || !view) return;
+    if (tool !== 'select') {
+      event.preventDefault();
+      const at = clampPage(toPage(view, local(event)));
+      if (tool === 'polygon') addSketchPoint(at, event.shiftKey);
+      else if (tool === 'building') void findBuilding(at);
+      else if (tool === 'rect' || tool === 'cut') {
+        setFrame({ kind: tool, from: at, to: at });
+        capture(event, { kind: 'frame', pointer: event.pointerId });
+      }
+      return;
+    }
     // «+» на линии: новый угол — и сразу его тянут, как в графических редакторах.
     if (outline && addHint) {
       event.preventDefault();
@@ -288,6 +510,11 @@ export const SheetCanvas: React.FC<{
         return;
       }
       if (!view) return;
+      if (current.kind === 'frame') {
+        const to = clampPage(toPage(view, local(event)));
+        if (frameRef.current) setFrame({ ...frameRef.current, to });
+        return;
+      }
       if (current.kind === 'crop') {
         const dx = (event.clientX - current.x) / view.scale;
         const dy = (event.clientY - current.y) / view.scale;
@@ -314,11 +541,19 @@ export const SheetCanvas: React.FC<{
       });
       return;
     }
-    if (outline && view && !space) setAddHint(nearestEdgePoint(outline, view, local(event), ADD_RADIUS, CORNER_GAP));
+    if (!view) return;
+    if (tool === 'polygon') {
+      if (sketch.length > 0) setCursor(clampPage(snapFrom(sketch, toPage(view, local(event)), event.shiftKey)));
+      return;
+    }
+    if (tool === 'select' && outline && !space) setAddHint(nearestEdgePoint(outline, view, local(event), ADD_RADIUS, CORNER_GAP));
   };
 
   const onPointerEnd = (event: React.PointerEvent) => {
-    if (drag.current?.pointer === event.pointerId) drag.current = null;
+    const current = drag.current;
+    if (current?.pointer !== event.pointerId) return;
+    drag.current = null;
+    if (current.kind === 'frame') finishFrame();
   };
 
   const startHandle = (event: React.PointerEvent, next: Drag) => {
@@ -398,6 +633,14 @@ export const SheetCanvas: React.FC<{
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+    // Начатая обводка: Enter замыкает, Backspace убирает последнюю точку — а не лист и не угол.
+    if (tool === 'polygon' && sketch.length > 0 && (event.key === 'Enter' || event.key === 'Backspace' || event.key === 'Delete')) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === 'Enter') finishSketch(sketch);
+      else setSketch(sketch.slice(0, -1));
+      return;
+    }
     if (event.key === '+' || event.key === '=') {
       event.preventDefault();
       zoomBy(ZOOM_STEP);
@@ -422,18 +665,25 @@ export const SheetCanvas: React.FC<{
     }
   };
 
-  const hint = outline
+  const selectHint = outline
     ? 'Тяните угол · наведите на линию — «+», щелчок ставит угол · Delete — убрать выбранный угол · колесо — масштаб · пробел или средняя кнопка — двигать лист · Ctrl+Z — отменить'
     : 'Тяните края и углы рамки, внутри — двигать её · колесо — масштаб · пробел или средняя кнопка — двигать лист · Ctrl+Z — отменить';
+  const hint = notice ?? (tool === 'select' ? selectHint : TOOL_HINTS[tool]);
+  const firstOnScreen = view && sketch.length > 0 ? toScreen(view, sketch[0]) : null;
+  const cursorOnScreen = view && cursor ? toScreen(view, cursor) : null;
+  const closing =
+    sketch.length >= 3 && firstOnScreen !== null && cursorOnScreen !== null && Math.hypot(firstOnScreen.x - cursorOnScreen.x, firstOnScreen.y - cursorOnScreen.y) <= CLOSE_RADIUS;
   const percent = view ? Math.round((view.scale / fitScale) * 100) : 100;
   const shownBase = base?.key === baseKey ? base : null;
   const shownDetail = view && detail?.key === baseKey && view.scale > baseScale * DETAIL_FROM ? detail : null;
 
   return (
     <div className="editor-workshop__center">
+      <div className="editor-workshop__stage">
+      <ToolPalette tool={tool} onTool={onTool} />
       <div
         ref={containerRef}
-        className={`editor-workshop__canvas${space ? ' editor-workshop__canvas--pan' : ''}${addHint ? ' editor-workshop__canvas--add' : ''}`}
+        className={`editor-workshop__canvas editor-workshop__canvas--tool-${tool}${space ? ' editor-workshop__canvas--pan' : ''}${addHint ? ' editor-workshop__canvas--add' : ''}`}
         tabIndex={0}
         data-autofocus
         role="application"
@@ -445,7 +695,7 @@ export const SheetCanvas: React.FC<{
         onPointerCancel={onPointerEnd}
         onPointerLeave={() => setAddHint(null)}
         onKeyDown={onKeyDown}
-        onContextMenu={(event) => event.preventDefault()}
+        onContextMenu={onContextMenu}
       >
         {view && shownBase?.canvas && (
           <CanvasHost
@@ -497,9 +747,13 @@ export const SheetCanvas: React.FC<{
             onHandleKey={onCropKey}
           />
         )}
+        {view && area && tool === 'polygon' && sketch.length > 0 && <SketchOverlay points={sketch} cursor={cursor} closing={closing} view={view} area={area} />}
+        {view && frame && <FrameOverlay kind={frame.kind} from={frame.from} to={frame.to} view={view} />}
+        {menu && area && <SheetMenu x={menu.x} y={menu.y} area={area} items={menuItems(menu)} onClose={closeMenu} />}
+      </div>
       </div>
       <div className="editor-workshop__bar">
-        <span className="editor-workshop__hint" title={hint}>
+        <span className={`editor-workshop__hint${notice ? ' editor-workshop__hint--notice' : ''}`} title={hint} role="status">
           {hint}
         </span>
         <div className="editor-workshop__zoom" role="group" aria-label="Масштаб листа">

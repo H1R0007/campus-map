@@ -242,6 +242,13 @@ function traceBoundary(mask: Uint8Array, width: number, height: number): Point[]
   return boundary;
 }
 
+/**
+ * Доля самой большой пустоты, при которой кусок — рамка листа, а не здание:
+ * у рамки это поле бумаги вокруг чертежа (половина и больше), у здания — самая
+ * большая комната.
+ */
+const FRAME_HOLLOW = 0.35;
+
 /** Картинка без полосы у краёв шириной `margin` — там обычно рамка листа. */
 function withoutMargin(src: Pixels, margin: number): Pixels {
   const data = new Uint8ClampedArray(src.data);
@@ -262,19 +269,28 @@ function withoutMargin(src: Pixels, margin: number): Pixels {
  * Рамка листа замыкает всё внутри себя, и силуэтом оказывался бы весь лист;
  * тогда полоса у краёв стирается, и поиск повторяется.
  *
+ * @param options.seed точка, у которой здание («здание здесь», запись 81),
+ *   пиксели картинки; без неё — самый большой кусок
+ * @param options.gap ширина щели, которую закрыть, пиксели (запись 81: по
+ *   масштабу чертежа); без неё — от размера картинки
  * @returns вершины в пикселях картинки или `null`, если здания не нашлось
  */
-export function traceBuildingOutline(src: Pixels, maxPoints = 48): OutlinePoint[] | null {
+export function traceBuildingOutline(
+  src: Pixels,
+  { maxPoints = 48, seed, gap }: { maxPoints?: number; seed?: Point; gap?: number } = {}
+): OutlinePoint[] | null {
   const area = src.width * src.height;
   let mask: Uint8Array | null = null;
   for (const share of [0, 0.02, 0.04, 0.07, 0.1]) {
     const margin = Math.round(Math.min(src.width, src.height) * share);
-    const candidate = silhouette(margin === 0 ? src : withoutMargin(src, margin));
+    const stats = { hollow: 0 };
+    const candidate = silhouette(margin === 0 ? src : withoutMargin(src, margin), gap, seed, stats);
     let filled = 0;
     for (let p = 0; p < candidate.length; p += 1) filled += candidate[p];
     if (filled === 0) continue;
     mask = candidate;
-    if (filled < area * 0.85) break;
+    // Рамка листа: кусок почти во весь лист или с полем бумаги внутри (запись 81).
+    if (filled < area * 0.85 && stats.hollow < FRAME_HOLLOW) break;
   }
   if (!mask) return null;
   const boundary = traceBoundary(mask, src.width, src.height);

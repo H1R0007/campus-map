@@ -4,7 +4,9 @@
 
 Значки видов мест (затравка каталога в `packages/core/src/placeKinds.ts`,
 значки в `data/place-kinds.json` и библиотека значков в окне «Все виды»
-редактора) взяты из набора Tabler Icons: <https://tabler.io/icons>.
+редактора), а также значки инструментов мастерской листов редактора
+(`apps/editor/src/components/UI/Icon.tsx`) взяты из набора Tabler Icons:
+<https://tabler.io/icons>.
 
 ```
 MIT License
