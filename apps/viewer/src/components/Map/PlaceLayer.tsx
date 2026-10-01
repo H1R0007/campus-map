@@ -20,6 +20,26 @@ const TAP_RADIUS = 28;
 const SELECTION_MARGIN = 24;
 
 /**
+ * Корпус, чьё видимое название под точкой экрана, или `null`.
+ *
+ * Название на общем виде бывает шире крыши (запись 76), а нажатия оно не
+ * ловит — иначе мешало бы двигать карту. Поэтому нажатие по карте проверяет,
+ * не пришлось ли оно на название: человек нажимает туда, где написано
+ * «Корпус Б», а не обязательно в контур под буквами.
+ */
+function labelledBuildingAt(container: HTMLElement, clientX: number, clientY: number): string | null {
+  for (const label of container.querySelectorAll<HTMLElement>('.campus-roof-label')) {
+    if (Number(label.style.opacity || 0) <= 0) continue;
+    const text = label.firstElementChild as HTMLElement | null;
+    const rect = text?.getBoundingClientRect();
+    if (text && rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+      return text.dataset.building ?? null;
+    }
+  }
+  return null;
+}
+
+/**
  * Помещения на плане и выбор места нажатием.
  *
  * Карта принимает ввод: нажатие рядом с помещением открывает его карточку
@@ -69,12 +89,15 @@ export const PlaceLayer: React.FC = () => {
         TAP_RADIUS
       );
 
-      // Нажатие на крышу корпуса ведёт в корпус: его помещений на карте ещё
-      // нет, выбирать нечего.
+      // Нажатие на крышу корпуса или на его название ведёт в корпус: его
+      // помещений на карте ещё нет, выбирать нечего.
       if (!picked && layout !== null && view.kind === 'canvas') {
         const point = { x: event.latlng.lng, y: event.latlng.lat };
+        const { clientX, clientY } = event.originalEvent;
+        const labelled = labelledBuildingAt(map.getContainer(), clientX, clientY);
         const roof = layout.buildings.find(
-          (building) => !view.revealed.has(building.id) && containsPoint(building.footprint, point)
+          (building) =>
+            !view.revealed.has(building.id) && (building.id === labelled || containsPoint(building.footprint, point))
         );
         if (roof) {
           const { buildingFloors, buildingMetas, setActiveFloor, requestView } = useMapStore.getState();

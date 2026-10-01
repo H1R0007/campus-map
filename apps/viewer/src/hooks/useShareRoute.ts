@@ -6,32 +6,40 @@ import { browserShareEnvironment, shareLink } from '../utils/shareLink';
 /** Сколько видно подтверждение «Ссылка скопирована», мс. */
 const LINK_COPIED_MS = 2500;
 
+/** Чем делятся: маршрутом или местом — от этого подпись поля в окне ручного копирования. */
+export type ShareKind = 'route' | 'place';
+
 export interface ShareRoute {
-  /** Поделиться адресом: системным окном, копированием или окном ручного копирования. */
+  /** Поделиться адресом маршрута: системным окном, копированием или окном ручного копирования. */
   share: () => void;
+  /** Поделиться местом: ссылкой на его карточку (`?to=`), а не текущим адресом. */
+  sharePlace: (url: string, name: string) => void;
   copied: boolean;
   /** Ссылка, которую не удалось скопировать; `null` — окно ручного копирования закрыто. */
-  manualLink: string | null;
+  manual: { url: string; kind: ShareKind } | null;
   closeManual: () => void;
   /** Кнопка «Поделиться»: на неё возвращается фокус после окна ручного копирования. */
   buttonRef: RefObject<HTMLButtonElement>;
 }
 
 /**
- * «Поделиться маршрутом» и его обратная связь.
+ * «Поделиться» маршрутом или местом и его обратная связь.
  *
- * Кнопка стоит в обзоре маршрута, а подтверждение и окно ручного копирования —
- * в корне панели: они должны пережить смену её содержимого. Поэтому состояние
- * живёт здесь, в хуке панели, и передаётся обзору.
+ * Кнопки стоят в обзоре маршрута и в карточке места, а подтверждение и окно
+ * ручного копирования — в корне панели: они должны пережить смену её
+ * содержимого. Поэтому состояние живёт здесь, в хуке панели, и передаётся
+ * содержимому.
  *
  * Адрес уже описывает маршрут: его концы в адресной строке держит
- * `useRouteLink`, и получатель ссылки увидит тот же маршрут.
+ * `useRouteLink`, и получатель ссылки увидит тот же маршрут. Место в адресе не
+ * записано — выбор места не меняет адрес, — и ссылку на него собирает карточка:
+ * получатель увидит карточку и построит маршрут от себя.
  */
 export function useShareRoute(): ShareRoute {
   const messages = useMessages();
   // Время копирования, а не флаг: повторное копирование заново заводит таймер.
   const [copiedAt, setCopiedAt] = useState<number | null>(null);
-  const [manualLink, setManualLink] = useState<string | null>(null);
+  const [manual, setManual] = useState<{ url: string; kind: ShareKind } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Подтверждение гаснет само: действие уже выполнено, закрывать нечего.
@@ -41,18 +49,20 @@ export function useShareRoute(): ShareRoute {
     return () => clearTimeout(timer);
   }, [copiedAt]);
 
-  const share = () => {
-    const url = window.location.href;
-    void shareLink(url, messages.route.title, browserShareEnvironment()).then((outcome) => {
+  const run = (url: string, title: string, kind: ShareKind) => {
+    void shareLink(url, title, browserShareEnvironment()).then((outcome) => {
       if (outcome === 'copied') setCopiedAt(Date.now());
-      if (outcome === 'manual') setManualLink(url);
+      if (outcome === 'manual') setManual({ url, kind });
     });
   };
 
+  const share = () => run(window.location.href, messages.route.title, 'route');
+  const sharePlace = (url: string, name: string) => run(url, name, 'place');
+
   const closeManual = () => {
-    setManualLink(null);
+    setManual(null);
     buttonRef.current?.focus();
   };
 
-  return { share, copied: copiedAt !== null, manualLink, closeManual, buttonRef };
+  return { share, sharePlace, copied: copiedAt !== null, manual, closeManual, buttonRef };
 }

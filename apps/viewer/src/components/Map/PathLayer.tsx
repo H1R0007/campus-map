@@ -7,6 +7,7 @@ import { useMapView } from '../../hooks/useMapView';
 import { useRouteSteps } from '../../hooks/useStepNavigation';
 import { useRouteStore } from '../../stores/routeStore';
 import { useMapStore } from '../../stores/mapStore';
+import { focusSpan } from '../../utils/canvasReveal';
 import { focusBounds, routePoints, routeRuns, stepFocusPoints } from '../../utils/routeGeometry';
 import type { LatLngTuple, RouteRuns } from '../../utils/routeGeometry';
 import { fitSoon, isCameraBusy } from './mapCamera';
@@ -55,7 +56,10 @@ const ROUTE_MARGIN = 32;
  */
 const MIN_FOCUS_SHARE = 0.4;
 
-/** То же на холсте, метры: кусок этажа с соседними помещениями. */
+/**
+ * То же на холсте, метры: кусок этажа с соседними помещениями. На большом
+ * экране — больше (`focusSpan`): шаг виден вместе с этажом вокруг.
+ */
 const MIN_FOCUS_METERS = 28;
 
 /**
@@ -129,7 +133,14 @@ export const PathLayer: React.FC = () => {
   const fitFocus = useCallback(
     (points: readonly LatLngTuple[], edges: MapInsets) => {
       const planSpan = Math.max(planBounds.getEast() - planBounds.getWest(), planBounds.getSouth() - planBounds.getNorth());
-      const minSpan = onCanvas ? MIN_FOCUS_METERS : planSpan * MIN_FOCUS_SHARE;
+      const size = map.getSize();
+      const minSpan = onCanvas
+        ? focusSpan(
+            MIN_FOCUS_METERS,
+            size.x - edges.left - edges.right - 2 * ROUTE_MARGIN,
+            size.y - edges.top - edges.bottom - 2 * ROUTE_MARGIN
+          )
+        : planSpan * MIN_FOCUS_SHARE;
       const bounds = L.latLngBounds(focusBounds(points, minSpan));
       fitSoon(map, bounds, { ...fitPaddingOf(edges, ROUTE_MARGIN), maxZoom: map.getMaxZoom() }, () => {
         autoView.current = { center: map.getCenter(), zoom: map.getZoom() };

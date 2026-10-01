@@ -1,39 +1,51 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { floorLabel } from '@campus-map/core';
 import { useEditorStore } from '../../stores/editorStore';
-import { nextBuildingName } from '../../stores/editor/structureSlice';
 import type { ImportFloor } from '../../stores/editor/structureSlice';
 import type { PlanInput } from '../../stores/editor/structureSlice';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { guessPlace } from '../../import/guess';
-import { outlineBox, outlineOfBox, traceBuildingOutline } from '../../import/outline';
-import type { OutlinePoint } from '../../import/outline';
-import { checkPieces, floorFromText, importSummary, initialPiece, pieceId, rotatePiece } from '../../import/importModel';
-import type { BuildingChoice, Piece, PieceTarget } from '../../import/importModel';
-import { makePlan, metersPerUnitOf, previewPlan } from '../../import/output';
+import { checkPieces, floorFromText, importSummary, initialPiece, pieceId } from '../../import/importModel';
+import type { Piece, PieceCheck, PieceTarget } from '../../import/importModel';
+import { makePlan } from '../../import/output';
 import { rotatedPage } from '../../import/planGeometry';
+import { emptyHistory, record, redo, undo } from '../../import/pieceHistory';
+import type { History } from '../../import/pieceHistory';
 import { IMPORT_ACCEPT, displayName, readImportFiles } from '../../import/readers';
 import type { ImportSheet, ReadProblem } from '../../import/readers';
 import { clampBox, contentBox, scaleBox } from '../../import/trim';
 import { plural } from '../../utils/labels';
 import { digestOf } from '../../utils/planFiles';
-import { CropEditor } from './CropEditor';
+import { PieceProperties } from './PieceProperties';
+import { SheetCanvas } from './SheetCanvas';
+import type { SheetPictures } from './SheetCanvas';
 import { Icon } from './Icon';
 import { DialogLayer } from './DialogLayer';
 
 /**
- * Окно «Планы из файлов» (запись 48).
+ * Мастерская листов (записи 48 и 80) — планы из файлов, во весь экран.
  *
  * Файлы бросают на редактор или выбирают кнопкой. Каждый лист получает
  * догадку — корпус, этаж, территория или «не план» — и откуда она взята;
- * поля обрезаются сами. Человек проверяет догадку, поправляет область и
- * поворот и добавляет всё разом — одной правкой, которую отменяет Ctrl+Z.
+ * поля обрезаются сами. Слева — листы с отметками, посередине — лист, который
+ * приближают и двигают, как карту, справа — его свойства. Enter — лист
+ * готов, дальше следующий, где нужен взгляд. Ctrl+Z отменяет правку листа.
+ * В карту всё попадает разом — одной правкой, которую отменяет Ctrl+Z
+ * редактора.
  */
 
 /** Длинная сторона миниатюры: по ней же ищутся поля листа. */
 const THUMB_SIDE = 640;
-/** Длинная сторона листа в окне правки области. */
-const PREVIEW_SIDE = 1400;
+
+const NO_CHECK: PieceCheck = { problem: null, note: null };
+
+type Mark = 'done' | 'problem' | 'skip' | 'todo';
+const MARKS: Record<Mark, { icon: 'checkCircle' | 'warning' | 'ban' | 'dot'; text: string }> = {
+  done: { icon: 'checkCircle', text: 'Проверен' },
+  problem: { icon: 'warning', text: 'Нужно решить' },
+  skip: { icon: 'ban', text: 'Пропускается' },
+  todo: { icon: 'dot', text: 'Ещё не проверен' },
+};
 
 export const ImportDialog: React.FC = () => {
   const request = useEditorStore((s) => s.importRequest);
@@ -51,24 +63,51 @@ const ImportWindow: React.FC = () => {
   const planFiles = useEditorStore((s) => s.planFiles);
 
   const [sheets, setSheets] = useState<ImportSheet[]>([]);
-  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [pieces, setPiecesState] = useState<Piece[]>([]);
+  /** Листы — и в ссылке: правки по ходу перетаскивания читают самое свежее. */
+  const piecesRef = useRef<Piece[]>([]);
+  const setPieces = (change: (list: Piece[]) => Piece[]) => {
+    piecesRef.current = change(piecesRef.current);
+    setPiecesState(piecesRef.current);
+  };
   const [problems, setProblems] = useState<ReadProblem[]>([]);
   const [reading, setReading] = useState<string | null>(null);
   const [thumbs, setThumbs] = useState<Map<string, string>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [corner, setCorner] = useState<number | null>(null);
+  const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  /** История правок — у каждого листа своя: Ctrl+Z отменяет правку того листа, что открыт. */
+  const [histories, setHistories] = useState<ReadonlyMap<string, History<Piece>>>(new Map());
+  /** Состояние листа в начале перетаскивания: в историю — только если лист изменился. */
+  const gesture = useRef<{ id: string; before: Piece } | null>(null);
   /** Куски, область которых человек трогал: автообрезка их больше не меняет. */
   const touched = useRef(new Set<string>());
+  const pictures = useRef<SheetPictures>(new Map()).current;
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
+
+  const dirty = confirmed.size > 0 || [...histories.values()].some((history) => history.past.length > 0);
+  // Escape — по одному шагу назад: снять выбор угла, закрыть вопрос, затем
+  // спросить, бросать ли сделанное, и только потом закрыть.
   const close = () => {
-    if (!busy) closeImport();
+    if (busy) return;
+    if (corner !== null) setCorner(null);
+    else if (asking) setAsking(false);
+    else if (dirty) setAsking(true);
+    else closeImport();
   };
   useDialogFocus(true, dialogRef, close);
+  useEffect(() => {
+    if (asking) backRef.current?.focus();
+  }, [asking]);
 
-  // Новые файлы — в конец списка: бросить ещё файл в открытое окно можно.
+  // Новые файлы — в конец списка: бросить ещё файл в открытую мастерскую можно.
   useEffect(() => {
     if (request.files.length === 0) return;
     let cancelled = false;
@@ -76,14 +115,14 @@ const ImportWindow: React.FC = () => {
       const read = await readImportFiles(request.files, (name) => !cancelled && setReading(name));
       if (cancelled) return;
       const metas = useEditorStore.getState().buildingMetas;
-      const redo = request.preset.redo;
+      const redoPlan = request.preset.redo;
       const added = await Promise.all(
         read.sheets.map(async (sheet): Promise<Piece> => {
           const scaleText = sheet.drawingScale ? String(sheet.drawingScale.ratio) : '';
-          if (!redo) return { ...initialPiece(sheet.id, guessPlace(sheet.clues), metas, request.preset), scaleText };
+          if (!redoPlan) return { ...initialPiece(sheet.id, guessPlace(sheet.clues), metas, request.preset), scaleText };
           // Переделка плана: тот лист того же файла — с прежними рамкой и
           // поворотом, остальные листы пропускаются.
-          const same = (await digestOf(sheet.blob)).sha256.startsWith(redo.file.split('.')[0]) && sheet.page === redo.page;
+          const same = (await digestOf(sheet.blob)).sha256.startsWith(redoPlan.file.split('.')[0]) && sheet.page === redoPlan.page;
           const id = pieceId();
           if (!same) return { id, sheetId: sheet.id, rotation: 0, crop: null, trimmed: false, target: { kind: 'skip' }, notes: ['Другой лист — план этажа не с него'] };
           touched.current.add(id);
@@ -94,9 +133,9 @@ const ImportWindow: React.FC = () => {
           return {
             id,
             sheetId: sheet.id,
-            rotation: redo.rotation,
-            crop: redo.crop,
-            outline: redo.outline ?? null,
+            rotation: redoPlan.rotation,
+            crop: redoPlan.crop,
+            outline: redoPlan.outline ?? null,
             trimmed: false,
             target,
             notes: ['Тот же лист, что у плана сейчас: поправьте рамку или поворот'],
@@ -112,7 +151,7 @@ const ImportWindow: React.FC = () => {
       setSelectedId((previous) => previous ?? (added.find((piece) => piece.target.kind !== 'skip') ?? added[0])?.id ?? null);
       setReading(null);
 
-      // Миниатюры и поля — по одному листу, чтобы окно оставалось живым.
+      // Миниатюры и поля — по одному листу, чтобы мастерская оставалась живой.
       for (const sheet of read.sheets) {
         if (cancelled) return;
         try {
@@ -147,14 +186,116 @@ const ImportWindow: React.FC = () => {
 
   const checks = useMemo(() => checkPieces(pieces, buildingMetas, planFiles), [pieces, buildingMetas, planFiles]);
   const selected = pieces.find((piece) => piece.id === selectedId) ?? null;
-  const selectedSheet = selected ? sheets.find((sheet) => sheet.id === selected.sheetId) ?? null : null;
+  const selectedSheet = selected ? (sheets.find((sheet) => sheet.id === selected.sheetId) ?? null) : null;
+  // Размер листа — один объект, пока лист и поворот те же: холст по нему вписывает лист.
+  const rotation = selected?.rotation;
+  const page = useMemo(
+    () => (selectedSheet && rotation !== undefined ? rotatedPage(selectedSheet.size, rotation).size : null),
+    [selectedSheet, rotation]
+  );
   const unresolved = pieces.filter((piece) => checks.get(piece.id)?.problem).length;
   const toAdd = pieces.filter((piece) => piece.target.kind !== 'skip');
+  const checked = toAdd.filter((piece) => confirmed.has(piece.id)).length;
+  const history = selected ? (histories.get(selected.id) ?? emptyHistory<Piece>()) : emptyHistory<Piece>();
 
-  const update = (id: string, change: (piece: Piece) => Piece) => {
-    setPieces((previous) => previous.map((piece) => (piece.id === id ? change(piece) : piece)));
+  const markOf = (piece: Piece): Mark =>
+    checks.get(piece.id)?.problem ? 'problem' : piece.target.kind === 'skip' ? 'skip' : confirmed.has(piece.id) ? 'done' : 'todo';
+
+  // --- правки и их история ---
+
+  const pieceOf = (id: string) => piecesRef.current.find((piece) => piece.id === id) ?? null;
+  const writeHistory = (id: string, change: (history: History<Piece>) => History<Piece>) =>
+    setHistories((previous) => new Map(previous).set(id, change(previous.get(id) ?? emptyHistory<Piece>())));
+  const replace = (next: Piece) => {
+    // Рамку, контур или поворот поправил человек — автообрезка их больше не трогает.
+    const before = pieceOf(next.id);
+    if (before && (before.crop !== next.crop || before.outline !== next.outline || before.rotation !== next.rotation)) touched.current.add(next.id);
+    setPieces((previous) => previous.map((piece) => (piece.id === next.id ? next : piece)));
     setError(null);
   };
+  /** Правка одним действием; подряд с одним ключом — одна запись истории. */
+  const edit = (id: string, change: (piece: Piece) => Piece, key: string | null = null) => {
+    const before = pieceOf(id);
+    if (!before) return;
+    const after = change(before);
+    if (after === before) return;
+    gesture.current = null;
+    writeHistory(id, (h) => record(h, before, key));
+    replace(after);
+  };
+  const startGesture = (id: string) => {
+    const before = pieceOf(id);
+    gesture.current = before && { id, before };
+  };
+  /** Перетаскивание: первая перемена пишет в историю состояние до него, остальные — нет. */
+  const drag = (id: string, change: (piece: Piece) => Piece) => {
+    const before = pieceOf(id);
+    if (!before) return;
+    const after = change(before);
+    if (after === before) return;
+    const started = gesture.current;
+    if (started?.id === id) {
+      writeHistory(id, (h) => record(h, started.before));
+      gesture.current = null;
+    }
+    replace(after);
+  };
+  const step = (kind: 'undo' | 'redo') => {
+    if (!selected) return;
+    const result = (kind === 'undo' ? undo : redo)(histories.get(selected.id) ?? emptyHistory<Piece>(), selected);
+    if (!result) return;
+    setHistories((previous) => new Map(previous).set(selected.id, result.history));
+    replace(result.value);
+    setCorner(null);
+  };
+
+  // --- листы ---
+
+  const select = (id: string | null) => {
+    setSelectedId(id);
+    setCorner(null);
+  };
+  const neighbour = (offset: 1 | -1) => {
+    if (pieces.length === 0) return;
+    const index = pieces.findIndex((piece) => piece.id === selectedId);
+    const next = pieces[Math.min(pieces.length - 1, Math.max(0, index + offset))];
+    if (next) select(next.id);
+  };
+  /** Лист готов: отметить и открыть следующий, где нужен взгляд; таких нет — к кнопке «Добавить». */
+  const confirmAndNext = () => {
+    if (!selected || checks.get(selected.id)?.problem) return;
+    const done = new Set(confirmed).add(selected.id);
+    setConfirmed(done);
+    const index = pieces.indexOf(selected);
+    const order = [...pieces.slice(index + 1), ...pieces.slice(0, index)];
+    // По порядку списка, а не прыжками по документу: с ошибкой или ещё не проверенный.
+    const next = order.find((piece) => checks.get(piece.id)?.problem || (piece.target.kind !== 'skip' && !done.has(piece.id)));
+    if (next) select(next.id);
+    else addRef.current?.focus();
+  };
+  const split = () => {
+    if (!selected) return;
+    const copy: Piece = {
+      ...selected,
+      id: pieceId(),
+      target: selected.target.kind === 'floor' ? { ...selected.target, floorText: '' } : selected.target,
+      notes: ['Ещё одна область того же листа — выберите её и укажите этаж'],
+      redo: false,
+    };
+    touched.current.add(copy.id);
+    setPieces((previous) => {
+      const index = previous.findIndex((piece) => piece.id === selected.id);
+      return [...previous.slice(0, index + 1), copy, ...previous.slice(index + 1)];
+    });
+    select(copy.id);
+  };
+  const remove =
+    selected && pieces.filter((piece) => piece.sheetId === selected.sheetId).length > 1
+      ? () => {
+          setPieces((previous) => previous.filter((piece) => piece.id !== selected.id));
+          select(pieces.find((piece) => piece.sheetId === selected.sheetId && piece.id !== selected.id)?.id ?? null);
+        }
+      : undefined;
 
   const addFiles = (files: FileList | null) => {
     if (files && files.length > 0) openImport([...files], request.preset);
@@ -198,170 +339,249 @@ const ImportWindow: React.FC = () => {
     }
   };
 
+  // Клавиши мастерской. Поля ввода — свои: Ctrl+Z в поле отменяет набор в нём.
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (asking || busy) return;
+    const target = event.target as HTMLElement;
+    const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+    const ctrl = event.ctrlKey || event.metaKey;
+    if (ctrl && !event.altKey && !typing && (event.code === 'KeyZ' || event.code === 'KeyY')) {
+      event.preventDefault();
+      step(event.code === 'KeyY' || event.shiftKey ? 'redo' : 'undo');
+    } else if (event.key === 'PageDown' || event.key === 'PageUp') {
+      event.preventDefault();
+      neighbour(event.key === 'PageDown' ? 1 : -1);
+    } else if (
+      event.key === 'Enter' &&
+      !ctrl &&
+      (target.classList.contains('editor-workshop__canvas') || (target.tagName === 'INPUT' && (target as HTMLInputElement).type !== 'file'))
+    ) {
+      event.preventDefault();
+      confirmAndNext();
+    }
+  };
+
   const empty = sheets.length === 0 && !reading;
+  const status =
+    busy ??
+    error ??
+    (unresolved > 0
+      ? `Осталось решить: ${unresolved} ${plural(unresolved, ['лист', 'листа', 'листов'])}`
+      : pieces.length > toAdd.length
+        ? `Пропущено: ${pieces.length - toAdd.length} ${plural(pieces.length - toAdd.length, ['лист', 'листа', 'листов'])}`
+        : toAdd.length > 0 && checked === toAdd.length
+          ? 'Все листы проверены — можно добавлять'
+          : '');
 
   return (
     <DialogLayer>
-      <div className="editor-dialog-backdrop" onClick={close}>
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="import-title"
-          className="editor-dialog editor-dialog--import"
-          onClick={(e) => e.stopPropagation()}
-          onDragOver={(e) => {
-            if (e.dataTransfer.types.includes('Files')) e.preventDefault();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            addFiles(e.dataTransfer.files);
-          }}
-        >
-          <div className="editor-help__head">
-            <h2 id="import-title" className="editor-dialog__title">
-              Загрузка планов
-            </h2>
-            <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть окно планов">
-              <Icon name="close" />
-            </button>
-          </div>
-
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            accept={IMPORT_ACCEPT}
-            className="sr-only"
-            data-import-files
-            tabIndex={-1}
-            onChange={(e) => {
-              addFiles(e.target.files);
-              e.target.value = '';
-            }}
-          />
-
-          {empty ? (
-            <div className="editor-import__empty">
-              <Icon name="upload" size={32} />
-              <p>Перетащите сюда планы: PDF, сканы и картинки, чертежи DXF, архивы ZIP — сколько угодно разом.</p>
-              <p className="editor-section__hint">
-                Корпус и этаж редактор угадает по тексту на листе и имени файла и покажет, откуда догадка. Лишние поля
-                листа обрежутся сами.
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-title"
+        className="editor-dialog editor-dialog--import editor-workshop"
+        onKeyDown={onKeyDown}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          addFiles(e.dataTransfer.files);
+        }}
+      >
+        {asking && (
+          <div className="editor-workshop__ask" role="alertdialog" aria-modal="true" aria-labelledby="workshop-ask-title" aria-describedby="workshop-ask-text">
+            <div className="editor-dialog">
+              <h3 id="workshop-ask-title" className="editor-dialog__title">
+                Закрыть мастерскую?
+              </h3>
+              <p id="workshop-ask-text" className="editor-dialog__text">
+                Правки листов пропадут: в карту попадает только то, что добавлено кнопкой «Добавить».
               </p>
-              <button type="button" className="editor-button editor-button--primary" onClick={() => fileRef.current?.click()}>
-                <Icon name="upload" />
-                Выбрать файлы
-              </button>
-            </div>
-          ) : (
-            <div className="editor-import">
-              <div className="editor-import__list">
-                <ul aria-label="Листы">
-                  {pieces.map((piece) => {
-                    const sheet = sheets.find((item) => item.id === piece.sheetId)!;
-                    const check = checks.get(piece.id);
-                    return (
-                      <li key={piece.id}>
-                        <button
-                          type="button"
-                          className="editor-import__item"
-                          aria-current={piece.id === selectedId ? 'true' : undefined}
-                          onClick={() => setSelectedId(piece.id)}
-                        >
-                          <span className="editor-import__thumb">
-                            {thumbs.get(sheet.id) && (
-                              <img src={thumbs.get(sheet.id)} alt="" style={{ transform: `rotate(${piece.rotation}deg)` }} />
-                            )}
-                          </span>
-                          <span className="editor-import__caption">
-                            <span className="editor-import__name">{displayName(sheet)}</span>
-                            <span className="editor-import__target">{targetText(piece.target, buildingMetas)}</span>
-                            {check?.problem && <span className="editor-import__target editor-import__target--problem">{check.problem}</span>}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {reading && <p className="editor-section__hint" role="status">Чтение «{reading}»…</p>}
-                {problems.map((problem) => (
-                  <p key={problem.name} className="editor-section__hint editor-section__hint--problem">
-                    «{problem.name}»: {problem.problem}
-                  </p>
-                ))}
-                <button type="button" className="editor-button editor-button--ghost editor-button--block" onClick={() => fileRef.current?.click()}>
-                  <Icon name="plus" />
-                  Ещё файлы…
+              <div className="editor-dialog__actions">
+                <button ref={backRef} type="button" className="editor-button editor-button--primary" onClick={() => setAsking(false)}>
+                  Вернуться к листам
+                </button>
+                <button type="button" className="editor-button editor-button--ghost" onClick={closeImport}>
+                  Закрыть без добавления
                 </button>
               </div>
-
-              <div className="editor-import__detail">
-                {selected && selectedSheet ? (
-                  <PieceEditor
-                    key={selected.id}
-                    piece={selected}
-                    sheet={selectedSheet}
-                    pieces={pieces}
-                    check={checks.get(selected.id) ?? { problem: null, note: null }}
-                    onChange={(change) => {
-                      update(selected.id, change);
-                    }}
-                    onTouchCrop={() => touched.current.add(selected.id)}
-                    onSplit={() => {
-                      const copy: Piece = {
-                        ...selected,
-                        id: pieceId(),
-                        target: selected.target.kind === 'floor' ? { ...selected.target, floorText: '' } : selected.target,
-                        notes: ['Ещё одна область того же листа — выберите её и укажите этаж'],
-                        redo: false,
-                      };
-                      touched.current.add(copy.id);
-                      setPieces((previous) => {
-                        const index = previous.findIndex((piece) => piece.id === selected.id);
-                        return [...previous.slice(0, index + 1), copy, ...previous.slice(index + 1)];
-                      });
-                      setSelectedId(copy.id);
-                    }}
-                    onRemove={
-                      pieces.filter((piece) => piece.sheetId === selected.sheetId).length > 1
-                        ? () => {
-                            setPieces((previous) => previous.filter((piece) => piece.id !== selected.id));
-                            setSelectedId(pieces.find((piece) => piece.sheetId === selected.sheetId && piece.id !== selected.id)?.id ?? null);
-                          }
-                        : undefined
-                    }
-                  />
-                ) : (
-                  <p className="editor-section__hint">{reading ? 'Чтение файлов…' : 'Выберите лист слева.'}</p>
-                )}
-              </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <div className="editor-dialog__actions editor-import__actions">
-            <p className="editor-import__status" role="status">
-              {busy ??
-                error ??
-                (unresolved > 0
-                  ? `Осталось решить: ${unresolved} ${plural(unresolved, ['лист', 'листа', 'листов'])}`
-                  : pieces.length > toAdd.length
-                    ? `Пропущено: ${pieces.length - toAdd.length} ${plural(pieces.length - toAdd.length, ['лист', 'листа', 'листов'])}`
-                    : '')}
-            </p>
-            <button type="button" className="editor-button editor-button--ghost" onClick={close} disabled={busy !== null}>
-              Отмена
+        <header className="editor-workshop__head">
+          <Icon name="layers" />
+          <h2 id="import-title" className="editor-dialog__title">
+            Мастерская листов
+          </h2>
+          {toAdd.length > 0 && (
+            <span className="editor-workshop__progress" aria-live="polite">
+              Проверено {checked} из {toAdd.length}
+            </span>
+          )}
+          <div className="editor-workshop__history" role="group" aria-label="Правки листа">
+            <button
+              type="button"
+              className="editor-icon-button"
+              aria-label="Отменить правку листа"
+              title="Отменить правку листа (Ctrl+Z)"
+              disabled={history.past.length === 0}
+              onClick={() => step('undo')}
+            >
+              <Icon name="undo" />
             </button>
             <button
               type="button"
-              className="editor-button editor-button--primary"
-              onClick={() => void run()}
-              disabled={busy !== null || reading !== null || toAdd.length === 0 || unresolved > 0}
+              className="editor-icon-button"
+              aria-label="Повторить правку листа"
+              title="Повторить правку листа (Ctrl+Y)"
+              disabled={history.future.length === 0}
+              onClick={() => step('redo')}
             >
-              {toAdd.length === 0 ? 'Добавить' : `Добавить: ${importSummary(toAdd)}`}
+              <Icon name="redo" />
             </button>
           </div>
+          <span className="editor-workshop__keys">PageUp / PageDown — соседний лист · Enter — лист готов</span>
+          <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть мастерскую листов" title="Закрыть (Esc)">
+            <Icon name="close" />
+          </button>
+        </header>
+
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept={IMPORT_ACCEPT}
+          className="sr-only"
+          data-import-files
+          tabIndex={-1}
+          onChange={(e) => {
+            addFiles(e.target.files);
+            e.target.value = '';
+          }}
+        />
+
+        {empty ? (
+          <div className="editor-import__empty">
+            <Icon name="upload" size={32} />
+            <p>Перетащите сюда планы: PDF, сканы и картинки, чертежи DXF, архивы ZIP — сколько угодно разом.</p>
+            <p className="editor-section__hint">
+              Корпус и этаж редактор угадает по тексту на листе и имени файла и покажет, откуда догадка. Лишние поля листа
+              обрежутся сами, а лист можно приблизить колесом, чтобы поправить контур до угла.
+            </p>
+            <button type="button" className="editor-button editor-button--primary" data-autofocus onClick={() => fileRef.current?.click()}>
+              <Icon name="upload" />
+              Выбрать файлы
+            </button>
+          </div>
+        ) : (
+          <div className="editor-workshop__body">
+            <nav className="editor-import__list" aria-label="Листы">
+              <ul>
+                {pieces.map((piece) => {
+                  const sheet = sheets.find((item) => item.id === piece.sheetId)!;
+                  const check = checks.get(piece.id);
+                  const mark = MARKS[markOf(piece)];
+                  return (
+                    <li key={piece.id}>
+                      <button
+                        type="button"
+                        className={`editor-import__item editor-import__item--${markOf(piece)}`}
+                        aria-current={piece.id === selectedId ? 'true' : undefined}
+                        onClick={() => select(piece.id)}
+                      >
+                        <span className="editor-import__thumb">
+                          {thumbs.get(sheet.id) && <img src={thumbs.get(sheet.id)} alt="" style={{ transform: `rotate(${piece.rotation}deg)` }} />}
+                        </span>
+                        <span className="editor-import__caption">
+                          <span className="editor-import__name">{displayName(sheet)}</span>
+                          <span className="editor-import__target">{targetText(piece.target, buildingMetas)}</span>
+                          {check?.problem && <span className="editor-import__target editor-import__target--problem">{check.problem}</span>}
+                        </span>
+                        <span className="editor-import__mark" title={mark.text}>
+                          <Icon name={mark.icon} />
+                          <span className="sr-only">{mark.text}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {reading && (
+                <p className="editor-section__hint" role="status">
+                  Чтение «{reading}»…
+                </p>
+              )}
+              {problems.map((problem) => (
+                <p key={problem.name} className="editor-section__hint editor-section__hint--problem">
+                  «{problem.name}»: {problem.problem}
+                </p>
+              ))}
+              <button type="button" className="editor-button editor-button--ghost editor-button--block" onClick={() => fileRef.current?.click()}>
+                <Icon name="plus" />
+                Ещё файлы…
+              </button>
+            </nav>
+
+            {selected && selectedSheet && page ? (
+              <SheetCanvas
+                key={selected.id}
+                sheet={selectedSheet}
+                piece={selected}
+                page={page}
+                pictures={pictures}
+                selected={corner}
+                onSelect={setCorner}
+                onGesture={() => startGesture(selected.id)}
+                onDrag={(change) => drag(selected.id, change)}
+                onEdit={(change, key) => edit(selected.id, change, key ?? null)}
+              />
+            ) : (
+              <div className="editor-workshop__center editor-workshop__center--empty">
+                <p className="editor-section__hint">{reading ? 'Чтение файлов…' : 'Выберите лист слева.'}</p>
+              </div>
+            )}
+
+            <aside className="editor-import__detail" aria-label="Свойства листа">
+              {selected && selectedSheet && page && (
+                <PieceProperties
+                  key={selected.id}
+                  piece={selected}
+                  sheet={selectedSheet}
+                  page={page}
+                  pieces={pieces}
+                  check={checks.get(selected.id) ?? NO_CHECK}
+                  confirmed={confirmed.has(selected.id)}
+                  onEdit={(change, key) => edit(selected.id, change, key ?? null)}
+                  onConfirm={confirmAndNext}
+                  onSplit={split}
+                  onRemove={remove}
+                />
+              )}
+            </aside>
+          </div>
+        )}
+
+        {/* Кнопки — последние в окне: «Добавить» замыкает и порядок Tab. */}
+        <div className="editor-dialog__actions editor-import__actions">
+          <p className="editor-import__status" role="status">
+            {status}
+          </p>
+          <button type="button" className="editor-button editor-button--ghost" onClick={close} disabled={busy !== null}>
+            Отмена
+          </button>
+          <button
+            ref={addRef}
+            type="button"
+            className="editor-button editor-button--primary"
+            onClick={() => void run()}
+            disabled={busy !== null || reading !== null || toAdd.length === 0 || unresolved > 0}
+          >
+            {toAdd.length === 0 ? 'Добавить' : `Добавить: ${importSummary(toAdd)}`}
+          </button>
         </div>
       </div>
     </DialogLayer>
@@ -377,305 +597,3 @@ function targetText(target: PieceTarget, metas: ReadonlyMap<string, { name: stri
   const floor = target.label.trim() || (Number.isFinite(number) ? floorLabel(undefined, number) : target.floorText.trim() || '?');
   return `${building}, этаж ${floor}`;
 }
-
-const PieceEditor: React.FC<{
-  piece: Piece;
-  sheet: ImportSheet;
-  pieces: readonly Piece[];
-  check: { problem: string | null; note: string | null };
-  onChange: (change: (piece: Piece) => Piece) => void;
-  onTouchCrop: () => void;
-  onSplit: () => void;
-  onRemove?: () => void;
-}> = ({ piece, sheet, pieces, check, onChange, onTouchCrop, onSplit, onRemove }) => {
-  const buildingMetas = useEditorStore((s) => s.buildingMetas);
-  const [preview, setPreview] = useState<{ rotation: number; url: string | null; failure?: string } | null>(null);
-  const [trimming, setTrimming] = useState(false);
-  const rotated = rotatedPage(sheet.size, piece.rotation).size;
-
-  useEffect(() => {
-    let cancelled = false;
-    const scale = PREVIEW_SIDE / Math.max(rotated.width, rotated.height);
-    // Лист не нарисовался — окно говорит об этом, а не показывает «рисуется» вечно.
-    void sheet.render(piece.rotation, null, scale).then(
-      (canvas) => {
-        if (!cancelled) setPreview({ rotation: piece.rotation, url: canvas.toDataURL('image/png') });
-      },
-      (cause: unknown) => {
-        if (!cancelled) setPreview({ rotation: piece.rotation, url: null, failure: cause instanceof Error ? cause.message : String(cause) });
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-    // Лист перерисовывается только при повороте.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet, piece.rotation]);
-
-  const setTarget = (target: PieceTarget) => onChange((current) => ({ ...current, target }));
-  const floorTarget = piece.target.kind === 'floor' ? piece.target : null;
-
-  // Новые корпуса, уже названные в других листах, — в списке рядом с существующими.
-  const newNames = [
-    ...new Set(
-      pieces.flatMap((item) =>
-        item.target.kind === 'floor' && item.target.building && 'newName' in item.target.building ? [item.target.building.newName.trim()] : []
-      )
-    ),
-  ].filter(Boolean);
-  const choiceValue = (choice: BuildingChoice | null) =>
-    choice === null ? '' : 'id' in choice ? `id:${choice.id}` : `new:${choice.newName.trim()}`;
-  const suggestedName = nextBuildingName([...buildingMetas.values(), ...newNames.map((name) => ({ id: '', name, floors: [] }))]);
-
-  const trim = async () => {
-    setTrimming(true);
-    try {
-      const scale = THUMB_SIDE / Math.max(rotated.width, rotated.height);
-      const canvas = await sheet.render(piece.rotation, null, scale);
-      const box = contentBox(canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-      onTouchCrop();
-      onChange((current) => ({ ...current, crop: box ? clampBox(scaleBox(box, 1 / scale), rotated) : null, outline: null, trimmed: box !== null }));
-    } finally {
-      setTrimming(false);
-    }
-  };
-
-  // Контур здания (запись 73): обрезка — его описанный прямоугольник.
-  const setOutline = (outline: OutlinePoint[] | null) => {
-    onTouchCrop();
-    onChange((current) => ({ ...current, outline, crop: outline ? clampBox(outlineBox(outline), rotated) : current.crop, trimmed: false }));
-  };
-  const [tracing, setTracing] = useState<string | null>(null);
-  const traceOutline = async () => {
-    setTracing('Поиск контура…');
-    try {
-      // Ищется внутри нынешней рамки: поля и соседние чертежи листа не мешают.
-      const area = piece.crop ?? { x: 0, y: 0, ...rotated };
-      const scale = PREVIEW_SIDE / Math.max(area.width, area.height);
-      const canvas = await sheet.render(piece.rotation, area, scale);
-      const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
-      const found = traceBuildingOutline({ width: canvas.width, height: canvas.height, data: pixels.data });
-      if (!found) {
-        setTracing('Контур не нашёлся: обведите углы вручную');
-        return;
-      }
-      setOutline(found.map((point) => ({ x: area.x + point.x / scale, y: area.y + point.y / scale })));
-      setTracing(null);
-    } catch (cause) {
-      setTracing(`Контур не нашёлся: ${cause instanceof Error ? cause.message : String(cause)}`);
-    }
-  };
-
-  const result = previewPlan(sheet, { rotation: piece.rotation, crop: piece.crop, outline: piece.outline ?? null });
-  const metersPerUnit = metersPerUnitOf(sheet, Number(piece.scaleText) || undefined);
-
-  return (
-    <section aria-label={`Лист: ${displayName(sheet)}`} className="editor-import__piece">
-      <fieldset className="editor-fieldset">
-        <legend className="editor-card__heading">Что на листе</legend>
-        <div className="editor-card__actions" role="radiogroup" aria-label="Что на листе">
-          {(
-            [
-              ['floor', 'Этаж корпуса'],
-              ['campus', 'План территории'],
-              ['skip', 'Не план — пропустить'],
-            ] as const
-          ).map(([kind, label]) => (
-            <button
-              key={kind}
-              type="button"
-              role="radio"
-              aria-checked={piece.target.kind === kind}
-              className="editor-chip"
-              onClick={() =>
-                setTarget(
-                  kind === 'floor'
-                    ? floorTarget ?? { kind: 'floor', building: null, floorText: '', label: '' }
-                    : { kind }
-                )
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {floorTarget && (
-          <div className="editor-card__row">
-            <label className="editor-card__field flex-1">
-              <span className="editor-section__hint">Корпус</span>
-              <select
-                aria-label="Корпус"
-                className="editor-input"
-                value={choiceValue(floorTarget.building)}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const building: BuildingChoice | null =
-                    value === '' ? null : value.startsWith('id:') ? { id: value.slice(3) } : { newName: value === 'new' ? suggestedName : value.slice(4) };
-                  setTarget({ ...floorTarget, building });
-                }}
-              >
-                <option value="">Выберите корпус</option>
-                {[...buildingMetas.values()].map((meta) => (
-                  <option key={meta.id} value={`id:${meta.id}`}>
-                    {meta.name}
-                  </option>
-                ))}
-                {newNames.map((name) => (
-                  <option key={name} value={`new:${name}`}>
-                    {name} — новый
-                  </option>
-                ))}
-                <option value="new">Новый корпус…</option>
-              </select>
-            </label>
-            {floorTarget.building && 'newName' in floorTarget.building && (
-              <label className="editor-card__field flex-1">
-                <span className="editor-section__hint">Название нового корпуса</span>
-                <input
-                  aria-label="Название нового корпуса"
-                  className="editor-input"
-                  value={floorTarget.building.newName}
-                  onChange={(e) => setTarget({ ...floorTarget, building: { newName: e.target.value } })}
-                />
-              </label>
-            )}
-            <label className="editor-card__field">
-              <span className="editor-section__hint">Этаж</span>
-              <input
-                aria-label="Номер этажа"
-                className="editor-input editor-input--narrow"
-                inputMode="decimal"
-                value={floorTarget.floorText}
-                placeholder="1"
-                onChange={(e) => setTarget({ ...floorTarget, floorText: e.target.value })}
-              />
-            </label>
-            <label className="editor-card__field">
-              <span className="editor-section__hint">Подпись</span>
-              <input
-                aria-label="Подпись этажа"
-                className="editor-input editor-input--narrow"
-                value={floorTarget.label}
-                placeholder={floorTarget.floorText.trim() || '—'}
-                onChange={(e) => setTarget({ ...floorTarget, label: e.target.value })}
-              />
-            </label>
-          </div>
-        )}
-      </fieldset>
-
-      {check.problem && <p className="editor-section__hint editor-section__hint--problem">{check.problem}</p>}
-      {check.note && <p className="editor-section__hint">{check.note}</p>}
-      {piece.notes.length > 0 && (
-        <ul className="editor-import__notes" aria-label="Откуда догадка">
-          {piece.notes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      )}
-      <div className="editor-card__actions" role="toolbar" aria-label="Лист">
-        <button type="button" className="editor-button editor-button--ghost" onClick={() => onChange((current) => rotatePiece(current, sheet.size, -1))}>
-          <Icon name="undo" />
-          Повернуть влево
-        </button>
-        <button type="button" className="editor-button editor-button--ghost" onClick={() => onChange((current) => rotatePiece(current, sheet.size, 1))}>
-          <Icon name="redo" />
-          Повернуть вправо
-        </button>
-        <button type="button" className="editor-button editor-button--ghost" onClick={() => void trim()} disabled={trimming}>
-          Обрезать поля
-        </button>
-        <button
-          type="button"
-          className="editor-button editor-button--ghost"
-          onClick={() => {
-            onTouchCrop();
-            onChange((current) => ({ ...current, crop: null, outline: null, trimmed: false }));
-          }}
-        >
-          Весь лист
-        </button>
-        <button type="button" className="editor-button editor-button--ghost" onClick={onSplit}>
-          <Icon name="plus" />
-          Ещё область на этом листе
-        </button>
-        {onRemove && (
-          <button type="button" className="editor-button editor-button--ghost" onClick={onRemove}>
-            <Icon name="trash" />
-            Убрать эту область
-          </button>
-        )}
-      </div>
-
-      <div className="editor-card__actions editor-import__shape" role="group" aria-label="Форма области">
-        <span className="editor-section__hint">Форма:</span>
-        <div className="editor-segmented" role="radiogroup" aria-label="Форма области">
-          <button type="button" role="radio" aria-checked={!piece.outline} className="editor-segmented__item" onClick={() => setOutline(null)}>
-            Прямоугольник
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={Boolean(piece.outline)}
-            className="editor-segmented__item"
-            onClick={() => !piece.outline && setOutline(outlineOfBox(piece.crop ?? { x: 0, y: 0, ...rotated }))}
-          >
-            Контур
-          </button>
-        </div>
-        <button type="button" className="editor-button editor-button--ghost" onClick={() => void traceOutline()} disabled={tracing === 'Поиск контура…'}>
-          <Icon name="building" />
-          Найти контур здания
-        </button>
-        {tracing && <span className="editor-section__hint" role="status">{tracing}</span>}
-      </div>
-
-      <CropEditor
-        outline={piece.outline ?? null}
-        onOutlineChange={setOutline}
-        imageUrl={preview?.rotation === piece.rotation ? preview.url : null}
-        failure={preview?.rotation === piece.rotation ? (preview.failure ?? null) : null}
-        pageSize={rotated}
-        crop={piece.crop}
-        onChange={(crop) => {
-          onTouchCrop();
-          onChange((current) => ({ ...current, crop, trimmed: false }));
-        }}
-      />
-      <p className="editor-section__hint">
-        {piece.trimmed ? 'Поля обрезаны сами — поправьте рамку, если план задело. ' : ''}
-        {piece.outline ? 'За контуром план прозрачный — на территории ляжет силуэтом здания. ' : ''}
-        Получится: {result.format.toUpperCase()}, {result.size.width} × {result.size.height} пикс.
-        {result.asIs ? ' — файл как есть' : ''}
-        {metersPerUnit ? `, 1 пикс. = ${String(Math.round((metersPerUnit / result.scale) * 10000) / 10000).replace('.', ',')} м` : ''}.
-      </p>
-      {sheet.unitMeters !== undefined && (
-        sheet.realScale ? (
-          <p className="editor-section__hint">Чертёж в натуральную величину: масштаб известен сам — корпус встанет на территорию в своём размере.</p>
-        ) : (
-          <label className="editor-card__field">
-            <span className="editor-section__hint">Масштаб чертежа</span>
-            <span className="editor-place-field__row">
-              1 :
-              <input
-                aria-label="Масштаб чертежа"
-                className="editor-input editor-input--narrow"
-                inputMode="numeric"
-                value={piece.scaleText ?? ''}
-                placeholder="200"
-                onChange={(e) => onChange((current) => ({ ...current, scaleText: e.target.value.replace(/[^\d]/g, '') }))}
-              />
-            </span>
-            <span className="editor-section__hint">
-              {sheet.drawingScale && piece.scaleText === String(sheet.drawingScale.ratio)
-                ? `По надписи на листе «${sheet.drawingScale.text}» — корпус встанет на территорию в своём размере`
-                : 'Если масштаб указан на листе, впишите его — корпус встанет на территорию в своём размере. Не знаете — оставьте пустым'}
-            </span>
-          </label>
-        )
-      )}
-
-    </section>
-  );
-};

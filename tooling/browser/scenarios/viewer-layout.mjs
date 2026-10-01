@@ -52,7 +52,18 @@ export default {
 
       const handle = `section[aria-label="Панель навигатора"] > button[aria-expanded]`;
       const [x, y] = await v.center(handle);
-      await page.dragVertical(x, y, -90);
+
+      // Свёрнутая шторка едет за пальцем вверх, а не ждёт, пока его отпустят.
+      const top = () => page.eval(`Math.round(${PANEL}.getBoundingClientRect().top)`);
+      const before = await top();
+      const mouse = (type, my, buttons) => page.send('Input.dispatchMouseEvent', { type, x, y: my, button: 'left', buttons, clickCount: 1 });
+      await mouse('mousePressed', y, 1);
+      for (let i = 1; i <= 6; i += 1) await mouse('mouseMoved', y - i * 20, 1);
+      await page.sleep(150);
+      const during = await top();
+      assert.ok(Math.abs(during - (before - 120)) <= 4, `верх шторки под пальцем: ${before} → ${during}, ждали ${before - 120}`);
+      await mouse('mouseReleased', y - 120, 0);
+      await page.sleep(400);
       assert.ok((await v.panelText()).includes('Ограничения'), 'жест вверх раскрыл');
       const [x2, y2] = await v.center(handle);
       await page.dragVertical(x2, y2, 90);
@@ -64,6 +75,14 @@ export default {
       const text = await v.panelText();
       assert.ok(text.includes('Куда вы хотите попасть?') && text.includes('Главный вход корпуса А'));
       await v.click('Куда вы хотите попасть?');
+      // Начало известно — у каждой найденной столовой видно, сколько до неё идти.
+      await v.typeSearch('столовая');
+      const canteens = await v.options();
+      assert.ok(
+        canteens.length === 2 && canteens.every((lines) => /, этаж 1 · ~\d+\sмин$/.test(lines[lines.length - 1])),
+        `время до каждой столовой: ${JSON.stringify(canteens)}`
+      );
+      await page.eval(`document.querySelector('[data-search-view] button[aria-label="Очистить поиск"]').click()`);
       await v.typeSearch('305');
       await v.chooseOption('А-305');
       await page.waitFor(`${PANEL}.querySelector('h2')?.textContent === 'А-305'`);
@@ -139,6 +158,20 @@ export default {
       );
     });
 
+    await step('ничего не нашлось — с подсказкой, что можно искать', async () => {
+      await v.open('/');
+      await v.click('Найти аудиторию или место');
+      await page.waitFor(`document.activeElement?.getAttribute('role') === 'combobox'`);
+      await page.eval(`(() => {
+        const input = document.activeElement;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'zzqx');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      const text = await page.waitFor(`document.querySelector('[data-search-view] [role="status"]')?.textContent`);
+      assert.ok(text.includes('ничего не нашлось') && text.includes('Номер аудитории'), `пустой поиск: ${text}`);
+      await page.key('Escape');
+    });
+
     await step('ссылка только с целью открывает её карточку', async () => {
       await v.open('/?to=a3_room305');
       assert.ok((await v.panelText()).includes('Маршрут сюда'));
@@ -147,6 +180,40 @@ export default {
       await page.key('Escape');
       const idle = await v.panelText();
       assert.ok(idle.includes('Откуда начать маршрут?') && idle.includes('А-305'), 'поиск начала и точка цели');
+    });
+
+    await step('устаревшая ссылка: сообщение говорит, что делать, и открывает поиск', async () => {
+      await v.open('/?to=no_such_room');
+      const alert = await page.eval(`document.querySelector('[role="alert"]')?.textContent ?? ''`);
+      assert.ok(alert.includes('Место из ссылки не найдено') && alert.includes('найдите место поиском'), `сообщение: ${alert}`);
+      assert.ok(alert.includes('Код: no_such_room'), 'код точки — для того, кто чинит табличку');
+      await v.click('Найти место');
+      assert.ok(await v.searchOpen(), 'кнопка открыла поиск');
+      assert.equal(await page.eval(`!!document.querySelector('[role="alert"]')`), false, 'сообщение убрано');
+      await page.key('Escape');
+
+      // Начало из ссылки нашлось, цель — нет: поиск сразу спрашивает, куда идти.
+      await v.open('/?from=a1_entrance&to=no_such_room');
+      await v.click('Найти место');
+      assert.ok((await page.eval(`document.querySelector('[data-search-view] input')?.placeholder`)).includes('Куда'), 'поиск цели');
+      await page.key('Escape');
+    });
+
+    await step('«Поделиться местом» — ссылка на карточку места, а не на маршрут', async () => {
+      await v.open('/');
+      await v.click('Найти аудиторию или место');
+      await v.typeSearch('305');
+      await v.chooseOption('А-305');
+      // Выбор места адрес не меняет — ссылку собирает карточка.
+      assert.ok(!(await v.href()).includes('to='), 'в адресе места нет');
+      await page.eval('delete Navigator.prototype.share; delete Navigator.prototype.clipboard;');
+      await v.click('Поделиться местом');
+      await page.waitFor(`document.body.innerText.includes('Скопируйте ссылку')`);
+      const field = await page.eval(`(() => { const i = document.activeElement; return { value: i.value, label: i.getAttribute('aria-label') }; })()`);
+      assert.equal(new URL(field.value).search, '?to=a3_room305', `ссылка на место: ${field.value}`);
+      assert.equal(field.label, 'Ссылка на место');
+      await v.click('Готово');
+      assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-label')`), 'Поделиться местом', 'фокус вернулся на кнопку');
     });
 
     await step('нажатие на точку плана открывает карточку места', async () => {
@@ -190,6 +257,20 @@ export default {
         return !!document.elementFromPoint(last.right + 40, last.top + last.height / 2)?.closest('.leaflet-container');
       })()`);
       assert.equal(underGap, true, 'лента не забирает нажатия у карты');
+    });
+
+    await step('широкий экран, недавних мест нет: под быстрыми кнопками нет пустой полосы', async () => {
+      // Недавние места от прошлых шагов сценария — стираются.
+      await page.eval('localStorage.clear()');
+      await v.open('/');
+      // Под быстрыми кнопками — только нижний отступ панели: прежде пустая
+      // обёртка недавних мест добавляла полосу ещё в 20 px.
+      const tail = await page.eval(`(() => {
+        const panel = ${PANEL}.getBoundingClientRect();
+        const quick = ${PANEL}.querySelector('ul[aria-label="Рядом"]').getBoundingClientRect();
+        return Math.round(panel.bottom - quick.bottom);
+      })()`);
+      assert.ok(tail <= 20, `под быстрыми кнопками пусто на ${tail} px`);
     });
 
     await step('широкий экран: панель слева не закрывает маршрут и шапку', async () => {
@@ -290,6 +371,12 @@ export default {
       })()`);
       assert.ok(overview.startHeight >= 44, `«Начать» полной высоты: ${JSON.stringify(overview)}`);
       assert.ok(overview.summaryLines !== null && overview.summaryLines <= 2, `сводка маршрута не больше двух строк: ${JSON.stringify(overview)}`);
+      // «Откуда» рядом с кнопками «Поделиться» и «Сбросить» сжималось до «Г…».
+      const from = await page.eval(`(() => {
+        const line = [...${PANEL}.querySelectorAll('p')].find((p) => p.textContent.startsWith('Откуда:'));
+        return line ? { text: line.textContent, cut: line.scrollWidth > line.clientWidth + 1 } : null;
+      })()`);
+      assert.ok(from !== null && !from.cut && from.text.includes('Главный вход корпуса А'), `«Откуда» целиком: ${JSON.stringify(from)}`);
       await shot('viewer-zoom200');
 
       await v.open('/?to=b1_canteen');
@@ -413,6 +500,13 @@ export default {
       await page.dragVertical(x, y, -240);
       await page.waitFor(`!!document.querySelector('button[aria-label="Свернуть панель"]')`);
       await page.sleep(400);
+      // Раскрытая шторка на общем виде низкая: кнопки масштаба остаются над ней,
+      // а не пропадают там, где она поднялась.
+      const raised = await page.eval(`(() => {
+        const zoom = document.querySelector('.campus-zoom-controls');
+        return { zoomBottom: zoom ? zoom.getBoundingClientRect().bottom : null, sheetTop: ${PANEL}.getBoundingClientRect().top };
+      })()`);
+      assert.ok(raised.zoomBottom !== null && raised.zoomBottom <= raised.sheetTop, `кнопки масштаба над раскрытой шторкой: ${JSON.stringify(raised)}`);
       [x, y] = await handle();
       await page.dragVertical(x, y, 240);
       await page.waitFor(`!!document.querySelector('button[aria-label="Развернуть панель"]')`);

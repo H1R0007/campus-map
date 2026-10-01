@@ -40,10 +40,61 @@ export default {
       );
       assert.deepEqual(await shownFloors(), []);
       assert.ok((await v.headerText()).includes('Корпуса'), 'в шапке телефона — кнопка «Корпуса»');
+
+      // Корпуса подписаны и на общем виде, где названия шире крыш, — и названия
+      // не налезают друг на друга. Прежде подпись была только у крыши, на
+      // которой она помещалась, и первый экран телефона был без единой подписи.
+      const labels = await page.eval(`[...document.querySelectorAll('.campus-roof-label')].map((label) => {
+        const rect = label.firstElementChild.getBoundingClientRect();
+        return { text: label.textContent, opacity: Number(getComputedStyle(label).opacity), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      })`);
+      assert.deepEqual(
+        labels.filter((label) => label.opacity > 0.9).map((label) => label.text).sort(),
+        ['Корпус А', 'Корпус Б', 'Корпус В'],
+        `подписи общего вида: ${JSON.stringify(labels)}`
+      );
+      for (const [index, a] of labels.entries()) {
+        for (const b of labels.slice(index + 1)) {
+          const apart = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
+          assert.ok(apart, `подписи «${a.text}» и «${b.text}» налезают друг на друга`);
+        }
+      }
       await shot('viewer-canvas-overview');
     });
 
+    await step('нажатие на название, вышедшее за крышу, открывает корпус', async () => {
+      // Насколько название выходит за крышу, зависит от шрифта: на Windows
+      // тестовые названия умещаются, в CI на Linux буквы шире. Поэтому название
+      // корпуса В здесь длинное, как у официального корпуса: его конец на траве
+      // при любом шрифте. Видимость названий пересчитывается при масштабе, а
+      // карта не двигается — название остаётся видимым.
+      // Точка нажатия — вдоль названия: на экране (в CI длинное название уходит
+      // за край телефона), не на крыше, не под колонкой кнопок справа и не на
+      // другом названии.
+      const target = await page.eval(`(() => {
+        const text = document.querySelector('.campus-roof-label [data-building="building_c"]');
+        text.textContent = 'Корпус В · учебно-лабораторный';
+        const label = text.parentElement;
+        const rect = text.getBoundingClientRect();
+        const roofs = [...document.querySelectorAll('.campus-roof')].map((roof) => roof.getBoundingClientRect());
+        const others = [...document.querySelectorAll('.campus-roof-label span')].filter((span) => span !== text).map((span) => span.getBoundingClientRect());
+        const inside = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+        const y = rect.top + rect.height / 2;
+        for (let x = rect.left + 4; x <= rect.right - 4; x += 6) {
+          if (x < 8 || x > innerWidth - 80) continue;
+          if (roofs.some((r) => inside(r, x, y)) || others.some((r) => inside(r, x, y))) continue;
+          return { x, y, visible: Number(label.style.opacity) > 0.9 };
+        }
+        return { visible: Number(label.style.opacity) > 0.9, rect: [rect.left, rect.right] };
+      })()`);
+      assert.ok(target.visible && target.x !== undefined, `у названия есть видимая точка на траве: ${JSON.stringify(target)}`);
+      await page.tap(target.x, target.y);
+      await waitShown('building_c#1');
+      assert.ok((await v.headerText()).includes('Корпус В'), 'открыт корпус В');
+    });
+
     await step('корпус из шапки: камера приближает его, вместо крыши — этаж, в шапке — корпус', async () => {
+      await v.open('/');
       await v.openBuilding('Корпус Б');
       await waitShown('building_b#1');
       await page.waitFor(`[...document.querySelectorAll('.campus-roof')].some((roof) => Number(getComputedStyle(roof).fillOpacity) < 0.05)`);
@@ -298,6 +349,23 @@ export default {
       await page.sleep(700);
       assert.ok(Math.abs(await rotationOf(CAMPUS_PLAN)) < 0.5, 'карта снова ровно на север');
       assert.equal(await page.eval(`!!${COMPASS}`), false, 'компаса нет');
+    });
+
+    await step('широкий экран: место по ссылке — с этажом вокруг, а не кусок этажа во весь экран', async () => {
+      await page.viewport(1440, 900, 1);
+      await v.open('/?to=a3_room305');
+      await waitShown('building_a#3');
+      await page.sleep(1200);
+      // Прежде камера показывала 30 метров вокруг места и на мониторе: помещения
+      // во весь экран, лестница и входы за краем. Теперь этаж корпуса А (60 м)
+      // целиком в свободной части справа от панели.
+      const floor = await page.eval(`(() => {
+        const plan = document.querySelector('.campus-placed-plan[data-plan="floor"][data-building="building_a"][data-floor="3"]').getBoundingClientRect();
+        const panel = document.querySelector('section[aria-label="Панель навигатора"]').getBoundingClientRect();
+        return { left: Math.round(plan.left - panel.right), right: Math.round(innerWidth - plan.right), width: Math.round(plan.width) };
+      })()`);
+      assert.ok(floor.left > -2 && floor.right > -2, `этаж целиком справа от панели: ${JSON.stringify(floor)}`);
+      assert.ok((await v.heading()).includes('А-305'), 'карточка места открыта');
     });
   },
 };

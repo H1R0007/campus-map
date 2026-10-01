@@ -15,7 +15,7 @@
  * Браузер — как у сценариев: `CAMPUS_BROWSER` или установленный Chrome.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -45,8 +45,16 @@ async function launch() {
   return {
     debugUrl: `http://127.0.0.1:${port}`,
     stop() {
-      child.kill('SIGKILL');
-      rmSync(profile, { recursive: true, force: true });
+      // Chrome и Edge порождают процессы-помощники; на Windows их снимает только
+      // завершение всего дерева, иначе профиль занят и не удаляется.
+      if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      else child.kill('SIGKILL');
+      try {
+        rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      } catch (cause) {
+        // Временный каталог системы: на замер это не влияет — только сообщаем.
+        console.warn(`Не удалось удалить временный профиль ${profile}: ${cause.message}`);
+      }
     },
   };
 }
@@ -85,7 +93,9 @@ try {
   );
 
   const busy = await page.eval(`[...document.querySelectorAll('.editor-tree__label')].map((l) => l.textContent.trim()).find((t) => t.startsWith('Корпус'))`);
-  await e.press(busy);
+  // Корпус открытого плана уже раскрыт в дереве: нажатие свернуло бы его.
+  const floorShown = await page.eval(`[...document.querySelectorAll('.editor-tree__label')].some((l) => l.textContent.trim() === 'Этаж 5')`);
+  if (!floorShown) await e.press(busy);
   await page.sleep(500);
   await measure(
     'смена этажа (дерево)',

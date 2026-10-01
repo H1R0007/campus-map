@@ -10,6 +10,8 @@ import { planStyleFor } from '../../theme/planTheme';
 import type { CanvasLayout } from '../../utils/canvasLayout';
 import { revealAmount, roofLabelWidth, screenShare } from '../../utils/canvasReveal';
 import { buildingLabel } from '../../utils/placeLabels';
+import { ROOF_LABEL_HEIGHT, placeRoofLabels, roofLabelTextWidth } from '../../utils/roofLabels';
+import type { RoofLabelCandidate } from '../../utils/roofLabels';
 import { useMapInsets } from './mapChrome';
 
 /** Pane крыш: над планами (`PLAN_PANE`), под линиями маршрута и точками. */
@@ -47,18 +49,31 @@ const escapeHtml = (text: string) =>
   text.replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char] ?? char);
 
 const roofLabels = new Map<string, L.DivIcon>();
-function roofLabelIcon(text: string, index: number): L.DivIcon {
-  const key = `${index}:${text}`;
+/**
+ * Название корпуса. `data-building` — по нему нажатие на название открывает
+ * корпус (`PlaceLayer`): название бывает шире крыши, и мимо крыши палец
+ * попадает в само название.
+ */
+function roofLabelIcon(text: string, index: number, buildingId: string): L.DivIcon {
+  const key = `${index}:${buildingId}:${text}`;
   let icon = roofLabels.get(key);
   if (!icon) {
     icon = L.divIcon({
       className: `campus-roof-label ${buildingClass(index)}`,
       iconSize: [0, 0],
-      html: `<span>${escapeHtml(text)}</span>`,
+      html: `<span data-building="${escapeHtml(buildingId)}">${escapeHtml(text)}</span>`,
     });
     roofLabels.set(key, icon);
   }
   return icon;
+}
+
+/** Центр контура корпуса, метры: там стоит его название. */
+function footprintCenter(footprint: readonly { x: number; y: number }[]): { x: number; y: number } {
+  return {
+    x: footprint.reduce((sum, corner) => sum + corner.x, 0) / footprint.length,
+    y: footprint.reduce((sum, corner) => sum + corner.y, 0) / footprint.length,
+  };
 }
 
 /** Этаж, который держится на карте, и когда он был нужен последний раз. */
@@ -106,20 +121,59 @@ export const CanvasPlans: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
 
   useEffect(() => {
     const container = map.getContainer();
-    const labelWidths = namesKey.split('\n').map(roofLabelWidth);
+    const labelNames = namesKey.split('\n');
+    const labelWidths = labelNames.map(roofLabelWidth);
+    const textWidths = labelNames.map(roofLabelTextWidth);
+    const centers = layout.buildings.map((building) => meterLatLng(footprintCenter(building.footprint)));
+    const corners = layout.buildings.map((building) => building.footprint.map(meterLatLng));
     const groups = layout.buildings.map((_, index) => container.getElementsByClassName(buildingClass(index)));
     const applied: string[] = [];
+
+    // Ширина названия — измеренная, как только оно на странице: оценка по
+    // буквам завышена, и соседние названия на общем виде «сталкивались» на
+    // паре пикселей. Пока не измерено — оценка.
+    const measured: number[] = [];
+    const labelWidthOf = (index: number): number => {
+      if (!measured[index]) {
+        const label = [...groups[index]].find((element) => element.classList.contains('campus-roof-label'));
+        measured[index] = (label?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0;
+      }
+      return measured[index] || textWidths[index];
+    };
 
     const update = (force: boolean) => {
       const size = map.getSize();
       const pixelsPerMeter = map.getZoomScale(map.getZoom(), 0);
       const freeWidth = size.x - insets.left - insets.right;
       const freeHeight = size.y - insets.top - insets.bottom;
+      const reveals = layout.buildings.map(
+        (building) => Math.round(revealAmount(screenShare(building.span, pixelsPerMeter, freeWidth, freeHeight)) * 100) / 100
+      );
+
+      // Какие названия поместятся, не налезая на соседей: положения — экранные,
+      // с поворотом карты (`roofLabels.ts`).
+      const candidates = layout.buildings.map((building, index): RoofLabelCandidate => {
+        const points = corners[index].map((corner) => map.latLngToContainerPoint(corner));
+        return {
+          center: map.latLngToContainerPoint(centers[index]),
+          width: labelWidthOf(index),
+          height: ROOF_LABEL_HEIGHT,
+          box: {
+            minX: Math.min(...points.map((point) => point.x)),
+            minY: Math.min(...points.map((point) => point.y)),
+            maxX: Math.max(...points.map((point) => point.x)),
+            maxY: Math.max(...points.map((point) => point.y)),
+          },
+          priority: building.span,
+          wanted: reveals[index] < 0.5,
+        };
+      });
+      const labelled = placeRoofLabels(candidates);
 
       layout.buildings.forEach((building, index) => {
-        const reveal = Math.round(revealAmount(screenShare(building.span, pixelsPerMeter, freeWidth, freeHeight)) * 100) / 100;
-        const fits = building.span * pixelsPerMeter >= labelWidths[index];
-        const key = `${reveal}|${fits}`;
+        const reveal = reveals[index];
+        const inside = building.span * pixelsPerMeter >= labelWidths[index];
+        const key = `${reveal}|${labelled[index]}|${inside}`;
         if (!force && applied[index] === key) return;
         applied[index] = key;
 
@@ -129,7 +183,9 @@ export const CanvasPlans: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
             style.fillOpacity = String(Math.round(0.96 * (1 - reveal) * 100) / 100);
             style.strokeOpacity = String(1 - reveal);
           } else if (element.classList.contains('campus-roof-label')) {
-            style.opacity = String(fits ? Math.max(0, 1 - 2 * reveal) : 0);
+            style.opacity = String(labelled[index] ? Math.max(0, 1 - 2 * reveal) : 0);
+            // Название шире крыши стоит частью на траве: ореол — цвета травы.
+            element.classList.toggle('campus-roof-label--outside', !inside);
           } else {
             // Обёртка содержимого плана: у самого плана прозрачность занята
             // сменой этажа. Непроявленный план убран из раскладки совсем —
@@ -147,9 +203,10 @@ export const CanvasPlans: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
     applyReveal.current = update;
     update(true);
     const onFrame = () => update(false);
-    map.on('zoom viewreset resize', onFrame);
+    // Поворот меняет, какие названия сталкиваются: они стоят прямо, а корпуса поворачиваются.
+    map.on('zoom viewreset resize rotate rotateend', onFrame);
     return () => {
-      map.off('zoom viewreset resize', onFrame);
+      map.off('zoom viewreset resize rotate rotateend', onFrame);
       applyReveal.current = () => undefined;
     };
   }, [map, layout, insets, namesKey]);
@@ -200,10 +257,7 @@ export const CanvasPlans: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
         const floor = view.floors.get(building.id);
         const isNear = near.has(building.id);
         const revealed = view.revealed.has(building.id);
-        const center = {
-          x: building.footprint.reduce((sum, corner) => sum + corner.x, 0) / building.footprint.length,
-          y: building.footprint.reduce((sum, corner) => sum + corner.y, 0) / building.footprint.length,
-        };
+        const center = footprintCenter(building.footprint);
 
         return (
           <React.Fragment key={building.id}>
@@ -235,7 +289,7 @@ export const CanvasPlans: React.FC<{ layout: CanvasLayout }> = ({ layout }) => {
             />
             <Marker
               position={meterLatLng(center)}
-              icon={roofLabelIcon(names[index], index)}
+              icon={roofLabelIcon(names[index], index, building.id)}
               interactive={false}
               keyboard={false}
             />

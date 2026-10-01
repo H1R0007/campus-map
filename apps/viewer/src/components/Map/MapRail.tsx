@@ -1,9 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { useMapBearing } from '@campus-map/mapkit';
-import { WIDE_LAYOUT_QUERY, useMediaQuery } from '../../hooks/useMediaQuery';
 import { floorsOfBuilding, useMapStore } from '../../stores/mapStore';
-import { useUiStore } from '../../stores/uiStore';
 import { railContentFor } from '../../utils/railLayout';
 import { Compass } from '../UI/Compass';
 import { FloorSelector } from '../UI/FloorSelector';
@@ -24,20 +22,21 @@ import { ZoomControls } from '../UI/ZoomControls';
  * план. Событие `click` Leaflet при этом не останавливает, и обработчики
  * React работают.
  *
- * Пока шторка на телефоне раскрыта, кнопок масштаба нет: между шапкой и шторкой
- * остаётся полоса в пару кнопок, и масштаб забирал её у этажей целиком. Этажи
- * нужнее — по шагам маршрута переключаются именно они, а масштабировать можно
- * жестом.
+ * Кнопки масштаба уступают место, когда колонка низкая — раскрытая шторка,
+ * маленький телефон или текст, увеличенный в настройках: сначала уходит
+ * «Показать целиком», потом «+» и «−». Этажи нужнее — по шагам маршрута
+ * переключаются именно они, а масштабировать можно жестом. Кнопки не
+ * сжимаются, и раньше нижние уходили под шторку. Колонку ниже одной кнопки
+ * оставляют и этажи (`railContentFor`).
  *
- * По той же причине кнопки уступают место, когда колонка низкая — маленький
- * телефон или текст, увеличенный в настройках: сначала уходит «Показать
- * целиком», потом «+» и «−». Кнопки не сжимаются, и раньше нижние уходили под
- * шторку. Колонку ниже одной кнопки оставляют и этажи (`railContentFor`).
+ * Прежде раскрытая шторка убирала кнопки масштаба всегда. Но раскрытая шторка
+ * бывает и низкой — на общем виде в ней только быстрые кнопки, — и над ней
+ * оставалось полэкрана пустой карты, а кнопки пропадали ровно там, где
+ * поднялась шторка: со стороны казалось, что они уехали под неё. Теперь
+ * решает высота колонки.
  */
 export const MapRail: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
-  const isWide = useMediaQuery(WIDE_LAYOUT_QUERY);
-  const sheetExpanded = useUiStore((s) => s.sheetExpanded);
   const activeFloor = useMapStore((s) => s.activeFloor);
   const buildingMetas = useMapStore((s) => s.buildingMetas);
   const floorCount =
@@ -69,13 +68,12 @@ export const MapRail: React.FC = () => {
   // Компас — пока карта заметно повёрнута: доли градуса после доводки не в счёт.
   const bearing = useMapBearing();
   const content = railContentFor(heightRem, floorCount, Math.abs(bearing) >= 0.5);
-  const zoom = !isWide && sheetExpanded ? 'none' : content.zoom;
 
   return (
     <div ref={ref} className="campus-map-rail">
       {content.compass && <Compass bearing={bearing} />}
       {content.floors && <FloorSelector />}
-      {zoom !== 'none' && <ZoomControls withFit={zoom === 'full'} />}
+      {content.zoom !== 'none' && <ZoomControls withFit={content.zoom === 'full'} />}
     </div>
   );
 };

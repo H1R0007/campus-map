@@ -11,6 +11,8 @@ interface RecentPlacesProps {
   onChoose: (nodeId: string) => void;
   /** Места, которые показывать не нужно, — например, уже заданные точки маршрута. */
   exclude?: readonly (string | null)[];
+  /** Отступы списка: у пустого списка их нет вместе с ним. */
+  className?: string;
 }
 
 /**
@@ -20,7 +22,7 @@ interface RecentPlacesProps {
  * Места, которых больше нет в данных или у которых пропало название, не
  * показываются: выбрать их из интерфейса всё равно нельзя.
  */
-export const RecentPlaces: React.FC<RecentPlacesProps> = ({ onChoose, exclude = [] }) => {
+export const RecentPlaces: React.FC<RecentPlacesProps> = ({ onChoose, exclude = [], className }) => {
   const recent = useRecentStore((s) => s.recent);
   const clear = useRecentStore((s) => s.clear);
   const graph = useMapStore((s) => s.graph);
@@ -43,7 +45,7 @@ export const RecentPlaces: React.FC<RecentPlacesProps> = ({ onChoose, exclude = 
   if (places.length === 0) return null;
 
   return (
-    <section aria-labelledby={titleId}>
+    <section aria-labelledby={titleId} className={className}>
       <div className="px-1 flex items-center justify-between gap-2">
         <h3
           id={titleId}

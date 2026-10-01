@@ -25,6 +25,29 @@ export const PRELOAD_SHARE = 0.3;
 /** С этого масштаба на территории видны точки мест и значки входов, пикселей на метр. */
 export const DETAIL_PIXELS_PER_METER = 1.5;
 
+/**
+ * Крупность, больше которой камера не приближает место или шаг маршрута,
+ * пикселей на метр: помещение в восемь метров — около сотни пикселей, номер
+ * на плане читается.
+ */
+export const FOCUS_PIXELS_PER_METER = 12;
+
+/**
+ * Сколько метров вокруг места или шага показывает камера: не меньше `minSpan`,
+ * а на большом экране — сколько помещается при `FOCUS_PIXELS_PER_METER`.
+ *
+ * Раньше показывались всегда одни и те же метры: на телефоне — помещение с
+ * соседними, а на мониторе те же тридцать метров растягивались на весь экран,
+ * и место открывалось без лестниц и входов вокруг. На телефоне ничего не
+ * меняется: там минимум и так крупнее.
+ *
+ * @param freeWidth свободная от интерфейса ширина карты с полями, px
+ * @param freeHeight то же по высоте
+ */
+export function focusSpan(minSpan: number, freeWidth: number, freeHeight: number): number {
+  return Math.max(minSpan, Math.min(freeWidth, freeHeight) / FOCUS_PIXELS_PER_METER);
+}
+
 /** Доля свободной части экрана, которую занимает длинная сторона корпуса. */
 export function screenShare(spanMeters: number, pixelsPerMeter: number, freeWidth: number, freeHeight: number): number {
   return (spanMeters * pixelsPerMeter) / Math.max(1, Math.min(freeWidth, freeHeight));

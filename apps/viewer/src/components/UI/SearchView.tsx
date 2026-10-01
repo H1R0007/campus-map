@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
+import { findPath } from '@campus-map/core';
 import { useChoosePlace } from '../../hooks/useChoosePlace';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { useSuggestions } from '../../hooks/useSuggestions';
@@ -12,6 +13,7 @@ import { matchingBuildings } from '../../utils/buildingSearch';
 import { moveActiveOption } from '../../utils/listNavigation';
 import { nodePlaceLabel } from '../../utils/placeLabels';
 import { portalTypeOf } from '../../utils/portals';
+import { formatDuration } from '../../utils/routeInstructions';
 import { BuildingList } from './BuildingList';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
@@ -63,6 +65,23 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
   const [query, setQuery] = useState('');
   const [activeOption, setActiveOption] = useState(-1);
   const { options, settled } = useSuggestions(query, RESULT_LIMIT);
+  const routeOptions = useRouteStore((s) => s.options);
+
+  // Цель ищут от известного начала — у двери с QR-кодом, — и у каждого
+  // найденного места видно, сколько до него идти: из двух столовых сразу ясно,
+  // какая ближе. Порядок подсказок прежний — по совпадению с запросом. Без
+  // метрики времени нет (запись 9), и подсказка остаётся без него.
+  const startId = target === 'to' ? fromNodeId : null;
+  const durations = useMemo(() => {
+    const result = new Map<string, number>();
+    if (!graph || startId === null) return result;
+    for (const option of options) {
+      if (option.id === startId) continue;
+      const route = findPath(graph, startId, option.id, routeOptions);
+      if (route.found && route.durationSeconds !== null) result.set(option.id, route.durationSeconds);
+    }
+    return result;
+  }, [graph, startId, options, routeOptions]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -204,6 +223,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
             {options.map((option, index) => {
               const node = graph?.getNode(option.id);
               const transition = graph && node?.isPortal ? portalTypeOf(graph, node) : null;
+              const duration = durations.get(option.id);
 
               return (
                 <li
@@ -227,6 +247,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
                     )}
                     <span className="block text-sm text-gray-500 truncate">
                       {graph && buildingMetas ? nodePlaceLabel(graph, buildingMetas, option.id, language) : ''}
+                      {duration !== undefined && ` · ${formatDuration(duration, language)}`}
                     </span>
                   </span>
                 </li>
@@ -236,10 +257,13 @@ export const SearchView: React.FC<SearchViewProps> = ({ target }) => {
         ) : buildingMatches.length > 0 ? null : trimmed !== '' ? (
           // Пока запрос не устоялся (задержка поиска), «ничего не нашлось» не
           // показываем: иначе оно мигало бы на каждой букве.
+          // Под «ничего не нашлось» — что вообще можно искать: человек набрал
+          // «аудитория пятьсот», а поиск ждёт номер.
           settled && (
-            <p role="status" className="px-4 py-8 text-center text-sm text-gray-600">
-              {messages.search.nothingFound(trimmed)}
-            </p>
+            <div role="status" className="px-4 py-8 text-center">
+              <p className="text-sm font-medium text-gray-800">{messages.search.nothingFound(trimmed)}</p>
+              <p className="mt-1 text-sm text-gray-600">{messages.search.hint}</p>
+            </div>
           )
         ) : (
           <div className="px-2 py-2 space-y-5">

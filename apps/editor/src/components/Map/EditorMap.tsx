@@ -120,6 +120,9 @@ const KeyboardHandler: React.FC = () => {
       if (
         st.contextMenu.open ||
         st.helpOpen ||
+        // Мастерская листов во весь экран: её Ctrl+Z отменяет правку листа,
+        // а не правку карты, даже если фокус потерялся.
+        st.importRequest ||
         st.searchOpen ||
         st.kindsOpen ||
         target?.closest?.('[role="menu"], [role="dialog"]') ||
