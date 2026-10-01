@@ -192,6 +192,20 @@ export default {
       assert.equal(underGap, true, 'лента не забирает нажатия у карты');
     });
 
+    await step('широкий экран, недавних мест нет: под быстрыми кнопками нет пустой полосы', async () => {
+      // Недавние места от прошлых шагов сценария — стираются.
+      await page.eval('localStorage.clear()');
+      await v.open('/');
+      // Под быстрыми кнопками — только нижний отступ панели: прежде пустая
+      // обёртка недавних мест добавляла полосу ещё в 20 px.
+      const tail = await page.eval(`(() => {
+        const panel = ${PANEL}.getBoundingClientRect();
+        const quick = ${PANEL}.querySelector('ul[aria-label="Рядом"]').getBoundingClientRect();
+        return Math.round(panel.bottom - quick.bottom);
+      })()`);
+      assert.ok(tail <= 20, `под быстрыми кнопками пусто на ${tail} px`);
+    });
+
     await step('широкий экран: панель слева не закрывает маршрут и шапку', async () => {
       await v.open('/?from=campus_gate&to=b2_lab');
       await page.sleep(900);
@@ -290,6 +304,12 @@ export default {
       })()`);
       assert.ok(overview.startHeight >= 44, `«Начать» полной высоты: ${JSON.stringify(overview)}`);
       assert.ok(overview.summaryLines !== null && overview.summaryLines <= 2, `сводка маршрута не больше двух строк: ${JSON.stringify(overview)}`);
+      // «Откуда» рядом с кнопками «Поделиться» и «Сбросить» сжималось до «Г…».
+      const from = await page.eval(`(() => {
+        const line = [...${PANEL}.querySelectorAll('p')].find((p) => p.textContent.startsWith('Откуда:'));
+        return line ? { text: line.textContent, cut: line.scrollWidth > line.clientWidth + 1 } : null;
+      })()`);
+      assert.ok(from !== null && !from.cut && from.text.includes('Главный вход корпуса А'), `«Откуда» целиком: ${JSON.stringify(from)}`);
       await shot('viewer-zoom200');
 
       await v.open('/?to=b1_canteen');

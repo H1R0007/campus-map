@@ -55,8 +55,12 @@ export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) =>
           <h2 data-panel-focus tabIndex={-1} className="text-2xl font-bold leading-tight text-gray-900 outline-none">
             {step.title}
           </h2>
-          <p className="mt-1 text-base text-gray-700 text-balance">{step.place}</p>
-          {meta !== null && <p className="text-base text-gray-600">{meta}</p>}
+          {/* Место и время — одной строкой, как в списке шагов: отдельной строкой
+              время отнимало у карты над шторкой целый ряд, пока человек идёт. */}
+          <p className="mt-1 text-base text-gray-700 text-balance">
+            {step.place}
+            {meta !== null && <span className="whitespace-nowrap text-gray-600">{` · ${meta}`}</span>}
+          </p>
         </div>
       </div>
 

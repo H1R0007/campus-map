@@ -34,6 +34,9 @@ export default {
       await v.click('Далее');
       assert.equal(await v.heading(), 'Поднимитесь по лестнице');
       assert.ok((await v.headerText()).includes('Корпус А, этаж 3'), 'этаж прибытия');
+      // Где и сколько — одной строкой: отдельная строка времени отнимала у карты ряд.
+      const lines = await page.eval(`[...${PANEL}.querySelectorAll('p')].map((p) => p.textContent.replace(/\\u00a0/g, ' '))`);
+      assert.ok(lines.includes('Этаж 3 · ~1 мин'), `место и время шага одной строкой: ${JSON.stringify(lines)}`);
       await page.sleep(600);
       const width = await v.planWidthInScreens();
       assert.ok(width !== null && width < 4, `ширина плана в экранах: ${width}`);

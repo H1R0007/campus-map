@@ -89,7 +89,9 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
               читаются лучше рядом с целью, чем вместо неё.
               На очень узком экране (текст увеличен до 200 %) сводка — во всю
               ширину над целью и кнопками: рядом с кнопками она ломалась на три
-              строки, а кнопки строкой выше отнимали у карты ещё ряд. */}
+              строки, а кнопки строкой выше отнимали у карты ещё ряд. «Откуда»
+              — тоже во всю ширину, под целью и кнопками, и переносится: рядом с
+              кнопками от «Главный вход» оставалось «Г…». */}
           <div className="flex-1 min-w-0 pt-0.5 compact:contents">
             <p className="text-sm text-gray-600 compact:col-span-3 compact:row-start-1">
               {messages.route.summaryLine(routeSummary(graph, currentRoute, language))}
@@ -103,7 +105,7 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             </h2>
             {/* В раскрытом обзоре начало видно в точках маршрута ниже. */}
             {!expanded && (
-              <p className="mt-0.5 text-sm text-gray-600 truncate compact:col-start-1 compact:row-start-3">
+              <p className="mt-0.5 text-sm text-gray-600 truncate compact:col-span-3 compact:row-start-3 compact:whitespace-normal compact:break-words">
                 {messages.route.fromPlace(nameOf(fromNodeId))}
               </p>
             )}
@@ -113,13 +115,13 @@ export const RouteOverview: React.FC<RouteOverviewProps> = ({ expanded, onExpand
             icon="share"
             label={messages.route.share}
             onClick={share.share}
-            className="compact:col-start-2 compact:row-span-2 compact:row-start-2"
+            className="compact:col-start-2 compact:row-start-2"
           />
           <IconButton
             icon="close"
             label={messages.route.resetRoute}
             onClick={clearRoute}
-            className="-mr-2 compact:col-start-3 compact:row-span-2 compact:row-start-2"
+            className="-mr-2 compact:col-start-3 compact:row-start-2"
           />
         </div>
       ) : (
