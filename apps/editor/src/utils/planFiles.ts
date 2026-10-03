@@ -75,6 +75,12 @@ export interface HeldFile {
   blob: Blob;
   sha1: string;
   sha256: string;
+  /**
+   * Имя файла фото, если это фото точки (запись 87): `3f2a….webp`,
+   * `3f2a….small.webp`. Маленькое называется по отпечатку полного, а не
+   * своему, поэтому имя хранится — и попадает в черновик вместе с байтами.
+   */
+  photo?: string;
 }
 
 /**
@@ -104,6 +110,20 @@ export async function holdFile(blob: Blob): Promise<string> {
   const { sha1, sha256 } = await digestOf(blob);
   if (!held.has(sha1)) held.set(sha1, { blob, sha1, sha256 });
   return `sha1:${sha1}`;
+}
+
+/** Кладёт в память фото точки под его именем в каталоге фото. */
+export async function holdPhotoFile(blob: Blob, name: string): Promise<void> {
+  const { sha1, sha256 } = await digestOf(blob);
+  const existing = held.get(sha1);
+  if (existing) existing.photo ??= name;
+  else held.set(sha1, { blob, sha1, sha256, photo: name });
+}
+
+/** Фото точки из памяти редактора по имени файла. */
+export function heldPhotoFile(name: string): HeldFile | undefined {
+  for (const file of held.values()) if (file.photo === name) return file;
+  return undefined;
 }
 
 /** Файл из памяти редактора по ключу содержимого. */

@@ -52,6 +52,39 @@ const cases: Case[] = [
   { name: 'убрать все алиасы', act: () => store().setNodeAliases('a1_room101', []) },
   { name: 'алиасы узлу без алиасов', act: () => store().setNodeAliases('a1_hall', ['Холл']) },
   { name: 'изменить заметку', act: () => store().setNodeComment('a1_room101', 'дверь закрыта после 18:00') },
+  {
+    name: 'поставить ориентир с переводом и исправлением прохода',
+    act: () =>
+      store().setNodeLandmark('a1_hall', {
+        name: 'Кофейный автомат',
+        at: 'у кофейного автомата',
+        translations: { en: { name: 'Coffee machine', at: 'at the coffee machine' } },
+        turns: [{ from: 'a1_stairs', to: 'a1_entrance', turn: 'straight' }],
+      }),
+  },
+  {
+    name: 'снять ориентир',
+    setup: () => useEditorStore.setState((s) => void (s.nodes.get('a1_hall')!.landmark = { name: 'Автомат' })),
+    act: () => store().setNodeLandmark('a1_hall', null),
+  },
+  {
+    name: 'добавить фото и сделать главным другое',
+    setup: () =>
+      useEditorStore.setState((s) => void (s.nodes.get('a1_hall')!.photos = [{ file: '1111111111111111.webp', width: 16, height: 9 }])),
+    act: () =>
+      store().setNodePhotos('a1_hall', [
+        { file: '2222222222222222.webp', width: 4, height: 3, source: 'aaaaaaaaaaaaaaaa.jpg' },
+        { file: '1111111111111111.webp', width: 16, height: 9 },
+      ]),
+  },
+  {
+    name: 'переименовать соседа ориентира — исправление прохода идёт за ним',
+    setup: () =>
+      useEditorStore.setState(
+        (s) => void (s.nodes.get('a1_hall')!.landmark = { name: 'Автомат', turns: [{ from: 'a1_stairs', to: 'a1_entrance', turn: 'left' }] })
+      ),
+    act: () => store().renameNode('a1_stairs', 'a1_stairs_main'),
+  },
   { name: 'переименовать id точки', act: () => store().renameNode('a1_room101', 'a1_toilet_east') },
   { name: 'поставить вид места', act: () => store().setNodeCategory('a1_room101', 'toilet') },
   {

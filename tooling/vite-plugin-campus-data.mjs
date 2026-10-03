@@ -492,7 +492,7 @@ export function campusDataPlugin(options = {}) {
     configureServer(server) {
       if (writable) {
         cleanStaleUploads(uploadsDir);
-        mountSpace(server, `${controlPath}`, { dataDir, sourcesDir, readSources: [sourcesDir] });
+        mountSpace(server, `${controlPath}`, { dataDir, sourcesDir, readSources: [sourcesDir], photosDir });
 
         if (sandbox) {
           // Учебная копия (запись 55): свои адреса, свой каталог данных и
@@ -504,6 +504,9 @@ export function campusDataPlugin(options = {}) {
             // Исходники неизменны (имя — отпечаток), поэтому копия читает и
             // настоящие: «Изменить обрезку» работает и в копии.
             readSources: [sandbox.sourcesDir, sourcesDir],
+            // Пробные фото копии остаются в ней, а не в общей папке фото:
+            // общая папка — у всех разработчиков. Читает копия и общую.
+            photosDir: null,
           });
 
           server.middlewares.use(`${prefix}/state`, (req, res, next) => {
@@ -614,6 +617,27 @@ export function campusDataPlugin(options = {}) {
    */
   function mountSpace(server, prefix, space) {
     const { dataDir, sourcesDir, readSources } = space;
+
+    /**
+     * Куда писать фото точки (запись 87): в общую папку фото, если она есть у
+     * этого каталога данных; иначе — как любой файл данных. `null` — путь не
+     * фото.
+     */
+    const photoWriteTarget = (relative) => {
+      const [dir, name, ...rest] = relative.split('/');
+      if (dir !== PHOTOS_DIR || rest.length > 0 || !PHOTO_NAME.test(name ?? '')) return null;
+      return space.photosDir ? path.join(space.photosDir, name) : resolveInside(dataDir, `/${relative}`);
+    };
+
+    /** Имена фото, которые есть: в данных и в общей папке. */
+    const availablePhotos = () => {
+      const names = new Set();
+      for (const directory of [path.join(dataDir, PHOTOS_DIR), photosDir]) {
+        if (!directory || !existsSync(directory)) continue;
+        for (const name of readdirSync(directory)) if (PHOTO_NAME.test(name)) names.add(name);
+      }
+      return [...names];
+    };
     const findSource = (name) => {
       for (const directory of readSources) {
         const content = directory ? readIfFile(path.join(directory, name)) : null;
@@ -636,7 +660,15 @@ export function campusDataPlugin(options = {}) {
         if (!directory || !existsSync(directory)) continue;
         for (const name of walk(directory)) if (SOURCE_NAME.test(name)) sources.add(name);
       }
-      sendJson(res, 200, { writable: true, dataDir, sourcesDir, files, sources: [...sources] });
+      sendJson(res, 200, {
+        writable: true,
+        dataDir,
+        sourcesDir,
+        files,
+        sources: [...sources],
+        photos: availablePhotos(),
+        photosDir: space.photosDir ?? null,
+      });
     });
 
     // Большой файл — заранее, по одному: сохранение потом ссылается на
@@ -714,7 +746,8 @@ export function campusDataPlugin(options = {}) {
       // читаются тоже до записи, поэтому обмен этажей местами (2 ↔ 3) не
       // перезапишет файл раньше, чем его скопируют.
       for (const [relative, file] of Object.entries(files)) {
-        const resolved = resolveInside(dataDir, `/${relative}`);
+        const photoTarget = photoWriteTarget(relative);
+        const resolved = photoTarget ?? resolveInside(dataDir, `/${relative}`);
         if (resolved === null || !WRITABLE_EXTENSIONS.has(path.extname(relative).toLowerCase())) {
           return sendJson(res, 400, { error: `Недопустимый путь: ${relative}` });
         }
@@ -746,6 +779,14 @@ export function campusDataPlugin(options = {}) {
         const existing = readIfFile(resolved);
         const actual = existing === null ? null : hashOf(existing);
         const expected = base[relative] ?? null;
+
+        // Фото с этим именем уже есть — это тот же снимок: имя — отпечаток.
+        // Маленькую копию другой браузер мог сжать на байт иначе; перезаписывать
+        // её незачем, и это не чужая правка.
+        if (photoTarget !== null && existing !== null) {
+          planned.push({ relative, resolved, content: existing, unchanged: true });
+          continue;
+        }
 
         // Файл изменился на диске после того, как редактор его прочитал:
         // перезапись затёрла бы чужую правку молча.

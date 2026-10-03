@@ -1,0 +1,257 @@
+/*
+ * Ориентир и фото в карточке точки (запись 87): ориентир — слова, которыми
+ * навигатор поведёт студента, фото — как место выглядит.
+ */
+
+.editor-landmark {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Подгруппа раздела: «По-английски», «Как скажет навигатор». */
+.editor-landmark__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--editor-border);
+}
+
+.editor-landmark__subheading {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--editor-text-muted);
+}
+
+.editor-landmark__phrase {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Предложение студента — так, как его прочтут: крупнее подсказок. */
+.editor-landmark__sentence {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--editor-accent);
+    color: var(--editor-text);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.editor-landmark__edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.editor-landmark__edit .editor-input {
+    flex: 1 1 160px;
+}
+
+.editor-landmark__warn {
+    color: var(--editor-warn);
+}
+
+/* Проходы через ориентир: откуда → куда и что скажет навигатор. */
+.editor-passages {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Строка прохода: «откуда → куда» слева, выбор поворота справа, пометка — под ними. */
+.editor-passages__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 8px;
+    font-size: 13px;
+}
+
+.editor-passages__route {
+    min-width: 0;
+    color: var(--editor-text);
+    overflow-wrap: anywhere;
+}
+
+.editor-passages__turn {
+    width: auto;
+    min-width: 110px;
+}
+
+.editor-passages__turn[data-corrected='true'] {
+    border-color: var(--editor-warn);
+}
+
+.editor-passages__mark {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    color: var(--editor-warn);
+}
+
+/* Фото точки: плитки по две в ряд. */
+.editor-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
+}
+
+.editor-photos__tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-photos__image {
+    display: block;
+    padding: 0;
+    border: 1px solid var(--editor-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--editor-bg);
+    cursor: zoom-in;
+    aspect-ratio: 4 / 3;
+}
+
+.editor-photos__image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.editor-photos__image:focus-visible {
+    outline: 2px solid var(--editor-focus);
+    outline-offset: 1px;
+}
+
+.editor-photos__missing {
+    display: flex;
+    align-items: center;
+    aspect-ratio: 4 / 3;
+    padding: 8px;
+    border: 1px dashed var(--editor-warn);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--editor-warn);
+}
+
+.editor-photos__main {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--editor-highlight);
+    color: var(--editor-on-accent);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.editor-photos__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.editor-photos__done {
+    margin: 4px 0 8px;
+    font-size: 13px;
+    color: var(--editor-success);
+}
+
+/* Куда бросить снимок: рамка пунктиром; над ней — подсвечена. */
+.editor-photo-drop {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1.5px dashed var(--editor-border);
+    border-radius: 10px;
+    color: var(--editor-text-muted);
+}
+
+.editor-photo-drop--over {
+    border-color: var(--editor-highlight);
+    background: var(--editor-hover);
+    color: var(--editor-text);
+}
+
+.editor-photo-drop__text {
+    margin: 0;
+    font-size: 13px;
+}
+
+.editor-photo-drop .editor-section__hint {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+/* Фото крупно — поверх всего редактора, как окна (запись 68). */
+.editor-photo-preview {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--editor-backdrop);
+}
+
+.editor-photo-preview__box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(1200px, 100%);
+    max-height: 100%;
+    padding: 10px;
+    border-radius: 12px;
+    background: var(--editor-panel);
+    box-shadow: var(--editor-shadow);
+    color: var(--editor-text);
+}
+
+.editor-photo-preview__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--editor-text-muted);
+}
+
+.editor-photo-preview__image {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 120px);
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+/* «Проверка → Фото»: число готовых справа от заголовка группы. */
+.editor-coverage__head .editor-coverage__count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--editor-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-coverage__head .editor-coverage__count.editor-state--ok {
+    color: var(--editor-success);
+}

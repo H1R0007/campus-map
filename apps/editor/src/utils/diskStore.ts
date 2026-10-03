@@ -24,6 +24,10 @@ export interface DiskManifest {
   files: FileHashes;
   /** Исходники планов, которые уже лежат в `data-sources/`. */
   sources: string[];
+  /** Файлы фото, которые есть: в данных и в общей папке фото (запись 87). */
+  photos: string[];
+  /** Общая папка фото этого каталога данных; `null` — не настроена, фото ложатся в `data/photos/`. */
+  photosDir: string | null;
 }
 
 export type SaveOutcome =
@@ -59,6 +63,8 @@ export async function fetchDiskManifest(): Promise<DiskManifest | null> {
       dataDir: typeof body.dataDir === 'string' ? body.dataDir : 'data',
       files: body.files,
       sources: Array.isArray(body.sources) ? body.sources.filter((name) => typeof name === 'string') : [],
+      photos: Array.isArray(body.photos) ? body.photos.filter((name) => typeof name === 'string') : [],
+      photosDir: typeof body.photosDir === 'string' ? body.photosDir : null,
     };
   } catch {
     // Нет служебных адресов — редактор просто работает без сохранения на диск.
