@@ -11,7 +11,8 @@ import type {
   PlanSource,
 } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
-import type { MapNode, MapNodeData } from '../types/node.js';
+import type { Landmark, MapNode, MapNodeData, PointPhoto } from '../types/node.js';
+import { MAX_LANDMARK_LENGTH } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
 import { MAX_FLOOR_LABEL_LENGTH, isPlanFormat } from '../types/building.js';
@@ -23,6 +24,7 @@ import {
   CAMPUS_GRAPH_PATH,
   CAMPUS_META_PATH,
   ALIASES_PATH,
+  PHOTO_FILE,
   PLACE_KINDS_PATH,
   TRANSITIONS_PATH,
   buildingMetaPath,
@@ -475,7 +477,112 @@ function normalizeNode(
     node.comment = comment;
   }
 
+  const where = `${path}: ${raw.id}`;
+  const landmark = readLandmark(raw.landmark, where, warnings);
+  if (landmark !== undefined) node.landmark = landmark;
+
+  const photos = readPhotos(raw.photos, where, warnings);
+  if (photos !== undefined) node.photos = photos;
+
   return node;
+}
+
+/** Строка подписи ориентира: непустая после обрезки пробелов и не длиннее предела. */
+function asLandmarkText(value: unknown): string | undefined {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text.length > 0 && text.length <= MAX_LANDMARK_LENGTH ? text : undefined;
+}
+
+/**
+ * Ориентир точки. Без названия ориентира нет: им он подписан на карте и под
+ * фото. Неверная фраза или перевод отбрасываются по отдельности — название
+ * остаётся.
+ */
+function readLandmark(value: unknown, where: string, warnings: string[]): Landmark | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (!isRecord(value)) {
+    warnings.push(`${where}: ориентир должен быть объектом { name, at } — пропущен`);
+    return undefined;
+  }
+
+  const name = asLandmarkText(value.name);
+  if (name === undefined) {
+    warnings.push(
+      `${where}: у ориентира нет названия или оно длиннее ${MAX_LANDMARK_LENGTH} знаков — ориентир пропущен`
+    );
+    return undefined;
+  }
+
+  const landmark: Landmark = { name };
+  const at = readField(value, 'at', asLandmarkText, `${where}: ориентир`, warnings, 'at');
+  if (at !== undefined) landmark.at = at;
+
+  const translations = readTranslations(
+    value.translations,
+    (translation) => {
+      const translatedName = asLandmarkText(translation.name);
+      if (translatedName === undefined) return undefined;
+      const translatedAt = asLandmarkText(translation.at);
+      return translatedAt === undefined ? { name: translatedName } : { name: translatedName, at: translatedAt };
+    },
+    `${where}: ориентир`,
+    warnings
+  );
+  if (translations !== undefined) landmark.translations = translations;
+
+  return landmark;
+}
+
+/** Сторона фото в пикселях: целое, положительное и правдоподобное. */
+function asPhotoSide(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 20_000 ? value : undefined;
+}
+
+/**
+ * Фото точки. Битая запись называется и отбрасывается, остальные фото точки
+ * остаются: навигатор просто не покажет одно фото, а не все.
+ */
+function readPhotos(value: unknown, where: string, warnings: string[]): PointPhoto[] | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (!Array.isArray(value)) {
+    warnings.push(`${where}: photos должен быть списком — фото пропущены`);
+    return undefined;
+  }
+
+  const photos: PointPhoto[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    const file = isRecord(item) && typeof item.file === 'string' ? item.file : undefined;
+    if (file === undefined || !PHOTO_FILE.test(file)) {
+      warnings.push(
+        `${where}: фото ${JSON.stringify(isRecord(item) ? item.file : item)} — имя файла должно быть ` +
+          'отпечатком: 16 знаков 0–9 и a–f, затем .webp, .jpg или .png — фото пропущено'
+      );
+      continue;
+    }
+
+    const width = asPhotoSide(item.width);
+    const height = asPhotoSide(item.height);
+    if (width === undefined || height === undefined) {
+      warnings.push(
+        `${where}: фото ${file} — размер ${JSON.stringify(item.width)} × ${JSON.stringify(item.height)} ` +
+          'должен быть целым числом пикселей — фото пропущено'
+      );
+      continue;
+    }
+
+    if (seen.has(file)) {
+      warnings.push(`${where}: фото ${file} указано дважды — повтор пропущен`);
+      continue;
+    }
+    seen.add(file);
+    photos.push({ file, width, height });
+  }
+
+  return photos.length > 0 ? photos : undefined;
 }
 
 function normalizeTransition(

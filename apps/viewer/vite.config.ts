@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { DATA_ROOT } from '@campus-map/core';
 import { campusDataPlugin } from '../../tooling/vite-plugin-campus-data.mjs';
+import { localDirectory } from '../../tooling/lib/local-env.mjs';
 
 /**
  * Базовый путь развёртывания.
@@ -34,6 +35,13 @@ const dataDir = process.env.CAMPUS_DATA_DIR
   : path.resolve(__dirname, '../../data');
 
 /**
+ * Общая папка фото точек (запись 85): вне git, одна на всех разработчиков.
+ * Путь — в переменной CAMPUS_PHOTOS_DIR или строкой в `.env.local` в корне
+ * репозитория. Без неё фото берутся только из `data/photos/`.
+ */
+const photosDir = localDirectory('CAMPUS_PHOTOS_DIR');
+
+/**
  * Правило кэширования для файлов датасета с учётом базового пути.
  *
  * Шаблон намеренно не якорится на `^`: workbox сопоставляет регулярное
@@ -53,7 +61,7 @@ export default defineConfig({
 
     // Данные живут в корне монорепо в единственном экземпляре и раздаются
     // отсюда же — и в dev, и в прод-сборке.
-    campusDataPlugin({ sourceDir: dataDir }),
+    campusDataPlugin({ sourceDir: dataDir, photosDir }),
 
     VitePWA({
       // Новая версия ждёт согласия человека (`skipWaiting` по сообщению), а не

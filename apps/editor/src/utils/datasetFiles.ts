@@ -14,9 +14,11 @@ import type {
   CampusMeta,
   Dataset,
   FloorMeta,
+  Landmark,
   MapNode,
   PlaceKind,
   PlanSource,
+  PointPhoto,
 } from '@campus-map/core';
 
 /**
@@ -53,6 +55,8 @@ interface ExportedNode {
   isPortal: boolean;
   /** Рабочая заметка разметчика; присутствует только когда заполнена. */
   comment?: string;
+  landmark?: Landmark;
+  photos?: PointPhoto[];
 }
 
 
@@ -60,7 +64,8 @@ interface ExportedNode {
  * Приводит узел к виду для файла.
  *
  * `comment` включается только непустым: поле необязательное, и писать
- * `"comment": ""` в каждый узел значит засорять датасет.
+ * `"comment": ""` в каждый узел значит засорять датасет. Ориентир и фото —
+ * так же, только когда они есть.
  */
 function toExportedNode(node: MapNode): ExportedNode {
   const comment = node.comment?.trim();
@@ -72,7 +77,23 @@ function toExportedNode(node: MapNode): ExportedNode {
     neighbors: node.neighbors,
     isPortal: node.isPortal,
     ...(comment ? { comment } : {}),
+    ...(node.landmark ? { landmark: landmarkForFile(node.landmark) } : {}),
+    ...(node.photos && node.photos.length > 0 ? { photos: node.photos.map(photoForFile) } : {}),
   };
+}
+
+/** Ориентир — в порядке полей формата (запись 85). */
+function landmarkForFile(landmark: Landmark): Landmark {
+  return {
+    name: landmark.name,
+    at: landmark.at,
+    translations: landmark.translations,
+  } satisfies EveryField<Landmark>;
+}
+
+/** Фото точки — в порядке полей формата. */
+function photoForFile(photo: PointPhoto): PointPhoto {
+  return { file: photo.file, width: photo.width, height: photo.height } satisfies EveryField<PointPhoto>;
 }
 
 /**
