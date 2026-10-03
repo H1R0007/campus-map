@@ -1,0 +1,14 @@
+{
+  "panoramas": [
+    { "node": "campus_entrance_a", "file": "campus/entrance-a.jpg", "heading": 82 },
+    { "node": "a1_entrance", "file": "building_a/1/entrance.jpg", "heading": 314 },
+    { "node": "a1_hall", "file": "building_a/1/hall.jpg", "heading": 244 },
+    { "node": "a1_corridor_7", "file": "building_a/1/corridor-lift.jpg", "heading": 52 },
+    { "node": "a1_corridor_4", "file": "building_a/1/corridor-101.jpg", "heading": 9 },
+    { "node": "a1_canteen", "file": "building_a/1/canteen.jpg", "heading": 38 },
+    { "node": "a2_corridor_6", "file": "building_a/2/corridor-lift.jpg", "heading": 90 },
+    { "node": "a2_dean", "file": "building_a/2/dean.jpg", "heading": 0 },
+    { "node": "c1_hall", "file": "building_c/1/hall.jpg", "heading": 0 },
+    { "node": "c1_pool", "file": "building_c/1/pool.jpg", "heading": 0 }
+  ]
+}

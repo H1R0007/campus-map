@@ -1,0 +1,36 @@
+{
+  "name": "@campus-map/tour-lab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Прототип экскурсий 360° по точкам графа (запись 90) — не для развёртывания",
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite",
+    "typecheck": "tsc",
+    "lint": "eslint src tests scripts vite.config.ts",
+    "test": "vitest run",
+    "preview": "vite preview",
+    "samples": "node scripts/fetch-sample-panoramas.mjs",
+    "check:browser": "node scripts/check-browser.mjs",
+    "clean": "node ../../tooling/clean.mjs dist \"*.tsbuildinfo\""
+  },
+  "dependencies": {
+    "@campus-map/core": "workspace:*",
+    "@photo-sphere-viewer/compass-plugin": "5.15.1",
+    "@photo-sphere-viewer/core": "5.15.1",
+    "@photo-sphere-viewer/virtual-tour-plugin": "5.15.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "jpeg-js": "^0.4.4",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vitest": "^2.1.0"
+  }
+}
