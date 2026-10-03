@@ -52,7 +52,7 @@ export const RouteOverlay: React.FC = () => {
 
       // План под меткой открывается, только если об этом попросили.
       // Метка ведёт текущую вкладку, а не открывает по вкладке на каждый этаж.
-      if (state.routeSimulation.follow && nodes[next]) state.navigateToNode(nodes[next], 'here');
+      if (state.routeSimulation.follow && nodes[next]) state.followRouteTo(nodes[next]);
     }, route.animationSpeed);
 
     return () => window.clearInterval(timer);

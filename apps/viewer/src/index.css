@@ -564,14 +564,30 @@ button {
     transition: transform 0.2s ease;
 }
 
-/* Пока человек двигает карту, шторка на телефоне уступает ей место — остаётся
-   край с ручкой — и возвращается, когда карту отпустили (запись 37). */
+/* Пока человек двигает карту, шторка на телефоне уступает ей место и
+   возвращается, когда карту отпустили (запись 37). Остаётся ровно ручка —
+   высота `h-11` у кнопки ручки, — а содержимое гаснет: прежде над краем экрана
+   оставалась полоска текста, разрезанная посередине строки (запись 89). */
 .campus-panel--peek {
-    transform: translateY(calc(100% - 3.5rem - env(safe-area-inset-bottom, 0px)));
+    transform: translateY(calc(100% - 2.75rem - env(safe-area-inset-bottom, 0px)));
+}
+
+.campus-panel__body {
+    transition: opacity 0.15s ease;
+}
+
+.campus-panel--peek .campus-panel__body {
+    opacity: 0;
+}
+
+/* Без ручки — карточка места, прибытие — шторка уходит целиком, вместе с тенью. */
+.campus-panel--away {
+    transform: translateY(calc(100% + 1.5rem));
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .campus-panel--animated {
+    .campus-panel--animated,
+    .campus-panel__body {
         transition: none;
     }
 }

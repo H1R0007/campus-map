@@ -17,6 +17,8 @@ export default {
     await page.viewport(1600, 900, 1);
     const e = editorHelpers(page, base);
     const floorOf = async () => (await e.place()).match(/этаж (-?\d+)/)?.[1] ?? null;
+    const followChecked = () =>
+      page.eval(`[...document.querySelectorAll('label')].find((l) => l.textContent.includes('Вести карту за меткой'))?.querySelector('input')?.checked ?? null`);
 
     /** Где сейчас метка, идущая по маршруту, и есть ли линия маршрута. */
     const marker = () =>
@@ -101,12 +103,20 @@ export default {
       assert.equal(await floorOf(), '1', 'маршрут увёл карту на другой этаж');
     });
 
-    await step('«вести карту за меткой» включается явно и снимается переключением плана', async () => {
+    await step('«вести карту за меткой» ведёт карту через этажи туда и обратно, не выключаясь', async () => {
       await e.toggleFilter('Вести карту за меткой');
       await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('этаж 2')`, 8000);
+      assert.equal(await followChecked(), true, 'галочка снялась, когда метка сама сменила этаж');
+      // Метка дошла до конца и начала сначала — карта вернулась за ней на первый этаж.
+      await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('этаж 1')`, 15_000);
+      assert.equal(await followChecked(), true, 'галочка снялась на втором переходе');
+      await page.waitFor(`document.querySelector('[data-status-place]')?.textContent.includes('этаж 2')`, 15_000);
+    });
 
+    await step('план, переключённый человеком, снимает «вести карту за меткой»', async () => {
       await e.key('PageDown');
       assert.equal(await floorOf(), '1');
+      assert.equal(await followChecked(), false, 'галочка осталась после ручного переключения плана');
       await page.sleep(2500);
       assert.equal(await floorOf(), '1', 'слежение не снялось после ручного переключения плана');
     });
