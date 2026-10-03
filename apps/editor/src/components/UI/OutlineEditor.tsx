@@ -62,6 +62,7 @@ export const OutlineOverlay: React.FC<{
             <button
               type="button"
               className={`editor-outline__edge${point.bulge ? ' editor-outline__edge--arc' : ''}`}
+              data-edge={index}
               style={{ left: mid.x, top: mid.y }}
               aria-label={`Середина ребра ${index + 1}${point.bulge ? ', дуга' : ''}`}
               title="Тяните — ребро выгнется дугой, к прямой — снова прямое; двойной щелчок или Enter — новый угол"
@@ -72,6 +73,7 @@ export const OutlineOverlay: React.FC<{
             <button
               type="button"
               className="editor-outline__corner"
+              data-corner={index}
               style={{ left: corner.x, top: corner.y }}
               aria-label={`Угол контура ${index + 1}`}
               aria-pressed={selected === index}

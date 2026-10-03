@@ -19,6 +19,8 @@ import { digestOf } from '../../utils/planFiles';
 import { PieceProperties } from './PieceProperties';
 import { SheetCanvas } from './SheetCanvas';
 import type { SheetPictures } from './SheetCanvas';
+import { TOOLS } from './sheetToolList';
+import type { SheetTool } from './sheetToolList';
 import { Icon } from './Icon';
 import { DialogLayer } from './DialogLayer';
 
@@ -30,6 +32,7 @@ import { DialogLayer } from './DialogLayer';
  * поля обрезаются сами. Слева — листы с отметками, посередине — лист, который
  * приближают и двигают, как карту, справа — его свойства. Enter — лист
  * готов, дальше следующий, где нужен взгляд. Ctrl+Z отменяет правку листа.
+ * Инструменты листа (запись 81) — буквами: V, H, P, R, X, B.
  * В карту всё попадает разом — одной правкой, которую отменяет Ctrl+Z
  * редактора.
  */
@@ -75,6 +78,10 @@ const ImportWindow: React.FC = () => {
   const [thumbs, setThumbs] = useState<Map<string, string>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [corner, setCorner] = useState<number | null>(null);
+  /** Инструмент — один на всю мастерскую: вырезать штамп на листе за листом, не выбирая заново. */
+  const [tool, setTool] = useState<SheetTool>('select');
+  /** Шаг назад по Escape у холста: меню, начатая обводка, инструмент, выбранный угол. */
+  const canvasEscape = useRef<(() => boolean) | null>(null);
   const [confirmed, setConfirmed] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,12 +100,17 @@ const ImportWindow: React.FC = () => {
   const backRef = useRef<HTMLButtonElement>(null);
 
   const dirty = confirmed.size > 0 || [...histories.values()].some((history) => history.past.length > 0);
-  // Escape — по одному шагу назад: снять выбор угла, закрыть вопрос, затем
-  // спросить, бросать ли сделанное, и только потом закрыть.
+  // Escape — по одному шагу назад: сначала холст (меню, обводка, инструмент,
+  // выбранный угол), затем вопрос, затем спросить, бросать ли сделанное, и
+  // только потом закрыть.
   const close = () => {
     if (busy) return;
+    if (asking) {
+      setAsking(false);
+      return;
+    }
+    if (canvasEscape.current?.()) return;
     if (corner !== null) setCorner(null);
-    else if (asking) setAsking(false);
     else if (dirty) setAsking(true);
     else closeImport();
   };
@@ -345,7 +357,11 @@ const ImportWindow: React.FC = () => {
     const target = event.target as HTMLElement;
     const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
     const ctrl = event.ctrlKey || event.metaKey;
-    if (ctrl && !event.altKey && !typing && (event.code === 'KeyZ' || event.code === 'KeyY')) {
+    const shortcut = !typing && !ctrl && !event.altKey && !event.shiftKey ? TOOLS.find((info) => info.code === event.code) : undefined;
+    if (shortcut) {
+      event.preventDefault();
+      setTool(shortcut.tool);
+    } else if (ctrl && !event.altKey && !typing && (event.code === 'KeyZ' || event.code === 'KeyY')) {
       event.preventDefault();
       step(event.code === 'KeyY' || event.shiftKey ? 'redo' : 'undo');
     } else if (event.key === 'PageDown' || event.key === 'PageUp') {
@@ -444,7 +460,7 @@ const ImportWindow: React.FC = () => {
               <Icon name="redo" />
             </button>
           </div>
-          <span className="editor-workshop__keys">PageUp / PageDown — соседний лист · Enter — лист готов</span>
+          <span className="editor-workshop__keys">PageUp / PageDown — соседний лист · Enter — лист готов · правая кнопка — меню</span>
           <button type="button" className="editor-icon-button" onClick={close} aria-label="Закрыть мастерскую листов" title="Закрыть (Esc)">
             <Icon name="close" />
           </button>
@@ -538,6 +554,9 @@ const ImportWindow: React.FC = () => {
                 onGesture={() => startGesture(selected.id)}
                 onDrag={(change) => drag(selected.id, change)}
                 onEdit={(change, key) => edit(selected.id, change, key ?? null)}
+                tool={tool}
+                onTool={setTool}
+                escapeRef={canvasEscape}
               />
             ) : (
               <div className="editor-workshop__center editor-workshop__center--empty">
