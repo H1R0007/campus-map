@@ -110,19 +110,30 @@ export default {
       }
       assert.equal(cached['campus-photos'].filter((path) => path.includes('.small.')).length, 3, `кэш фото: ${JSON.stringify(cached)}`);
       assert.deepEqual(cached['campus-maps'], [], 'фото не вытесняют планы из их кэша');
-      // Маршрут открыл общий вид кампуса — корпус В снова мог попасть в кэш.
+      // Обратно к маршруту первого шага: Chrome 130 снимает режим «нет сети»,
+      // когда страница уходит на другой адрес, и навигатор без связи считал бы
+      // себя на связи. Следующий шаг открывает тот же адрес, что уже открыт.
+      await v.open(ROUTE);
+      // Маршрут с фото открывал общий вид кампуса — корпус В снова мог попасть в кэш.
       await forgetBuildingC();
     });
+
+    const emulateOffline = () =>
+      page.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    /**
+     * Другой адрес без связи. Chrome 130 при переходе на другой адрес снимает
+     * режим «нет сети», и навигатор считал бы себя на связи; режим включается
+     * заново — навигатор узнаёт об этом событием `offline`, как на телефоне.
+     */
+    const openOffline = async (url) => {
+      await v.open(url);
+      await emulateOffline();
+    };
 
     await step('без связи: навигатор открывается, сообщает об этом, планы шагов на месте', async () => {
       stopServer();
       await page.send('Network.enable');
-      await page.send('Network.emulateNetworkConditions', {
-        offline: true,
-        latency: 0,
-        downloadThroughput: -1,
-        uploadThroughput: -1,
-      });
+      await emulateOffline();
 
       await v.open(ROUTE);
       await page.waitFor(`document.body.innerText.includes('Нет связи')`);
@@ -144,7 +155,7 @@ export default {
 
     await step('без связи фото шага у ориентира на месте', async () => {
       await v.click('Завершить пошаговую навигацию');
-      await v.open(PHOTO_ROUTE);
+      await openOffline(PHOTO_ROUTE);
       await v.click('Начать');
       for (let index = 0; index < 10 && (await v.heading()) !== 'У кофейного автомата поверните налево'; index += 1) {
         await v.click('Далее');
@@ -153,7 +164,7 @@ export default {
       await page.waitFor(`(() => { const img = document.querySelector('[data-step-photo] img'); return !!img && img.complete && img.naturalWidth > 0; })()`);
       await v.click('Завершить пошаговую навигацию');
       // Следующий шаг начинается с пошаговой навигации по первому маршруту.
-      await v.open(ROUTE);
+      await openOffline(ROUTE);
       await v.click('Начать');
     });
 

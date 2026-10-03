@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLUR_CELLS,
+  averageCells,
   cellsOf,
   isTinyRegion,
   moveRegion,
@@ -30,6 +31,34 @@ describe('рамка в пикселях', () => {
     expect(cellsOf({ width: 30, height: 900 })).toEqual({ width: BLUR_CELLS, height: 30 * BLUR_CELLS });
     // Рамка мельче клеток не растёт.
     expect(cellsOf({ width: 2, height: 3 })).toEqual({ width: 2, height: 3 });
+  });
+});
+
+describe('средний цвет клеток', () => {
+  /** Участок RGBA из функции цвета точки. */
+  const area = (width: number, height: number, color: (x: number, y: number) => [number, number, number]) => {
+    const pixels = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) pixels.set([...color(x, y), 255], (y * width + x) * 4);
+    }
+    return pixels;
+  };
+
+  it('клетка — среднее всех своих точек, а не одна из них: мелкая шашка становится серой', () => {
+    const board = area(8, 4, (x, y) => ((x + y) % 2 === 0 ? [0, 0, 0] : [255, 255, 255]));
+    expect([...averageCells(board, 8, 4, { width: 2, height: 1 })]).toEqual([128, 128, 128, 255, 128, 128, 128, 255]);
+  });
+
+  it('красные буквы на белом дают светлое розовое пятно, а не красное', () => {
+    // Четверть точек — буквы, как у таблички «ТЕСТ».
+    const sign = area(8, 8, (x, y) => (x % 2 === 0 && y % 2 === 0 ? [180, 35, 24] : [255, 255, 255]));
+    const [r, g, b] = averageCells(sign, 8, 8, { width: 1, height: 1 });
+    expect([r, g, b]).toEqual([236, 200, 197]);
+  });
+
+  it('стороны не делятся нацело — каждая точка попадает ровно в одну клетку', () => {
+    const stripes = area(5, 1, (x) => (x < 2 ? [100, 0, 0] : [0, 0, 90]));
+    expect([...averageCells(stripes, 5, 1, { width: 2, height: 1 })]).toEqual([100, 0, 0, 255, 0, 0, 90, 255]);
   });
 });
 
