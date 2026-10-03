@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer } from 'vite';
 import type { ViteDevServer } from 'vite';
@@ -141,15 +142,20 @@ describe('сборка', () => {
 
 describe('путь к общей папке', () => {
   it('из .env.local — от корня репозитория; переменная окружения важнее', () => {
+    // Пути — не в стиле одной системы: CI идёт на Linux, где «D:/…» не абсолютный.
     const envFile = path.join(root, '.env.local');
-    writeFileSync(envFile, '# фото\nCAMPUS_PHOTOS_DIR="D:/Облако/campus-photos"\n');
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
     const saved = process.env.CAMPUS_PHOTOS_DIR;
     try {
       delete process.env.CAMPUS_PHOTOS_DIR;
-      expect(localDirectory('CAMPUS_PHOTOS_DIR', { envFile })).toBe(path.resolve('D:/Облако/campus-photos'));
+      writeFileSync(envFile, '# фото\nCAMPUS_PHOTOS_DIR="../Облако/campus-photos"\n');
+      expect(localDirectory('CAMPUS_PHOTOS_DIR', { envFile })).toBe(path.resolve(repoRoot, '../Облако/campus-photos'));
 
-      process.env.CAMPUS_PHOTOS_DIR = photosDir;
+      writeFileSync(envFile, `CAMPUS_PHOTOS_DIR=${photosDir}\n`);
       expect(localDirectory('CAMPUS_PHOTOS_DIR', { envFile })).toBe(photosDir);
+
+      process.env.CAMPUS_PHOTOS_DIR = root;
+      expect(localDirectory('CAMPUS_PHOTOS_DIR', { envFile })).toBe(root);
     } finally {
       if (saved === undefined) delete process.env.CAMPUS_PHOTOS_DIR;
       else process.env.CAMPUS_PHOTOS_DIR = saved;
