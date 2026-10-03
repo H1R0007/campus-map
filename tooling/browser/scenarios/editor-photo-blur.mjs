@@ -183,6 +183,8 @@ export default {
       const file = await page.eval(`${CARD}.querySelector('[data-photo-file]').dataset.photoFile`);
       assert.notEqual(file, original.file);
       assert.equal(await page.eval(`${CARD}.querySelector('[data-photo-blurred]')?.dataset.photoBlurred`), '1');
+      await page.eval(`${CARD}.querySelector('[data-photos-section]').scrollIntoView({ block: 'center' })`);
+      await shot('editor-blur-applied');
     });
 
     await step('«Сохранить»: рамка в данных, прежнее фото ушло из общей папки, букв не прочесть', async () => {

@@ -121,6 +121,7 @@ export default {
       assert.match(done, /^Сжато: .*Место съёмки и модель телефона в фото не попали/, done);
       assert.equal(await page.eval(`${CARD}.querySelectorAll('[data-photo-file]').length`), 1);
       assert.match(await page.eval(`${CARD}.querySelector('.editor-photos__main')?.textContent ?? ''`), /Главное/);
+      await page.eval(`${CARD}.querySelector('[data-photos-section]').scrollIntoView({ block: 'center' })`);
       await shot('editor-photo');
     });
 
