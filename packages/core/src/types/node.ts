@@ -1,3 +1,5 @@
+import type { TurnDirection } from '../turns.js';
+
 /**
  * Узел навигационного графа.
  * Представляет точку на карте: комнату, коридор, лестницу и т.д.
@@ -70,6 +72,24 @@ export interface Landmark {
 
   /** Перевод на другие языки интерфейса: код языка (`en`) → название и фраза. */
   translations?: Record<string, LandmarkTranslation>;
+
+  /**
+   * Исправленные повороты отдельных проходов через ориентир (запись 87).
+   * Обычно не нужны: поворот навигатор считает сам (`turnAt`). Исправление —
+   * для странных мест: широкий холл, кривой коридор, — где по линии маршрута
+   * выходит не то, что видит человек.
+   */
+  turns?: LandmarkTurn[];
+}
+
+/**
+ * Поворот одного прохода через ориентир: пришёл из соседней точки `from`,
+ * уходит в соседнюю `to` — говорить `turn`.
+ */
+export interface LandmarkTurn {
+  from: string;
+  to: string;
+  turn: TurnDirection;
 }
 
 /**
@@ -83,6 +103,26 @@ export const MAX_LANDMARK_LENGTH = 80;
 export interface LandmarkTranslation {
   name: string;
   at?: string;
+}
+
+/**
+ * Ориентир на языке интерфейса.
+ *
+ * Название без перевода — исходное: незнакомое слово под фото лучше пустоты,
+ * как у корпусов (`buildingName`). А фразу без перевода в предложение чужого
+ * языка не вставить — «Turn left у кофейного автомата» не прочесть, — поэтому
+ * её нет, и шаг называет ориентир отдельно.
+ *
+ * @param dataLanguage язык исходных полей данных
+ */
+export function landmarkText(
+  landmark: Landmark,
+  language: string,
+  dataLanguage: string
+): { name: string; at: string | null } {
+  const translation = landmark.translations?.[language];
+  if (translation) return { name: translation.name, at: translation.at ?? null };
+  return { name: landmark.name, at: language === dataLanguage ? (landmark.at ?? null) : null };
 }
 
 /**
@@ -101,6 +141,13 @@ export interface PointPhoto {
   /** Размер полного фото в пикселях: место под фото известно до загрузки. */
   width: number;
   height: number;
+
+  /**
+   * Исходный снимок в `data-sources/` — отпечаток и формат (запись 87). Лежит
+   * только у разработчика, вне git и вне навигатора: по нему фото можно
+   * пересжать или заново размыть лицо, не снимая ещё раз.
+   */
+  source?: string;
 }
 
 /**

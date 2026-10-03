@@ -53,6 +53,7 @@ import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
 import viewerOffline from './browser/scenarios/viewer-offline.mjs';
 import viewerOnboarding from './browser/scenarios/viewer-onboarding.mjs';
+import viewerPhotos from './browser/scenarios/viewer-photos.mjs';
 import viewerQuick from './browser/scenarios/viewer-quick.mjs';
 import viewerRecent from './browser/scenarios/viewer-recent.mjs';
 import viewerTheme from './browser/scenarios/viewer-theme.mjs';
@@ -62,6 +63,7 @@ import { repoRoot, startVite } from './lib/vite-server.mjs';
 const SCENARIOS = [
   viewerLayout,
   viewerNavigation,
+  viewerPhotos,
   viewerCanvas,
   viewerRecent,
   viewerQuick,

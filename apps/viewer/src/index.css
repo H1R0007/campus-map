@@ -522,6 +522,40 @@ button {
     mask-size: contain;
 }
 
+/* Ориентир текущего шага (запись 86): подпись над точкой, где поворачивать.
+   Значок нулевого размера, тело сдвигается так, что его хвостик указывает
+   на точку. */
+.campus-landmark__body {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, calc(-100% - 12px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    background: rgb(var(--color-surface));
+    color: rgb(var(--gray-900));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.campus-landmark__body::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    width: 14px;
+    height: 14px;
+    transform: translateX(-50%) rotate(45deg);
+    background: inherit;
+    box-shadow: 3px 3px 4px rgba(0, 0, 0, 0.12);
+}
+
 /* ===== Панель навигатора ===== */
 
 /* Шторка возвращается на место плавно после жеста; кто попросил систему не

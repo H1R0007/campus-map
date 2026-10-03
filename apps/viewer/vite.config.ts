@@ -2,7 +2,7 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import { DATA_ROOT } from '@campus-map/core';
+import { DATA_ROOT, PHOTOS_DIR } from '@campus-map/core';
 import { campusDataPlugin } from '../../tooling/vite-plugin-campus-data.mjs';
 import { localDirectory } from '../../tooling/lib/local-env.mjs';
 
@@ -134,6 +134,20 @@ export default defineConfig({
         navigateFallback: `${base}index.html`,
 
         runtimeCaching: [
+          {
+            // Фото точек (запись 85) — отдельным кэшем и раньше правила планов:
+            // workbox берёт первое подходящее правило. В общем кэше сотня
+            // просмотренных фото вытеснила бы планы этажей, а без плана
+            // навигатор без связи бесполезен. Имя фото — отпечаток содержимого,
+            // поэтому фото из кэша не устаревает.
+            urlPattern: dataAssetPattern(new RegExp(`${PHOTOS_DIR}/[^/]+\\.(?:webp|jpe?g|png)$`)),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'campus-photos',
+              expiration: { maxEntries: 150, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Планы этажей и карта кампуса меняются редко — кэш до перезаписи.
             urlPattern: dataAssetPattern(/\.(?:png|jpe?g|webp|svg)$/),

@@ -11,7 +11,8 @@ import type {
   PlanSource,
 } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
-import type { Landmark, MapNode, MapNodeData, PointPhoto } from '../types/node.js';
+import type { Landmark, LandmarkTurn, MapNode, MapNodeData, PointPhoto } from '../types/node.js';
+import { isTurnDirection } from '../turns.js';
 import { MAX_LANDMARK_LENGTH } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
@@ -531,7 +532,43 @@ function readLandmark(value: unknown, where: string, warnings: string[]): Landma
   );
   if (translations !== undefined) landmark.translations = translations;
 
+  const turns = readLandmarkTurns(value.turns, `${where}: ориентир`, warnings);
+  if (turns !== undefined) landmark.turns = turns;
+
   return landmark;
+}
+
+/**
+ * Исправленные повороты ориентира. Неверная запись называется и
+ * отбрасывается; повтор прохода — тоже: два ответа на один проход —
+ * противоречие, и верным считается первый.
+ */
+function readLandmarkTurns(value: unknown, where: string, warnings: string[]): LandmarkTurn[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    warnings.push(`${where}: turns должен быть списком — исправления поворотов пропущены`);
+    return undefined;
+  }
+
+  const turns: LandmarkTurn[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const from = isRecord(item) ? asOptionalString(item.from) : undefined;
+    const to = isRecord(item) ? asOptionalString(item.to) : undefined;
+    const turn = isRecord(item) ? item.turn : undefined;
+    if (from === undefined || to === undefined || from === to || !isTurnDirection(turn)) {
+      warnings.push(`${where}: исправление поворота ${JSON.stringify(item)} — нужны две разные точки и направление — пропущено`);
+      continue;
+    }
+    const key = `${from}→${to}`;
+    if (seen.has(key)) {
+      warnings.push(`${where}: поворот из ${from} в ${to} исправлен дважды — повтор пропущен`);
+      continue;
+    }
+    seen.add(key);
+    turns.push({ from, to, turn });
+  }
+  return turns.length > 0 ? turns : undefined;
 }
 
 /** Сторона фото в пикселях: целое, положительное и правдоподобное. */
@@ -579,7 +616,10 @@ function readPhotos(value: unknown, where: string, warnings: string[]): PointPho
       continue;
     }
     seen.add(file);
-    photos.push({ file, width, height });
+    const photo: PointPhoto = { file, width, height };
+    const source = readField(item, 'source', (raw) => (typeof raw === 'string' && SOURCE_FILE.test(raw) ? raw : undefined), `${where}: фото ${file}`, warnings, 'source');
+    if (source !== undefined) photo.source = source;
+    photos.push(photo);
   }
 
   return photos.length > 0 ? photos : undefined;

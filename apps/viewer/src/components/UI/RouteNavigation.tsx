@@ -8,6 +8,7 @@ import { stepMeta } from '../../utils/routeSummary';
 import { Icon } from './Icon';
 import { RouteStepIcon } from './RouteStepIcon';
 import { RouteSteps } from './RouteSteps';
+import { StepPhoto } from './StepPhoto';
 
 interface RouteNavigationProps {
   /** Показать под текущим шагом весь список. На широком экране — всегда. */
@@ -49,6 +50,8 @@ export const RouteNavigation: React.FC<RouteNavigationProps> = ({ expanded }) =>
 
   return (
     <div className="px-4 pb-4">
+      {/* Фото точки шага — над текстом, текст во всю ширину (запись 86). */}
+      <StepPhoto key={index} step={step} />
       <div className="flex items-start gap-3" aria-live="polite" aria-atomic="true">
         <RouteStepIcon step={step} isLast={isLast} size="lg" />
         <div className="flex-1 min-w-0">

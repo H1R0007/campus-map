@@ -97,6 +97,26 @@ function storeTheme(theme: ThemePreference): void {
   }
 }
 
+const STEP_PHOTO_KEY = 'campus-map:step-photo';
+
+/** Фото на шаге свёрнуто при прошлом визите; без выбора — развёрнуто. */
+function initialStepPhotoCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(STEP_PHOTO_KEY) === 'collapsed';
+  } catch {
+    return false;
+  }
+}
+
+function storeStepPhotoCollapsed(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(STEP_PHOTO_KEY, collapsed ? 'collapsed' : 'shown');
+  } catch {
+    // См. `readStoredLanguage`: выбор действует до закрытия вкладки.
+  }
+}
+
 interface SettingsState {
   language: Language;
   setLanguage: (language: Language) => void;
@@ -104,6 +124,13 @@ interface SettingsState {
   /** Тема оформления: как в системе, светлая или тёмная (запись 34). */
   theme: ThemePreference;
   setTheme: (theme: ThemePreference) => void;
+
+  /**
+   * Фото на шаге маршрута свёрнуто в строку (запись 86). Кто свернул его на
+   * одном шаге, хочет больше карты и на следующих — выбор запоминается.
+   */
+  stepPhotoCollapsed: boolean;
+  setStepPhotoCollapsed: (collapsed: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -119,5 +146,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setTheme: (theme) => {
     storeTheme(theme);
     set({ theme });
+  },
+
+  stepPhotoCollapsed: initialStepPhotoCollapsed(),
+
+  setStepPhotoCollapsed: (collapsed) => {
+    storeStepPhotoCollapsed(collapsed);
+    set({ stepPhotoCollapsed: collapsed });
   },
 }));

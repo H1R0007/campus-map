@@ -24,7 +24,10 @@ export function formatDistance(meters: number, language: Language): string {
  * о шаге. У начала, прибытия и в пиксельном режиме подписи нет.
  */
 export function stepMeta(step: RouteStep, language: Language): string | null {
-  if (step.kind === 'walk' && step.distanceMeters !== null) return formatDistance(step.distanceMeters, language);
+  // Шаг у ориентира — тоже пеший: сколько идти до поворота.
+  if ((step.kind === 'walk' || step.kind === 'landmark') && step.distanceMeters !== null) {
+    return formatDistance(step.distanceMeters, language);
+  }
   if (step.kind === 'transition' && step.durationSeconds !== null) return formatDuration(step.durationSeconds, language);
   return null;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_LANDMARK_LENGTH, PHOTO_FILE, loadDataset, photoPath, photoUrl } from '../src/index.js';
+import { MAX_LANDMARK_LENGTH, PHOTO_FILE, landmarkText, loadDataset, photoPath, photoUrl } from '../src/index.js';
 import type { MapNode } from '../src/index.js';
 import { memorySource } from './helpers/memorySource.js';
 
@@ -145,5 +145,63 @@ describe('файлы фото', () => {
 
   it('адрес учитывает базовый путь развёртывания', () => {
     expect(photoUrl('3f2a9c1b7d4e8a01.jpg', 'small', '/campus/data/')).toBe('/campus/data/photos/3f2a9c1b7d4e8a01.small.jpg');
+  });
+});
+
+describe('ориентир на языке интерфейса', () => {
+  const landmark = {
+    name: 'Кофейный автомат',
+    at: 'у кофейного автомата',
+    translations: { en: { name: 'Coffee machine', at: 'at the coffee machine' } },
+  };
+
+  it('на языке данных — исходные название и фраза', () => {
+    expect(landmarkText(landmark, 'ru', 'ru')).toEqual({ name: 'Кофейный автомат', at: 'у кофейного автомата' });
+  });
+
+  it('с переводом — перевод', () => {
+    expect(landmarkText(landmark, 'en', 'ru')).toEqual({ name: 'Coffee machine', at: 'at the coffee machine' });
+  });
+
+  it('без перевода фразы на чужом языке нет: в чужое предложение её не вставить', () => {
+    expect(landmarkText({ name: 'Турникеты', at: 'у турникетов' }, 'en', 'ru')).toEqual({ name: 'Турникеты', at: null });
+    expect(landmarkText({ ...landmark, translations: { en: { name: 'Coffee machine' } } }, 'en', 'ru')).toEqual({
+      name: 'Coffee machine',
+      at: null,
+    });
+  });
+});
+
+describe('исправления поворотов и исходный снимок (запись 87)', () => {
+  it('исправленные повороты читаются; неверные и повторы — с предупреждением', async () => {
+    const { node, warnings } = await loadPoint({
+      landmark: {
+        name: 'Автомат',
+        turns: [
+          { from: 'a', to: 'b', turn: 'left' },
+          { from: 'a', to: 'b', turn: 'right' },
+          { from: 'a', to: 'a', turn: 'left' },
+          { from: 'a', to: 'c', turn: 'diagonal' },
+        ],
+      },
+    });
+
+    expect(node?.landmark?.turns).toEqual([{ from: 'a', to: 'b', turn: 'left' }]);
+    expect(warnings).toHaveLength(3);
+  });
+
+  it('исходный снимок у фото — имя-отпечаток; другое имя пропускается, фото остаётся', async () => {
+    const { node, warnings } = await loadPoint({
+      photos: [
+        { ...PHOTO, source: 'a1b2c3d4e5f60718.jpg' },
+        { file: 'aaaaaaaaaaaaaaaa.png', width: 640, height: 480, source: 'IMG_0001.JPG' },
+      ],
+    });
+
+    expect(node?.photos).toEqual([
+      { ...PHOTO, source: 'a1b2c3d4e5f60718.jpg' },
+      { file: 'aaaaaaaaaaaaaaaa.png', width: 640, height: 480 },
+    ]);
+    expect(warnings).toHaveLength(1);
   });
 });

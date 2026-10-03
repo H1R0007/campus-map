@@ -6,6 +6,8 @@ import {
   STRAIGHT_MAX_DEG,
   classifyTurn,
   createCampusProjection,
+  landmarkPassages,
+  landmarkTurnAt,
   turnAngle,
   turnAt,
 } from '../src/index.js';
@@ -236,5 +238,24 @@ describe('turnAt у смены этажа', () => {
     expect(turnAt(graph, ['s2', 'l', 'e'], 1)).toBeNull();
     // Пришёл с лестничной площадки этого этажа — видно.
     expect(turnAt(graph, ['s2', 's1', 'l', 'e'], 2)?.direction).toBe('left');
+  });
+});
+
+describe('исправленный поворот и проходы через ориентир (запись 87)', () => {
+  const withTurns = (turns: Array<{ from: string; to: string; turn: 'left' | 'right' | 'straight' }>) =>
+    pixelGraph(T.map((n) => (n.id === 'l' ? { ...n, landmark: { name: 'Автомат', turns } } : n)));
+
+  it('исправление действует только на свой проход', () => {
+    const graph = withTurns([{ from: 'w', to: 'n', turn: 'straight' }]);
+    expect(landmarkTurnAt(graph, ['w', 'l', 'n'], 1)).toBe('straight');
+    expect(landmarkTurnAt(graph, ['n', 'l', 'w'], 1)).toBe('right');
+  });
+
+  it('проходы через точку — каждая пара её связей в обе стороны, с расчётом и исправлением', () => {
+    const passages = landmarkPassages(withTurns([{ from: 'w', to: 'n', turn: 'straight' }]), 'l');
+
+    expect(passages).toHaveLength(6);
+    expect(passages.find((p) => p.from === 'w' && p.to === 'n')).toEqual({ from: 'w', to: 'n', auto: 'left', corrected: 'straight' });
+    expect(passages.find((p) => p.from === 'e' && p.to === 'n')).toEqual({ from: 'e', to: 'n', auto: 'right', corrected: null });
   });
 });

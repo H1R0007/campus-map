@@ -208,7 +208,7 @@ export const NavigatorPanel: React.FC = () => {
 
   const content =
     mode === 'place' && selectedNodeId !== null ? (
-      <PlaceCard nodeId={selectedNodeId} share={share} />
+      <PlaceCard key={selectedNodeId} nodeId={selectedNodeId} share={share} />
     ) : mode === 'arrived' ? (
       <ArrivalCard />
     ) : mode === 'navigate' ? (

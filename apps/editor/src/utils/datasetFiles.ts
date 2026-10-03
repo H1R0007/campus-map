@@ -77,23 +77,29 @@ function toExportedNode(node: MapNode): ExportedNode {
     neighbors: node.neighbors,
     isPortal: node.isPortal,
     ...(comment ? { comment } : {}),
-    ...(node.landmark ? { landmark: landmarkForFile(node.landmark) } : {}),
+    ...(node.landmark ? { landmark: landmarkForFile(node.landmark, node.neighbors) } : {}),
     ...(node.photos && node.photos.length > 0 ? { photos: node.photos.map(photoForFile) } : {}),
   };
 }
 
-/** Ориентир — в порядке полей формата (запись 85). */
-function landmarkForFile(landmark: Landmark): Landmark {
+/**
+ * Ориентир — в порядке полей формата (записи 85, 87). Исправление поворота
+ * для прохода через связь, которой у точки больше нет, не пишется: такого
+ * прохода не бывает.
+ */
+function landmarkForFile(landmark: Landmark, neighbors: readonly string[]): Landmark {
+  const turns = landmark.turns?.filter((turn) => neighbors.includes(turn.from) && neighbors.includes(turn.to));
   return {
     name: landmark.name,
     at: landmark.at,
     translations: landmark.translations,
+    turns: turns && turns.length > 0 ? turns.map(({ from, to, turn }) => ({ from, to, turn })) : undefined,
   } satisfies EveryField<Landmark>;
 }
 
 /** Фото точки — в порядке полей формата. */
 function photoForFile(photo: PointPhoto): PointPhoto {
-  return { file: photo.file, width: photo.width, height: photo.height } satisfies EveryField<PointPhoto>;
+  return { file: photo.file, width: photo.width, height: photo.height, source: photo.source } satisfies EveryField<PointPhoto>;
 }
 
 /**

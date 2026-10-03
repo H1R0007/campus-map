@@ -10,6 +10,8 @@ function step(kind: RouteStepKind, durationSeconds: number | null): RouteStep {
     title: kind,
     place: '',
     transition: null,
+    turn: null,
+    subject: null,
     scope: { mode: 'campus' },
     distanceMeters: null,
     durationSeconds,

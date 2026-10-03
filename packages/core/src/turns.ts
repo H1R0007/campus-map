@@ -18,6 +18,13 @@ import type { MapNode } from './types/node.js';
  */
 export type TurnDirection = 'straight' | 'left' | 'right' | 'bearLeft' | 'bearRight' | 'back';
 
+/** Все направления — для проверки данных и выбора в редакторе. */
+export const TURN_DIRECTIONS: readonly TurnDirection[] = ['left', 'right', 'straight', 'bearLeft', 'bearRight', 'back'];
+
+export function isTurnDirection(value: unknown): value is TurnDirection {
+  return typeof value === 'string' && (TURN_DIRECTIONS as readonly string[]).includes(value);
+}
+
 /** До скольких градусов отклонения путь считается прямым. */
 export const STRAIGHT_MAX_DEG = 30;
 
@@ -172,4 +179,48 @@ function closestOtherExit(graph: Graph, at: MapNode, incoming: Point, exclude: r
   }
 
   return closest;
+}
+
+/**
+ * Что сказать у ориентира в точке `path[index]`: исправление разметчика для
+ * этого прохода, если оно есть, иначе посчитанный поворот (запись 87).
+ */
+export function landmarkTurnAt(graph: Graph, path: readonly string[], index: number): TurnDirection | null {
+  const node = graph.getNode(path[index]);
+  const corrected = node?.landmark?.turns?.find((turn) => turn.from === path[index - 1] && turn.to === path[index + 1]);
+  return corrected?.turn ?? turnAt(graph, path, index)?.direction ?? null;
+}
+
+/** Один проход через ориентир: откуда, куда и что скажет навигатор. */
+export interface LandmarkPassage {
+  from: string;
+  to: string;
+  /** Что посчитал бы навигатор сам; `null` — сказать нечего (точки совпадают). */
+  auto: TurnDirection | null;
+  /** Исправление разметчика или `null`. */
+  corrected: TurnDirection | null;
+}
+
+/**
+ * Все проходы через точку по её связям на плане — для проверки ориентира в
+ * редакторе: «от входа к лестнице — налево». Направление считается по
+ * соседним точкам, как маршрут, который приходит и уходит прямо через них.
+ */
+export function landmarkPassages(graph: Graph, nodeId: string): LandmarkPassage[] {
+  const at = graph.getNode(nodeId);
+  if (!at) return [];
+  const exits = graph
+    .getNeighbors(nodeId)
+    .map((id) => graph.getNode(id))
+    .filter((node): node is MapNode => node !== undefined && samePlan(node, at));
+
+  const passages: LandmarkPassage[] = [];
+  for (const from of exits) {
+    for (const to of exits) {
+      if (from.id === to.id) continue;
+      const corrected = at.landmark?.turns?.find((turn) => turn.from === from.id && turn.to === to.id)?.turn ?? null;
+      passages.push({ from: from.id, to: to.id, auto: turnAt(graph, [from.id, nodeId, to.id], 1)?.direction ?? null, corrected });
+    }
+  }
+  return passages;
 }

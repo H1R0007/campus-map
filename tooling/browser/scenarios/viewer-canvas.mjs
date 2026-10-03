@@ -192,8 +192,8 @@ export default {
 
     await step('на шаге навигации другие этажи корпуса не просвечивают', async () => {
       await v.click('Начать');
-      await v.click('Далее');
-      await v.click('Далее');
+      // Старт, поворот у кофейного автомата, лестница — и подъём на третий этаж.
+      for (let i = 0; i < 3; i += 1) await v.click('Далее');
       await waitShown('building_a#3');
       await page.waitFor(`document.querySelectorAll('.campus-route-ghost').length === 0`);
     });
@@ -219,8 +219,9 @@ export default {
       await page.viewport(1024, 768, 1);
       await v.open('/?from=campus_gate&to=a3_room305');
       await v.click('Начать');
-      await v.click('Далее');
-      await v.click('Далее');
+      // Старт, поворот у парковки, дорога ко входу — и «Войдите в здание».
+      for (let i = 0; i < 3; i += 1) await v.click('Далее');
+      assert.equal(await v.heading(), 'Войдите в здание');
       await waitShown('building_a#1');
       // Решение о текущем корпусе камера принимает, когда перелёт закончился.
       await page.sleep(1500);
