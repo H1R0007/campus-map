@@ -11,6 +11,9 @@
  * 640 px — 15–30 КБ, сжатие одного снимка — 0,2–0,4 с.
  */
 
+import type { PhotoRegion } from '@campus-map/core';
+import { paintBlur } from './photoBlur';
+
 /** Полное фото — во весь экран телефона и монитора. */
 export const FULL_SIDE = 1600;
 export const FULL_BUDGET = 250 * 1024;
@@ -80,28 +83,34 @@ function originalExtension(file: Blob): string {
 /** Почему снимок не открылся — человеку. */
 export class PhotoReadError extends Error {}
 
-async function render(bitmap: ImageBitmap, side: number, budget: number): Promise<{ blob: Blob; width: number; height: number }> {
-  const size = fitWithin(bitmap.width, bitmap.height, side);
+/** Картинка, вписанная в квадрат `side`, на новом холсте. */
+function draw(image: ImageBitmap | OffscreenCanvas, side: number): { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D } {
+  const size = fitWithin(image.width, image.height, side);
   const canvas = new OffscreenCanvas(size.width, size.height);
   const context = canvas.getContext('2d');
   if (!context) throw new PhotoReadError('Браузер не дал холст для сжатия фото');
   context.imageSmoothingQuality = 'high';
-  context.drawImage(bitmap, 0, 0, size.width, size.height);
-  const blob = await encodeWithin(async (quality) => {
+  context.drawImage(image, 0, 0, size.width, size.height);
+  return { canvas, context };
+}
+
+async function encode(canvas: OffscreenCanvas, budget: number): Promise<Blob> {
+  return encodeWithin(async (quality) => {
     const webp = await canvas.convertToBlob({ type: 'image/webp', quality });
     // Браузер без WebP вернёт PNG — для фото он в разы тяжелее, нужен JPEG.
     return webp.type === 'image/webp' ? webp : canvas.convertToBlob({ type: 'image/jpeg', quality });
   }, budget);
-  return { blob, ...size };
 }
 
 /**
  * Сжимает снимок в два размера.
  *
+ * @param blur рамки, которые размыть (запись 88): размывается полное фото, а
+ *        маленькое делается уже из размытого — лицо не попадёт ни в одно
  * @throws PhotoReadError, если браузер не открыл снимок — например, HEIC с
  *         iPhone в Chrome
  */
-export async function processPhoto(file: Blob): Promise<ProcessedPhoto> {
+export async function processPhoto(file: Blob, blur: readonly PhotoRegion[] = []): Promise<ProcessedPhoto> {
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -112,17 +121,19 @@ export async function processPhoto(file: Blob): Promise<ProcessedPhoto> {
   }
 
   try {
-    const full = await render(bitmap, FULL_SIDE, FULL_BUDGET);
-    const small = await render(bitmap, SMALL_SIDE, SMALL_BUDGET);
-    const file16 = await sha256Prefix(full.blob);
-    const ext = extensionOf(full.blob.type);
+    const full = draw(bitmap, FULL_SIDE);
+    paintBlur(full.context, blur);
+    const small = draw(full.canvas, SMALL_SIDE);
+    const fullBlob = await encode(full.canvas, FULL_BUDGET);
+    const file16 = await sha256Prefix(fullBlob);
+    const ext = extensionOf(fullBlob.type);
     return {
       file: `${file16}.${ext}`,
-      width: full.width,
-      height: full.height,
-      full: full.blob,
+      width: full.canvas.width,
+      height: full.canvas.height,
+      full: fullBlob,
       // Маленькое того же формата, что полное: браузер пишет оба одинаково.
-      small: small.blob,
+      small: await encode(small.canvas, SMALL_BUDGET),
       original: file,
       originalName: `${await sha256Prefix(file)}.${originalExtension(file)}`,
     };

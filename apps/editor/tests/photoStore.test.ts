@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -137,6 +138,118 @@ describe('сборка', () => {
     expect(emitted.has(`data/photos/${SHARED}`)).toBe(false);
     expect(warnings[0]).toContain(SHARED);
     expect(warnings[0]).toContain('CAMPUS_PHOTOS_DIR');
+  });
+});
+
+describe('сохранение: фото, заменённое размытием (запись 88)', () => {
+  const OLD = '5555555555555555.webp';
+  const BLURRED = '6666666666666666.webp';
+  const KEPT = '7777777777777777.webp';
+  const EDITOR = { 'X-Campus-Editor': '1', 'Content-Type': 'application/json' };
+  const GRAPH = 'campus/graph.json';
+  const sha1 = (content: string) => createHash('sha1').update(content).digest('hex');
+  const graph = (photos: string[][]) =>
+    JSON.stringify({
+      nodes: photos.map((files, i) => ({ id: `campus_${i}`, x: i, y: i, neighbors: [], photos: files.map((file) => ({ file, width: 1600, height: 1200 })) })),
+    });
+
+  let saveRoot: string;
+  let saveData: string;
+  let shared: string;
+  let saveServer: ViteDevServer;
+  let saveOrigin: string;
+
+  beforeAll(async () => {
+    saveRoot = mkdtempSync(path.join(os.tmpdir(), 'campus-photos-forget-'));
+    saveData = path.join(saveRoot, 'data');
+    shared = path.join(saveRoot, 'shared-photos');
+    resetFiles();
+    const app = path.join(saveRoot, 'app');
+    mkdirSync(app);
+    saveServer = await createServer({
+      configFile: false,
+      root: app,
+      logLevel: 'silent',
+      server: { host: '127.0.0.1', port: 0, watch: null },
+      plugins: [
+        campusDataPlugin({
+          sourceDir: saveData,
+          sourcesDir: path.join(saveRoot, 'data-sources'),
+          uploadsDir: path.join(saveRoot, 'uploads'),
+          sandboxDir: path.join(saveRoot, 'sandbox'),
+          photosDir: shared,
+          writable: true,
+        }),
+      ],
+    });
+    await saveServer.listen();
+    saveOrigin = `http://127.0.0.1:${(saveServer.httpServer!.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await saveServer?.close();
+    rmSync(saveRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  });
+
+  /** Точка с фото OLD и точка с фото KEPT; в общей папке — оба и уже размытое. */
+  function resetFiles(): string {
+    rmSync(saveData, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    rmSync(shared, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    const before = graph([[OLD], [KEPT]]);
+    write(path.join(saveData, 'campus/meta.json'), '{}');
+    write(path.join(saveData, GRAPH), before);
+    for (const file of [OLD, BLURRED, KEPT]) for (const name of [file, small(file)]) write(path.join(shared, name), `общая ${name}`);
+    return before;
+  }
+
+  const inShared = (file: string) => existsSync(path.join(shared, file));
+
+  async function save(prefix: string, body: Record<string, unknown>) {
+    const response = await fetch(`${saveOrigin}${prefix}/save`, { method: 'POST', headers: EDITOR, body: JSON.stringify(body) });
+    return { status: response.status, body: await response.json() };
+  }
+
+  it('убирается из общей папки вместе с маленьким; фото, на которое ещё ссылаются, остаётся', async () => {
+    const before = resetFiles();
+    const result = await save('/__campus', {
+      files: { [GRAPH]: { text: graph([[BLURRED], [KEPT]]) } },
+      base: { [GRAPH]: sha1(before) },
+      forgetPhotos: [OLD, KEPT],
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.forgotten).toEqual([OLD, small(OLD)]);
+    expect(inShared(OLD) || inShared(small(OLD))).toBe(false);
+    expect(inShared(KEPT) && inShared(small(KEPT)) && inShared(BLURRED)).toBe(true);
+  });
+
+  it('имя не фото или маленькое — отказ, и ничего не записано и не удалено', async () => {
+    const before = resetFiles();
+    for (const bad of ['../data/campus/meta.json', small(OLD), 'notes.txt', 42]) {
+      const result = await save('/__campus', {
+        files: { [GRAPH]: { text: graph([[BLURRED], [KEPT]]) } },
+        base: { [GRAPH]: sha1(before) },
+        forgetPhotos: [bad],
+      });
+      expect(result.status).toBe(400);
+    }
+    expect(readFileSync(path.join(saveData, GRAPH), 'utf8')).toBe(before);
+    expect(inShared(OLD) && inShared(small(OLD))).toBe(true);
+  });
+
+  it('учебная копия общую папку не трогает', async () => {
+    resetFiles();
+    expect((await fetch(`${saveOrigin}/__campus/sandbox/reset`, { method: 'POST', headers: EDITOR })).status).toBe(200);
+    const copied = readFileSync(path.join(saveRoot, 'sandbox', 'data', GRAPH), 'utf8');
+    const result = await save('/__campus/sandbox', {
+      files: { [GRAPH]: { text: graph([[BLURRED], [KEPT]]) } },
+      base: { [GRAPH]: sha1(copied) },
+      forgetPhotos: [OLD],
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.forgotten).toEqual([]);
+    expect(inShared(OLD) && inShared(small(OLD))).toBe(true);
   });
 });
 

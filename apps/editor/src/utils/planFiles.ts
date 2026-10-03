@@ -81,6 +81,12 @@ export interface HeldFile {
    * своему, поэтому имя хранится — и попадает в черновик вместе с байтами.
    */
   photo?: string;
+  /**
+   * Фото, которые это фото заменило размытием (запись 88), — полные имена.
+   * Сохранение убирает их из общей папки, если на них больше никто не
+   * ссылается: лицо не должно остаться в папке, которую получают все.
+   */
+  replaces?: string[];
 }
 
 /**
@@ -112,12 +118,18 @@ export async function holdFile(blob: Blob): Promise<string> {
   return `sha1:${sha1}`;
 }
 
-/** Кладёт в память фото точки под его именем в каталоге фото. */
-export async function holdPhotoFile(blob: Blob, name: string): Promise<void> {
+/**
+ * Кладёт в память фото точки под его именем в каталоге фото.
+ *
+ * @param replaces фото, которые это фото заменило размытием
+ */
+export async function holdPhotoFile(blob: Blob, name: string, replaces: readonly string[] = []): Promise<void> {
   const { sha1, sha256 } = await digestOf(blob);
-  const existing = held.get(sha1);
-  if (existing) existing.photo ??= name;
-  else held.set(sha1, { blob, sha1, sha256, photo: name });
+  let file = held.get(sha1);
+  if (file) file.photo ??= name;
+  else held.set(sha1, (file = { blob, sha1, sha256, photo: name }));
+  const merged = [...new Set([...(file.replaces ?? []), ...replaces])].filter((other) => other !== name);
+  if (merged.length > 0) file.replaces = merged;
 }
 
 /** Фото точки из памяти редактора по имени файла. */

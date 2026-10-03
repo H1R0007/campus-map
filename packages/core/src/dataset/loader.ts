@@ -11,9 +11,9 @@ import type {
   PlanSource,
 } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
-import type { Landmark, LandmarkTurn, MapNode, MapNodeData, PointPhoto } from '../types/node.js';
+import type { Landmark, LandmarkTurn, MapNode, MapNodeData, PhotoRegion, PointPhoto } from '../types/node.js';
 import { isTurnDirection } from '../turns.js';
-import { MAX_LANDMARK_LENGTH } from '../types/node.js';
+import { MAX_LANDMARK_LENGTH, MAX_PHOTO_BLUR } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
 import { MAX_FLOOR_LABEL_LENGTH, isPlanFormat } from '../types/building.js';
@@ -619,10 +619,59 @@ function readPhotos(value: unknown, where: string, warnings: string[]): PointPho
     const photo: PointPhoto = { file, width, height };
     const source = readField(item, 'source', (raw) => (typeof raw === 'string' && SOURCE_FILE.test(raw) ? raw : undefined), `${where}: фото ${file}`, warnings, 'source');
     if (source !== undefined) photo.source = source;
+    const blur = readBlur(item.blur, `${where}: фото ${file}`, warnings);
+    if (blur !== undefined) photo.blur = blur;
     photos.push(photo);
   }
 
   return photos.length > 0 ? photos : undefined;
+}
+
+/** Доля стороны фото: число от 0 до 1. */
+const isFraction = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+
+/** Запас на округление: рамка у самого края — `0.95 + 0.05` может дать чуть больше единицы. */
+const EDGE_SLACK = 1e-6;
+
+/**
+ * Размытые участки фото (запись 88). Пиксели фото уже размыты, поэтому
+ * битая рамка не опасна — она называется и отбрасывается; редактор просто не
+ * покажет её и, пересжимая фото из исходника, не размоет это место заново.
+ */
+function readBlur(value: unknown, where: string, warnings: string[]): PhotoRegion[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    warnings.push(`${where}: blur должен быть списком рамок — поле пропущено`);
+    return undefined;
+  }
+
+  const regions: PhotoRegion[] = [];
+  for (const item of value) {
+    if (regions.length >= MAX_PHOTO_BLUR) {
+      warnings.push(`${where}: размытых участков больше ${MAX_PHOTO_BLUR} — лишние пропущены`);
+      break;
+    }
+    const [x, y, width, height] = isRecord(item) ? [item.x, item.y, item.width, item.height] : [];
+    if (
+      !isFraction(x) ||
+      !isFraction(y) ||
+      !isFraction(width) ||
+      !isFraction(height) ||
+      width === 0 ||
+      height === 0 ||
+      x + width > 1 + EDGE_SLACK ||
+      y + height > 1 + EDGE_SLACK
+    ) {
+      warnings.push(
+        `${where}: размытый участок ${JSON.stringify(item)} — нужны x, y, width, height долями фото от 0 до 1, ` +
+          'внутри фото — участок пропущен'
+      );
+      continue;
+    }
+    regions.push({ x, y, width, height });
+  }
+
+  return regions.length > 0 ? regions : undefined;
 }
 
 function normalizeTransition(

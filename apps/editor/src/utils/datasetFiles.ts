@@ -16,6 +16,7 @@ import type {
   FloorMeta,
   Landmark,
   MapNode,
+  PhotoRegion,
   PlaceKind,
   PlanSource,
   PointPhoto,
@@ -99,7 +100,28 @@ function landmarkForFile(landmark: Landmark, neighbors: readonly string[]): Land
 
 /** Фото точки — в порядке полей формата. */
 function photoForFile(photo: PointPhoto): PointPhoto {
-  return { file: photo.file, width: photo.width, height: photo.height, source: photo.source } satisfies EveryField<PointPhoto>;
+  return {
+    file: photo.file,
+    width: photo.width,
+    height: photo.height,
+    source: photo.source,
+    blur: photo.blur && photo.blur.length > 0 ? photo.blur.map(regionForFile) : undefined,
+  } satisfies EveryField<PointPhoto>;
+}
+
+const STEPS = 10_000;
+
+/**
+ * Рамка размытия (запись 88) — доли до десятитысячных: на фото в 1600 px это
+ * шестая часть пикселя. Округляется наружу: рамка в файле не меньше той, что
+ * размыта на деле, и не выходит за фото.
+ */
+function regionForFile(region: PhotoRegion): PhotoRegion {
+  const x = Math.max(0, Math.floor(region.x * STEPS));
+  const y = Math.max(0, Math.floor(region.y * STEPS));
+  const right = Math.min(STEPS, Math.ceil((region.x + region.width) * STEPS));
+  const bottom = Math.min(STEPS, Math.ceil((region.y + region.height) * STEPS));
+  return { x: x / STEPS, y: y / STEPS, width: (right - x) / STEPS, height: (bottom - y) / STEPS } satisfies EveryField<PhotoRegion>;
 }
 
 /**

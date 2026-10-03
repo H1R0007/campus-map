@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_LANDMARK_LENGTH, PHOTO_FILE, landmarkText, loadDataset, photoPath, photoUrl } from '../src/index.js';
+import { MAX_LANDMARK_LENGTH, MAX_PHOTO_BLUR, PHOTO_FILE, landmarkText, loadDataset, photoPath, photoUrl } from '../src/index.js';
 import type { MapNode } from '../src/index.js';
 import { memorySource } from './helpers/memorySource.js';
 
@@ -203,5 +203,47 @@ describe('исправления поворотов и исходный сним
       { file: 'aaaaaaaaaaaaaaaa.png', width: 640, height: 480 },
     ]);
     expect(warnings).toHaveLength(1);
+  });
+});
+
+describe('размытые участки фото (запись 88)', () => {
+  const FACE = { x: 0.1, y: 0.2, width: 0.15, height: 0.25 };
+
+  it('рамки в долях фото читаются, у самого края — тоже', async () => {
+    const edge = { x: 0.95, y: 0.9, width: 0.05, height: 0.1 };
+    const { node, warnings } = await loadPoint({ photos: [{ ...PHOTO, blur: [FACE, edge] }] });
+
+    expect(warnings).toEqual([]);
+    expect(node?.photos?.[0].blur).toEqual([FACE, edge]);
+  });
+
+  it('рамка за краем фото, нулевая или не числом — пропускается с предупреждением, фото и другие рамки остаются', async () => {
+    const bad = [
+      { x: 0.9, y: 0.1, width: 0.2, height: 0.1 },
+      { x: 0.1, y: 0.1, width: 0, height: 0.1 },
+      { x: -0.1, y: 0.1, width: 0.2, height: 0.1 },
+      { x: '0.1', y: 0.1, width: 0.2, height: 0.1 },
+      { x: 0.1, y: 0.1, width: 0.2 },
+      'лицо',
+    ];
+    const { node, warnings } = await loadPoint({ photos: [{ ...PHOTO, blur: [...bad, FACE] }] });
+
+    expect(node?.photos).toEqual([{ ...PHOTO, blur: [FACE] }]);
+    expect(warnings).toHaveLength(bad.length);
+    expect(warnings[0]).toContain('campus_corner');
+    expect(warnings[0]).toContain(PHOTO.file);
+  });
+
+  it('не список или только битые рамки — поля нет; лишние сверх предела отбрасываются', async () => {
+    const notList = await loadPoint({ photos: [{ ...PHOTO, blur: FACE }] });
+    expect(notList.node?.photos).toEqual([PHOTO]);
+    expect(notList.warnings).toHaveLength(1);
+
+    const allBad = await loadPoint({ photos: [{ ...PHOTO, blur: [{ x: 2, y: 0, width: 1, height: 1 }] }] });
+    expect(allBad.node?.photos?.[0]).not.toHaveProperty('blur');
+
+    const many = await loadPoint({ photos: [{ ...PHOTO, blur: Array.from({ length: MAX_PHOTO_BLUR + 3 }, () => FACE) }] });
+    expect(many.node?.photos?.[0].blur).toHaveLength(MAX_PHOTO_BLUR);
+    expect(many.warnings).toHaveLength(1);
   });
 });

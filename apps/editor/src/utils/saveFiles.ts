@@ -37,6 +37,12 @@ export interface SavePlan {
    * можно — данные целы, а фото придёт с синхронизацией.
    */
   missingPhotos: string[];
+  /**
+   * Фото, которые заменило размытое (запись 88) и на которые больше никто не
+   * ссылается, — полные имена. Сервер уберёт их и маленькие копии из общей
+   * папки фото, если и после записи на них не ссылается ни одна точка.
+   */
+  forgetPhotos: string[];
 }
 
 export interface SaveInput {
@@ -114,11 +120,14 @@ export function planSave({ dataset, planFiles, diskHashes, diskSources, owned, d
   // Фото точек (запись 87): имя — отпечаток, поэтому лежащее где-то — то же
   // самое; загружается только то, чего нет ни в данных, ни в общей папке.
   const missingPhotos: string[] = [];
-  for (const name of referencedPhotoFiles(dataset)) {
+  const referenced = referencedPhotoFiles(dataset);
+  const replaced = new Set<string>();
+  for (const name of referenced) {
     const path = `${PHOTOS_DIR}/${name}`;
     produced.push(path);
-    if (diskHashes[path] !== undefined || diskPhotos.has(name)) continue;
     const held = heldPhotoFile(name);
+    for (const old of held?.replaces ?? []) replaced.add(old);
+    if (diskHashes[path] !== undefined || diskPhotos.has(name)) continue;
     if (held) {
       uploads.set(held.sha256, held);
       files[path] = { upload: held.sha256 };
@@ -126,6 +135,10 @@ export function planSave({ dataset, planFiles, diskHashes, diskSources, owned, d
       missingPhotos.push(name);
     }
   }
+  // Заменённое размытием и на диске: на него больше никто не ссылается —
+  // отменённое размытие вернуло бы ссылку, и такое фото не трогается.
+  const stillReferenced = new Set(referenced);
+  const forgetPhotos = [...replaced].filter((name) => !stillReferenced.has(name) && diskPhotos.has(name)).sort();
 
   const sources: Record<string, { upload: string }> = {};
   for (const name of referencedSources(dataset)) {
@@ -141,7 +154,7 @@ export function planSave({ dataset, planFiles, diskHashes, diskSources, owned, d
   const producedSet = new Set(produced);
   const deletions = [...owned].filter((path) => !producedSet.has(path) && diskHashes[path] !== undefined).sort();
 
-  return { files, delete: deletions, sources, uploads: [...uploads.values()], produced, lost, missingPhotos };
+  return { files, delete: deletions, sources, uploads: [...uploads.values()], produced, lost, missingPhotos, forgetPhotos };
 }
 
 /** Файл плана, а не JSON: его содержимое редактор не соберёт заново. */

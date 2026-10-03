@@ -31,7 +31,16 @@ export interface DiskManifest {
 }
 
 export type SaveOutcome =
-  | { kind: 'saved'; written: string[]; unchanged: string[]; deleted: string[]; hashes: FileHashes; sources: string[] }
+  | {
+      kind: 'saved';
+      written: string[];
+      unchanged: string[];
+      deleted: string[];
+      hashes: FileHashes;
+      sources: string[];
+      /** Фото, заменённые размытием, которые сервер убрал из общей папки (запись 88). */
+      forgotten: string[];
+    }
   /** Файлы изменились на диске после того, как редактор их прочитал. */
   | { kind: 'conflict'; paths: string[] }
   /** Загрузка пропала до сохранения (временный каталог очищен): загрузить заново. */
@@ -43,6 +52,8 @@ export interface SaveRequest {
   files: Record<string, SaveFile>;
   delete: string[];
   sources: Record<string, { upload: string }>;
+  /** Фото, заменённые размытием: убрать из общей папки, если на них никто не ссылается. */
+  forgetPhotos?: string[];
 }
 
 /**
@@ -182,6 +193,7 @@ export async function saveFilesToDisk(request: SaveRequest, base: FileHashes): P
     deleted?: string[];
     hashes?: FileHashes;
     sources?: string[];
+    forgotten?: string[];
   };
   return {
     kind: 'saved',
@@ -190,5 +202,6 @@ export async function saveFilesToDisk(request: SaveRequest, base: FileHashes): P
     deleted: body.deleted ?? [],
     hashes: body.hashes ?? {},
     sources: body.sources ?? [],
+    forgotten: body.forgotten ?? [],
   };
 }

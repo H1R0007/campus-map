@@ -172,6 +172,7 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
           for (const path of [...outcome.written, ...outcome.unchanged]) {
             if (path.startsWith(`${PHOTOS_DIR}/`)) s.diskPhotos.add(path.slice(PHOTOS_DIR.length + 1));
           }
+          for (const name of outcome.forgotten) s.diskPhotos.delete(name);
           s.ownedFiles = new Set(plan.produced);
         });
         get().markSaved();
@@ -184,11 +185,14 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
           return;
         }
         const deleted = outcome.deleted.length;
+        // Полное фото и маленькое — одно фото для человека.
+        const forgotten = outcome.forgotten.filter((name) => !name.includes('.small.')).length;
         get().showNotice(
-          outcome.written.length === 0 && deleted === 0
+          outcome.written.length === 0 && deleted === 0 && forgotten === 0
             ? 'Сохранять нечего: файлы данных уже такие'
             : `Сохранено в ${SPACE === 'sandbox' ? 'учебную копию' : 'data/'}: файлов ${outcome.written.length}` +
-                (deleted > 0 ? `, удалено ${deleted} ${plural(deleted, ['файл', 'файла', 'файлов'])}` : '')
+                (deleted > 0 ? `, удалено ${deleted} ${plural(deleted, ['файл', 'файла', 'файлов'])}` : '') +
+                (forgotten > 0 ? `; фото без размытия убрано из общей папки: ${forgotten}` : '')
         );
       } else if (outcome.kind === 'conflict') {
         get().showNotice(
@@ -331,7 +335,7 @@ async function uploadAndSave(plan: ReturnType<typeof planSave>, base: FileHashes
     const error = await uploadToDisk(file);
     if (error) return { kind: 'error', message: error };
   }
-  const request = { files: plan.files, delete: plan.delete, sources: plan.sources };
+  const request = { files: plan.files, delete: plan.delete, sources: plan.sources, forgetPhotos: plan.forgetPhotos };
   const outcome = await saveFilesToDisk(request, base);
   if (outcome.kind !== 'missing-upload') return outcome;
 

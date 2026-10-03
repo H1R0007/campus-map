@@ -103,6 +103,8 @@ const ICON_PATHS = {
   photo:
     'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
   flag: 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9',
+  // Размытие лиц и надписей (запись 88) — Tabler «blur».
+  blur: 'M12 21a9.01 9.01 0 0 0 2.32 -.302a9.004 9.004 0 0 0 1.74 -16.733a9 9 0 1 0 -4.06 17.035zM12 3v17M12 12h9M12 9h8M12 6h6M12 18h6M12 15h8',
 } satisfies Record<string, string>;
 
 export type IconName = keyof typeof ICON_PATHS;

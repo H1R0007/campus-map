@@ -46,6 +46,7 @@ import editorHelpSearch from './browser/scenarios/editor-help-search.mjs';
 import editorA11y from './browser/scenarios/editor-a11y.mjs';
 import editorKinds from './browser/scenarios/editor-kinds.mjs';
 import editorPhotos from './browser/scenarios/editor-photos.mjs';
+import editorPhotoBlur from './browser/scenarios/editor-photo-blur.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import editorWalkScratch from './browser/scenarios/editor-walk-scratch.mjs';
 import editorWalkFix from './browser/scenarios/editor-walk-fix.mjs';
@@ -96,6 +97,7 @@ const SCENARIOS = [
   editorA11y,
   editorKinds,
   editorPhotos,
+  editorPhotoBlur,
   editorPanels,
   // Разборы путей целиком (этап 5 фазы 12): длинные, поэтому последними.
   editorWalkScratch,

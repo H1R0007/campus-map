@@ -96,6 +96,35 @@ describe('круг «сохранить → открыть»', () => {
     expect(Object.keys(written.landmark)).toEqual(['name', 'at', 'translations']);
   });
 
+  it('рамки размытия фото сохраняются округлёнными наружу и не выходят за фото (запись 88)', async () => {
+    useEditorStore.setState((s) => {
+      s.nodes.get('a1_hall')!.photos = [
+        {
+          file: '3f2a9c1b7d4e8a01.webp',
+          width: 1600,
+          height: 1200,
+          blur: [
+            { x: 0.12341, y: 0.2, width: 0.1, height: 0.333333 },
+            { x: 0.9, y: 0.95, width: 0.1000001, height: 0.0500002 },
+          ],
+        },
+        { file: 'aaaaaaaaaaaaaaaa.png', width: 640, height: 480, blur: [] },
+      ];
+    });
+
+    const files = datasetFiles(datasetFromState(store()));
+    const { dataset, warnings } = await loadDataset(sourceOf(files));
+    const [blurred, plain] = dataset.nodes.find((node) => node.id === 'a1_hall')!.photos!;
+
+    expect(warnings).toEqual([]);
+    expect(blurred.blur).toEqual([
+      { x: 0.1234, y: 0.2, width: 0.1001, height: 0.3334 },
+      { x: 0.9, y: 0.95, width: 0.1, height: 0.05 },
+    ]);
+    // Пустой список не пишется.
+    expect(plain).not.toHaveProperty('blur');
+  });
+
   it('копия точки не уносит её ориентир и фото: на новом месте они неверны', () => {
     useEditorStore.setState((s) => {
       const node = s.nodes.get('a1_hall')!;

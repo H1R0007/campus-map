@@ -13,6 +13,7 @@ import { PhotoReadError, processPhoto } from '../../utils/photoProcessing';
 import { useCardEdit } from './cardEdit';
 import { CommitField, InfoTip } from './Field';
 import { Icon } from './Icon';
+import { PhotoBlurDialog } from './PhotoBlurDialog';
 
 /**
  * Ориентир и фото точки в её карточке (запись 87).
@@ -401,11 +402,32 @@ export const PhotosSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
   const [dragOver, setDragOver] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
+  const [blurring, setBlurring] = useState<number | null>(null);
 
   const onDisk = diskSaveAvailable ? diskPhotos : null;
   const room = MAX_PHOTOS - photos.length;
 
   const change = (next: PointPhoto[]) => edit(() => setNodePhotos(nodeId, next));
+
+  /** Размытое фото встаёт на место прежнего — главное остаётся главным (запись 88). */
+  const applyBlur = (replaced: PointPhoto, next: PointPhoto) => {
+    const current = useEditorStore.getState().nodes.get(nodeId)?.photos ?? [];
+    setBlurring(null);
+    if (!current.some((photo) => photo.file === replaced.file)) return;
+    change(current.map((photo) => (photo.file === replaced.file ? next : photo)));
+    const count = next.blur?.length ?? 0;
+    setMessage({
+      kind: 'ok',
+      text:
+        count > 0
+          ? `Размыто участков: ${count}. Студент увидит фото уже размытым.` +
+            (inSharedFolder(replaced) ? ' Прежнее фото без размытия уберётся из общей папки при сохранении.' : '')
+          : 'Размытие убрано: фото — как на исходном снимке.',
+    });
+  };
+
+  /** Прежнее фото лежит в общей папке, и сохранение уберёт его оттуда. */
+  const inSharedFolder = (photo: PointPhoto) => SPACE !== 'sandbox' && Boolean(photosDir) && (onDisk?.has(photo.file) ?? false);
 
   const addFiles = async (files: File[]) => {
     const images = files.filter((file) => file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name));
@@ -437,7 +459,7 @@ export const PhotosSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
         kind: 'ok',
         text:
           `Сжато: ${formatBytes(before)} → ${formatBytes(after)}, для шага — ${formatBytes(small)}. ` +
-          'Место съёмки и модель телефона в фото не попали.' +
+          'Место съёмки и модель телефона в фото не попали. Люди или фамилии в кадре — «Размыть…» у фото.' +
           (skipped > 0 ? ` Не больше ${MAX_PHOTOS} фото у точки — ещё ${skipped} не добавлено.` : ''),
       });
     } catch (error) {
@@ -509,12 +531,29 @@ export const PhotosSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
                   </div>
                 )}
                 {index === 0 && <span className="editor-photos__main">Главное</span>}
+                {(photo.blur?.length ?? 0) > 0 && (
+                  <span className="editor-photos__blurred" title="Лица и надписи на этом фото размыты" data-photo-blurred={photo.blur!.length}>
+                    <Icon name="blur" size={12} />
+                    {photo.blur!.length}
+                  </span>
+                )}
                 <div className="editor-photos__actions">
                   {index > 0 && (
                     <button type="button" className="editor-button editor-button--ghost editor-button--compact" onClick={() => makeMain(index)}>
                       Сделать главным
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="editor-button editor-button--ghost editor-button--compact"
+                    onClick={() => setBlurring(index)}
+                    disabled={!src}
+                    aria-label={`Размыть лица и надписи на фото ${index + 1}`}
+                    title="Размыть лица, номера машин, фамилии на табличках"
+                  >
+                    <Icon name="blur" />
+                    Размыть…
+                  </button>
                   <button
                     type="button"
                     className="editor-button editor-button--danger editor-button--compact"
@@ -568,7 +607,27 @@ export const PhotosSection: React.FC<{ nodeId: string }> = ({ nodeId }) => {
       {storage && <p className="editor-section__hint">{storage}</p>}
 
       {preview !== null && photos[preview] && (
-        <PhotoPreview photos={photos} index={preview} onDisk={onDisk} onIndex={setPreview} onClose={() => setPreview(null)} />
+        <PhotoPreview
+          photos={photos}
+          index={preview}
+          onDisk={onDisk}
+          onIndex={setPreview}
+          onClose={() => setPreview(null)}
+          onBlur={(index) => {
+            setPreview(null);
+            setBlurring(index);
+          }}
+        />
+      )}
+      {blurring !== null && photos[blurring] && (
+        <PhotoBlurDialog
+          photo={photos[blurring]}
+          number={blurring + 1}
+          onDisk={onDisk}
+          inSharedFolder={inSharedFolder(photos[blurring])}
+          onApply={(next) => applyBlur(photos[blurring], next)}
+          onClose={() => setBlurring(null)}
+        />
       )}
     </section>
   );
@@ -581,7 +640,9 @@ const PhotoPreview: React.FC<{
   onDisk: ReadonlySet<string> | null;
   onIndex: (index: number) => void;
   onClose: () => void;
-}> = ({ photos, index, onDisk, onIndex, onClose }) => {
+  /** Увидел лицо крупно — сразу к размытию этого фото. */
+  onBlur: (index: number) => void;
+}> = ({ photos, index, onDisk, onIndex, onClose, onBlur }) => {
   const ref = useRef<HTMLDivElement>(null);
   useDialogFocus(true, ref, onClose);
   const photo = photos[index];
@@ -604,10 +665,17 @@ const PhotoPreview: React.FC<{
         <div className="editor-photo-preview__bar">
           <span>
             Фото {index + 1} из {photos.length} · {photo.width} × {photo.height}
+            {(photo.blur?.length ?? 0) > 0 && ` · размыто участков: ${photo.blur!.length}`}
           </span>
-          <button type="button" className="editor-icon-button" onClick={onClose} aria-label="Закрыть фото" title="Закрыть (Esc)">
-            <Icon name="close" size={18} />
-          </button>
+          <span className="editor-photo-preview__tools">
+            <button type="button" className="editor-button editor-button--ghost editor-button--compact" onClick={() => onBlur(index)} disabled={!src}>
+              <Icon name="blur" />
+              Размыть…
+            </button>
+            <button type="button" className="editor-icon-button" onClick={onClose} aria-label="Закрыть фото" title="Закрыть (Esc)">
+              <Icon name="close" size={18} />
+            </button>
+          </span>
         </div>
         {src ? <img className="editor-photo-preview__image" src={src} alt={`Фото ${index + 1}`} /> : <p>Нет файла на этой машине</p>}
       </div>

@@ -729,6 +729,12 @@ export function campusDataPlugin(options = {}) {
       const base = request?.base ?? {};
       const deletions = Array.isArray(request?.delete) ? request.delete : [];
       const sources = request?.sources ?? {};
+      const forget = Array.isArray(request?.forgetPhotos) ? request.forgetPhotos : [];
+      for (const name of forget) {
+        if (typeof name !== 'string' || !PHOTO_NAME.test(name) || name.includes('.small.')) {
+          return sendJson(res, 400, { error: `Недопустимое имя фото: ${name}` });
+        }
+      }
       const planned = [];
       const plannedDeletions = [];
       const plannedSources = [];
@@ -863,7 +869,23 @@ export function campusDataPlugin(options = {}) {
 
       for (const name of usedUploads) rmSync(path.join(uploadsDir, name), { force: true });
 
-      sendJson(res, 200, { written, unchanged, deleted, hashes, sources: plannedSources.map((file) => file.name) });
+      // Фото, заменённые размытием (запись 88): лицо не должно остаться в
+      // общей папке, которую получают все. Убирается только то, на что после
+      // записи не ссылается ни одна точка этих данных.
+      const forgotten = [];
+      if (space.photosDir && forget.length > 0) {
+        const stillUsed = referencedPhotos(dataDir);
+        for (const name of forget) {
+          for (const file of [name, path.posix.basename(photoPath(name, 'small'))]) {
+            const target = path.join(space.photosDir, file);
+            if (stillUsed.has(file) || !existsSync(target)) continue;
+            rmSync(target, { force: true });
+            forgotten.push(file);
+          }
+        }
+      }
+
+      sendJson(res, 200, { written, unchanged, deleted, hashes, sources: plannedSources.map((file) => file.name), forgotten });
     });
   }
 }
