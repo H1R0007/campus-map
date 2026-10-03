@@ -55,7 +55,7 @@ export type Workspace = 'plans' | 'markup' | 'check';
  * Вкладка режима «Проверка»: готовность карты (запись 67), замечания или
  * маршрут. Метка идёт по маршруту, только пока он открыт.
  */
-export type CheckTab = 'ready' | 'problems' | 'route';
+export type CheckTab = 'ready' | 'problems' | 'route' | 'photos';
 
 /**
  * Для чего открыто окно «Планы из файлов»: план этажа или территории, этажи

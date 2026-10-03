@@ -29,6 +29,10 @@
  * Учебная копия (`sandboxDir`, запись 55) — отдельный каталог с копией
  * данных и своими служебными адресами (`__campus/sandbox/...`): в ней можно
  * пробовать всё, включая сохранение, а настоящие данные не меняются.
+ *
+ * Фото точек (`photosDir`, запись 85) — общая папка вне git: фото, которого
+ * нет в `data/photos/`, раздаётся оттуда, а в сборку попадают только фото,
+ * на которые ссылаются точки.
  */
 
 import { createHash } from 'node:crypto';
@@ -47,7 +51,7 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DATA_ROOT } from '@campus-map/core';
+import { DATA_ROOT, PHOTOS_DIR, PHOTO_FILE, photoPath } from '@campus-map/core';
 
 /**
  * Что редактору разрешено писать в каталог данных.
@@ -245,6 +249,34 @@ function walk(directory, prefix = '') {
   return result;
 }
 
+/** Файл фото — полный или маленький (запись 85). */
+const PHOTO_NAME = /^[0-9a-f]{16}(?:\.small)?\.(?:webp|jpg|png)$/;
+
+/**
+ * Файлы фото, на которые ссылаются точки датасета: полные и маленькие, имена
+ * внутри каталога фото. Битые записи пропускаются — их назовёт загрузчик ядра.
+ */
+export function referencedPhotos(dataDir) {
+  const names = new Set();
+  for (const relative of walk(dataDir)) {
+    if (!relative.endsWith('graph.json')) continue;
+    let graph;
+    try {
+      graph = JSON.parse(readFileSync(path.join(dataDir, relative), 'utf8'));
+    } catch {
+      continue;
+    }
+    for (const node of Array.isArray(graph?.nodes) ? graph.nodes : []) {
+      for (const photo of Array.isArray(node?.photos) ? node.photos : []) {
+        if (typeof photo?.file !== 'string' || !PHOTO_FILE.test(photo.file)) continue;
+        names.add(path.posix.basename(photoPath(photo.file)));
+        names.add(path.posix.basename(photoPath(photo.file, 'small')));
+      }
+    }
+  }
+  return names;
+}
+
 /** Запрос не к данным — его обрабатывает Vite. */
 const NOT_DATA = { kind: 'skip' };
 
@@ -322,6 +354,23 @@ export function campusDataPlugin(options = {}) {
 
   /** Загрузки ждут сохранения здесь — вне репозитория. */
   const uploadsDir = options.uploadsDir ? path.resolve(options.uploadsDir) : path.join(os.tmpdir(), 'campus-map-uploads');
+
+  /**
+   * Общая папка фото (запись 85): облачная папка или сетевой диск, одна на
+   * всех разработчиков, вне git. Фото, которого нет в `data/photos/`, ищется
+   * здесь — и при раздаче, и при сборке. Имя файла — отпечаток содержимого,
+   * поэтому одновременные добавления у двух человек не затирают друг друга.
+   */
+  const photosDir = options.photosDir ? path.resolve(options.photosDir) : null;
+
+  /** Фото из общей папки по пути запроса внутри данных; `null` — не фото или его там нет. */
+  function externalPhoto(relative) {
+    if (!photosDir) return null;
+    const [dir, name, ...rest] = relative.replace(/^\/+/, '').split('/');
+    if (dir !== PHOTOS_DIR || rest.length > 0 || !PHOTO_NAME.test(name ?? '')) return null;
+    const file = path.join(photosDir, name);
+    return existsSync(file) && statSync(file).isFile() ? file : null;
+  }
   /**
    * Разрешить редактору сохранять правки прямо в каталог данных.
    *
@@ -381,7 +430,7 @@ export function campusDataPlugin(options = {}) {
       return true;
     }
 
-    const resolved = resolveInside(root, parsed.relative);
+    let resolved = resolveInside(root, parsed.relative);
     if (resolved === null) {
       res.statusCode = 403;
       res.end('Forbidden');
@@ -389,6 +438,9 @@ export function campusDataPlugin(options = {}) {
     }
 
     if (!existsSync(resolved) || !statSync(resolved).isFile()) {
+      resolved = externalPhoto(parsed.relative);
+    }
+    if (resolved === null) {
       res.statusCode = 404;
       res.end('Not found');
       return true;
@@ -440,7 +492,7 @@ export function campusDataPlugin(options = {}) {
     configureServer(server) {
       if (writable) {
         cleanStaleUploads(uploadsDir);
-        mountSpace(server, `${controlPath}`, { dataDir, sourcesDir, readSources: [sourcesDir] });
+        mountSpace(server, `${controlPath}`, { dataDir, sourcesDir, readSources: [sourcesDir], photosDir });
 
         if (sandbox) {
           // Учебная копия (запись 55): свои адреса, свой каталог данных и
@@ -452,6 +504,9 @@ export function campusDataPlugin(options = {}) {
             // Исходники неизменны (имя — отпечаток), поэтому копия читает и
             // настоящие: «Изменить обрезку» работает и в копии.
             readSources: [sandbox.sourcesDir, sourcesDir],
+            // Пробные фото копии остаются в ней, а не в общей папке фото:
+            // общая папка — у всех разработчиков. Читает копия и общую.
+            photosDir: null,
           });
 
           server.middlewares.use(`${prefix}/state`, (req, res, next) => {
@@ -497,12 +552,34 @@ export function campusDataPlugin(options = {}) {
     },
 
     generateBundle() {
-      for (const relative of walk(dataDir)) {
+      const own = new Set(walk(dataDir));
+      for (const relative of own) {
         this.emitFile({
           type: 'asset',
           fileName: `${DATA_ROOT}/${relative}`,
           source: readFileSync(path.join(dataDir, relative)),
         });
+      }
+
+      // Фото из общей папки — только те, на которые ссылаются точки: в
+      // общей папке лежат и снимки, которые разметчики ещё не прикрепили.
+      const missing = [];
+      for (const name of referencedPhotos(dataDir)) {
+        const relative = `${PHOTOS_DIR}/${name}`;
+        if (own.has(relative)) continue;
+        const file = externalPhoto(relative);
+        if (file === null) {
+          missing.push(name);
+          continue;
+        }
+        this.emitFile({ type: 'asset', fileName: `${DATA_ROOT}/${relative}`, source: readFileSync(file) });
+      }
+      if (missing.length > 0) {
+        this.warn(
+          `На фото ссылаются точки, но файлов нет ни в ${DATA_ROOT}/${PHOTOS_DIR}, ни в общей папке фото ` +
+            `(${photosDir ?? 'CAMPUS_PHOTOS_DIR не задан'}): ${missing.join(', ')}. ` +
+            'Навигатор покажет эти места без фото. Синхронизация папки ещё не закончилась?'
+        );
       }
     },
   };
@@ -540,6 +617,27 @@ export function campusDataPlugin(options = {}) {
    */
   function mountSpace(server, prefix, space) {
     const { dataDir, sourcesDir, readSources } = space;
+
+    /**
+     * Куда писать фото точки (запись 87): в общую папку фото, если она есть у
+     * этого каталога данных; иначе — как любой файл данных. `null` — путь не
+     * фото.
+     */
+    const photoWriteTarget = (relative) => {
+      const [dir, name, ...rest] = relative.split('/');
+      if (dir !== PHOTOS_DIR || rest.length > 0 || !PHOTO_NAME.test(name ?? '')) return null;
+      return space.photosDir ? path.join(space.photosDir, name) : resolveInside(dataDir, `/${relative}`);
+    };
+
+    /** Имена фото, которые есть: в данных и в общей папке. */
+    const availablePhotos = () => {
+      const names = new Set();
+      for (const directory of [path.join(dataDir, PHOTOS_DIR), photosDir]) {
+        if (!directory || !existsSync(directory)) continue;
+        for (const name of readdirSync(directory)) if (PHOTO_NAME.test(name)) names.add(name);
+      }
+      return [...names];
+    };
     const findSource = (name) => {
       for (const directory of readSources) {
         const content = directory ? readIfFile(path.join(directory, name)) : null;
@@ -562,7 +660,15 @@ export function campusDataPlugin(options = {}) {
         if (!directory || !existsSync(directory)) continue;
         for (const name of walk(directory)) if (SOURCE_NAME.test(name)) sources.add(name);
       }
-      sendJson(res, 200, { writable: true, dataDir, sourcesDir, files, sources: [...sources] });
+      sendJson(res, 200, {
+        writable: true,
+        dataDir,
+        sourcesDir,
+        files,
+        sources: [...sources],
+        photos: availablePhotos(),
+        photosDir: space.photosDir ?? null,
+      });
     });
 
     // Большой файл — заранее, по одному: сохранение потом ссылается на
@@ -623,6 +729,12 @@ export function campusDataPlugin(options = {}) {
       const base = request?.base ?? {};
       const deletions = Array.isArray(request?.delete) ? request.delete : [];
       const sources = request?.sources ?? {};
+      const forget = Array.isArray(request?.forgetPhotos) ? request.forgetPhotos : [];
+      for (const name of forget) {
+        if (typeof name !== 'string' || !PHOTO_NAME.test(name) || name.includes('.small.')) {
+          return sendJson(res, 400, { error: `Недопустимое имя фото: ${name}` });
+        }
+      }
       const planned = [];
       const plannedDeletions = [];
       const plannedSources = [];
@@ -640,7 +752,8 @@ export function campusDataPlugin(options = {}) {
       // читаются тоже до записи, поэтому обмен этажей местами (2 ↔ 3) не
       // перезапишет файл раньше, чем его скопируют.
       for (const [relative, file] of Object.entries(files)) {
-        const resolved = resolveInside(dataDir, `/${relative}`);
+        const photoTarget = photoWriteTarget(relative);
+        const resolved = photoTarget ?? resolveInside(dataDir, `/${relative}`);
         if (resolved === null || !WRITABLE_EXTENSIONS.has(path.extname(relative).toLowerCase())) {
           return sendJson(res, 400, { error: `Недопустимый путь: ${relative}` });
         }
@@ -672,6 +785,14 @@ export function campusDataPlugin(options = {}) {
         const existing = readIfFile(resolved);
         const actual = existing === null ? null : hashOf(existing);
         const expected = base[relative] ?? null;
+
+        // Фото с этим именем уже есть — это тот же снимок: имя — отпечаток.
+        // Маленькую копию другой браузер мог сжать на байт иначе; перезаписывать
+        // её незачем, и это не чужая правка.
+        if (photoTarget !== null && existing !== null) {
+          planned.push({ relative, resolved, content: existing, unchanged: true });
+          continue;
+        }
 
         // Файл изменился на диске после того, как редактор его прочитал:
         // перезапись затёрла бы чужую правку молча.
@@ -748,7 +869,23 @@ export function campusDataPlugin(options = {}) {
 
       for (const name of usedUploads) rmSync(path.join(uploadsDir, name), { force: true });
 
-      sendJson(res, 200, { written, unchanged, deleted, hashes, sources: plannedSources.map((file) => file.name) });
+      // Фото, заменённые размытием (запись 88): лицо не должно остаться в
+      // общей папке, которую получают все. Убирается только то, на что после
+      // записи не ссылается ни одна точка этих данных.
+      const forgotten = [];
+      if (space.photosDir && forget.length > 0) {
+        const stillUsed = referencedPhotos(dataDir);
+        for (const name of forget) {
+          for (const file of [name, path.posix.basename(photoPath(name, 'small'))]) {
+            const target = path.join(space.photosDir, file);
+            if (stillUsed.has(file) || !existsSync(target)) continue;
+            rmSync(target, { force: true });
+            forgotten.push(file);
+          }
+        }
+      }
+
+      sendJson(res, 200, { written, unchanged, deleted, hashes, sources: plannedSources.map((file) => file.name), forgotten });
     });
   }
 }

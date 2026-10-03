@@ -45,6 +45,8 @@ import editorLayout from './browser/scenarios/editor-layout.mjs';
 import editorHelpSearch from './browser/scenarios/editor-help-search.mjs';
 import editorA11y from './browser/scenarios/editor-a11y.mjs';
 import editorKinds from './browser/scenarios/editor-kinds.mjs';
+import editorPhotos from './browser/scenarios/editor-photos.mjs';
+import editorPhotoBlur from './browser/scenarios/editor-photo-blur.mjs';
 import editorTransitions from './browser/scenarios/editor-transitions.mjs';
 import editorWalkScratch from './browser/scenarios/editor-walk-scratch.mjs';
 import editorWalkFix from './browser/scenarios/editor-walk-fix.mjs';
@@ -53,6 +55,7 @@ import viewerLayout from './browser/scenarios/viewer-layout.mjs';
 import viewerNavigation from './browser/scenarios/viewer-navigation.mjs';
 import viewerOffline from './browser/scenarios/viewer-offline.mjs';
 import viewerOnboarding from './browser/scenarios/viewer-onboarding.mjs';
+import viewerPhotos from './browser/scenarios/viewer-photos.mjs';
 import viewerQuick from './browser/scenarios/viewer-quick.mjs';
 import viewerRecent from './browser/scenarios/viewer-recent.mjs';
 import viewerTheme from './browser/scenarios/viewer-theme.mjs';
@@ -62,6 +65,7 @@ import { repoRoot, startVite } from './lib/vite-server.mjs';
 const SCENARIOS = [
   viewerLayout,
   viewerNavigation,
+  viewerPhotos,
   viewerCanvas,
   viewerRecent,
   viewerQuick,
@@ -92,6 +96,8 @@ const SCENARIOS = [
   editorHelpSearch,
   editorA11y,
   editorKinds,
+  editorPhotos,
+  editorPhotoBlur,
   editorPanels,
   // Разборы путей целиком (этап 5 фазы 12): длинные, поэтому последними.
   editorWalkScratch,
@@ -242,13 +248,22 @@ async function startIsolatedData(app, kind) {
   const sourcesDir = path.join(root, 'data-sources');
   const uploadsDir = path.join(root, 'uploads');
   const sandboxDir = path.join(root, 'sandbox');
+  // Своя общая папка фото (запись 87): настройка машины не должна менять
+  // проверку, а фото сохраняются туда, а не в копию `data/`.
+  const photosDir = path.join(root, 'shared-photos');
   if (kind === 'empty') writeEmptyCampus(dataDir);
   else cpSync(path.join(repoRoot, 'data'), dataDir, { recursive: true });
 
   const server = await startVite({
     app,
     mode: 'dev',
-    env: { CAMPUS_DATA_DIR: dataDir, CAMPUS_SOURCES_DIR: sourcesDir, CAMPUS_UPLOADS_DIR: uploadsDir, CAMPUS_SANDBOX_DIR: sandboxDir },
+    env: {
+      CAMPUS_DATA_DIR: dataDir,
+      CAMPUS_SOURCES_DIR: sourcesDir,
+      CAMPUS_UPLOADS_DIR: uploadsDir,
+      CAMPUS_SANDBOX_DIR: sandboxDir,
+      CAMPUS_PHOTOS_DIR: photosDir,
+    },
   });
 
   return {
@@ -256,6 +271,7 @@ async function startIsolatedData(app, kind) {
     dataDir,
     sourcesDir,
     sandboxDir,
+    photosDir,
     stop() {
       server.stop();
       try {
@@ -277,11 +293,11 @@ async function startIsolatedData(app, kind) {
  * Сценарию с `isolatedData` достаётся свой сервер на копии `data/` и путь к
  * ней (`dataDir`): он проверяет сохранение, читая файлы с диска, и не трогает
  * канонический датасет. Исходники планов и учебная копия у такого сервера
- * тоже свои (`sourcesDir`, `sandboxDir`).
+ * тоже свои (`sourcesDir`, `sandboxDir`), как и общая папка фото (`photosDir`).
  *
  * @returns {Promise<string | null>} текст провала или `null`
  */
-async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir, sandboxDir }) {
+async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, dataDir, sourcesDir, sandboxDir, photosDir }) {
   const page = await openPage(debugUrl);
   const ignored = scenario.ignoreProblems ?? [];
   // Настройки браузера (режим, тема, ширина колонок) и черновик несохранённой
@@ -307,7 +323,7 @@ async function runScenario(scenario, { debugUrl, base, shots, mode, stopServer, 
   };
 
   try {
-    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir, sandboxDir });
+    await scenario.run({ page, base, step, shot, mode, stopServer, dataDir, sourcesDir, sandboxDir, photosDir });
     return null;
   } catch (error) {
     return error.stack ?? String(error);
@@ -368,6 +384,7 @@ async function main() {
           dataDir: isolated?.dataDir,
           sourcesDir: isolated?.sourcesDir,
           sandboxDir: isolated?.sandboxDir,
+          photosDir: isolated?.photosDir,
         });
 
         isolated?.stop();

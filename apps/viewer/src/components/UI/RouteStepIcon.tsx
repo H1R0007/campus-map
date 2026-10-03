@@ -1,7 +1,19 @@
 import React from 'react';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
+import type { TurnDirection } from '@campus-map/core';
 import type { RouteStep } from '../../utils/routeInstructions';
 import { Icon } from './Icon';
+import type { IconName } from './Icon';
+
+/** Стрелка поворота у ориентира. */
+const TURN_ICONS: Record<TurnDirection, IconName> = {
+  left: 'turnLeft',
+  right: 'turnRight',
+  straight: 'straight',
+  bearLeft: 'bearLeft',
+  bearRight: 'bearRight',
+  back: 'uTurn',
+};
 
 interface RouteStepIconProps {
   step: RouteStep;
@@ -34,6 +46,16 @@ export const RouteStepIcon: React.FC<RouteStepIconProps> = ({ step, isLast, size
     return (
       <span aria-hidden="true" className={`${box} text-white`} style={{ backgroundColor: TRANSITION_COLORS[step.transition] }}>
         <TransitionGlyph type={step.transition} size={glyph} />
+      </span>
+    );
+  }
+
+  // Поворот у ориентира — стрелкой туда, куда сворачивать, и цветом действия:
+  // это шаг, на котором человек решает, куда идти.
+  if (step.kind === 'landmark' && step.turn !== null) {
+    return (
+      <span aria-hidden="true" data-turn-icon={TURN_ICONS[step.turn]} className={`${box} bg-primary text-white`}>
+        <Icon name={TURN_ICONS[step.turn]} size={glyph} />
       </span>
     );
   }

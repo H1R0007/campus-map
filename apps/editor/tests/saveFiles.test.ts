@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { datasetFromState } from '../src/stores/editor/graphState';
-import { forgetHeldFiles, holdFile, loadedPlanFiles, planFilesByHash } from '../src/utils/planFiles';
+import { forgetHeldFiles, holdFile, holdPhotoFile, loadedPlanFiles, planFilesByHash } from '../src/utils/planFiles';
 import { planSave } from '../src/utils/saveFiles';
 import type { SaveInput } from '../src/utils/saveFiles';
 import { loadFixture, store } from './helpers/fixture';
@@ -164,5 +164,70 @@ describe('удаление', () => {
     delete diskHashes['buildings/building_a/floors/2/map.svg'];
 
     expect(planSave({ ...now(base), diskHashes }).lost).toEqual(['buildings/building_a/floors/3/map.svg']);
+  });
+});
+
+describe('фото точек (записи 87, 88)', () => {
+  const ORIGINAL = '1111111111111111.webp';
+  const BLURRED = '2222222222222222.webp';
+  const AGAIN = '3333333333333333.webp';
+  const small = (file: string) => file.replace(/\.([a-z]+)$/, '.small.$1');
+  const photo = (file: string) => ({ file, width: 1600, height: 1200 });
+
+  function setPhotos(files: string[]) {
+    store().setNodePhotos('a1_hall', files.map(photo));
+  }
+
+  /** Фото ORIGINAL уже лежит в общей папке. */
+  const onDisk = (input: SaveInput): SaveInput => ({ ...input, diskPhotos: new Set([ORIGINAL, small(ORIGINAL)]) });
+
+  it('фото в памяти загружается, лежащее в общей папке — нет, нигде нет — называется', async () => {
+    const base = onDisk(opened());
+    await holdPhotoFile(new Blob(['размытое']), BLURRED);
+    await holdPhotoFile(new Blob(['размытое, маленькое']), small(BLURRED));
+    setPhotos([ORIGINAL, BLURRED, AGAIN]);
+
+    const plan = planSave(now(base));
+    expect(Object.keys(plan.files).filter((path) => path.startsWith('photos/')).sort()).toEqual([`photos/${small(BLURRED)}`, `photos/${BLURRED}`]);
+    expect(plan.missingPhotos.sort()).toEqual([small(AGAIN), AGAIN]);
+  });
+
+  it('фото, заменённое размытием, сохранение просит убрать из общей папки', async () => {
+    const base = onDisk(opened());
+    setPhotos([ORIGINAL]);
+    await holdPhotoFile(new Blob(['размытое']), BLURRED, [ORIGINAL]);
+    setPhotos([BLURRED]);
+
+    expect(planSave(now(base)).forgetPhotos).toEqual([ORIGINAL]);
+  });
+
+  it('отменённое размытие — ничего не убирается: на фото снова ссылаются', async () => {
+    const base = onDisk(opened());
+    setPhotos([ORIGINAL]);
+    await holdPhotoFile(new Blob(['размытое']), BLURRED, [ORIGINAL]);
+    setPhotos([BLURRED]);
+    store().undo();
+
+    expect(store().nodes.get('a1_hall')?.photos?.[0].file).toBe(ORIGINAL);
+    expect(planSave(now(base)).forgetPhotos).toEqual([]);
+  });
+
+  it('то же фото у другой точки не размыто — оно остаётся в общей папке', async () => {
+    const base = onDisk(opened());
+    const other = [...store().nodes.keys()].find((id) => id !== 'a1_hall')!;
+    store().setNodePhotos(other, [photo(ORIGINAL)]);
+    await holdPhotoFile(new Blob(['размытое']), BLURRED, [ORIGINAL]);
+    setPhotos([BLURRED]);
+
+    expect(planSave(now(base)).forgetPhotos).toEqual([]);
+  });
+
+  it('размыли ещё раз до сохранения — убирается и самое первое фото; не сохранённого на диске нет и в списке', async () => {
+    const base = onDisk(opened());
+    await holdPhotoFile(new Blob(['размытое']), BLURRED, [ORIGINAL]);
+    await holdPhotoFile(new Blob(['размытое ещё раз']), AGAIN, [BLURRED, ORIGINAL]);
+    setPhotos([AGAIN]);
+
+    expect(planSave(now(base)).forgetPhotos).toEqual([ORIGINAL]);
   });
 });

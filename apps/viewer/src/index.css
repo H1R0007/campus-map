@@ -522,6 +522,40 @@ button {
     mask-size: contain;
 }
 
+/* Ориентир текущего шага (запись 86): подпись над точкой, где поворачивать.
+   Значок нулевого размера, тело сдвигается так, что его хвостик указывает
+   на точку. */
+.campus-landmark__body {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, calc(-100% - 12px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    background: rgb(var(--color-surface));
+    color: rgb(var(--gray-900));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.campus-landmark__body::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    width: 14px;
+    height: 14px;
+    transform: translateX(-50%) rotate(45deg);
+    background: inherit;
+    box-shadow: 3px 3px 4px rgba(0, 0, 0, 0.12);
+}
+
 /* ===== Панель навигатора ===== */
 
 /* Шторка возвращается на место плавно после жеста; кто попросил систему не
@@ -530,14 +564,30 @@ button {
     transition: transform 0.2s ease;
 }
 
-/* Пока человек двигает карту, шторка на телефоне уступает ей место — остаётся
-   край с ручкой — и возвращается, когда карту отпустили (запись 37). */
+/* Пока человек двигает карту, шторка на телефоне уступает ей место и
+   возвращается, когда карту отпустили (запись 37). Остаётся ровно ручка —
+   высота `h-11` у кнопки ручки, — а содержимое гаснет: прежде над краем экрана
+   оставалась полоска текста, разрезанная посередине строки (запись 89). */
 .campus-panel--peek {
-    transform: translateY(calc(100% - 3.5rem - env(safe-area-inset-bottom, 0px)));
+    transform: translateY(calc(100% - 2.75rem - env(safe-area-inset-bottom, 0px)));
+}
+
+.campus-panel__body {
+    transition: opacity 0.15s ease;
+}
+
+.campus-panel--peek .campus-panel__body {
+    opacity: 0;
+}
+
+/* Без ручки — карточка места, прибытие — шторка уходит целиком, вместе с тенью. */
+.campus-panel--away {
+    transform: translateY(calc(100% + 1.5rem));
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .campus-panel--animated {
+    .campus-panel--animated,
+    .campus-panel__body {
         transition: none;
     }
 }

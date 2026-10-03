@@ -12,13 +12,13 @@
  * воспроизводимой: достаточно поменять функции рисования.
  *
  * Запуск:  node tooling/generate-pwa-assets.mjs
- * Зависимостей нет — PNG кодируется через встроенный zlib.
+ * Зависимостей нет — PNG кодируется через встроенный zlib (`lib/png.mjs`).
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import zlib from 'node:zlib';
+import { encodePng } from './lib/png.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = path.join(repoRoot, 'apps', 'viewer', 'public');
@@ -26,75 +26,6 @@ const publicDir = path.join(repoRoot, 'apps', 'viewer', 'public');
 /** Фирменный синий навигатора (primary-500 в tailwind.config.js). */
 const BRAND = { r: 0x00, g: 0x63, b: 0xcc };
 const WHITE = { r: 0xff, g: 0xff, b: 0xff };
-
-/* ------------------------------------------------------------------ */
-/* Кодирование PNG                                                     */
-/* ------------------------------------------------------------------ */
-
-const CRC_TABLE = (() => {
-  const table = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    }
-    table[n] = c;
-  }
-  return table;
-})();
-
-function crc32(buffer) {
-  let crc = -1;
-  for (let i = 0; i < buffer.length; i++) {
-    crc = CRC_TABLE[(crc ^ buffer[i]) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ -1) >>> 0;
-}
-
-function chunk(type, data) {
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length, 0);
-
-  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(body), 0);
-
-  return Buffer.concat([length, body, crc]);
-}
-
-/**
- * Собирает PNG из массива пикселей RGBA.
- * @param {number} width
- * @param {number} height
- * @param {Uint8Array} rgba длина = width * height * 4
- */
-function encodePng(width, height, rgba) {
-  // Каждая строка предваряется байтом фильтра (0 = без фильтрации).
-  const stride = width * 4;
-  const raw = Buffer.alloc((stride + 1) * height);
-  for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0;
-    rgba.subarray(y * stride, (y + 1) * stride).forEach((v, i) => {
-      raw[y * (stride + 1) + 1 + i] = v;
-    });
-  }
-
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // бит на канал
-  ihdr[9] = 6; // цветовой тип: RGBA
-  ihdr[10] = 0; // сжатие
-  ihdr[11] = 0; // фильтр
-  ihdr[12] = 0; // без чересстрочности
-
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', zlib.deflateSync(raw, { level: 9 })),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
 
 /* ------------------------------------------------------------------ */
 /* Рисование                                                           */

@@ -19,7 +19,24 @@
         "a1_corridor_3",
         "a1_stairs"
       ],
-      "isPortal": false
+      "isPortal": false,
+      "landmark": {
+        "name": "Кофейный автомат",
+        "at": "у кофейного автомата",
+        "translations": {
+          "en": {
+            "name": "Coffee machine",
+            "at": "at the coffee machine"
+          }
+        }
+      },
+      "photos": [
+        {
+          "file": "058073b50f4d348f.png",
+          "width": 1280,
+          "height": 960
+        }
+      ]
     },
     {
       "id": "a1_corridor_3",

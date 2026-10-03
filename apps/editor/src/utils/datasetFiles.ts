@@ -14,9 +14,12 @@ import type {
   CampusMeta,
   Dataset,
   FloorMeta,
+  Landmark,
   MapNode,
+  PhotoRegion,
   PlaceKind,
   PlanSource,
+  PointPhoto,
 } from '@campus-map/core';
 
 /**
@@ -53,6 +56,8 @@ interface ExportedNode {
   isPortal: boolean;
   /** Рабочая заметка разметчика; присутствует только когда заполнена. */
   comment?: string;
+  landmark?: Landmark;
+  photos?: PointPhoto[];
 }
 
 
@@ -60,7 +65,8 @@ interface ExportedNode {
  * Приводит узел к виду для файла.
  *
  * `comment` включается только непустым: поле необязательное, и писать
- * `"comment": ""` в каждый узел значит засорять датасет.
+ * `"comment": ""` в каждый узел значит засорять датасет. Ориентир и фото —
+ * так же, только когда они есть.
  */
 function toExportedNode(node: MapNode): ExportedNode {
   const comment = node.comment?.trim();
@@ -72,7 +78,50 @@ function toExportedNode(node: MapNode): ExportedNode {
     neighbors: node.neighbors,
     isPortal: node.isPortal,
     ...(comment ? { comment } : {}),
+    ...(node.landmark ? { landmark: landmarkForFile(node.landmark, node.neighbors) } : {}),
+    ...(node.photos && node.photos.length > 0 ? { photos: node.photos.map(photoForFile) } : {}),
   };
+}
+
+/**
+ * Ориентир — в порядке полей формата (записи 85, 87). Исправление поворота
+ * для прохода через связь, которой у точки больше нет, не пишется: такого
+ * прохода не бывает.
+ */
+function landmarkForFile(landmark: Landmark, neighbors: readonly string[]): Landmark {
+  const turns = landmark.turns?.filter((turn) => neighbors.includes(turn.from) && neighbors.includes(turn.to));
+  return {
+    name: landmark.name,
+    at: landmark.at,
+    translations: landmark.translations,
+    turns: turns && turns.length > 0 ? turns.map(({ from, to, turn }) => ({ from, to, turn })) : undefined,
+  } satisfies EveryField<Landmark>;
+}
+
+/** Фото точки — в порядке полей формата. */
+function photoForFile(photo: PointPhoto): PointPhoto {
+  return {
+    file: photo.file,
+    width: photo.width,
+    height: photo.height,
+    source: photo.source,
+    blur: photo.blur && photo.blur.length > 0 ? photo.blur.map(regionForFile) : undefined,
+  } satisfies EveryField<PointPhoto>;
+}
+
+const STEPS = 10_000;
+
+/**
+ * Рамка размытия (запись 88) — доли до десятитысячных: на фото в 1600 px это
+ * шестая часть пикселя. Округляется наружу: рамка в файле не меньше той, что
+ * размыта на деле, и не выходит за фото.
+ */
+function regionForFile(region: PhotoRegion): PhotoRegion {
+  const x = Math.max(0, Math.floor(region.x * STEPS));
+  const y = Math.max(0, Math.floor(region.y * STEPS));
+  const right = Math.min(STEPS, Math.ceil((region.x + region.width) * STEPS));
+  const bottom = Math.min(STEPS, Math.ceil((region.y + region.height) * STEPS));
+  return { x: x / STEPS, y: y / STEPS, width: (right - x) / STEPS, height: (bottom - y) / STEPS } satisfies EveryField<PhotoRegion>;
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { MapNode, PlaceCategory, PlaceKind, TransitionType } from '@campus-map/core';
+import type { Landmark, MapNode, PlaceCategory, PlaceKind, PointPhoto, TransitionType } from '@campus-map/core';
 import { useHistoryStore } from '../historyStore';
 import type { AliasSnapshot, NeighborSnapshot, NodePosition } from '../historyStore';
 import { autoFixDataset } from '../../utils/autoFix';
@@ -71,6 +71,10 @@ export interface EditSlice {
    */
   setPlaceKinds: (kinds: PlaceKind[], description: string) => void;
   setNodeComment: (nodeId: string, comment: string) => void;
+  /** Ориентир точки (запись 87); `null` — снять. */
+  setNodeLandmark: (nodeId: string, landmark: Landmark | null) => void;
+  /** Фото точки по порядку, первое — главное (запись 87). */
+  setNodePhotos: (nodeId: string, photos: PointPhoto[]) => void;
 
   splitEdge: (fromId: string, toId: string) => string | null;
 
@@ -514,6 +518,52 @@ export const createEditSlice: EditorSlice<EditSlice> = (set, get) => ({
       if (!n) return;
       if (next) n.comment = next;
       else delete n.comment;
+    });
+  },
+
+  /**
+   * Ориентир — поле самого узла, как заметка: та же запись истории
+   * `UPDATE_NODE`, отдельной ветки отмены не нужно.
+   */
+  setNodeLandmark: (nodeId, landmark) => {
+    const node = get().nodes.get(nodeId);
+    if (!node) return;
+    const prev = node.landmark;
+    if (JSON.stringify(prev ?? null) === JSON.stringify(landmark)) return;
+
+    useHistoryStore.getState().push({
+      type: 'UPDATE_NODE',
+      description: landmark === null ? 'Ориентир снят' : prev ? 'Изменён ориентир' : 'Добавлен ориентир',
+      undoData: { nodeId, updates: { landmark: prev ? structuredClone(prev) : undefined } },
+      redoData: { nodeId, updates: { landmark: landmark ? structuredClone(landmark) : undefined } },
+    });
+
+    set((s) => {
+      const n = s.nodes.get(nodeId);
+      if (!n) return;
+      if (landmark) n.landmark = structuredClone(landmark);
+      else delete n.landmark;
+    });
+  },
+
+  setNodePhotos: (nodeId, photos) => {
+    const node = get().nodes.get(nodeId);
+    if (!node) return;
+    const prev = node.photos ?? [];
+    if (JSON.stringify(prev) === JSON.stringify(photos)) return;
+
+    useHistoryStore.getState().push({
+      type: 'UPDATE_NODE',
+      description: photos.length > prev.length ? 'Добавлено фото' : photos.length < prev.length ? 'Удалено фото' : 'Изменён порядок фото',
+      undoData: { nodeId, updates: { photos: prev.length > 0 ? prev.map((photo) => ({ ...photo })) : undefined } },
+      redoData: { nodeId, updates: { photos: photos.length > 0 ? photos.map((photo) => ({ ...photo })) : undefined } },
+    });
+
+    set((s) => {
+      const n = s.nodes.get(nodeId);
+      if (!n) return;
+      if (photos.length > 0) n.photos = photos.map((photo) => ({ ...photo }));
+      else delete n.photos;
     });
   },
 
