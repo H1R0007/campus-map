@@ -52,6 +52,7 @@ export default {
       await e.press('Фото');
       const row = await page.eval(`!!document.querySelector('[data-coverage-node=${JSON.stringify(POINT)}]')`);
       assert.ok(row, 'развилки нет в списке «без ориентира»');
+      await shot('editor-photo-coverage');
       await page.eval(`document.querySelector('[data-coverage-node=${JSON.stringify(POINT)}]').click()`);
       await page.waitFor(`${CARD}?.dataset.nodeId === ${JSON.stringify(POINT)}`);
       assert.match(await e.place(), /Корпус А.*этаж 1/i);

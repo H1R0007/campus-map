@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { PhotoRegion, PointPhoto } from '@campus-map/core';
 import { MAX_PHOTO_BLUR } from '@campus-map/core';
@@ -126,20 +126,22 @@ export const PhotoBlurDialog: React.FC<{
   }, [stageShown]);
 
   // Рамки, какими они видны прямо сейчас: с той, что тянут.
-  const visible = (() => {
+  const visible = useMemo(() => {
     if (!drag) return regions;
     if (drag.kind === 'draw') return [...regions, drag.region];
     return regions.map((region, i) => (i === drag.index ? drag.region : region));
-  })();
+  }, [regions, drag]);
 
   // Фото на холсте — и размытие тем же способом, что при «Применить».
   const baseCache = useRef<{ key: string; canvas: OffscreenCanvas } | null>(null);
+  const shownWidth = shown?.width ?? 0;
+  const shownHeight = shown?.height ?? 0;
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !ready || !shown) return;
+    if (!canvas || !ready || shownWidth === 0) return;
     const ratio = window.devicePixelRatio || 1;
-    const width = Math.round(shown.width * ratio);
-    const height = Math.round(shown.height * ratio);
+    const width = Math.round(shownWidth * ratio);
+    const height = Math.round(shownHeight * ratio);
     const key = `${width}x${height}`;
     if (baseCache.current?.key !== key) {
       const cache = new OffscreenCanvas(width, height);
@@ -160,7 +162,7 @@ export const PhotoBlurDialog: React.FC<{
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
     }
-  });
+  }, [ready, shownWidth, shownHeight, showOriginal, visible, locked]);
 
   /** Новые рамки — одной правкой окна: Ctrl+Z вернёт прежние. */
   const commit = useCallback(

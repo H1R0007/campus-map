@@ -127,6 +127,7 @@ export default {
       // Текст шага не стал уже: высота заголовка та же, что под полосой.
       assert.equal(collapsed.titleHeight, before.titleHeight);
       assert.equal(await page.eval(`document.activeElement?.getAttribute('aria-expanded')`), 'false', 'фокус — на «Показать фото»');
+      await shot('viewer-photos-collapsed');
 
       await walkTo('Идите к месту назначения');
       assert.equal((await stepPhoto(page))?.form, 'collapsed', 'дверь А-305 — тоже свёрнуто');
