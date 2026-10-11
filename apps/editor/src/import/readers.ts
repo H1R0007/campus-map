@@ -24,8 +24,12 @@ export type SheetKind = 'pdf' | 'image' | 'tiff' | 'svg' | 'dxf';
 /** Подпись на листе с положением в единицах листа — номера помещений и заголовки. */
 export interface SheetLabel {
   text: string;
+  /** Начало строки — левый нижний угол надписи, единицы листа. */
   x: number;
   y: number;
+  /** Ширина и высота надписи — у PDF: по ним стираются штампы (запись 82). */
+  width?: number;
+  height?: number;
 }
 
 export interface ImportSheet {
@@ -241,7 +245,7 @@ async function readPdf(blob: Blob, name: string, ext: string): Promise<ImportShe
       const size = Math.hypot(item.transform[2], item.transform[3]);
       items.push({ text: item.str, size });
       const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
-      labels.push({ text: item.str.trim(), x, y });
+      labels.push({ text: item.str.trim(), x, y, width: item.width, height: item.height || size });
     }
 
     sheets.push({

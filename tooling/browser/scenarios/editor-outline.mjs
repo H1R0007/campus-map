@@ -56,19 +56,23 @@ export default {
       await page.eval(`[...document.querySelectorAll('.editor-import__item')].find((b) => b.textContent.includes('лист 1')).click()`);
       await page.sleep(300);
       await page.waitFor(`!!document.querySelector('.editor-crop__image')`, 30_000);
-      const crop = await page.eval(`document.querySelector('.editor-crop__box')?.dataset.crop`);
+      // Лист A4 альбомный, 842 × 595 пунктов: заголовок «Корпус А. План 1
+      // этажа» — выше y 70, штамп «Масштаб 1:200 · Лист · Формат А4» — ниже y 480.
+      // Поля обрезаны без них (запись 82): их надписи узнаны по тексту листа.
+      const [, cropY, , cropH] = (await page.eval(`document.querySelector('.editor-crop__box')?.dataset.crop`)).split(',').map(Number);
+      assert.ok(cropY > 70 && cropY + cropH < 480, `поля обрезаны с заголовком или штампом: y ${cropY}…${cropY + cropH}`);
 
       await pressInDialog('Найти контур здания');
       await page.waitFor(`!!document.querySelector('.editor-outline')`, 20_000);
       const corners = (await outline()).split(' ');
       assert.ok(corners.length >= 4 && corners.length <= 12, `контур: ${corners.length} углов — ${await outline()}`);
       assert.equal(await page.eval(`document.querySelector('.editor-import__shape [role="radio"][aria-checked="true"]')?.textContent.trim()`), 'Контур');
-      // Заголовок «Корпус А. План 1 этажа» и штамп — за контуром: контур ниже и уже прежней рамки.
-      const [, cropY, cropW, cropH] = crop.split(',').map(Number);
+      // Заголовок и штамп — за контуром, а контур — по зданию, не по рамке обрезки.
       const ys = corners.map((c) => Number(c.split(',')[1]));
       const xs = corners.map((c) => Number(c.split(',')[0]));
-      assert.ok(Math.min(...ys) > cropY + cropH * 0.05, `заголовок попал в контур: ${await outline()}`);
-      assert.ok(Math.max(...xs) - Math.min(...xs) < cropW * 0.95, `штамп попал в контур: ${await outline()}`);
+      assert.ok(Math.min(...ys) > 70, `заголовок попал в контур: ${await outline()}`);
+      assert.ok(Math.max(...ys) < 480 && Math.max(...xs) < 760, `штамп попал в контур: ${await outline()}`);
+      assert.ok(Math.max(...xs) - Math.min(...xs) > 600, `контур уже здания: ${await outline()}`);
       await shot('editor-outline-found');
     });
 

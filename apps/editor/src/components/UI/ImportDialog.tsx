@@ -7,13 +7,16 @@ import { useDialogFocus } from '../../hooks/useDialogFocus';
 import { guessPlace } from '../../import/guess';
 import { checkPieces, floorFromText, importSummary, initialPiece, pieceId } from '../../import/importModel';
 import type { Piece, PieceCheck, PieceTarget } from '../../import/importModel';
-import { makePlan } from '../../import/output';
+import { makePlan, metersPerUnitOf } from '../../import/output';
+import { outlineBox } from '../../import/outline';
+import { traceOnSheet } from '../../import/traceSheet';
 import { rotatedPage } from '../../import/planGeometry';
 import { emptyHistory, record, redo, undo } from '../../import/pieceHistory';
 import type { History } from '../../import/pieceHistory';
 import { IMPORT_ACCEPT, displayName, readImportFiles } from '../../import/readers';
 import type { ImportSheet, ReadProblem } from '../../import/readers';
-import { clampBox, contentBox, scaleBox } from '../../import/trim';
+import { sheetContentBox } from '../../import/sheetClean';
+import { clampBox, scaleBox } from '../../import/trim';
 import { plural } from '../../utils/labels';
 import { digestOf } from '../../utils/planFiles';
 import { PieceProperties } from './PieceProperties';
@@ -32,7 +35,8 @@ import { DialogLayer } from './DialogLayer';
  * поля обрезаются сами. Слева — листы с отметками, посередине — лист, который
  * приближают и двигают, как карту, справа — его свойства. Enter — лист
  * готов, дальше следующий, где нужен взгляд. Ctrl+Z отменяет правку листа.
- * Инструменты листа (запись 81) — буквами: V, H, P, R, X, B.
+ * Инструменты листа (запись 81) — буквами: V, H, P, R, X, B. Одну область
+ * переносят на все листы файла, контуры ищут на всех листах разом (запись 82).
  * В карту всё попадает разом — одной правкой, которую отменяет Ctrl+Z
  * редактора.
  */
@@ -86,6 +90,10 @@ const ImportWindow: React.FC = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
+  /** Поиск контуров на всех листах: сколько пройдено; `null` — не идёт. */
+  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null);
+  const [batchNote, setBatchNote] = useState<string | null>(null);
+  const stopBatch = useRef(false);
   /** История правок — у каждого листа своя: Ctrl+Z отменяет правку того листа, что открыт. */
   const [histories, setHistories] = useState<ReadonlyMap<string, History<Piece>>>(new Map());
   /** Состояние листа в начале перетаскивания: в историю — только если лист изменился. */
@@ -174,7 +182,7 @@ const ImportWindow: React.FC = () => {
           // Вектор обрезать незачем: у чертежа полей нет, а SVG уже по плану.
           if (sheet.kind === 'svg' || sheet.kind === 'dxf') continue;
           const data = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
-          const box = contentBox(data, canvas.width, canvas.height);
+          const box = sheetContentBox({ width: canvas.width, height: canvas.height, data }, sheet, 0, scale);
           if (!box || box.width * box.height > canvas.width * canvas.height * 0.97) continue;
           const crop = clampBox(scaleBox(box, 1 / scale), sheet.size);
           setPieces((previous) =>
@@ -308,6 +316,87 @@ const ImportWindow: React.FC = () => {
           select(pieces.find((piece) => piece.sheetId === selected.sheetId && piece.id !== selected.id)?.id ?? null);
         }
       : undefined;
+
+  // --- одна область на много листов (запись 82) ---
+
+  const sheetOf = (piece: Piece) => sheets.find((sheet) => sheet.id === piece.sheetId);
+  /** Листы одного размера: у документа БТИ рамка на всех листах обычно одна. */
+  const sameSize = (a: ImportSheet | undefined, b: ImportSheet | null) =>
+    Boolean(a && b && Math.abs(a.size.width - b.size.width) < 1 && Math.abs(a.size.height - b.size.height) < 1);
+  /** Область другого листа: поворот, рамка и контур. */
+  const areaFrom =
+    (source: Piece) =>
+    (piece: Piece): Piece => ({ ...piece, rotation: source.rotation, crop: source.crop, outline: source.outline ?? null, trimmed: false });
+  /** Листы того же файла, куда перенести область: проверенные человеком не трогаются. */
+  const fileMates =
+    selected && selectedSheet
+      ? pieces.filter(
+          (piece) =>
+            piece.id !== selected.id &&
+            piece.target.kind !== 'skip' &&
+            !confirmed.has(piece.id) &&
+            sheetOf(piece)?.name === selectedSheet.name &&
+            sameSize(sheetOf(piece), selectedSheet)
+        )
+      : [];
+  /** Листы того же размера, с которых можно взять область. */
+  const areaSources =
+    selected && selectedSheet
+      ? pieces
+          .filter((piece) => piece.id !== selected.id && sameSize(sheetOf(piece), selectedSheet) && (piece.crop !== null || Boolean(piece.outline)))
+          .map((piece) => ({ id: piece.id, label: `${displayName(sheetOf(piece)!)} — ${targetText(piece.target, buildingMetas)}` }))
+      : [];
+  const shareArea = () => {
+    if (!selected) return;
+    for (const mate of fileMates) edit(mate.id, areaFrom(selected));
+  };
+  const takeArea = (id: string) => {
+    const source = pieceOf(id);
+    if (selected && source) edit(selected.id, areaFrom(source));
+  };
+
+  /**
+   * Контуры на всех листах разом: у непроверенных и ещё без контура. Каждый
+   * найденный — правка своего листа (Ctrl+Z на нём её отменяет); дальше
+   * человек проходит листы по Enter и поправляет.
+   */
+  const traceAll = async () => {
+    const targets = piecesRef.current.filter((piece) => piece.target.kind !== 'skip' && !confirmed.has(piece.id) && !piece.outline);
+    setBatchNote(null);
+    if (targets.length === 0) {
+      setBatchNote('Контур уже есть у всех непроверенных листов');
+      return;
+    }
+    stopBatch.current = false;
+    let found = 0;
+    let missed = 0;
+    for (const [index, target] of targets.entries()) {
+      if (stopBatch.current) break;
+      setBatch({ done: index, total: targets.length });
+      const sheet = sheetOf(target);
+      const current = pieceOf(target.id);
+      if (!sheet || !current || current.outline) continue;
+      const size = rotatedPage(sheet.size, current.rotation).size;
+      try {
+        const outline = await traceOnSheet(sheet, current.rotation, current.crop ?? { x: 0, y: 0, ...size }, {
+          metersPerUnit: metersPerUnitOf(sheet, Number(current.scaleText) || undefined),
+        });
+        if (!outline) {
+          missed += 1;
+          continue;
+        }
+        edit(target.id, (piece) => ({ ...piece, outline, crop: clampBox(outlineBox(outline), size), trimmed: false }));
+        found += 1;
+      } catch {
+        missed += 1;
+      }
+    }
+    setBatch(null);
+    const sheetsWord = (count: number) => `${count} ${plural(count, ['листе', 'листах', 'листах'])}`;
+    setBatchNote(
+      `${stopBatch.current ? 'Остановлено. ' : ''}Контур найден на ${sheetsWord(found)}${missed ? `, не нашёлся на ${sheetsWord(missed)} — обведите их сами (P)` : ''}. Проверьте листы по одному: Enter — дальше`
+    );
+  };
 
   const addFiles = (files: FileList | null) => {
     if (files && files.length > 0) openImport([...files], request.preset);
@@ -540,6 +629,28 @@ const ImportWindow: React.FC = () => {
                 <Icon name="plus" />
                 Ещё файлы…
               </button>
+              {batch ? (
+                <div className="editor-workshop__batch" role="status">
+                  <span>
+                    Ищу контуры: лист {batch.done + 1} из {batch.total}…
+                  </span>
+                  <button type="button" className="editor-button editor-button--ghost" onClick={() => (stopBatch.current = true)}>
+                    Остановить
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="editor-button editor-button--ghost editor-button--block"
+                  onClick={() => void traceAll()}
+                  disabled={reading !== null || busy !== null}
+                  title="У непроверенных листов без контура — найти контур здания; потом пройти листы по Enter"
+                >
+                  <Icon name="building" />
+                  Найти контуры на всех листах
+                </button>
+              )}
+              {batchNote && <p className="editor-section__hint editor-workshop__batch-note">{batchNote}</p>}
             </nav>
 
             {selected && selectedSheet && page ? (
@@ -578,6 +689,10 @@ const ImportWindow: React.FC = () => {
                   onConfirm={confirmAndNext}
                   onSplit={split}
                   onRemove={remove}
+                  mates={fileMates.length}
+                  onShareArea={shareArea}
+                  sources={areaSources}
+                  onTakeArea={takeArea}
                 />
               )}
             </aside>
