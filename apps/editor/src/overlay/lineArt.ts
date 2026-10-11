@@ -170,7 +170,7 @@ export function pageColor(src: Pixels): [number, number, number] {
 }
 
 /** Ширина щели двери, которую закрывает силуэт, — от размера картинки. */
-const gapOf = (width: number, height: number) => Math.max(4, Math.round(Math.max(width, height) * 0.018));
+export const gapOf = (width: number, height: number): number => Math.max(4, Math.round(Math.max(width, height) * 0.018));
 
 /**
  * Силуэт здания: маска 0/1 размером с картинку, 1 — внутри внешнего контура.

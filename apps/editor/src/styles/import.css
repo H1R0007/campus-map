@@ -272,6 +272,29 @@
     color: var(--editor-text-muted);
 }
 
+/* Поиск контуров на всех листах (запись 82): ход и «Остановить». */
+.editor-workshop__batch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 13px;
+}
+
+.editor-workshop__batch span {
+    flex: 1;
+}
+
+.editor-workshop__batch-note {
+    margin: 6px 4px 0;
+}
+
+.editor-workshop__share {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 /* Вопрос «Закрыть мастерскую?» — поверх неё. */
 .editor-workshop__ask {
     position: absolute;

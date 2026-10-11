@@ -9,7 +9,9 @@ import { metersPerUnitOf, previewPlan } from '../../import/output';
 import { displayName } from '../../import/readers';
 import type { ImportSheet } from '../../import/readers';
 import { traceOnSheet } from '../../import/traceSheet';
-import { clampBox, contentBox, scaleBox } from '../../import/trim';
+import { sheetContentBox } from '../../import/sheetClean';
+import { clampBox, scaleBox } from '../../import/trim';
+import { plural } from '../../utils/labels';
 import type { Size } from '../../import/sheetView';
 import { Icon } from './Icon';
 
@@ -37,10 +39,17 @@ export const PieceProperties: React.FC<{
   onConfirm: () => void;
   onSplit: () => void;
   onRemove?: () => void;
-}> = ({ piece, sheet, page, pieces, check, confirmed, onEdit, onConfirm, onSplit, onRemove }) => {
+  /** Сколько непроверенных листов того же файла получат эту область (запись 82). */
+  mates: number;
+  onShareArea: () => void;
+  /** Листы того же размера, с которых можно взять область. */
+  sources: readonly { id: string; label: string }[];
+  onTakeArea: (id: string) => void;
+}> = ({ piece, sheet, page, pieces, check, confirmed, onEdit, onConfirm, onSplit, onRemove, mates, onShareArea, sources, onTakeArea }) => {
   const buildingMetas = useEditorStore((s) => s.buildingMetas);
   const [trimming, setTrimming] = useState(false);
   const [tracing, setTracing] = useState<string | null>(null);
+  const [shared, setShared] = useState<string | null>(null);
 
   const setTarget = (target: PieceTarget, key?: string) => onEdit((current) => ({ ...current, target }), key);
   const floorTarget = piece.target.kind === 'floor' ? piece.target : null;
@@ -62,7 +71,8 @@ export const PieceProperties: React.FC<{
     try {
       const scale = TRIM_SIDE / Math.max(page.width, page.height);
       const canvas = await sheet.render(piece.rotation, null, scale);
-      const box = contentBox(canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+      const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+      const box = sheetContentBox({ width: canvas.width, height: canvas.height, data: pixels.data }, sheet, piece.rotation, scale);
       onEdit((current) => ({ ...current, crop: box ? clampBox(scaleBox(box, 1 / scale), page) : null, outline: null, trimmed: box !== null }));
     } finally {
       setTrimming(false);
@@ -224,6 +234,51 @@ export const PieceProperties: React.FC<{
           </span>
         )}
       </fieldset>
+
+      {(mates > 0 || sources.length > 0) && (
+        <fieldset className="editor-fieldset editor-workshop__share">
+          <legend className="editor-card__heading">Другие листы</legend>
+          {mates > 0 && (
+            <button
+              type="button"
+              className="editor-button editor-button--ghost editor-button--block"
+              onClick={() => {
+                onShareArea();
+                setShared(`Поворот, рамка и контур перенесены на ${mates} ${plural(mates, ['лист', 'листа', 'листов'])}`);
+              }}
+            >
+              <Icon name="copy" />
+              Эта же область — ещё {mates} {plural(mates, ['листу', 'листам', 'листам'])} файла
+            </button>
+          )}
+          {sources.length > 0 && (
+            <label className="editor-card__field">
+              <span className="editor-section__hint">Область как у листа</span>
+              <select
+                aria-label="Область как у листа"
+                className="editor-input"
+                value=""
+                onChange={(e) => {
+                  const source = sources.find((item) => item.id === e.target.value);
+                  if (!source) return;
+                  onTakeArea(source.id);
+                  setShared(`Область взята с листа «${source.label}»`);
+                }}
+              >
+                <option value="">Выберите лист…</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <span className="editor-section__hint" role="status">
+            {shared ?? 'У листов одного документа рамка обычно одна. Проверенные листы не меняются.'}
+          </span>
+        </fieldset>
+      )}
 
       <fieldset className="editor-fieldset">
         <legend className="editor-card__heading">Лист</legend>

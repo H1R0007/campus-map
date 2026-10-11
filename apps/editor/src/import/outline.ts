@@ -1,5 +1,5 @@
 import type { PlanOutlinePoint } from '@campus-map/core';
-import { silhouette } from '../overlay/lineArt';
+import { gapOf, pageColor, silhouette } from '../overlay/lineArt';
 import type { Pixels } from '../overlay/lineArt';
 import type { Box } from './trim';
 
@@ -249,6 +249,23 @@ function traceBoundary(mask: Uint8Array, width: number, height: number): Point[]
  */
 const FRAME_HOLLOW = 0.35;
 
+/**
+ * Картинка с полем бумаги шириной `pad` вокруг (запись 82). Без него в плотной
+ * рамке обрезки заклеенные щели дотягивались до края картинки, «снаружи» не
+ * могло обойти здание, и зданием оказывалась вся рамка.
+ */
+function padded(src: Pixels, pad: number): Pixels {
+  const width = src.width + pad * 2;
+  const height = src.height + pad * 2;
+  const data = new Uint8ClampedArray(width * height * 4);
+  const [r, g, b] = pageColor(src);
+  for (let p = 0; p < width * height; p += 1) data.set([r, g, b, 255], p * 4);
+  for (let y = 0; y < src.height; y += 1) {
+    data.set(src.data.subarray(y * src.width * 4, (y + 1) * src.width * 4), ((y + pad) * width + pad) * 4);
+  }
+  return { width, height, data };
+}
+
 /** Картинка без полосы у краёв шириной `margin` — там обычно рамка листа. */
 function withoutMargin(src: Pixels, margin: number): Pixels {
   const data = new Uint8ClampedArray(src.data);
@@ -266,8 +283,9 @@ function withoutMargin(src: Pixels, margin: number): Pixels {
  * Контур здания на картинке: силуэт (тот же, что у наложения, запись 62),
  * его граница и упрощение до вершин.
  *
- * Рамка листа замыкает всё внутри себя, и силуэтом оказывался бы весь лист;
- * тогда полоса у краёв стирается, и поиск повторяется.
+ * Рамка листа замыкает всё внутри себя, и силуэтом оказывался бы весь лист с
+ * полем бумаги вокруг чертежа; тогда полоса у краёв стирается, и поиск
+ * повторяется.
  *
  * @param options.seed точка, у которой здание («здание здесь», запись 81),
  *   пиксели картинки; без неё — самый большой кусок
@@ -279,21 +297,24 @@ export function traceBuildingOutline(
   src: Pixels,
   { maxPoints = 48, seed, gap }: { maxPoints?: number; seed?: Point; gap?: number } = {}
 ): OutlinePoint[] | null {
-  const area = src.width * src.height;
+  const join = gap ?? gapOf(src.width, src.height);
+  const pad = join + 2;
+  const sheet = padded(src, pad);
+  const at = seed && { x: seed.x + pad, y: seed.y + pad };
   let mask: Uint8Array | null = null;
   for (const share of [0, 0.02, 0.04, 0.07, 0.1]) {
-    const margin = Math.round(Math.min(src.width, src.height) * share);
+    const margin = share === 0 ? 0 : pad + Math.round(Math.min(src.width, src.height) * share);
     const stats = { hollow: 0 };
-    const candidate = silhouette(margin === 0 ? src : withoutMargin(src, margin), gap, seed, stats);
-    let filled = 0;
-    for (let p = 0; p < candidate.length; p += 1) filled += candidate[p];
-    if (filled === 0) continue;
+    const candidate = silhouette(margin === 0 ? sheet : withoutMargin(sheet, margin), join, at, stats);
+    if (!candidate.some(Boolean)) continue;
     mask = candidate;
-    // Рамка листа: кусок почти во весь лист или с полем бумаги внутри (запись 81).
-    if (filled < area * 0.85 && stats.hollow < FRAME_HOLLOW) break;
+    // Рамка листа узнаётся по полю бумаги внутри (записи 81, 82). Прежнее
+    // «кусок больше 85 % картинки» принимало за рамку и здание в плотной
+    // рамке обрезки — и срезало ему края.
+    if (stats.hollow < FRAME_HOLLOW) break;
   }
   if (!mask) return null;
-  const boundary = traceBoundary(mask, src.width, src.height);
+  const boundary = traceBoundary(mask, sheet.width, sheet.height);
   if (!boundary || boundary.length < 3) return null;
   let epsilon = Math.max(1.5, Math.max(src.width, src.height) * 0.004);
   let points = simplify([...boundary, boundary[0]], epsilon).slice(0, -1);
@@ -301,5 +322,6 @@ export function traceBuildingOutline(
     epsilon *= 1.5;
     points = simplify([...boundary, boundary[0]], epsilon).slice(0, -1);
   }
-  return points.length >= 3 ? points.map((p) => ({ x: p.x, y: p.y })) : null;
+  const clamp = (value: number, max: number) => Math.min(max, Math.max(0, value));
+  return points.length >= 3 ? points.map((p) => ({ x: clamp(p.x - pad, src.width), y: clamp(p.y - pad, src.height) })) : null;
 }
