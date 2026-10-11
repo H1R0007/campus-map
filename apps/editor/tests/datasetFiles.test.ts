@@ -66,6 +66,82 @@ describe('круг «сохранить → открыть»', () => {
     expect(dataset.aliases.find((alias) => alias.id === id)?.names).toEqual(['Кладовая']);
   });
 
+  it('ориентир и фото точки сохраняются и читаются обратно — в порядке полей формата', async () => {
+    const landmark = {
+      name: 'Кофейный автомат',
+      at: 'у кофейного автомата',
+      translations: { en: { name: 'Coffee machine', at: 'at the coffee machine' } },
+    };
+    const photos = [
+      { file: '3f2a9c1b7d4e8a01.webp', width: 1600, height: 1200 },
+      { file: 'aaaaaaaaaaaaaaaa.png', width: 640, height: 480 },
+    ];
+    useEditorStore.setState((s) => {
+      const node = s.nodes.get('a1_hall')!;
+      node.landmark = landmark;
+      node.photos = photos;
+    });
+
+    const files = datasetFiles(datasetFromState(store()));
+    const { dataset, warnings } = await loadDataset(sourceOf(files));
+    const saved = dataset.nodes.find((node) => node.id === 'a1_hall');
+
+    expect(warnings).toEqual([]);
+    expect(saved?.landmark).toEqual(landmark);
+    expect(saved?.photos).toEqual(photos);
+    const written = JSON.parse(files.get('buildings/building_a/floors/1/graph.json')!).nodes.find(
+      (node: { id: string }) => node.id === 'a1_hall'
+    );
+    expect(Object.keys(written).slice(-2)).toEqual(['landmark', 'photos']);
+    expect(Object.keys(written.landmark)).toEqual(['name', 'at', 'translations']);
+  });
+
+  it('рамки размытия фото сохраняются округлёнными наружу и не выходят за фото (запись 88)', async () => {
+    useEditorStore.setState((s) => {
+      s.nodes.get('a1_hall')!.photos = [
+        {
+          file: '3f2a9c1b7d4e8a01.webp',
+          width: 1600,
+          height: 1200,
+          blur: [
+            { x: 0.12341, y: 0.2, width: 0.1, height: 0.333333 },
+            { x: 0.9, y: 0.95, width: 0.1000001, height: 0.0500002 },
+          ],
+        },
+        { file: 'aaaaaaaaaaaaaaaa.png', width: 640, height: 480, blur: [] },
+      ];
+    });
+
+    const files = datasetFiles(datasetFromState(store()));
+    const { dataset, warnings } = await loadDataset(sourceOf(files));
+    const [blurred, plain] = dataset.nodes.find((node) => node.id === 'a1_hall')!.photos!;
+
+    expect(warnings).toEqual([]);
+    expect(blurred.blur).toEqual([
+      { x: 0.1234, y: 0.2, width: 0.1001, height: 0.3334 },
+      { x: 0.9, y: 0.95, width: 0.1, height: 0.05 },
+    ]);
+    // Пустой список не пишется.
+    expect(plain).not.toHaveProperty('blur');
+  });
+
+  it('копия точки не уносит её ориентир и фото: на новом месте они неверны', () => {
+    useEditorStore.setState((s) => {
+      const node = s.nodes.get('a1_hall')!;
+      node.landmark = { name: 'Кофейный автомат' };
+      node.photos = [{ file: '3f2a9c1b7d4e8a01.webp', width: 1600, height: 1200 }];
+      s.selectedNodeIds = new Set(['a1_hall']);
+    });
+
+    store().duplicateSelected();
+    const [copyId] = store().selectedNodeIds;
+    const copy = store().nodes.get(copyId);
+
+    expect(copyId).not.toBe('a1_hall');
+    expect(copy?.landmark).toBeUndefined();
+    expect(copy?.photos).toBeUndefined();
+  });
+
   it('подпись этажа сохраняется и читается обратно', async () => {
     useEditorStore.setState((s) => {
       s.buildingMetas.get('building_a')!.floors[1].label = '2А';

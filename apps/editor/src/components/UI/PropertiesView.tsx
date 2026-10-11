@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CAMPUS_BUILDING_ID, TRANSITION_TYPES, distance, searchablePlaceKinds } from '@campus-map/core';
 import { TRANSITION_COLORS, TransitionGlyph } from '@campus-map/mapkit';
 import type { TransitionType } from '@campus-map/core';
@@ -12,6 +12,8 @@ import { InfoTip } from './Field';
 import { TRANSITION_LABELS, nodePlaceLabel, nodeTitle, nodesCount } from '../../utils/labels';
 import { KindGlyph } from '../Layout/KindPalette';
 import { nodeIdProblem } from '../../utils/nodeIds';
+import { CardEdit, useCardEdit } from './cardEdit';
+import { LandmarkSection, PhotosSection } from './PointExtras';
 
 /** Сколько ближайших узлов предлагать для быстрого соединения. */
 const CONNECT_CANDIDATES = 6;
@@ -19,13 +21,6 @@ const CONNECT_CANDIDATES = 6;
 /** Пустой список названий одной ссылкой: новая ссылка обновляла бы карточку зря. */
 const NO_ALIASES: string[] = [];
 
-/**
- * Правка из карточки: всё, что человек меняет в карточке точки, — одна запись
- * истории. Передумал несколько раз — отмена возвращает всё разом; в итоге
- * ничего не изменилось — записи нет вовсе.
- */
-const CardEdit = React.createContext<(fn: () => void) => void>((fn) => fn());
-const useCardEdit = () => useContext(CardEdit);
 
 /**
  * Ключ карточки точки: новый при выборе другой точки, прежний — при
@@ -160,6 +155,8 @@ const NodeCard: React.FC<{ nodeId: string; cardKey: string; onClose: () => void 
           <PlaceKind nodeId={nodeId} named={aliases.length > 0} />
         </section>
 
+        <LandmarkSection nodeId={nodeId} />
+        <PhotosSection nodeId={nodeId} />
         <CommentSection nodeId={nodeId} />
         <ServiceSection nodeId={nodeId} />
 

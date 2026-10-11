@@ -61,6 +61,37 @@ export function campusMapPath(format: PlanFormat = DEFAULT_PLAN_FORMAT): string 
 }
 
 /**
+ * Каталог фото точек (запись 85).
+ *
+ * Фото лежат одним плоским каталогом, а не у этажей: имя — отпечаток
+ * содержимого, и один снимок у двух точек хранится один раз. Настоящие фото в
+ * публичный репозиторий не попадают: редактор и сборка берут их из общей папки
+ * фото (`CAMPUS_PHOTOS_DIR`), а в `data/photos/` лежат только тестовые
+ * картинки генератора.
+ */
+export const PHOTOS_DIR = 'photos';
+
+/**
+ * Имя файла фото: 16 знаков отпечатка SHA-256 и формат.
+ *
+ * Только растровые форматы, которые открывает любой браузер. SVG — нет:
+ * открытый по прямой ссылке, он выполнил бы свой скрипт.
+ */
+export const PHOTO_FILE = /^[0-9a-f]{16}\.(?:webp|jpg|png)$/;
+
+/** Какой размер фото: полное — во весь экран, маленькое — в карточке и на шаге. */
+export type PhotoSize = 'full' | 'small';
+
+/**
+ * Путь к фото внутри данных. Маленькое лежит рядом с полным:
+ * `3f2a9c1b7d4e8a01.webp` → `3f2a9c1b7d4e8a01.small.webp`.
+ */
+export function photoPath(file: string, size: PhotoSize = 'full'): string {
+  const name = size === 'small' ? file.replace(/\.([a-z]+)$/, '.small.$1') : file;
+  return `${PHOTOS_DIR}/${name}`;
+}
+
+/**
  * Превращает относительный путь датасета в URL.
  *
  * Приложения не должны склеивать `/data/...` строковыми шаблонами сами:
@@ -89,4 +120,9 @@ export function campusMapUrl(
   format: PlanFormat = DEFAULT_PLAN_FORMAT
 ): string {
   return datasetUrl(campusMapPath(format), baseUrl);
+}
+
+/** URL фото точки нужного размера. */
+export function photoUrl(file: string, size: PhotoSize = 'full', baseUrl: string = `/${DATA_ROOT}`): string {
+  return datasetUrl(photoPath(file, size), baseUrl);
 }

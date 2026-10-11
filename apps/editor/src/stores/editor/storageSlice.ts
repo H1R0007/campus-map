@@ -1,4 +1,4 @@
-import { datasetUrl } from '@campus-map/core';
+import { PHOTOS_DIR, datasetUrl } from '@campus-map/core';
 import { DATA_BASE_URL } from '../../config/dataBase';
 import { SPACE, spaceHref } from '../../config/space';
 import { clearDraft, readDraft, writeDraft } from '../../utils/draftStorage';
@@ -36,6 +36,13 @@ export interface StorageSlice {
   diskHashes: FileHashes;
   /** Исходники планов, которые уже лежат в `data-sources/`. */
   diskSources: Set<string>;
+  /** Файлы фото, которые есть в данных и в общей папке фото (запись 87). */
+  diskPhotos: Set<string>;
+  /**
+   * Общая папка фото: путь, `null` — не настроена (фото ложатся в
+   * `data/photos/`), `undefined` — неизвестно (редактор не из репозитория).
+   */
+  photosDir: string | null | undefined;
   /**
    * Файлы данных, которые редактор знает: понял при открытии или сам
    * сохранил. Удалить сохранение может только их (запись 47).
@@ -92,6 +99,8 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
   diskDataDir: null,
   diskHashes: {},
   diskSources: new Set(),
+  diskPhotos: new Set(),
+  photosDir: undefined,
   ownedFiles: new Set(),
   saving: false,
   saveRequest: 0,
@@ -111,6 +120,8 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
         s.diskDataDir = manifest.dataDir;
         s.diskHashes = manifest.files;
         s.diskSources = new Set(manifest.sources);
+        s.diskPhotos = new Set(manifest.photos);
+        s.photosDir = manifest.photosDir;
         // Планы узнаются по отпечаткам: путь файла меняется, содержимое — нет.
         s.planFiles = planFilesByHash(s.planFiles, manifest.files);
       });
@@ -158,16 +169,30 @@ export const createStorageSlice: EditorSlice<StorageSlice> = (set, get) => ({
           for (const path of outcome.deleted) delete hashes[path];
           s.diskHashes = hashes;
           for (const name of outcome.sources) s.diskSources.add(name);
+          for (const path of [...outcome.written, ...outcome.unchanged]) {
+            if (path.startsWith(`${PHOTOS_DIR}/`)) s.diskPhotos.add(path.slice(PHOTOS_DIR.length + 1));
+          }
+          for (const name of outcome.forgotten) s.diskPhotos.delete(name);
           s.ownedFiles = new Set(plan.produced);
         });
         get().markSaved();
         await clearDraft();
+        if (plan.missingPhotos.length > 0) {
+          get().showNotice(
+            `Сохранено, но нет ${plan.missingPhotos.length} ${plural(plan.missingPhotos.length, ['файла', 'файлов', 'файлов'])} фото: их добавили на другой машине, а общая папка фото ещё не синхронизировалась. Данные целы`,
+            'warn'
+          );
+          return;
+        }
         const deleted = outcome.deleted.length;
+        // Полное фото и маленькое — одно фото для человека.
+        const forgotten = outcome.forgotten.filter((name) => !name.includes('.small.')).length;
         get().showNotice(
-          outcome.written.length === 0 && deleted === 0
+          outcome.written.length === 0 && deleted === 0 && forgotten === 0
             ? 'Сохранять нечего: файлы данных уже такие'
             : `Сохранено в ${SPACE === 'sandbox' ? 'учебную копию' : 'data/'}: файлов ${outcome.written.length}` +
-                (deleted > 0 ? `, удалено ${deleted} ${plural(deleted, ['файл', 'файла', 'файлов'])}` : '')
+                (deleted > 0 ? `, удалено ${deleted} ${plural(deleted, ['файл', 'файла', 'файлов'])}` : '') +
+                (forgotten > 0 ? `; фото без размытия убрано из общей папки: ${forgotten}` : '')
         );
       } else if (outcome.kind === 'conflict') {
         get().showNotice(
@@ -277,6 +302,7 @@ function savePlanOf(state: EditorStore) {
     diskHashes: state.diskHashes,
     diskSources: state.diskSources,
     owned: state.ownedFiles,
+    diskPhotos: state.diskPhotos,
   });
 }
 
@@ -309,7 +335,7 @@ async function uploadAndSave(plan: ReturnType<typeof planSave>, base: FileHashes
     const error = await uploadToDisk(file);
     if (error) return { kind: 'error', message: error };
   }
-  const request = { files: plan.files, delete: plan.delete, sources: plan.sources };
+  const request = { files: plan.files, delete: plan.delete, sources: plan.sources, forgetPhotos: plan.forgetPhotos };
   const outcome = await saveFilesToDisk(request, base);
   if (outcome.kind !== 'missing-upload') return outcome;
 

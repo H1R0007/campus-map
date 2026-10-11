@@ -18,7 +18,7 @@
  * С официальными планами генератор уходит: `data/` размечается в редакторе.
  */
 
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -27,6 +27,7 @@ import {
   CAMPUS_META_PATH,
   DATA_ROOT,
   Graph,
+  PHOTOS_DIR,
   TRANSITIONS_PATH,
   buildingMetaPath,
   campusMapPath,
@@ -34,11 +35,13 @@ import {
   floorGraphPath,
   floorMapPath,
   loadDataset,
+  photoPath,
 } from '@campus-map/core';
 import { PLAN_METERS_PER_PIXEL, layoutFloor, toWorld } from './lib/floor-layout.mjs';
 import { floorPlanSvg } from './lib/plan-svg.mjs';
 import { campusPlanSvg, graphWalkways } from './lib/campus-svg.mjs';
-import { BUILDINGS, CAMPUS, CAMPUS_POINTS, FLOOR_HEIGHT_METERS, TRANSITIONS } from './lib/test-campus.mjs';
+import { BUILDINGS, CAMPUS, CAMPUS_POINTS, FLOOR_HEIGHT_METERS, LANDMARKS, POINT_PHOTOS, TRANSITIONS } from './lib/test-campus.mjs';
+import { renderTestPhoto } from './lib/test-photos.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const canonicalDataDir = path.join(repoRoot, DATA_ROOT);
@@ -131,7 +134,53 @@ function buildCampus({ a, aYard, b, c }) {
   return [...nodes.values()];
 }
 
+/**
+ * Ориентиры и фото точек из описания (запись 85). Поля дописываются в конец
+ * узла — в том же порядке, в каком их пишет редактор: сохранение
+ * нетронутых данных не должно менять файлы.
+ */
+function decorate(nodes, photos, decorated) {
+  for (const node of nodes) {
+    const landmark = LANDMARKS[node.id];
+    if (landmark) {
+      node.landmark = { name: landmark.name, at: landmark.at, translations: { en: landmark.en } };
+      decorated.add(node.id);
+    }
+    const scenes = POINT_PHOTOS[node.id];
+    if (scenes) {
+      node.photos = scenes.map((scene) => {
+        const photo = photos.get(scene) ?? renderTestPhoto(scene);
+        photos.set(scene, photo);
+        return { file: photo.file, width: photo.width, height: photo.height };
+      });
+      decorated.add(node.id);
+    }
+  }
+  return nodes;
+}
+
+/**
+ * Картинки в `photos/`: полная и маленькая. Генератор — единственный
+ * хозяин этого каталога в тестовом кампусе, поэтому прежние картинки,
+ * которых в описании больше нет, удаляются.
+ */
+function writePhotos(outDir, photos) {
+  const keep = new Set();
+  for (const photo of photos.values()) {
+    for (const [size, content] of [['full', photo.full], ['small', photo.small]]) {
+      const relative = photoPath(photo.file, size);
+      writeFileSync(path.join(outDir, relative), content, { flag: 'w' });
+      keep.add(path.basename(relative));
+    }
+  }
+  for (const name of readdirSync(path.join(outDir, PHOTOS_DIR))) {
+    if (!keep.has(name)) rmSync(path.join(outDir, PHOTOS_DIR, name));
+  }
+}
+
 function generate(outDir) {
+  const photos = new Map();
+  const decorated = new Set();
   const aliases = JSON.parse(readFileSync(path.join(canonicalDataDir, ALIASES_PATH), 'utf8')).aliases;
   const codes = roomCodes(aliases);
   const doors = {};
@@ -158,7 +207,7 @@ function generate(outDir) {
         ...floorSpec,
       });
 
-      writeJson(outDir, floorGraphPath(building.id, floor), { nodes });
+      writeJson(outDir, floorGraphPath(building.id, floor), { nodes: decorate(nodes, photos, decorated) });
       writeText(outDir, floorMapPath(building.id, floor, 'svg'), floorPlanSvg(geometry, codes));
       removeStalePlan(outDir, floorMapPath(building.id, floor, 'png'));
       floors.push({ floor, mapSize: size, planFormat: 'svg' });
@@ -224,7 +273,7 @@ function generate(outDir) {
     metersPerPixel: CAMPUS.metersPerPixel,
     planFormat: 'svg',
   });
-  writeJson(outDir, CAMPUS_GRAPH_PATH, { nodes: campusNodes });
+  writeJson(outDir, CAMPUS_GRAPH_PATH, { nodes: decorate(campusNodes, photos, decorated) });
   writeText(
     outDir,
     campusMapPath('svg'),
@@ -243,6 +292,11 @@ function generate(outDir) {
   writeJson(outDir, TRANSITIONS_PATH, {
     transitions: TRANSITIONS.map(([from, to, type]) => ({ from: { node: from }, to: { node: to }, transition_type: type })),
   });
+
+  const lost = [...Object.keys(LANDMARKS), ...Object.keys(POINT_PHOTOS)].filter((id) => !decorated.has(id));
+  if (lost.length > 0) throw new Error(`Ориентир или фото у несуществующей точки: ${lost.join(', ')}`);
+  mkdirSync(path.join(outDir, PHOTOS_DIR), { recursive: true });
+  writePhotos(outDir, photos);
 
   if (path.resolve(outDir) !== canonicalDataDir) {
     copyFileSync(path.join(canonicalDataDir, ALIASES_PATH), path.join(outDir, ALIASES_PATH));

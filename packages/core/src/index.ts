@@ -31,6 +31,8 @@ export {
 
   CAMPUS_META_PATH,
   DATA_ROOT,
+  PHOTOS_DIR,
+  PHOTO_FILE,
   PLACE_KINDS_PATH,
   TRANSITIONS_PATH,
   buildingMetaPath,
@@ -41,6 +43,9 @@ export {
   floorGraphPath,
   floorMapPath,
   floorMapUrl,
+  photoPath,
+  photoUrl,
+  type PhotoSize,
 } from './dataset/paths.js';
 
 // Загрузка и нормализация датасета
@@ -80,6 +85,24 @@ export {
   findConnectedComponents,
   type ConnectivityResult,
 } from './graph/connectivity.js';
+
+// Повороты маршрута у ориентиров
+export {
+  BACK_MIN_DEG,
+  FORK_DEG,
+  STRAIGHT_MAX_DEG,
+  TURN_DIRECTIONS,
+  TURN_LOOK_METERS,
+  classifyTurn,
+  isTurnDirection,
+  landmarkPassages,
+  landmarkTurnAt,
+  turnAngle,
+  turnAt,
+  type LandmarkPassage,
+  type Turn,
+  type TurnDirection,
+} from './turns.js';
 
 // Поиск пути
 export { findAlternativePaths, findNearest, findPath } from './pathfinding/astar.js';

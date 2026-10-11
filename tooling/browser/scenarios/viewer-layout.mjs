@@ -476,21 +476,41 @@ export default {
       }
       assert.ok(flight.every((top) => Math.abs(top - idleTop) <= 2), `перелёт камеры шторку не двигает: ${idleTop} → ${flight}`);
 
-      await v.open('/?to=b1_canteen');
-      await page.sleep(700);
-      const rest = await page.eval(sheetTop);
       const mouse = (type, x, y, buttons) =>
         page.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons, clickCount: 1 });
-      await mouse('mousePressed', 200, 300, 1);
-      for (let index = 1; index <= 8; index += 1) await mouse('mouseMoved', 200 - index * 10, 300 + index * 6, 1);
-      await page.sleep(400);
-      const held = await page.eval(sheetTop);
-      await mouse('mouseReleased', 120, 348, 0);
-      await page.sleep(800);
-      const released = await page.eval(sheetTop);
-      const height = await page.eval('innerHeight');
-      assert.ok(held > rest + 60 && held >= height - 90, `шторка уступила карте: ${rest} → ${held} при высоте ${height}`);
-      assert.ok(Math.abs(released - rest) <= 2, `шторка вернулась: ${rest} → ${released}`);
+      /** Шторка до жеста, пока карту держат и после того, как отпустили. */
+      const gesture = async () => {
+        await page.sleep(700);
+        const rest = await page.eval(sheetTop);
+        await mouse('mousePressed', 200, 300, 1);
+        for (let index = 1; index <= 8; index += 1) await mouse('mouseMoved', 200 - index * 10, 300 + index * 6, 1);
+        await page.sleep(400);
+        const held = await page.eval(`(() => {
+          const body = ${PANEL}.querySelector('.campus-panel__body');
+          const handle = ${PANEL}.querySelector('button[aria-expanded]');
+          return { top: ${sheetTop}, bodyOpacity: getComputedStyle(body).opacity, handle: handle ? Math.round(handle.getBoundingClientRect().height) : null };
+        })()`);
+        await mouse('mouseReleased', 120, 348, 0);
+        await page.sleep(800);
+        return { rest, held, released: await page.eval(sheetTop), height: await page.eval('innerHeight') };
+      };
+
+      // Карточка места без ручки уходит целиком: полоска с половиной строки
+      // над краем экрана ничего не говорит (запись 89).
+      await v.open('/?to=b1_canteen');
+      const place = await gesture();
+      assert.equal(place.held.handle, null);
+      assert.ok(place.held.top >= place.height, `карточка места ушла целиком: ${JSON.stringify(place)}`);
+      assert.ok(Math.abs(place.released - place.rest) <= 2, `шторка вернулась: ${place.rest} → ${place.released}`);
+
+      // На шаге маршрута остаётся ровно ручка, а текст шага гаснет.
+      await v.open('/?from=campus_gate&to=a3_room305');
+      await v.click('Начать');
+      const route = await gesture();
+      assert.ok(route.held.handle >= 44, JSON.stringify(route));
+      assert.ok(Math.abs(route.height - route.held.top - route.held.handle) <= 1, `видна одна ручка: ${JSON.stringify(route)}`);
+      assert.equal(route.held.bodyOpacity, '0', 'текст шага виден под ручкой');
+      assert.ok(Math.abs(route.released - route.rest) <= 2, `шторка вернулась: ${route.rest} → ${route.released}`);
     });
 
     await step('шторку подняли и опустили жестом — кнопки масштаба над ней', async () => {

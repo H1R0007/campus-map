@@ -17,6 +17,7 @@ import './styles/search.css';
 import './styles/check.css';
 import './styles/import.css';
 import './styles/placement.css';
+import './styles/photos.css';
 
 /**
  * Точка входа редактора.

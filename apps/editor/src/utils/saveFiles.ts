@@ -1,6 +1,7 @@
 import type { Dataset } from '@campus-map/core';
+import { PHOTOS_DIR, photoPath } from '@campus-map/core';
 import { datasetFiles } from './datasetFiles';
-import { diskPathOf, heldFile, heldFiles, planTargets } from './planFiles';
+import { diskPathOf, heldFile, heldFiles, heldPhotoFile, planTargets } from './planFiles';
 import type { HeldFile } from './planFiles';
 
 /**
@@ -30,6 +31,18 @@ export interface SavePlan {
   produced: string[];
   /** Планы, содержимого которых нет ни в памяти, ни на диске: сохранять нельзя. */
   lost: string[];
+  /**
+   * Фото, которых нет ни в памяти, ни на диске, ни в общей папке (запись 87):
+   * добавлены на другой машине, а папка ещё не синхронизировалась. Сохранять
+   * можно — данные целы, а фото придёт с синхронизацией.
+   */
+  missingPhotos: string[];
+  /**
+   * Фото, которые заменило размытое (запись 88) и на которые больше никто не
+   * ссылается, — полные имена. Сервер уберёт их и маленькие копии из общей
+   * папки фото, если и после записи на них не ссылается ни одна точка.
+   */
+  forgetPhotos: string[];
 }
 
 export interface SaveInput {
@@ -41,6 +54,8 @@ export interface SaveInput {
   diskSources: ReadonlySet<string>;
   /** Файлы, которые редактор знает: открыл или сам сохранил. */
   owned: ReadonlySet<string>;
+  /** Файлы фото, которые есть в данных и в общей папке фото. */
+  diskPhotos?: ReadonlySet<string>;
 }
 
 /** Исходник в памяти редактора по имени: первые 16 знаков SHA-256 и расширение. */
@@ -49,17 +64,30 @@ export function heldSource(name: string): HeldFile | undefined {
   return prefix.length === 16 ? heldFiles().find((file) => file.sha256.startsWith(prefix)) : undefined;
 }
 
-/** Исходники, на которые ссылаются планы данных. */
+/** Исходники, на которые ссылаются планы и фото точек данных. */
 export function referencedSources(dataset: Dataset): string[] {
   const names = new Set<string>();
   if (dataset.campusMeta.source) names.add(dataset.campusMeta.source.file);
   for (const building of dataset.buildingMetas) {
     for (const floor of building.floors) if (floor.source) names.add(floor.source.file);
   }
+  // Исходный снимок фото — тоже исходник: лежит у разработчика (запись 87).
+  for (const node of dataset.nodes) for (const photo of node.photos ?? []) if (photo.source) names.add(photo.source);
   return [...names];
 }
 
-export function planSave({ dataset, planFiles, diskHashes, diskSources, owned }: SaveInput): SavePlan {
+/** Файлы фото, на которые ссылаются точки: полные и маленькие, имена в каталоге фото. */
+export function referencedPhotoFiles(dataset: Dataset): string[] {
+  const names = new Set<string>();
+  for (const node of dataset.nodes) {
+    for (const photo of node.photos ?? []) {
+      for (const size of ['full', 'small'] as const) names.add(photoPath(photo.file, size).slice(PHOTOS_DIR.length + 1));
+    }
+  }
+  return [...names];
+}
+
+export function planSave({ dataset, planFiles, diskHashes, diskSources, owned, diskPhotos = new Set() }: SaveInput): SavePlan {
   const files: Record<string, SaveFile> = {};
   const uploads = new Map<string, HeldFile>();
   const produced: string[] = [];
@@ -89,6 +117,29 @@ export function planSave({ dataset, planFiles, diskHashes, diskSources, owned }:
     else lost.push(path);
   }
 
+  // Фото точек (запись 87): имя — отпечаток, поэтому лежащее где-то — то же
+  // самое; загружается только то, чего нет ни в данных, ни в общей папке.
+  const missingPhotos: string[] = [];
+  const referenced = referencedPhotoFiles(dataset);
+  const replaced = new Set<string>();
+  for (const name of referenced) {
+    const path = `${PHOTOS_DIR}/${name}`;
+    produced.push(path);
+    const held = heldPhotoFile(name);
+    for (const old of held?.replaces ?? []) replaced.add(old);
+    if (diskHashes[path] !== undefined || diskPhotos.has(name)) continue;
+    if (held) {
+      uploads.set(held.sha256, held);
+      files[path] = { upload: held.sha256 };
+    } else {
+      missingPhotos.push(name);
+    }
+  }
+  // Заменённое размытием и на диске: на него больше никто не ссылается —
+  // отменённое размытие вернуло бы ссылку, и такое фото не трогается.
+  const stillReferenced = new Set(referenced);
+  const forgetPhotos = [...replaced].filter((name) => !stillReferenced.has(name) && diskPhotos.has(name)).sort();
+
   const sources: Record<string, { upload: string }> = {};
   for (const name of referencedSources(dataset)) {
     if (diskSources.has(name)) continue;
@@ -103,7 +154,7 @@ export function planSave({ dataset, planFiles, diskHashes, diskSources, owned }:
   const producedSet = new Set(produced);
   const deletions = [...owned].filter((path) => !producedSet.has(path) && diskHashes[path] !== undefined).sort();
 
-  return { files, delete: deletions, sources, uploads: [...uploads.values()], produced, lost };
+  return { files, delete: deletions, sources, uploads: [...uploads.values()], produced, lost, missingPhotos, forgetPhotos };
 }
 
 /** Файл плана, а не JSON: его содержимое редактор не соберёт заново. */

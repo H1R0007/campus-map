@@ -67,6 +67,22 @@ export const en: Messages = {
     linkLabel: 'Link to the place',
   },
 
+  photo: {
+    open: (name, count) => (count > 1 ? `Photo: ${name} — ${count}` : `Photo: ${name}`),
+    show: (count) => (count > 1 ? `Photos (${count})` : 'Photo'),
+    viewer: (name) => `Photo: ${name}`,
+    counter: (index, count) => `${index} of ${count}`,
+    close: 'Close photo',
+    previous: 'Previous photo',
+    next: 'Next photo',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    offline: 'Full photo when you are back online',
+    collapse: 'Hide photo',
+    expand: 'Show photo',
+    enlarge: 'Tap the photo to enlarge',
+  },
+
   quick: {
     label: 'Nearby',
     exit: 'Exit',
@@ -224,6 +240,16 @@ export const en: Messages = {
     },
     walkToDestination: 'Walk to your destination',
     arrive: 'You have arrived',
+    turn: {
+      left: 'Turn left',
+      right: 'Turn right',
+      straight: 'Go straight',
+      bearLeft: 'Keep left',
+      bearRight: 'Keep right',
+      back: 'Turn around',
+    },
+    /** «Turn left» + «at the coffee machine». */
+    atLandmark: (at: string, turn: string) => `${turn} ${at}`,
     exitToCampus: 'Go outside to the campus grounds',
     enterBuilding: 'Enter the building',
     changeBuilding: 'Go to another building',

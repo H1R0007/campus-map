@@ -2,6 +2,7 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { campusDataPlugin } from '../../tooling/vite-plugin-campus-data.mjs';
+import { localDirectory } from '../../tooling/lib/local-env.mjs';
 import { tablerIconsPlugin } from '../../tooling/vite-plugin-tabler-icons.mjs';
 
 /**
@@ -28,6 +29,13 @@ function normalizeBase(value?: string): string {
 const dataDir = process.env.CAMPUS_DATA_DIR
   ? path.resolve(process.cwd(), process.env.CAMPUS_DATA_DIR)
   : path.resolve(__dirname, '../../data');
+
+/**
+ * Общая папка фото точек (запись 85): вне git, одна на всех разработчиков.
+ * Путь — в переменной CAMPUS_PHOTOS_DIR или строкой в `.env.local` в корне
+ * репозитория. Без неё фото берутся только из `data/photos/`.
+ */
+const photosDir = localDirectory('CAMPUS_PHOTOS_DIR');
 
 /**
  * Исходники планов — присланные файлы как есть (запись 46). В навигатор не
@@ -65,7 +73,7 @@ export default defineConfig({
     // Редактор читает тот же датасет из корня монорепо, что и навигатор, и —
     // в режиме разработки — сохраняет правки прямо в него: команда разметки
     // запускает редактор из репозитория, а результат забирает git.
-    campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, sandboxDir, writable: true }),
+    campusDataPlugin({ sourceDir: dataDir, sourcesDir, uploadsDir, sandboxDir, photosDir, writable: true }),
 
     // Библиотека значков для окна «Все виды» — только в редакторе и только
     // при открытии выбора значка (запись 44).

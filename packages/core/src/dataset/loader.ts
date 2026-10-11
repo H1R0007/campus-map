@@ -11,7 +11,9 @@ import type {
   PlanSource,
 } from '../types/building.js';
 import type { DatasetLoadResult, DatasetSource } from '../types/dataset.js';
-import type { MapNode, MapNodeData } from '../types/node.js';
+import type { Landmark, LandmarkTurn, MapNode, MapNodeData, PhotoRegion, PointPhoto } from '../types/node.js';
+import { isTurnDirection } from '../turns.js';
+import { MAX_LANDMARK_LENGTH, MAX_PHOTO_BLUR } from '../types/node.js';
 import type { Transition, TransitionData } from '../types/transition.js';
 import { isTransitionType, parseTransitionType } from '../types/transition.js';
 import { MAX_FLOOR_LABEL_LENGTH, isPlanFormat } from '../types/building.js';
@@ -23,6 +25,7 @@ import {
   CAMPUS_GRAPH_PATH,
   CAMPUS_META_PATH,
   ALIASES_PATH,
+  PHOTO_FILE,
   PLACE_KINDS_PATH,
   TRANSITIONS_PATH,
   buildingMetaPath,
@@ -475,7 +478,200 @@ function normalizeNode(
     node.comment = comment;
   }
 
+  const where = `${path}: ${raw.id}`;
+  const landmark = readLandmark(raw.landmark, where, warnings);
+  if (landmark !== undefined) node.landmark = landmark;
+
+  const photos = readPhotos(raw.photos, where, warnings);
+  if (photos !== undefined) node.photos = photos;
+
   return node;
+}
+
+/** Строка подписи ориентира: непустая после обрезки пробелов и не длиннее предела. */
+function asLandmarkText(value: unknown): string | undefined {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text.length > 0 && text.length <= MAX_LANDMARK_LENGTH ? text : undefined;
+}
+
+/**
+ * Ориентир точки. Без названия ориентира нет: им он подписан на карте и под
+ * фото. Неверная фраза или перевод отбрасываются по отдельности — название
+ * остаётся.
+ */
+function readLandmark(value: unknown, where: string, warnings: string[]): Landmark | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (!isRecord(value)) {
+    warnings.push(`${where}: ориентир должен быть объектом { name, at } — пропущен`);
+    return undefined;
+  }
+
+  const name = asLandmarkText(value.name);
+  if (name === undefined) {
+    warnings.push(
+      `${where}: у ориентира нет названия или оно длиннее ${MAX_LANDMARK_LENGTH} знаков — ориентир пропущен`
+    );
+    return undefined;
+  }
+
+  const landmark: Landmark = { name };
+  const at = readField(value, 'at', asLandmarkText, `${where}: ориентир`, warnings, 'at');
+  if (at !== undefined) landmark.at = at;
+
+  const translations = readTranslations(
+    value.translations,
+    (translation) => {
+      const translatedName = asLandmarkText(translation.name);
+      if (translatedName === undefined) return undefined;
+      const translatedAt = asLandmarkText(translation.at);
+      return translatedAt === undefined ? { name: translatedName } : { name: translatedName, at: translatedAt };
+    },
+    `${where}: ориентир`,
+    warnings
+  );
+  if (translations !== undefined) landmark.translations = translations;
+
+  const turns = readLandmarkTurns(value.turns, `${where}: ориентир`, warnings);
+  if (turns !== undefined) landmark.turns = turns;
+
+  return landmark;
+}
+
+/**
+ * Исправленные повороты ориентира. Неверная запись называется и
+ * отбрасывается; повтор прохода — тоже: два ответа на один проход —
+ * противоречие, и верным считается первый.
+ */
+function readLandmarkTurns(value: unknown, where: string, warnings: string[]): LandmarkTurn[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    warnings.push(`${where}: turns должен быть списком — исправления поворотов пропущены`);
+    return undefined;
+  }
+
+  const turns: LandmarkTurn[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const from = isRecord(item) ? asOptionalString(item.from) : undefined;
+    const to = isRecord(item) ? asOptionalString(item.to) : undefined;
+    const turn = isRecord(item) ? item.turn : undefined;
+    if (from === undefined || to === undefined || from === to || !isTurnDirection(turn)) {
+      warnings.push(`${where}: исправление поворота ${JSON.stringify(item)} — нужны две разные точки и направление — пропущено`);
+      continue;
+    }
+    const key = `${from}→${to}`;
+    if (seen.has(key)) {
+      warnings.push(`${where}: поворот из ${from} в ${to} исправлен дважды — повтор пропущен`);
+      continue;
+    }
+    seen.add(key);
+    turns.push({ from, to, turn });
+  }
+  return turns.length > 0 ? turns : undefined;
+}
+
+/** Сторона фото в пикселях: целое, положительное и правдоподобное. */
+function asPhotoSide(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 20_000 ? value : undefined;
+}
+
+/**
+ * Фото точки. Битая запись называется и отбрасывается, остальные фото точки
+ * остаются: навигатор просто не покажет одно фото, а не все.
+ */
+function readPhotos(value: unknown, where: string, warnings: string[]): PointPhoto[] | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (!Array.isArray(value)) {
+    warnings.push(`${where}: photos должен быть списком — фото пропущены`);
+    return undefined;
+  }
+
+  const photos: PointPhoto[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    const file = isRecord(item) && typeof item.file === 'string' ? item.file : undefined;
+    if (file === undefined || !PHOTO_FILE.test(file)) {
+      warnings.push(
+        `${where}: фото ${JSON.stringify(isRecord(item) ? item.file : item)} — имя файла должно быть ` +
+          'отпечатком: 16 знаков 0–9 и a–f, затем .webp, .jpg или .png — фото пропущено'
+      );
+      continue;
+    }
+
+    const width = asPhotoSide(item.width);
+    const height = asPhotoSide(item.height);
+    if (width === undefined || height === undefined) {
+      warnings.push(
+        `${where}: фото ${file} — размер ${JSON.stringify(item.width)} × ${JSON.stringify(item.height)} ` +
+          'должен быть целым числом пикселей — фото пропущено'
+      );
+      continue;
+    }
+
+    if (seen.has(file)) {
+      warnings.push(`${where}: фото ${file} указано дважды — повтор пропущен`);
+      continue;
+    }
+    seen.add(file);
+    const photo: PointPhoto = { file, width, height };
+    const source = readField(item, 'source', (raw) => (typeof raw === 'string' && SOURCE_FILE.test(raw) ? raw : undefined), `${where}: фото ${file}`, warnings, 'source');
+    if (source !== undefined) photo.source = source;
+    const blur = readBlur(item.blur, `${where}: фото ${file}`, warnings);
+    if (blur !== undefined) photo.blur = blur;
+    photos.push(photo);
+  }
+
+  return photos.length > 0 ? photos : undefined;
+}
+
+/** Доля стороны фото: число от 0 до 1. */
+const isFraction = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+
+/** Запас на округление: рамка у самого края — `0.95 + 0.05` может дать чуть больше единицы. */
+const EDGE_SLACK = 1e-6;
+
+/**
+ * Размытые участки фото (запись 88). Пиксели фото уже размыты, поэтому
+ * битая рамка не опасна — она называется и отбрасывается; редактор просто не
+ * покажет её и, пересжимая фото из исходника, не размоет это место заново.
+ */
+function readBlur(value: unknown, where: string, warnings: string[]): PhotoRegion[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    warnings.push(`${where}: blur должен быть списком рамок — поле пропущено`);
+    return undefined;
+  }
+
+  const regions: PhotoRegion[] = [];
+  for (const item of value) {
+    if (regions.length >= MAX_PHOTO_BLUR) {
+      warnings.push(`${where}: размытых участков больше ${MAX_PHOTO_BLUR} — лишние пропущены`);
+      break;
+    }
+    const [x, y, width, height] = isRecord(item) ? [item.x, item.y, item.width, item.height] : [];
+    if (
+      !isFraction(x) ||
+      !isFraction(y) ||
+      !isFraction(width) ||
+      !isFraction(height) ||
+      width === 0 ||
+      height === 0 ||
+      x + width > 1 + EDGE_SLACK ||
+      y + height > 1 + EDGE_SLACK
+    ) {
+      warnings.push(
+        `${where}: размытый участок ${JSON.stringify(item)} — нужны x, y, width, height долями фото от 0 до 1, ` +
+          'внутри фото — участок пропущен'
+      );
+      continue;
+    }
+    regions.push({ x, y, width, height });
+  }
+
+  return regions.length > 0 ? regions : undefined;
 }
 
 function normalizeTransition(

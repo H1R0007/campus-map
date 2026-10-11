@@ -17,23 +17,30 @@
  *   node tooling/verify-dist-data.mjs --app viewer
  *   node tooling/verify-dist-data.mjs --dist apps/viewer/dist
  *   node tooling/verify-dist-data.mjs --app viewer --data .local/synthetic-data
+ *   node tooling/verify-dist-data.mjs --app viewer --photos <общая папка фото>
+ *
+ * Фото точек, которых нет в `data/photos/`, сборка берёт из общей папки фото
+ * (`CAMPUS_PHOTOS_DIR`, запись 85) — они сверяются с ней.
  */
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DATA_ROOT } from '@campus-map/core';
+import { DATA_ROOT, PHOTOS_DIR } from '@campus-map/core';
+import { localDirectory } from './lib/local-env.mjs';
+import { referencedPhotos } from './vite-plugin-campus-data.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function parseArgs(argv) {
-  const options = { app: null, dist: null, data: null };
+  const options = { app: null, dist: null, data: null, photos: localDirectory('CAMPUS_PHOTOS_DIR') ?? null };
 
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--app') options.app = argv[++i];
     else if (argv[i] === '--dist') options.dist = argv[++i];
     else if (argv[i] === '--data') options.data = argv[++i];
+    else if (argv[i] === '--photos') options.photos = path.resolve(argv[++i]);
     else throw new Error(`Неизвестный аргумент: ${argv[i]}`);
   }
 
@@ -90,14 +97,26 @@ function main() {
     );
   }
 
-  const expected = new Set(walk(dataDir));
+  // Источник каждого ожидаемого файла: каталог данных, а для фото, которых в
+  // нём нет, — общая папка фото (запись 85). В сборке должны быть только те
+  // фото, на которые ссылаются точки.
+  const sources = new Map(walk(dataDir).map((file) => [file, path.join(dataDir, file)]));
+  if (options.photos) {
+    for (const name of referencedPhotos(dataDir)) {
+      const file = `${PHOTOS_DIR}/${name}`;
+      const external = path.join(options.photos, name);
+      if (!sources.has(file) && existsSync(external)) sources.set(file, external);
+    }
+  }
+
+  const expected = new Set(sources.keys());
   const actual = new Set(walk(distDataDir));
 
   const missing = [...expected].filter((file) => !actual.has(file)).sort();
   const extra = [...actual].filter((file) => !expected.has(file)).sort();
   const differing = [...expected]
     .filter((file) => actual.has(file))
-    .filter((file) => sha256(path.join(dataDir, file)) !== sha256(path.join(distDataDir, file)))
+    .filter((file) => sha256(sources.get(file)) !== sha256(path.join(distDataDir, file)))
     .sort();
 
   const label = options.app ?? path.relative(repoRoot, distDir);

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
 import { PixelMap } from '@campus-map/mapkit';
+import { usePrefetchRoutePhotos } from '../../hooks/usePrefetchRoutePhotos';
 import { usePrefetchRoutePlans } from '../../hooks/usePrefetchRoutePlans';
 import { scopeOf, useMapStore } from '../../stores/mapStore';
 import { scopePlanUrl } from '../../utils/planUrls';
@@ -12,6 +13,7 @@ import { PlaceLayer } from './PlaceLayer';
 import { PortalLayer } from './PortalLayer';
 import { MarkerLayer } from './MarkerLayer';
 import { KindPlacesLayer } from './KindPlacesLayer';
+import { LandmarkLayer } from './LandmarkLayer';
 import { PlanStatus } from './PlanStatus';
 import { MapGestureWatch } from './MapGestureWatch';
 import { WorldCanvas } from './WorldCanvas';
@@ -34,6 +36,7 @@ export const CampusMap: React.FC = () => {
 
   // Планы построенного маршрута — заранее, пока есть связь (запись 26).
   usePrefetchRoutePlans();
+  usePrefetchRoutePhotos();
 
   const mapUrl = useMemo(
     () => scopePlanUrl(scopeOf(activeFloor), campusMeta, buildingMetas, DATA_BASE_URL),
@@ -57,6 +60,7 @@ export const CampusMap: React.FC = () => {
       <PortalLayer />
       <KindPlacesLayer />
       <MarkerLayer />
+      <LandmarkLayer />
       <PlanStatus />
       <MapRail />
       <MapGestureWatch />

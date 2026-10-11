@@ -345,3 +345,35 @@ describe('переход с двух карт', () => {
     expect(store().activeGroup).toBe(0);
   });
 });
+
+describe('«Вести карту за меткой»', () => {
+  it('метка сама меняет план туда и обратно — галочка остаётся; план выбрал человек — снимается', () => {
+    store().openPlan(A(1));
+    store().setRouteFollow(true);
+
+    store().followRouteTo('a2_room201');
+    expect(open()).toEqual(A(2));
+    expect(store().routeSimulation.follow).toBe(true);
+    store().followRouteTo('a1_hall');
+    expect(open()).toEqual(A(1));
+    expect(store().routeSimulation.follow).toBe(true);
+
+    store().setCurrentFloor(2);
+    expect(store().routeSimulation.follow).toBe(false);
+    // Без галочки метка карту не ведёт.
+    store().followRouteTo('a1_hall');
+    expect(open()).toEqual(A(2));
+  });
+
+  it('план метки открыт на соседней карте — метка ведёт туда, галочка остаётся', () => {
+    store().openPlan(A(1));
+    store().openSide();
+    store().focusGroup(0);
+    store().setRouteFollow(true);
+
+    store().followRouteTo('a2_room201');
+    expect(store().activeGroup).toBe(1);
+    expect(open()).toEqual(A(2));
+    expect(store().routeSimulation.follow).toBe(true);
+  });
+});

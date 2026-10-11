@@ -28,7 +28,17 @@
         "campus_gate",
         "campus_path_a_west"
       ],
-      "isPortal": false
+      "isPortal": false,
+      "landmark": {
+        "name": "Парковка",
+        "at": "у парковки",
+        "translations": {
+          "en": {
+            "name": "Car park",
+            "at": "at the car park"
+          }
+        }
+      }
     },
     {
       "id": "campus_square",
@@ -79,7 +89,14 @@
       "neighbors": [
         "campus_path_a_west"
       ],
-      "isPortal": true
+      "isPortal": true,
+      "photos": [
+        {
+          "file": "bbeb8332da1b179b.png",
+          "width": 1280,
+          "height": 960
+        }
+      ]
     },
     {
       "id": "campus_path_b",

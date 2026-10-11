@@ -11,6 +11,8 @@ function step(overrides: Partial<RouteStep>): RouteStep {
     title: '',
     place: '',
     transition: null,
+    turn: null,
+    subject: null,
     scope: { mode: 'campus' },
     distanceMeters: null,
     durationSeconds: null,
@@ -28,5 +30,11 @@ describe('stepMeta', () => {
   it('в пиксельном режиме и у начала подписи нет', () => {
     expect(stepMeta(step({ kind: 'walk' }), 'ru')).toBeNull();
     expect(stepMeta(step({ kind: 'start', distanceMeters: 5, durationSeconds: 5 }), 'ru')).toBeNull();
+  });
+});
+
+describe('stepMeta у ориентира', () => {
+  it('шаг у ориентира — пеший: длина пути до поворота', () => {
+    expect(stepMeta(step({ kind: 'landmark', turn: 'left', distanceMeters: 42, durationSeconds: 30 }), 'ru')).toBe('40 м');
   });
 });

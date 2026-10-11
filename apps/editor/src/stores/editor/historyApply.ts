@@ -150,6 +150,14 @@ export function renameNodeEverywhere(s: State, from: string, to: string): void {
   for (const item of s.nodes.values()) {
     if (item.id === from) item.id = to;
     item.neighbors = item.neighbors.map((neighbour) => (neighbour === from ? to : neighbour));
+    // Исправленные повороты соседнего ориентира называют эту точку (запись 87).
+    if (item.landmark?.turns?.some((turn) => turn.from === from || turn.to === from)) {
+      item.landmark.turns = item.landmark.turns.map((turn) => ({
+        ...turn,
+        from: turn.from === from ? to : turn.from,
+        to: turn.to === from ? to : turn.to,
+      }));
+    }
   }
 
   s.transitions = s.transitions.map((transition) => ({

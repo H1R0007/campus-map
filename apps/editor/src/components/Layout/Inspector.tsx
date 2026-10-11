@@ -9,6 +9,7 @@ import { StructureView } from '../UI/PlanOverview';
 import { ProblemsView } from '../UI/ProblemsView';
 import { ReadinessView } from '../UI/ReadinessView';
 import { RouteView } from '../UI/RouteView';
+import { PhotosView } from '../UI/PhotosView';
 import { ColumnResizer } from './ColumnResizer';
 import { OperationPanel } from '../UI/OperationPanel';
 import { useOperationTitle } from '../../hooks/useOperationTitle';
@@ -17,6 +18,7 @@ const CHECK_TABS: { id: CheckTab; label: string }[] = [
   { id: 'ready', label: 'Готовность' },
   { id: 'problems', label: 'Замечания' },
   { id: 'route', label: 'Маршрут' },
+  { id: 'photos', label: 'Фото' },
 ];
 
 /**
@@ -24,8 +26,8 @@ const CHECK_TABS: { id: CheckTab; label: string }[] = [
  *
  * - «Планы и корпуса» — свойства территории, корпуса, этажа;
  * - «Разметка» — свойства выбранной точки, без выбора — цифры плана;
- * - «Проверка» — готовность карты (запись 67), замечания и проверка маршрута
- *   на трёх вкладках.
+ * - «Проверка» — готовность карты (запись 67), замечания, проверка маршрута
+ *   и что снять на обходе (фото и ориентиры, запись 87).
  *
  * Пока идёт операция — размещение, совмещение, замер, — колонка отдана её
  * пошаговой панели (запись 64) и не сворачивается: в ней «Готово» и «Отмена».
@@ -43,7 +45,7 @@ export const Inspector: React.FC = () => {
   const columnRef = useRef<HTMLElement>(null);
   const report = useValidationReport();
   const structure = useStructureChecks();
-  const tabRefs = useRef<Record<CheckTab, HTMLButtonElement | null>>({ ready: null, problems: null, route: null });
+  const tabRefs = useRef<Record<CheckTab, HTMLButtonElement | null>>({ ready: null, problems: null, route: null, photos: null });
   const operation = useOperationTitle();
 
   if (collapsed && !operation) {
@@ -143,6 +145,7 @@ export const Inspector: React.FC = () => {
             {workspace === 'check' && checkTab === 'ready' && <ReadinessView />}
             {workspace === 'check' && checkTab === 'problems' && <ProblemsView />}
             {workspace === 'check' && checkTab === 'route' && <RouteView />}
+            {workspace === 'check' && checkTab === 'photos' && <PhotosView />}
           </>
         )}
       </div>

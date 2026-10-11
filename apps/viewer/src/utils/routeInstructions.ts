@@ -6,11 +6,13 @@ import type {
   PathResult,
   PathSegment,
   TransitionType,
+  TurnDirection,
   ViewScope,
 } from '@campus-map/core';
-import { CAMPUS_BUILDING_ID, scopeOfNode } from '@campus-map/core';
+import { CAMPUS_BUILDING_ID, landmarkText, landmarkTurnAt, scopeOfNode } from '@campus-map/core';
 import { floorText, messagesFor } from '../i18n';
 import type { Messages } from '../i18n';
+import { DATA_LANGUAGE } from '../i18n/languages';
 import type { Language } from '../i18n/languages';
 import { nodePlaceLabel } from './placeLabels';
 
@@ -19,10 +21,11 @@ import { nodePlaceLabel } from './placeLabels';
  */
 
 /**
- * Вид шага: начало, пеший участок, переход между этажами или корпусами и
- * прибытие, если маршрут кончается сразу за переходом.
+ * Вид шага: начало, пеший участок, поворот у ориентира (запись 85), переход
+ * между этажами или корпусами и прибытие, если маршрут кончается сразу за
+ * переходом.
  */
-export type RouteStepKind = 'start' | 'walk' | 'transition' | 'arrive';
+export type RouteStepKind = 'start' | 'walk' | 'landmark' | 'transition' | 'arrive';
 
 export interface RouteStep {
   kind: RouteStepKind;
@@ -39,6 +42,15 @@ export interface RouteStep {
 
   /** Тип перехода — для значка шага; у пеших участков, начала и прибытия — `null`. */
   transition: TransitionType | null;
+
+  /** Куда повернуть у ориентира — для значка шага; у остальных шагов `null`. */
+  turn: TurnDirection | null;
+
+  /**
+   * Точка, к которой ведёт шаг: ориентир, дверь перехода, цель. Её фото
+   * показывает шаг. У начала — `null`: где человек стоит, он и так видит.
+   */
+  subject: string | null;
 
   /** Область карты, где шаг происходит: кнопка шага открывает её. */
   scope: ViewScope;
@@ -92,7 +104,8 @@ function walkTitle(messages: Messages, type: TransitionType, from: MapNode): str
  *
  * Поиск уже разложил путь на шаги с типами переходов и физикой — раньше
  * инструкции обходили путь заново и теряли это. Описываются значимые события:
- * начало, пеший участок до перехода, сам переход и участок до цели. Цепочка
+ * начало, пеший участок до перехода, поворот у каждого ориентира на нём
+ * (запись 85), сам переход и участок до цели. Цепочка
  * лестницы или лифта через несколько этажей — один шаг: «Поднимитесь на лифте
  * — Этаж 5», а не пять одинаковых. У маршрута по одному этажу есть
  * содержательный шаг — участок до цели с его длиной, — а не только «старт» и
@@ -120,12 +133,53 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
       title: messages.instructions.start,
       place: pointOf(start),
       transition: null,
+      turn: null,
+      subject: null,
       scope: scopeOfNode(start),
       distanceMeters: null,
       durationSeconds: null,
       pathRange: [0, 0],
     },
   ];
+
+  /**
+   * Шаги у ориентиров внутри пешего участка `path[legStart..legEnd]`: каждый
+   * ориентир на пути — свой шаг «У кофейного автомата поверните налево» с
+   * длиной пути до него. Ориентир на концах участка шага не даёт: в начале
+   * человек уже стоит, в конце — дверь перехода или цель, у них свой шаг.
+   *
+   * @returns откуда идёт остаток участка — от последнего ориентира
+   */
+  const pushLandmarkSteps = (legStart: number, legEnd: number): number => {
+    let from = legStart;
+    for (let k = legStart + 1; k < legEnd; k++) {
+      const node = graph.getNode(route.path[k]);
+      if (!node?.landmark) continue;
+      // Поворот считает ядро; исправление разметчика для этого прохода — важнее (запись 87).
+      const turn = landmarkTurnAt(graph, route.path, k);
+      if (turn === null) continue;
+
+      const text = landmarkText(node.landmark, language, DATA_LANGUAGE);
+      const action = messages.instructions.turn[turn];
+      const part = segments.slice(from, k);
+      steps.push({
+        kind: 'landmark',
+        title: text.at === null ? action : messages.instructions.atLandmark(text.at, action),
+        // Без фразы ориентир называется здесь — название из данных, в
+        // именительном падеже, рядом с местом.
+        place: text.at === null ? `${text.name}, ${placeOf(node)}` : placeOf(node),
+        transition: null,
+        turn,
+        subject: node.id,
+        scope: scopeOfNode(node),
+        distanceMeters: total(part, (s) => s.distanceMeters),
+        durationSeconds: total(part, (s) => s.durationSeconds),
+        pathRange: [from, k],
+      });
+      from = k;
+    }
+    return from;
+  };
 
   let index = 0;
 
@@ -135,7 +189,8 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
     // Пеший участок: подряд идущие шаги без перехода.
     const legStart = index;
     while (index < segments.length && segments[index].transitionType === null) index++;
-    const leg = segments.slice(legStart, index);
+    const walkFrom = pushLandmarkSteps(legStart, index);
+    const leg = segments.slice(walkFrom, index);
 
     if (index === segments.length) {
       steps.push(
@@ -145,16 +200,20 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
               title: messages.instructions.walkToDestination,
               place: pointOf(end),
               transition: null,
+              turn: null,
+              subject: end.id,
               scope: scopeOfNode(end),
               distanceMeters: total(leg, (s) => s.distanceMeters),
               durationSeconds: total(leg, (s) => s.durationSeconds),
-              pathRange: [legStart, segments.length],
+              pathRange: [walkFrom, segments.length],
             }
           : {
               kind: 'arrive',
               title: messages.instructions.arrive,
               place: pointOf(end),
               transition: null,
+              turn: null,
+              subject: end.id,
               scope: scopeOfNode(end),
               distanceMeters: null,
               durationSeconds: null,
@@ -184,10 +243,12 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
         title: walkTitle(messages, type, from),
         place: aliasManager?.getPrimaryAliasForId(from.id, language) ?? placeOf(from),
         transition: null,
+        turn: null,
+        subject: from.id,
         scope: scopeOfNode(from),
         distanceMeters: total(leg, (s) => s.distanceMeters),
         durationSeconds: total(leg, (s) => s.durationSeconds),
-        pathRange: [legStart, chainStart],
+        pathRange: [walkFrom, chainStart],
       });
     }
 
@@ -217,6 +278,8 @@ export function buildRouteSteps(params: BuildRouteStepsParams): RouteStep[] {
       title,
       place,
       transition: type,
+      turn: null,
+      subject: to.id,
       scope: scopeOfNode(to),
       distanceMeters: total(chain, (s) => s.distanceMeters),
       durationSeconds: total(chain, (s) => s.durationSeconds),

@@ -1,8 +1,8 @@
 import { CAMPUS_BUILDING_ID } from '@campus-map/core';
-import type { BuildingMeta } from '@campus-map/core';
+import type { BuildingMeta, MapNode } from '@campus-map/core';
 import type { EditorSlice } from './types';
 import { showPlanIn } from './windowSlice';
-import type { OpenHow } from './windowSlice';
+import type { OpenHow, PlanRef } from './windowSlice';
 
 /**
  * Этаж, который открывается при выборе корпуса: этаж входа из данных, без
@@ -76,9 +76,20 @@ export interface ViewSlice {
    * если план на виду на соседней карте — там (запись 66).
    */
   navigateToNode: (nodeId: string, how?: OpenHow) => void;
+  /**
+   * Метка маршрута перешла на другой план и ведёт за собой карту («Вести
+   * карту за меткой»). План, выбранный человеком, слежение снимает, а этот —
+   * нет: иначе галочка снималась на первом же переходе между этажами.
+   */
+  followRouteTo: (nodeId: string) => void;
   setDisplayFilters: (filters: Partial<DisplayFilters>) => void;
   setGridSettings: (settings: Partial<GridSettings>) => void;
   snapToGrid: (value: number) => number;
+}
+
+/** План, на котором стоит узел: территория или этаж корпуса. */
+function planOfNode(node: MapNode): PlanRef {
+  return node.building === CAMPUS_BUILDING_ID ? { building: null, floor: null } : { building: node.building, floor: node.floor };
 }
 
 export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
@@ -183,11 +194,23 @@ export const createViewSlice: EditorSlice<ViewSlice> = (set, get) => ({
     const node = get().nodes.get(nodeId);
     if (!node) return;
 
-    const plan =
-      node.building === CAMPUS_BUILDING_ID ? { building: null, floor: null } : { building: node.building, floor: node.floor };
+    const plan = planOfNode(node);
     const { currentBuilding, currentFloor } = get();
     if (plan.building === currentBuilding && plan.floor === currentFloor) return;
     set((s) => showPlanIn(s, plan, how));
+  },
+
+  followRouteTo: (nodeId) => {
+    const node = get().nodes.get(nodeId);
+    if (!node || !get().routeSimulation.follow) return;
+
+    const plan = planOfNode(node);
+    const { currentBuilding, currentFloor } = get();
+    if (plan.building === currentBuilding && plan.floor === currentFloor) return;
+    set((s) => {
+      showPlanIn(s, plan, 'here');
+      s.routeSimulation.follow = true;
+    });
   },
 
   setDisplayFilters: (filters) =>

@@ -127,7 +127,14 @@
       "neighbors": [
         "a3_corridor_5"
       ],
-      "isPortal": false
+      "isPortal": false,
+      "photos": [
+        {
+          "file": "9989db0b5c5a45d4.png",
+          "width": 1280,
+          "height": 960
+        }
+      ]
     },
     {
       "id": "a3_rector",

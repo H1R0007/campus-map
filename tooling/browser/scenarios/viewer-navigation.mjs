@@ -5,7 +5,8 @@ import { PANEL, viewerHelpers } from '../viewer.mjs';
  * Навигатор: пошаговая навигация по маршруту.
  *
  * Написан под тестовый `data/`: от главного входа корпуса А до «А-305» —
- * четыре шага, подъём по лестнице на третий этаж.
+ * пять шагов: поворот у кофейного автомата (ориентир, запись 86), подъём по
+ * лестнице на третий этаж.
  */
 export default {
   app: 'viewer',
@@ -18,7 +19,7 @@ export default {
     await step('«Начать» открывает первый шаг, маршрут приглушён, план не приближен до предела', async () => {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await v.click('Начать');
-      assert.ok((await v.headerText()).includes('Шаг 1 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 1 из 5'));
       assert.equal(await v.heading(), 'Старт');
       // Линия по открытому этажу появляется, когда камера долетела до шага.
       await page.waitFor(`document.querySelectorAll('.campus-route-line--muted').length > 0`);
@@ -28,6 +29,9 @@ export default {
     });
 
     await step('«Далее» подсвечивает участок и сам открывает этаж шага', async () => {
+      await v.click('Далее');
+      assert.equal(await v.heading(), 'У кофейного автомата поверните направо');
+      assert.ok((await v.routeLines()).strong > 0, 'участок до ориентира подсвечен');
       await v.click('Далее');
       assert.equal(await v.heading(), 'Дойдите до лестницы');
       assert.ok((await v.routeLines()).strong > 0, 'участок шага подсвечен');
@@ -64,16 +68,16 @@ export default {
 
     await step('ручная смена этажа не сбрасывает шаг', async () => {
       await v.click('Этаж 1, начало маршрута');
-      assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 4 из 5'));
       await v.click('Показать шаг на карте');
       assert.ok((await v.headerText()).includes('Корпус А, этаж 3'));
     });
 
     await step('последний шаг, «Назад» и «Готово»', async () => {
       await v.click('Далее');
-      assert.ok((await v.headerText()).includes('Шаг 4 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 5 из 5'));
       await v.click('Предыдущий шаг');
-      assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 4 из 5'));
       await v.click('Далее');
       await v.click('Готово');
       const heading = await v.heading();
@@ -92,7 +96,7 @@ export default {
     await step('прибытие: «К выходу» ведёт к ближайшему выходу', async () => {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await v.click('Начать');
-      for (let i = 0; i < 3; i += 1) await v.click('Далее');
+      for (let i = 0; i < 4; i += 1) await v.click('Далее');
       await v.click('Готово');
       await v.click('К выходу');
       await page.waitFor(`${PANEL}.textContent.includes('Маршрут ·')`);
@@ -105,7 +109,7 @@ export default {
       await v.open('/?from=a1_entrance&to=a3_room305');
       await v.click('Развернуть панель');
       await v.click('Поднимитесь по лестнице', `${PANEL}.querySelector('ol')`);
-      assert.ok((await v.headerText()).includes('Шаг 3 из 4'));
+      assert.ok((await v.headerText()).includes('Шаг 4 из 5'));
       await v.click('Развернуть панель');
       const current = await page.eval(`${PANEL}.querySelector('ol [aria-current="step"]')?.textContent ?? ''`);
       assert.ok(current.includes('Поднимитесь по лестнице'), `текущий шаг в списке: ${current}`);
@@ -114,7 +118,7 @@ export default {
 
     await step('язык меняется посреди навигации', async () => {
       await v.click('English');
-      assert.ok((await v.headerText()).includes('Step 3 of 4'));
+      assert.ok((await v.headerText()).includes('Step 4 of 5'));
       assert.equal(await v.heading(), 'Take the stairs up');
       await v.click('Русский');
     });
@@ -152,7 +156,7 @@ export default {
         assert.ok(look.next >= 56, `кнопка «Далее»: ${look.next}px`);
         assert.equal(look.back, false, 'возврата на территорию в пути нет');
         assert.equal(look.progress, '1');
-        assert.ok((await v.headerText()).includes('Шаг 1 из 4'));
+        assert.ok((await v.headerText()).includes('Шаг 1 из 5'));
         await shot('viewer-trip');
 
         await v.click('Завершить пошаговую навигацию');

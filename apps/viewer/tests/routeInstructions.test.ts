@@ -201,3 +201,82 @@ describe('buildRouteSteps', () => {
     }
   });
 });
+
+/**
+ * Шаг у ориентира (запись 85): ориентир в холле Башни-1. Из Т-101 (10,10)
+ * путь идёт на север к холлу (10,0) и сворачивает на запад к лестнице (0,0)
+ * — налево, или на восток к лифту (20,0) — направо.
+ */
+describe('buildRouteSteps у ориентира', () => {
+  const COFFEE = {
+    name: 'Кофейный автомат',
+    at: 'у кофейного автомата',
+    translations: { en: { name: 'Coffee machine', at: 'at the coffee machine' } },
+  };
+
+  function withLandmarks(landmarks: Record<string, MapNode['landmark']>): Graph {
+    const nodes = NODES.map((n) => (landmarks[n.id] ? { ...n, landmark: landmarks[n.id] } : n));
+    return new Graph(nodes, TRANSITIONS, createCampusProjection(CAMPUS, BUILDINGS));
+  }
+
+  it('ориентир на пешем участке — свой шаг с поворотом и длиной пути до него', () => {
+    const { steps: list } = steps('t1_room', 't1_stairs', {}, 'ru', withLandmarks({ t1_hall: COFFEE }));
+
+    expect(text(list)).toEqual([
+      'Старт — Т-101, Башня, этаж 1',
+      'У кофейного автомата поверните налево — Башня, этаж 1',
+      'Идите к месту назначения — Башня, этаж 1',
+    ]);
+    expect(list[1]).toMatchObject({ kind: 'landmark', turn: 'left', subject: 't1_hall', pathRange: [0, 1] });
+    expect(list[1].distanceMeters).toBeCloseTo(10, 9);
+    // Остаток участка — от ориентира: длины шагов в сумме — весь путь.
+    expect(list[2].pathRange).toEqual([1, 2]);
+    expect(list[2].distanceMeters).toBeCloseTo(10, 9);
+  });
+
+  it('тот же ориентир на другом маршруте — другой поворот', () => {
+    const { steps: list } = steps('t1_room', 't3_room', { allowStairs: false }, 'ru', withLandmarks({ t1_hall: COFFEE }));
+
+    expect(text(list).slice(1, 3)).toEqual([
+      'У кофейного автомата поверните направо — Башня, этаж 1',
+      'Дойдите до лифта — Башня, этаж 1',
+    ]);
+  });
+
+  it('по-английски — перевод: действие, затем фраза', () => {
+    const { steps: list } = steps('t1_room', 't1_stairs', {}, 'en', withLandmarks({ t1_hall: COFFEE }));
+
+    expect(list[1].title).toBe('Turn left at the coffee machine');
+  });
+
+  it('без фразы — действие, а ориентир называется рядом; без перевода фраза в чужой язык не вставляется', () => {
+    const plain = withLandmarks({ t1_hall: { name: 'Кофейный автомат' } });
+    expect(text(steps('t1_room', 't1_stairs', {}, 'ru', plain).steps)[1]).toBe('Поверните налево — Кофейный автомат, Башня, этаж 1');
+
+    const russianOnly = withLandmarks({ t1_hall: { name: 'Кофейный автомат', at: 'у кофейного автомата' } });
+    expect(text(steps('t1_room', 't1_stairs', {}, 'en', russianOnly).steps)[1]).toBe('Turn left — Кофейный автомат, Tower, floor 1');
+  });
+
+  it('ориентир в начале пути и у двери перехода шага не даёт: там уже есть свой шаг', () => {
+    const { steps: list } = steps('t1_room', 't3_room', { allowStairs: false }, 'ru', withLandmarks({ t1_room: COFFEE, t1_lift: COFFEE }));
+
+    expect(list.some((step) => step.kind === 'landmark')).toBe(false);
+  });
+
+  it('у каждого шага, кроме начала, — точка, к которой он ведёт: её фото покажет шаг', () => {
+    const { steps: list } = steps('t1_room', 't3_room', { allowStairs: false }, 'ru', withLandmarks({ t1_hall: COFFEE }));
+
+    expect(list.map((step) => step.subject)).toEqual([null, 't1_hall', 't1_lift', 't3_lift', 't3_room']);
+  });
+});
+
+describe('buildRouteSteps: исправленный поворот (запись 87)', () => {
+  it('исправление разметчика для прохода важнее расчёта, другие проходы — по расчёту', () => {
+    const landmark = { name: 'Кофейный автомат', at: 'у кофейного автомата', turns: [{ from: 't1_room', to: 't1_stairs', turn: 'straight' as const }] };
+    const nodes = NODES.map((n) => (n.id === 't1_hall' ? { ...n, landmark } : n));
+    const graph = new Graph(nodes, TRANSITIONS, createCampusProjection(CAMPUS, BUILDINGS));
+
+    expect(steps('t1_room', 't1_stairs', {}, 'ru', graph).steps[1]).toMatchObject({ title: 'У кофейного автомата идите прямо', turn: 'straight' });
+    expect(steps('t1_room', 't3_room', { allowStairs: false }, 'ru', graph).steps[1].title).toBe('У кофейного автомата поверните направо');
+  });
+});
