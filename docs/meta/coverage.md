@@ -25,6 +25,11 @@ description: "Что описано, что в работе и какие тем
 | Привязка к метрике, время в пути | [Привязка к метрике](../data/placement.md) | готово | `projection.ts`, `costModel.ts`, запись 9 |
 | Сборка, развёртывание, переменные | [Сборка и развёртывание](../operations/build-deploy.md) | готово | `vite.config.ts`, `.github/workflows/ci.yml` |
 | Добавить корпус или этаж | [Добавить корпус](../recipes/add-building.md) | готово | README, `structureSlice.ts` |
+| Устройство ядра: граф, индексы, срезы, связность | [Устройство ядра](../architecture/core.md) | готово | `graph/Graph.ts`, `scope.ts`, `connectivity.ts` |
+| Поиск маршрута: A*, стоимость, время, ограничения | [Поиск маршрута](../architecture/pathfinding.md) | готово | `pathfinding/astar.ts`, `costModel.ts`, тесты согласованности |
+| Публичный API ядра | [API ядра](../reference/core-api.md) | готово | `packages/core/src/index.ts` |
+| Панорамы 360° | [Панорамы](../data/panoramas.md) | готово | `panoramas/`, запись 90 |
+| Термины проекта | [Термины](../reference/glossary.md) | готово | — |
 | Как устроена сама документация | [Как устроена документация](how-we-write.md) | готово | — |
 | Формы выпуска: Git, сайт, один файл | [Три формы документации](transfer.md) | готово | `tooling/docs-export.mjs`, `tooling/docs-map.mjs` |
 
@@ -34,9 +39,6 @@ description: "Что описано, что в работе и какие тем
 
 | Тема | Что должно быть | Материал |
 | --- | --- | --- |
-| Ядро: граф | индексы, `ViewScope`, связность, почему граф неизменяемый | `graph/Graph.ts`, `scope.ts`, `connectivity.ts` |
-| Ядро: поиск пути | A*, состояние «приехал на лифте», стоимость, эвристика, альтернативы | `pathfinding/astar.ts`, `costModel.ts` |
-| Ядро: API | что экспортирует `packages/core/src/index.ts`, с примерами вызовов | `index.ts` |
 | Навигатор: устройство | стор, слои карты, холст кампуса, маршрут, шаги | `apps/viewer/src/` |
 | Навигатор: i18n и доступность | словари, `?lang=`, клавиатура, диктор | `i18n/`, запись 12 |
 | Навигатор: офлайн и PWA | кэши, обновление по согласию, прогрев маршрута | `pwa/`, записи 26, 27 |
