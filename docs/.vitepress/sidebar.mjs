@@ -74,7 +74,7 @@ function firstHeading(source) {
 }
 
 /**
- * @typedef {{ text: string, link: string, order: number }} Page
+ * @typedef {{ text: string, link: string, order: number, description: string }} Page
  */
 
 /**
@@ -95,6 +95,7 @@ function readPage(directory, file, dir) {
     text: frontmatterField(source, 'title') ?? firstHeading(source) ?? name,
     link: `/${dir}/${name}`,
     order: Number.isFinite(order) ? order : Number.POSITIVE_INFINITY,
+    description: frontmatterField(source, 'description') ?? '',
   };
 }
 
@@ -111,6 +112,20 @@ function pagesOf(dir) {
     .map((file) => readPage(directory, file, dir))
     .filter((page) => page !== null)
     .sort((a, b) => a.order - b.order || a.text.localeCompare(b.text, 'ru'));
+}
+
+/**
+ * Все страницы документации в порядке чтения.
+ *
+ * Нужен там, где мало одного списка ссылок: карта на главной странице
+ * (`tooling/docs-map.mjs`) показывает ещё и `description` из фронтматтера.
+ *
+ * @returns {{ section: string, dir: string, text: string, link: string, order: number, description: string }[]}
+ */
+export function docsPages() {
+  return SECTIONS.flatMap((section) =>
+    pagesOf(section.dir).map((page) => ({ section: section.text, dir: section.dir, ...page }))
+  );
 }
 
 /**

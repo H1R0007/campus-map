@@ -6,10 +6,11 @@
   "description": "Документация проекта: техническая и пользовательская",
   "scripts": {
     "dev": "vitepress dev . --port 3003",
-    "build": "vitepress build . --outDir dist",
+    "build": "node ../tooling/docs-map.mjs --check && vitepress build . --outDir dist",
     "preview": "vitepress preview . --port 3003",
-    "clean": "node ../../tooling/clean.mjs dist dist-offline .vitepress/cache",
-    "export": "node ../tooling/docs-export.mjs"
+    "clean": "node ../tooling/clean.mjs dist dist-offline .vitepress/cache",
+    "export": "node ../tooling/docs-export.mjs",
+    "map": "node ../tooling/docs-map.mjs"
   },
   "devDependencies": {
     "vitepress": "1.6.4"

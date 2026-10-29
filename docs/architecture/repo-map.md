@@ -1,5 +1,6 @@
 ---
 order: 20
+description: "Что лежит в каждом каталоге монорепо и куда идти за конкретной правкой."
 ---
 
 # Карта репозитория
@@ -56,7 +57,7 @@ campus-map/
 
 | Задача | Начинать с |
 | --- | --- |
-| Добавить корпус или этаж | [рецепт](/recipes/add-building) и `apps/editor/src/stores/editor/structureSlice.ts` |
+| Добавить корпус или этаж | [рецепт](../recipes/add-building.md) и `apps/editor/src/stores/editor/structureSlice.ts` |
 | Новое поле в данных | `packages/core/src/types/`, `dataset/loader.ts`, `apps/editor/src/utils/exportData.ts`, тест — все четыре места |
 | Поправить маршрут или веса | `packages/core/src/pathfinding/costModel.ts`, `astar.ts` |
 | Изменить пошаговую инструкцию | `apps/viewer/src/utils/routeInstructions.ts` + оба словаря |
