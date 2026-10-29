@@ -8,6 +8,7 @@
     "docs:dev": "pnpm --filter @campus-map/docs dev",
     "docs:build": "pnpm --filter @campus-map/docs build",
     "docs:map": "pnpm --filter @campus-map/docs map",
+    "docs:style": "pnpm --filter @campus-map/docs style",
     "docs:export": "pnpm --filter @campus-map/docs export",
     "build": "turbo build",
     "typecheck": "turbo typecheck",

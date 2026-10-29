@@ -41,6 +41,7 @@ const SECTIONS = [
   { dir: 'data', text: 'Формат данных' },
   { dir: 'reference', text: 'Справочник' },
   { dir: 'recipes', text: 'Рецепты' },
+  { dir: 'manual', text: 'Руководства' },
   { dir: 'operations', text: 'Эксплуатация' },
   { dir: 'meta', text: 'О документации' },
 ];
