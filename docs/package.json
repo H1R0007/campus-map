@@ -1,0 +1,19 @@
+{
+  "name": "@campus-map/docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Документация проекта: техническая и пользовательская",
+  "scripts": {
+    "dev": "vitepress dev . --port 3003",
+    "build": "node ../tooling/docs-map.mjs --check && node ../tooling/docs-style.mjs --check && vitepress build . --outDir dist",
+    "preview": "vitepress preview . --port 3003",
+    "clean": "node ../tooling/clean.mjs dist dist-offline .vitepress/cache",
+    "export": "node ../tooling/docs-export.mjs",
+    "map": "node ../tooling/docs-map.mjs",
+    "style": "node ../tooling/docs-style.mjs --check"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

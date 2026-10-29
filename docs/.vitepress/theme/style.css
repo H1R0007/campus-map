@@ -1,0 +1,230 @@
+/**
+ * Оформление сайта документации.
+ *
+ * Тема VitePress по умолчанию рассчитана на лендинг: синий акцент, крупные
+ * скругления, тени и градиенты. Документацию читают дольше, чем просматривают,
+ * поэтому здесь нейтральная типографика: системный шрифт, чёрный текст,
+ * линии вместо теней, ссылки с подчёркиванием. Акцентный цвет один и почти
+ * чёрный — он нужен только для активного пункта и фокуса.
+ *
+ * Файл намеренно короткий: всё, что можно выразить переменными темы, выражено
+ * ими. Правила для отдельных компонентов — только там, где переменных нет.
+ */
+
+:root {
+  /* Системный шрифт: не требует загрузки файлов и одинаково читается на всех
+     платформах. Веб-шрифт здесь ничего не добавляет, а весит сотни килобайт. */
+  --vp-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, 'Noto Sans', sans-serif;
+  --vp-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  --vp-c-brand-1: #1c1e21;
+  --vp-c-brand-2: #000000;
+  --vp-c-brand-3: #33373c;
+  --vp-c-brand-soft: rgba(28, 30, 33, 0.08);
+
+  --vp-c-text-1: #1c1e21;
+  --vp-c-text-2: #4b5057;
+  --vp-c-text-3: #7a8088;
+
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #fafaf8;
+  --vp-c-bg-soft: #f4f4f2;
+  --vp-c-divider: #e2e2de;
+  --vp-c-gutter: #e2e2de;
+
+  --vp-code-block-bg: #f6f6f4;
+  --vp-code-color: #1c1e21;
+  --vp-code-link-color: #1c1e21;
+
+  /* Ссылки в тексте: приглушённый синий. Акцентный цвет интерфейса остаётся
+     почти чёрным, но ссылку нужно отличать от текста без наведения. */
+  --doc-link: #274b6d;
+}
+
+.dark {
+  --vp-c-brand-1: #e8e8e6;
+  --vp-c-brand-2: #ffffff;
+  --vp-c-brand-3: #c7c9c6;
+  --vp-c-brand-soft: rgba(232, 232, 230, 0.1);
+
+  --vp-c-text-1: #e8e8e6;
+  --vp-c-text-2: #a8adb3;
+  --vp-c-text-3: #7f858c;
+
+  --vp-c-bg: #151718;
+  --vp-c-bg-alt: #101213;
+  --vp-c-bg-soft: #1d2022;
+  --vp-c-divider: #2a2e31;
+  --vp-c-gutter: #2a2e31;
+
+  --vp-code-block-bg: #1b1e20;
+  --vp-code-color: #e8e8e6;
+  --vp-code-link-color: #e8e8e6;
+
+  --doc-link: #9db8cf;
+}
+
+/* Навигация и боковая колонка: линии вместо теней. */
+
+.VPNavBar {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.VPNavBar.has-sidebar .content {
+  background: var(--vp-c-bg);
+}
+
+.VPNavBarTitle .title {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.DocSearch-Button,
+.VPNavBarSearch .DocSearch-Button {
+  border-radius: 4px;
+}
+
+.VPSidebar {
+  background: var(--vp-c-bg);
+}
+
+.VPSidebarItem.is-active > .item .link .text {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+}
+
+.VPSidebarItem.level-1.is-active > .item {
+  border-left: 2px solid var(--vp-c-text-1);
+  margin-left: -2px;
+  padding-left: 10px;
+}
+
+/* Текст: мера строки уже, заголовки без декора. */
+
+.VPDoc .content-container {
+  max-width: 46rem;
+}
+
+.vp-doc {
+  line-height: 1.7;
+}
+
+.vp-doc h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.vp-doc h2 {
+  margin-top: 2.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--vp-c-divider);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.vp-doc h3 {
+  margin-top: 2rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.vp-doc a {
+  color: var(--doc-link);
+  font-weight: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--doc-link) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.vp-doc a:hover {
+  text-decoration-color: currentColor;
+}
+
+.vp-doc .header-anchor {
+  color: var(--vp-c-text-3);
+}
+
+/* Таблицы: рамки и плотные ячейки — в справочнике таблиц много. */
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.vp-doc th,
+.vp-doc td {
+  border: 1px solid var(--vp-c-divider);
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.vp-doc th {
+  background: var(--vp-c-bg-soft);
+  font-weight: 600;
+}
+
+.vp-doc tr:nth-child(2n) td {
+  background: transparent;
+}
+
+/* Код: одна рамка, без подсветки фона по наведению. */
+
+.vp-doc code {
+  background: var(--vp-c-bg-soft);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  font-size: 0.875em;
+}
+
+.vp-doc div[class*='language-'] {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+}
+
+.vp-doc div[class*='language-'] code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.vp-doc div[class*='language-'] span.lang {
+  color: var(--vp-c-text-3);
+}
+
+.vp-doc blockquote {
+  border-left: 3px solid var(--vp-c-divider);
+  padding-left: 1rem;
+  color: var(--vp-c-text-2);
+}
+
+/* Врезки: у темы они цветные, здесь — серые с тем же смыслом. */
+
+.custom-block {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 4px;
+  background: var(--vp-c-bg-alt);
+  padding: 0.75rem 1rem;
+}
+
+.custom-block.tip,
+.custom-block.info,
+.custom-block.warning,
+.custom-block.danger,
+.custom-block.details {
+  border-color: var(--vp-c-divider);
+  background: var(--vp-c-bg-alt);
+  color: inherit;
+}
+
+.custom-block .custom-block-title {
+  font-weight: 600;
+}

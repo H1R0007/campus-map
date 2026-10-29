@@ -54,3 +54,12 @@ data-sources/
 # Сама строка только прячет копию от git. Падает на ней сборка — см. проверку
 # в хуке `configResolved` плагина.
 apps/*/public/data/
+
+# Документация: собранный сайт и кэш VitePress
+docs/.vitepress/cache/
+
+# Кэш turbo внутри пакета документации
+docs/.turbo/
+
+# Готовый файл документации собирается из `docs/dist`: в Git не нужен.
+docs/dist-offline/
