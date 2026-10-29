@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
+    "docs:dev": "pnpm --filter @campus-map/docs dev",
+    "docs:build": "pnpm --filter @campus-map/docs build",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint && eslint tooling eslint.config.js",
