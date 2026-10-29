@@ -60,3 +60,6 @@ docs/.vitepress/cache/
 
 # Кэш turbo внутри пакета документации
 docs/.turbo/
+
+# Готовый файл документации собирается из `docs/dist`: в Git не нужен.
+docs/dist-offline/

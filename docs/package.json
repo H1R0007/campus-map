@@ -8,7 +8,8 @@
     "dev": "vitepress dev . --port 3003",
     "build": "vitepress build . --outDir dist",
     "preview": "vitepress preview . --port 3003",
-    "clean": "node ../../tooling/clean.mjs dist .vitepress/cache"
+    "clean": "node ../../tooling/clean.mjs dist dist-offline .vitepress/cache",
+    "export": "node ../tooling/docs-export.mjs"
   },
   "devDependencies": {
     "vitepress": "1.6.4"
