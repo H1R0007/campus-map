@@ -12,7 +12,7 @@ const DOCS_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
  *
  * Контент — обычный Markdown, VitePress только рендерер: файлы читаются и на
  * GitHub, и в любом редакторе. Страницы не перечисляются в конфиге — их
- * собирает `sidebar.mts` обходом каталога, поэтому новая глава не требует
+ * собирает `sidebar.mjs` обходом каталога, поэтому новая глава не требует
  * правки настройки.
  *
  * Проверки, которые даёт сборка:
@@ -85,7 +85,7 @@ export default defineConfig({
   },
 
   head: [
-    ['meta', { name: 'theme-color', content: '#0063CC' }],
+    ['meta', { name: 'theme-color', content: '#1c1e21' }],
   ],
 
   markdown: {
